@@ -799,6 +799,10 @@ app.include_router(setup_contacts_routes())
 from companion import setup_companion_routes
 app.include_router(setup_companion_routes())
 
+# ========= AGENTOS ROUTING (ZenRouter + model-routing.json) =========
+from routes.routing_routes import router as routing_router
+app.include_router(routing_router)
+
 # ========= ROUTES (kept in app.py) =========
 
 @app.get("/")

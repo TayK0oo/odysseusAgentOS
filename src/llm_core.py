@@ -2443,9 +2443,22 @@ async def stream_llm_with_fallback(candidates, messages, **kwargs):
     through unchanged. The dead-host cooldown in stream_llm makes repeat
     attempts at an offline primary effectively instant.
 
+    AgentOS ZenRouter: if OPENCODE_API_KEY is set, OpenCode Zen candidates are
+    prepended as the highest-priority provider before the user-configured chain.
     Yields the same SSE chunk protocol as stream_llm.
     """
-    cands = _dedupe_candidates(candidates)
+    # ── AgentOS: inject Zen candidates at the front ────────────────────────────
+    zen_cands: list = []
+    try:
+        if os.getenv("OPENCODE_API_KEY"):
+            from src.zen_router import build_zen_candidates
+            stage = kwargs.pop("_agentos_stage", "chat")
+            zen_cands = build_zen_candidates(messages, stage=stage)
+    except Exception as _ze:
+        logger.debug(f"[ZenRouter] inject skipped: {_ze}")
+    # ──────────────────────────────────────────────────────────────────────────
+
+    cands = _dedupe_candidates(zen_cands + list(candidates))
     if not cands:
         yield f'event: error\ndata: {json.dumps({"error": "No model endpoint configured", "status": 503})}\n\n'
         return
