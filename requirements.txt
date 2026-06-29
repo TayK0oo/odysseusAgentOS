@@ -1,3 +1,5 @@
+# Model Router LiteLLM — abstraction multi-provider (Phase 2).
+litellm
 fastapi
 uvicorn
 python-multipart

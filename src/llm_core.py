@@ -1,4 +1,7 @@
 # src/llm_core.py
+# MIGRATION: Les nouveaux appels LLM doivent passer par src/llm_router.py (LiteLLM).
+# Ce fichier est conservé pour la compatibilité ascendante.
+# TODO: Migrer progressivement les appels existants vers ModelRouter.
 import httpx
 import asyncio
 import time
