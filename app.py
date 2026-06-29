@@ -803,6 +803,10 @@ app.include_router(setup_companion_routes())
 from routes.routing_routes import router as routing_router
 app.include_router(routing_router)
 
+# ========= PHASE-LOCK (Constitution Phase 3) =========
+from routes.phase_routes import router as phase_router
+app.include_router(phase_router)
+
 # ========= ROUTES (kept in app.py) =========
 
 @app.get("/")

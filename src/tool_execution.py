@@ -565,6 +565,31 @@ async def execute_tool_block(
         _constitution_enabled = False
         _t0 = 0.0
 
+    # --- Phase-lock: vérifie si le tool est autorisé dans la phase courante ---
+    try:
+        from src.tool_registry import ToolRegistry
+        _registry = ToolRegistry.get_instance()
+        _phase_session_id = session_id or "default"
+        _tool_name_for_phase = getattr(block, "tool_type", "") or ""
+        _tool_args_for_phase = {}
+        try:
+            import json as _json
+            _raw_content = getattr(block, "content", "") or ""
+            if _raw_content:
+                _tool_args_for_phase = _json.loads(_raw_content) if isinstance(_raw_content, str) else {}
+        except Exception:
+            pass
+        _phase_check = _registry.is_tool_allowed(_tool_name_for_phase, _phase_session_id, _tool_args_for_phase)
+        if not _phase_check["allowed"]:
+            return (
+                f"blocked by phase-lock [{_phase_check['phase']}]",
+                {"error": f"🔒 PHASE-LOCK [{_phase_check['phase']}]: {_phase_check['reason']}", "blocked": True}
+            )
+    except ImportError:
+        pass  # Tool registry non disponible, continuer normalement
+    except Exception:
+        pass  # Ne jamais bloquer le loop sur une erreur de phase-lock
+
     # --- Execute ---
     token = _active_workspace.set(workspace or None)
     try:
