@@ -15,6 +15,30 @@ from src.runtime_paths import get_app_root
 
 logger = logging.getLogger(__name__)
 
+# ============================================================
+# EXTERNAL MCP SERVERS — Phase 4
+# Services HTTP externes (non-stdio). Démarrés via docker-compose.
+# ============================================================
+EXTERNAL_MCP_SERVERS = {
+    "scrapling": {
+        "url": "http://localhost:8800",
+        "enabled_env": "SCRAPLING_ENABLED",
+        "tools": "SCRAPLING_TOOLS",  # from tool_schemas
+        "profile": "scrapling"  # profil docker-compose
+    },
+    "supabase": {
+        "url": os.getenv("SUPABASE_MCP_URL", "http://localhost:8900"),
+        "enabled_env": "SUPABASE_MCP_ENABLED",
+        "tools": "SUPABASE_TOOLS",
+        "read_only": True
+    },
+    "kroki": {
+        "url": "http://localhost:8700",
+        "enabled_env": "KROKI_ENABLED",
+        "tools": []  # Kroki = REST direct, pas de tools MCP
+    }
+}
+
 def _format_mcp_connection_error(name: str, command: str = "", args: Optional[List[str]] = None, error: Exception = None) -> str:
     """Return a user-actionable MCP connection error message."""
     args = args or []

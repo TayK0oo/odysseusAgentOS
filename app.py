@@ -819,6 +819,10 @@ app.include_router(governance_router)
 from routes.autoeval_routes import router as autoeval_router
 app.include_router(autoeval_router)
 
+# ========= MCP EXTERNAL TOOLS (Phase 4 — Scrapling, Supabase, Kroki) =========
+from routes.mcp_tools_routes import router as mcp_tools_router
+app.include_router(mcp_tools_router)
+
 # ========= ROUTES (kept in app.py) =========
 
 @app.get("/")
