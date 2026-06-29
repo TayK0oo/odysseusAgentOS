@@ -3,7 +3,8 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from sqlalchemy import event, create_engine, Column, String, Text, Boolean, DateTime, Integer, ForeignKey, JSON, Index, func, text
+import uuid
+from sqlalchemy import event, create_engine, Column, String, Text, Boolean, DateTime, Integer, Float, ForeignKey, JSON, Index, func, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
@@ -2349,6 +2350,125 @@ def archive_session(session_id: str):
             db.commit()
             return True
     return False
+
+# ============================================================
+# GOVERNANCE — Phase 9 : goal-ancestry + budgets
+# ============================================================
+
+class Mission(Base):
+    """Niveau 1 : Mission globale de l'AgentOS."""
+    __tablename__ = "missions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    created_at = Column(DateTime, default=utcnow_naive)
+    active = Column(Boolean, default=True)
+
+    goals = relationship("Goal", back_populates="mission", cascade="all, delete-orphan")
+
+
+class Goal(Base):
+    """Niveau 2 : Objectif lié à une mission."""
+    __tablename__ = "goals"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    mission_id = Column(String, ForeignKey("missions.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    status = Column(String, default="active")  # active/completed/paused
+    created_at = Column(DateTime, default=utcnow_naive)
+
+    mission = relationship("Mission", back_populates="goals")
+    projects = relationship("GoalProject", back_populates="goal", cascade="all, delete-orphan")
+
+
+class GoalProject(Base):
+    """Niveau 3 : Projet lié à un Goal."""
+    __tablename__ = "goal_projects"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    goal_id = Column(String, ForeignKey("goals.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    status = Column(String, default="active")  # active/completed/paused/blocked
+    project_dir = Column(String)  # Chemin vers le PROJECT.yaml
+    created_at = Column(DateTime, default=utcnow_naive)
+
+    goal = relationship("Goal", back_populates="projects")
+    tasks = relationship("GoalTask", back_populates="project", cascade="all, delete-orphan")
+
+
+class GoalTask(Base):
+    """Niveau 4 : Tâche atomique liée à un projet."""
+    __tablename__ = "goal_tasks"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String, ForeignKey("goal_projects.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    status = Column(String, default="pending")  # pending/running/completed/failed/blocked
+    agent_id = Column(String)  # Quel agent tourne cette tâche
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+    created_at = Column(DateTime, default=utcnow_naive)
+
+    # Ancestry complet (dénormalisé pour affichage rapide)
+    ancestry_path = Column(String)  # "mission_name > goal_name > project_name > task_name"
+
+    project = relationship("GoalProject", back_populates="tasks")
+
+
+class AgentBudget(Base):
+    """Budget par agent/projet avec tracking de consommation."""
+    __tablename__ = "agent_budgets"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    agent_id = Column(String, nullable=False, index=True)
+    project_id = Column(String, ForeignKey("goal_projects.id"))
+    run_id = Column(String, index=True)
+
+    # Budgets configurés
+    max_tokens = Column(Integer, default=100000)
+    max_cost_usd = Column(Float, default=5.0)
+    max_iterations = Column(Integer, default=50)
+    alert_at_percent = Column(Integer, default=80)
+
+    # Consommation actuelle
+    tokens_used = Column(Integer, default=0)
+    cost_usd = Column(Float, default=0.0)
+    iterations = Column(Integer, default=0)
+
+    # État
+    status = Column(String, default="active")  # active/paused/exhausted
+    paused_reason = Column(String)
+    paused_at = Column(DateTime)
+
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
+
+
+class AgentHeartbeat(Base):
+    """Heartbeat des agents — état entre les runs."""
+    __tablename__ = "agent_heartbeats"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    agent_id = Column(String, nullable=False, index=True)
+    task_id = Column(String, ForeignKey("goal_tasks.id"))
+
+    # Contexte injecté au réveil (pattern "Memento Man")
+    context_snapshot = Column(Text)  # JSON : où j'en suis, ce que je dois faire
+    checklist = Column(Text)         # JSON : liste des étapes restantes
+    last_action = Column(Text)       # Dernière action effectuée
+
+    # Scheduling
+    next_run_at = Column(DateTime)
+    last_run_at = Column(DateTime)
+    run_count = Column(Integer, default=0)
+
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
+
 
 # Initialize the database by creating all tables
 
