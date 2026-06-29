@@ -158,6 +158,86 @@ services:
       - NTFY_BASE_URL=${NTFY_BASE_URL:-http://localhost:8091}
     restart: unless-stopped
 
+  kroki:
+    image: yuzutech/kroki:latest
+    ports:
+      - "127.0.0.1:8700:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  serena-mcp:
+    image: python:3.12-slim
+    command: >
+      bash -c "pip install uv -q &&
+               uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+               --context ide-assistant --project /workspace --transport sse --port 8765"
+    volumes:
+      - .:/workspace:ro
+    ports:
+      - "127.0.0.1:8765:8765"
+    restart: unless-stopped
+    environment:
+      - SERENA_MODE=ide-assistant
+
+  acontext:
+    image: python:3.12-slim
+    command: echo "Acontext placeholder - configure manually"
+    ports:
+      - "127.0.0.1:8029:8029"
+    profiles:
+      - acontext
+
+  scrapling-mcp:
+    image: python:3.12-slim
+    command: >
+      bash -c "pip install scrapling[all] -q &&
+               scrapling install &&
+               python -m scrapling.mcp --port 8800"
+    ports:
+      - "127.0.0.1:8800:8800"
+    restart: unless-stopped
+    profiles:
+      - scrapling
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8800/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+
+  codebase-memory:
+    image: ghcr.io/superpowers-sh/codebase-memory-mcp:latest
+    ports:
+      - "127.0.0.1:9749:9749"
+    volumes:
+      - .:/workspace:ro
+      - ${APP_DATA_DIR:-./data}/cbm:/app/data
+    environment:
+      - REPO_PATH=/workspace
+      - MCP_PORT=9749
+    restart: unless-stopped
+    profiles:
+      - knowledge
+
+  decision-engine:
+    image: python:3.12-slim
+    command: uvicorn main:app --host 0.0.0.0 --port 8001
+    working_dir: /app
+    volumes:
+      - ${DECISION_ENGINE_PATH:-../ConfigOpenCodeNew/decision-engine}:/app:ro
+    ports:
+      - "127.0.0.1:8001:8001"
+    environment:
+      - ODYSSEUS_URL=http://odysseus:7000
+    depends_on:
+      - odysseus
+    restart: unless-stopped
+    profiles:
+      - decision-engine
+
 volumes:
   searxng-data:
   chromadb-data:

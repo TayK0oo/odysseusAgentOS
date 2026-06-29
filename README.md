@@ -49,6 +49,23 @@ Native installs, GPU notes, Windows/macOS instructions, HTTPS, and configuration
 - **Notes, Tasks + Calendar** — reminders, todos, scheduled agent tasks, and CalDAV sync.
 - **Extras** — gallery/image editor, themes, uploads, web search, presets, sessions, and 2FA.
 
+## Services
+
+Services inclus dans le stack Docker. Voir [`docs/services.md`](docs/services.md) pour la liste complète et les commandes d'activation.
+
+| Service          | Port  | Profil           | Description                              |
+|------------------|-------|------------------|------------------------------------------|
+| odysseus         | 7000  | _(défaut)_       | Application principale FastAPI           |
+| chromadb         | 8100  | _(défaut)_       | Vector store                             |
+| searxng          | 8080  | _(défaut)_       | Moteur de recherche                      |
+| ntfy             | 8091  | _(défaut)_       | Notifications push                       |
+| kroki            | 8700  | _(défaut)_       | Rendu de diagrammes                      |
+| serena-mcp       | 8765  | _(défaut)_       | Édition symbolique LSP (MCP SSE)         |
+| acontext         | 8029  | `acontext`       | Mémoire Acontext (placeholder)           |
+| scrapling-mcp    | 8800  | `scrapling`      | Web scraping MCP                         |
+| codebase-memory  | 9749  | `knowledge`      | Codebase Memory MCP                      |
+| decision-engine  | 8001  | `decision-engine`| Decision Engine (ConfigOpenCodeNew)      |
+
 ## Demo
 
 A full hover-to-play tour lives on the landing page: [`docs/index.html`](docs/index.html).
