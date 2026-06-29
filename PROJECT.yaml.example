@@ -1,0 +1,16 @@
+# PROJECT.yaml — Manifest d'un projet AgentOS
+name: "mon-projet"
+objective: "Implémenter l'authentification JWT pour l'API"
+done_definition: "Tous les tests d'auth passent (pytest tests/test_auth.py = 100%)"
+constraints:
+  - "Stack Python uniquement"
+  - "Pas de dépendances externes payantes"
+budgets:
+  max_tokens: 50000
+  max_iterations: 30
+  max_cost_usd: 2.0
+  max_tool_calls: 100
+  alert_at_percent: 80
+eval_command: "pytest tests/test_auth.py -q --tb=no"
+metric: "pytest_pass_rate"
+eval_higher_is_better: true
