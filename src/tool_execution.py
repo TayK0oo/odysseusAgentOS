@@ -532,10 +532,43 @@ async def execute_tool_block(
     Thin wrapper: bind the per-turn workspace (so the path resolvers + subprocess
     cwd confine to it) for the duration of this call, then delegate. Reset on the
     way out so the binding never leaks to the next tool call.
+
+    Constitution Phase 1: classifies risk level and writes a JSONL trace for
+    every tool call. Destructive actions are flagged but not blocked (gate_required).
     """
+    # --- Constitution: risk classification + trace ---
+    try:
+        from src.risk_classifier import classify_tool, args_summary as _args_summary, RiskLevel
+        from src import trace_writer as _tw
+        import time as _time
+
+        _tool_name = getattr(block, "tool_type", "") or ""
+        # content is the raw string payload for this tool type
+        _content = getattr(block, "content", "") or ""
+        _tool_args = {"content": _content}
+
+        _risk = classify_tool(_tool_name, _tool_args)
+        _summary = _args_summary(_tool_name, _tool_args)
+
+        if _risk == RiskLevel.DESTRUCTIVE:
+            logger.warning(
+                "⚠️ ACTION DESTRUCTIVE détectée : tool=%s summary=%s session=%s",
+                _tool_name, _summary, session_id,
+            )
+            _permission_decision = "gate_required"
+        else:
+            _permission_decision = "auto_approved"
+
+        _t0 = _time.monotonic()
+        _constitution_enabled = True
+    except Exception:
+        _constitution_enabled = False
+        _t0 = 0.0
+
+    # --- Execute ---
     token = _active_workspace.set(workspace or None)
     try:
-        return await _execute_tool_block_impl(
+        desc, result = await _execute_tool_block_impl(
             block,
             session_id=session_id,
             disabled_tools=disabled_tools,
@@ -545,6 +578,26 @@ async def execute_tool_block(
         )
     finally:
         _active_workspace.reset(token)
+
+    # --- Constitution: write trace after execution ---
+    if _constitution_enabled:
+        try:
+            import time as _time2
+            _duration_ms = int((_time2.monotonic() - _t0) * 1000)
+            _outcome = "error" if result.get("error") else "success"
+            _tw.write_trace(
+                tool=_tool_name,
+                risk_level=_risk.value,
+                args_summary=_summary,
+                permission_decision=_permission_decision,
+                outcome=_outcome,
+                session_id=session_id,
+                duration_ms=_duration_ms,
+            )
+        except Exception:
+            pass  # Never let trace writing break the agent loop
+
+    return desc, result
 
 
 async def _execute_tool_block_impl(
