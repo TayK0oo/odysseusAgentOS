@@ -2449,6 +2449,20 @@ async def stream_agent_loop(
     actual_model = model
     total_tool_calls = 0  # for budget enforcement
 
+    # BUDGET ENFORCER — Phase 5
+    _budget_enforcer = None
+    try:
+        import uuid as _uuid
+        from src.budget_enforcer import BudgetEnforcer, BudgetRegistry
+        from src.project_manifest import load_manifest
+        _run_id = str(_uuid.uuid4())
+        _manifest = load_manifest(".")  # PROJECT.yaml à la racine si présent
+        if _manifest:
+            _budget_enforcer = BudgetEnforcer(_manifest.budgets, _run_id)
+            BudgetRegistry.get_instance().register(_run_id, _budget_enforcer)
+    except ImportError:
+        pass
+
     # Loop-breaker state. Small models (e.g. deepseek-v4-flash) can get
     # stuck firing the same tool call over and over with no text — burns
     # all 20 rounds, looks like the chat "died". Track recent call
@@ -2497,6 +2511,13 @@ async def stream_agent_loop(
     _exhausted_rounds = False
 
     for round_num in range(1, max_rounds + 1):
+        # Budget check par itération
+        if _budget_enforcer:
+            _budget_check = _budget_enforcer.consume_iteration()
+            if not _budget_check["ok"]:
+                logger.warning(f"Budget épuisé: {_budget_check['reason']}")
+                break
+
         round_response = ""
         round_reasoning = ""  # reasoning_content deltas (DeepSeek-thinking, vLLM --reasoning-parser)
         native_tool_calls = []  # populated if model uses function calling
@@ -2672,6 +2693,10 @@ async def stream_agent_loop(
                         real_output_tokens += u.get("output_tokens", 0)
                         last_round_input_tokens = round_input
                         has_real_usage = True
+                        # Consume tokens in budget enforcer
+                        if _budget_enforcer:
+                            _total_toks = (u.get("input_tokens", 0) or 0) + (u.get("output_tokens", 0) or 0)
+                            _budget_enforcer.consume_tokens(_total_toks, cost_usd=0.0)
                         # Backend-reported TRUE generation speed (llama.cpp
                         # timings.predicted_per_second) — pure decode, excludes
                         # prefill/network. Preferred over tokens/wall-clock, which
@@ -3461,6 +3486,32 @@ async def stream_agent_loop(
     )
     metrics["requested_model"] = requested_model
     yield f"data: {json.dumps({'type': 'metrics', 'data': metrics})}\n\n"
+
+    # ACONTEXT — distillation post-session — Phase 8
+    try:
+        import httpx as _httpx, json as _json_ctx
+        _acontext_url = "http://localhost:8029"
+        _session_data = {
+            "session_id": session_id or "unknown",
+            "messages_count": len(messages),
+            "outcome": "completed",
+        }
+        _httpx.post(f"{_acontext_url}/api/sessions/complete",
+                    json=_session_data, timeout=2.0)
+    except Exception:
+        pass  # Acontext optionnel
+
+    # OBSERVER — drift score — Phase 5
+    try:
+        from src.observer import Observer, DriftLevel
+        _observer = Observer()
+        if _budget_enforcer:
+            _observer.record_budget_status(_run_id, _budget_enforcer.get_usage_report())
+        drift = _observer.compute_drift_score()
+        if drift == DriftLevel.HIGH:
+            logger.warning("Drift score HIGH — re-loop ou escalade recommandée")
+    except Exception:
+        pass
 
     # Teacher-escalation: inline takeover visible in the chat stream.
     # The student just finished; if Tier 1 flags failure, the teacher
