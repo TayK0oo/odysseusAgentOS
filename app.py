@@ -807,6 +807,10 @@ app.include_router(routing_router)
 from routes.phase_routes import router as phase_router
 app.include_router(phase_router)
 
+# ========= AUTOEVAL LOOP (Phase 7 — autoresearch pattern) =========
+from routes.autoeval_routes import router as autoeval_router
+app.include_router(autoeval_router)
+
 # ========= ROUTES (kept in app.py) =========
 
 @app.get("/")
