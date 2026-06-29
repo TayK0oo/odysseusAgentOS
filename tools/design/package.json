@@ -1,0 +1,13 @@
+{
+  "name": "odysseus-design-tools",
+  "description": "Design tools — designlang + open-design",
+  "scripts": {
+    "install-design": "npm i -g designlang && curl -fsSL https://open-design.ai/install.sh | sh -s opencode",
+    "extract": "designlang extract",
+    "grade": "designlang grade",
+    "drift": "designlang drift"
+  },
+  "devDependencies": {
+    "designlang": "latest"
+  }
+}
