@@ -823,6 +823,10 @@ app.include_router(autoeval_router)
 from routes.mcp_tools_routes import router as mcp_tools_router
 app.include_router(mcp_tools_router)
 
+# ========= KNOWLEDGE — Trinité CBM + Graphify + Obsidian (Phase 11) =========
+from routes.knowledge_routes import router as knowledge_router
+app.include_router(knowledge_router)
+
 # ========= ROUTES (kept in app.py) =========
 
 @app.get("/")
