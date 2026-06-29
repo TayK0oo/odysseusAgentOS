@@ -807,6 +807,10 @@ app.include_router(routing_router)
 from routes.phase_routes import router as phase_router
 app.include_router(phase_router)
 
+# ========= CHANNEL GATEWAY (Phase 10) =========
+from routes.channel_routes import router as channel_router
+app.include_router(channel_router)
+
 # ========= GOVERNANCE (Phase 9 — goal-ancestry + budgets) =========
 from routes.governance_routes import router as governance_router
 app.include_router(governance_router)
