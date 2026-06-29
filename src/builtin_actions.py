@@ -311,6 +311,17 @@ async def action_ssh_command(owner: str, command: str = "", host: str = "localho
     """Run a shell command locally or on a remote host via SSH."""
     if not command:
         return "No command specified", False
+    # COMMAND VALIDATOR — Phase 12
+    try:
+        from src.command_validator import validate_and_log
+        _ok, _reason = validate_and_log(command, kwargs.get('session_id'))
+        if not _ok:
+            return f"🛡️ SANDBOX BLOCKED: {_reason}", False
+        if _reason not in ("validée", "safe", "commande vide") and not _reason.startswith("whitelisté"):
+            import logging as _logging
+            _logging.getLogger(__name__).warning(f"Command WARNING: {_reason}")
+    except ImportError:
+        pass
     if host in ("localhost", "127.0.0.1", "local"):
         if IS_WINDOWS:
             bash = find_bash()

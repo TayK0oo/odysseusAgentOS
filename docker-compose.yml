@@ -80,6 +80,12 @@ services:
       # Find yours with:  id -u  /  id -g
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
+    security_opt:
+      - no-new-privileges:true
+    # cap_drop: [ALL]  # Activé quand compatibilité vérifiée — décommenter progressivement
+    read_only: false  # Garder false car Odysseus écrit dans /app/data
+    tmpfs:
+      - /tmp:size=100m,mode=1777
     depends_on:
       searxng:
         condition: service_healthy
