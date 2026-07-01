@@ -5,35 +5,52 @@
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Un agent reçoit un objectif, l'exécute jusqu'au bout sans dériver, apprend de chaque run, et ne dépasse jamais ses limites
-**Current focus:** Phase 6 — GSD Pipeline Lists + Subagents
+**Current focus:** Milestone 2 — INTÉGRATION RÉELLE du harness dans Odysseus (câblage live)
+
+> ⚠️ **CORRECTION 2026-07-01 (audit vérifié).** Le statut « 100% / 15 phases » ci-dessous
+> était FAUX. L'audit runtime (4 agents + vérifs manuelles, voir `INTEGRATION-TRACKING.md`)
+> montre que la plupart des modules du harness sont **codés & unit-testés mais NON branchés**
+> au loop live. Les 48 tests passent car ils testent les modules en isolation, pas l'intégration.
+> **Câblage réel estimé : ~30-40%.** Détail + preuves fichier:ligne dans `INTEGRATION-TRACKING.md`.
 
 ## Current Position
 
-- **Phase:** 15 of 15 — TERMINÉ
-- **Status:** ✅ Complet — audit + fixes + tests passants
-- **Overall progress:** 100% (15/15 phases implémentées, testées, fixées)
+- **Milestone 1 (modules du harness) :** ✅ écrit & unit-testé — mais majoritairement dormant
+- **Milestone 2 (intégration live dans Odysseus) :** 🔨 EN COURS — planification
+- **Câblage réel :** ~30-40% (voir INTEGRATION-TRACKING.md)
 
-## Progress
+## Progress — RÉEL (post-audit 2026-07-01)
 
 ```
-Progress: ██████████ 100%
-Phases:   15/15 complètes
+Câblage live : ███░░░░░░░ ~35%
 
-Phase  1 ✅ Constitution : Loop + Traces        (risk_classifier, trace_writer, constitution agent, tool_execution hooks)
-Phase  2 ✅ LLM Router + Intent Gate            (llm_router → stage-model-assignment.yaml branché, intent_gate, hash_edit_validator)
-Phase  3 ✅ Tool Registry + Phase-Lock          (tool_registry, config/phase-lock.yaml, phase-lock hook in tool_execution)
-Phase  4 ✅ MCP Tools Routes                    (mcp_tools_routes: Scrapling+Kroki, supabase_mcp, docker services)
-Phase  5 ✅ Budget + Observer                   (budget_enforcer, project_manifest, observer, PROJECT.yaml.example)
-Phase  6 ✅ GSD Pipeline Lists + Subagents      (WAIT/MOVE/SKIP, 6 gsd-*.md agents, stage-model-assignment.yaml)
-Phase  7 ✅ Autoeval Loop                       (autoeval_loop: keep/revert, GET /summary endpoint ajouté)
-Phase  8 ✅ Acontext / Obsidian                 (service FastAPI réel, volume mount obsidian, env config)
-Phase  9 ✅ Governance + Database               (governance, core/database: goal-ancestry, heartbeat)
-Phase 10 ✅ Channel Gateway                     (channel_gateway branché agent_loop, discord+telegram activés)
-Phase 11 ✅ Knowledge Routes (Trinité)          (knowledge_routes, CBM+Graphify+Obsidian+Decision Engine)
-Phase 12 ✅ Command Validator + Hardening       (command_validator, builtin_actions hook, docker hardening)
-Phase 13 ✅ Design Agents                       (design-extract.md, open-design.md agents)
-Phase 14 ✅ Debate / Audit Agents               (debate-5-personas, edge-case-gen, security-audit, constitution)
-Phase 15 ✅ RAG Vector + BYOX + Tests           (RRF hybrid search, index_byox, 48 tests passants 48/48)
+Vraiment vivant :   trace_writer 🟢 · budget itérations 🟢 · command_validator (1 chemin) 🟡
+Codé, non appelé :  llm_router · intent_gate · RRF hybride · governance · observer · autoeval
+Placeholder/cassé : acontext (dump JSON) · stage-model-yaml (modèles fantômes) · Graphify (0 svc)
+                    · Obsidian MCP (jamais démarré) · adapters Discord/Telegram (non enregistrés)
+Inactif dans l'UI : les 10 agents .opencode/agents/*.md (CLI OpenCode seulement)
+
+Milestone 1 (modules écrits, Wave 1-4) — voir historique ci-dessous : livré mais non intégré.
+```
+
+## Milestone 1 — modules écrits (Wave 1-4, non intégrés)
+
+```
+Phase  1 ~ Constitution        risk_classifier(loggue, ne gate PAS) · trace_writer 🟢
+Phase  2 ~ LLM Router          codé, 0 call-site live · stage-yaml = modèles fantômes
+Phase  3 ~ Tool Registry       phase-lock codé mais inerte (phase jamais set → BUILD)
+Phase  4 ~ MCP Tools           scrapling/kroki REST-only, pas exposés comme tools agent
+Phase  5 ~ Budget + Observer   itération hard-stop 🟢 · token/coût ignoré · observer loggue seul
+Phase  6 ~ Pipeline Lists      ABSENT · subagents .md inactifs dans l'UI web
+Phase  7 ~ Autoeval            keep/revert réel mais API-only (loop ne le pilote pas)
+Phase  8 ~ Acontext/Obsidian   acontext = stub JSON · Obsidian MCP jamais démarré
+Phase  9 ~ Governance          tables DB réelles mais API-only (loop ne crée pas d'ancestry)
+Phase 10 ~ Channel Gateway     adapters existent mais jamais enregistrés → bus vide
+Phase 11 ~ Knowledge Trinité   CBM 🟢 · Graphify 0 svc · checkpoint jamais appelé
+Phase 12 ~ Command Validator   1 chemin protégé · run_script/run_local contournent
+Phase 13 ~ Design Agents       .md seulement, non chargés par l'app
+Phase 14 ~ Debate/Audit        .md seulement, inactifs dans l'UI web
+Phase 15 ~ RAG/BYOX/Tests      RRF codé mais jamais appelé · chat = blend naïf 0.7/0.3
 ```
 
 ## Recent Decisions
