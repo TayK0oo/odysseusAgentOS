@@ -24,6 +24,7 @@ services:
       # there must match the host's `docker` group (defaults to 963
       # on Debian, 999 on Ubuntu — override via env if yours differs).
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${OBSIDIAN_VAULT_PATH_HOST:-~/obsidian-vault}:/obsidian-vault:ro,z
     group_add:
       - "${DOCKER_GID:-963}"
     extra_hosts:
@@ -80,6 +81,8 @@ services:
       # Find yours with:  id -u  /  id -g
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
+      - OBSIDIAN_VAULT_PATH=/obsidian-vault
+      - OBSIDIAN_MCP_ENABLED=${OBSIDIAN_MCP_ENABLED:-false}
     security_opt:
       - no-new-privileges:true
     # cap_drop: [ALL]  # Activé quand compatibilité vérifiée — décommenter progressivement
@@ -191,9 +194,37 @@ services:
 
   acontext:
     image: python:3.12-slim
-    command: echo "Acontext placeholder - configure manually"
+    command: >
+      bash -c "pip install fastapi uvicorn --quiet &&
+      python -c \"
+import json, pathlib, uvicorn
+from fastapi import FastAPI
+from datetime import datetime
+
+app = FastAPI(title='Acontext Memory Service')
+DATA = pathlib.Path('/data/acontext')
+DATA.mkdir(parents=True, exist_ok=True)
+
+@app.post('/api/sessions/end')
+async def session_end(payload: dict = None):
+    ts = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    (DATA / f'session_{ts}.json').write_text(json.dumps(payload or {}, indent=2))
+    return {'status': 'distilled', 'ts': ts}
+
+@app.post('/api/sessions/complete')
+async def session_complete(payload: dict = None):
+    return await session_end(payload)
+
+@app.get('/health')
+async def health(): return {'status': 'ok', 'service': 'acontext'}
+
+uvicorn.run(app, host='0.0.0.0', port=8029)
+\""
     ports:
       - "127.0.0.1:8029:8029"
+    volumes:
+      - ${APP_DATA_DIR:-./data}/acontext:/data/acontext:z
+    restart: unless-stopped
     profiles:
       - acontext
 
@@ -229,15 +260,14 @@ services:
       - knowledge
 
   decision-engine:
-    image: python:3.12-slim
-    command: uvicorn main:app --host 0.0.0.0 --port 8001
-    working_dir: /app
-    volumes:
-      - ${DECISION_ENGINE_PATH:-../ConfigOpenCodeNew/decision-engine}:/app:ro
+    build:
+      context: ${DECISION_ENGINE_PATH:-../ConfigOpenCodeNew/decision-engine}
+      dockerfile: Dockerfile
     ports:
       - "127.0.0.1:8001:8001"
     environment:
       - ODYSSEUS_URL=http://odysseus:7000
+      - PORT=8001
     depends_on:
       - odysseus
     restart: unless-stopped
