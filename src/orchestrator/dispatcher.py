@@ -7,9 +7,11 @@ should run on.
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional
 
 from src.orchestrator.spec import AgentSpec
+from src.orchestrator.loop import CanonicalLoop
 
 logger = logging.getLogger(__name__)
 
@@ -33,3 +35,49 @@ def resolve_model(spec: AgentSpec, router=None, stage: Optional[str] = None) -> 
 
     logger.debug("[dispatcher] %s has no model and no router; returning None", spec.name)
     return None
+
+
+@dataclass
+class DispatchResult:
+    agent: str
+    model: Optional[str]
+    phases_run: List[str] = field(default_factory=list)
+    outputs: Dict[str, Any] = field(default_factory=dict)
+    completed: bool = False
+
+
+def dispatch(
+    spec: AgentSpec,
+    objective: str,
+    *,
+    session_id: str,
+    registry=None,
+    router=None,
+    stage: Optional[str] = None,
+    runner: Optional[Callable] = None,
+) -> DispatchResult:
+    """Run `objective` for `spec` through the canonical 7-phase loop.
+
+    This is an ORCHESTRATED run — isolated from the live chat path. For each
+    phase it (1) applies the phase to the phase-lock registry for `session_id`,
+    then (2) invokes the injected `runner(phase, spec, objective, model)` to do
+    the work. The runner is injected so this coordinator is fully unit-testable;
+    a real stream_agent_loop-backed runner lands in a later phase.
+    """
+    model = resolve_model(spec, router=router, stage=stage)
+    loop = CanonicalLoop(session_id, registry=registry)
+
+    result = DispatchResult(agent=spec.name, model=model)
+    while True:
+        loop.apply()
+        phase = loop.current
+        result.phases_run.append(phase.name)
+        if runner is not None:
+            result.outputs[phase.name] = runner(
+                phase=phase, spec=spec, objective=objective, model=model
+            )
+        if not loop.advance():
+            break
+
+    result.completed = True
+    return result
