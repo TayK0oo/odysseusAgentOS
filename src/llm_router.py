@@ -42,6 +42,23 @@ class ModelRouter:
     # Config
     # ------------------------------------------------------------------
 
+    def _load_stage_overrides(self) -> dict:
+        """Charge .planning/stage-model-assignment.yaml si présent."""
+        try:
+            import yaml
+            candidates = [
+                Path(__file__).parent.parent / ".planning" / "stage-model-assignment.yaml",
+                Path.cwd() / ".planning" / "stage-model-assignment.yaml",
+            ]
+            for p in candidates:
+                if p.exists():
+                    with open(p, "r", encoding="utf-8") as f:
+                        data = yaml.safe_load(f) or {}
+                    return data.get("stages", {})
+        except Exception as exc:
+            logger.debug("[ModelRouter] stage-model-assignment.yaml non chargé : %s", exc)
+        return {}
+
     def _reload_config(self) -> None:
         """Recharge model-routing.json à chaud (appelé à chaque route())."""
         try:
@@ -70,6 +87,17 @@ class ModelRouter:
         Retourne une chaîne au format LiteLLM : "openai/deepseek-v4-flash", etc.
         """
         self._reload_config()
+
+        # Override direct depuis stage-model-assignment.yaml
+        if stage:
+            overrides = self._load_stage_overrides()
+            stage_cfg = overrides.get(stage, {})
+            if stage_cfg.get("model"):
+                logger.debug(
+                    "[ModelRouter] stage=%s → model=%s (yaml override)",
+                    stage, stage_cfg["model"],
+                )
+                return stage_cfg["model"]
 
         tier_name = self._resolve_tier(intent_category, stage)
         litellm_model = self._tier_to_litellm(tier_name)
