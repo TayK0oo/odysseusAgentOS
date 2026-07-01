@@ -184,6 +184,14 @@ risk/trace/phase-lock) — donc le chemin est live ; c'est la **logique de gate*
 
 Regroupé par sous-système (= futurs blocs de plan GSD). `[ ]` = à faire, `[x]` = câblé & vérifié.
 
+### Bloc 0 — Fondation orchestrateur natif (M2-P1) ✅
+- [x] Package `src/orchestrator/` créé (registry + spec + dispatcher)
+- [x] Parser `.opencode/agents/*.md` → `AgentSpec` (frontmatter + corps, gère absence de frontmatter)
+- [x] `AgentRegistry.discover()` : 12 agents découverts nativement (preuve : `list_names()` runtime)
+- [x] `resolve_model()` = **premier call-site live de `ModelRouter`** (`src/orchestrator/dispatcher.py`)
+- 16 tests verts (`tests/test_orchestrator_{spec,registry,dispatcher}.py`)
+- ⚠️ Router pas encore 🟢 global : atteint seulement via `resolve_model`, pas encore depuis le loop live (→ M2-P2/P3)
+
 ### Bloc A — Routing auto-modèle
 - [ ] Réécrire `stage-model-assignment.yaml` avec les vrais modèles zen
 - [ ] Brancher `ModelRouter.route(intent, stage)` dans `agent_loop.py` (remplacer/compléter llm_core)
