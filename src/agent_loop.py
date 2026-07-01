@@ -3487,6 +3487,18 @@ async def stream_agent_loop(
     metrics["requested_model"] = requested_model
     yield f"data: {json.dumps({'type': 'metrics', 'data': metrics})}\n\n"
 
+    # ── CHANNEL GATEWAY — broadcast résultat final ──────────────────
+    if full_response:
+        try:
+            from src.channel_gateway import get_gateway
+            import asyncio as _asyncio
+            _gateway = get_gateway()
+            if _gateway._adapters:
+                _asyncio.create_task(_gateway.broadcast(full_response))
+        except Exception as _gw_exc:
+            logger.debug("[agent] channel_gateway broadcast ignoré : %s", _gw_exc)
+    # ── FIN CHANNEL GATEWAY ──────────────────────────────────────────
+
     # ACONTEXT — distillation post-session — Phase 8
     try:
         import httpx as _httpx, json as _json_ctx
