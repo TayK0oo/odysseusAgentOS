@@ -192,6 +192,14 @@ Regroupé par sous-système (= futurs blocs de plan GSD). `[ ]` = à faire, `[x]
 - 16 tests verts (`tests/test_orchestrator_{spec,registry,dispatcher}.py`)
 - ⚠️ Router pas encore 🟢 global : atteint seulement via `resolve_model`, pas encore depuis le loop live (→ M2-P2/P3)
 
+### Bloc 0b — Loop canonique + phase-lock actif (M2-P2) ✅
+- [x] Séquence 7 phases définie : CLASSIFY→KNOW→PLAN→BUILD→QUALITY→AUTOEVAL→MEMORY_OBSERVE (`src/orchestrator/phases.py`)
+- [x] `CanonicalLoop` pilote `ToolRegistry.set_phase()` (`src/orchestrator/loop.py`)
+- [x] Phases canoniques ajoutées à `config/phase-lock.yaml` (10 phases au total)
+- [x] Test d'intégration : avancer le loop **bloque/autorise réellement** les tools par phase (CLASSIFY bloque write, BUILD autorise, QUALITY n'autorise que pytest)
+- 15 tests verts (phases 6 + loop 6 + intégration 3) ; suite orchestrateur totale = 31 verts
+- ⚠️ Phase-lock passera 🟢 global **quand `agent_loop.py` appellera `CanonicalLoop.apply()`** (câblage live → M2-P3)
+
 ### Bloc A — Routing auto-modèle
 - [ ] Réécrire `stage-model-assignment.yaml` avec les vrais modèles zen
 - [ ] Brancher `ModelRouter.route(intent, stage)` dans `agent_loop.py` (remplacer/compléter llm_core)
