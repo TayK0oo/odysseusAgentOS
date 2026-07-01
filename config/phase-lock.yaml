@@ -67,4 +67,65 @@ phases:
       - delete_file
     message: "Phase VERIFY : lecture et tests uniquement"
 
+  CLASSIFY:
+    description: "Classification du risque — lecture seule, aucune écriture ni exécution"
+    allowed_categories: [read, search, knowledge]
+    blocked_categories: [write, exec, destructive]
+    blocked_tools:
+      - write_file
+      - edit_file
+      - create_file
+      - bash
+      - run_command
+      - delete_file
+    message: "Phase CLASSIFY : classification du risque, écriture et exécution désactivées"
+
+  KNOW:
+    description: "Récupération mémoire/connaissance — lecture et recherche uniquement"
+    allowed_categories: [read, search, knowledge]
+    blocked_categories: [write, exec, destructive]
+    blocked_tools:
+      - write_file
+      - edit_file
+      - create_file
+      - bash
+      - run_command
+      - delete_file
+    message: "Phase KNOW : récupération de connaissance, écriture et exécution désactivées"
+
+  QUALITY:
+    description: "Qualité — lecture et commandes de test uniquement"
+    allowed_categories: [read, search, knowledge, exec]
+    blocked_categories: [write, destructive]
+    exec_restriction:
+      allowed_commands_patterns:
+        - "pytest"
+        - "npm test"
+        - "cargo test"
+        - "go test"
+        - "jest"
+        - "vitest"
+        - "playwright"
+        - "lint"
+      message: "Phase QUALITY : seules les commandes de test/lint sont autorisées"
+    blocked_tools:
+      - delete_file
+    message: "Phase QUALITY : tests et lint uniquement"
+
+  AUTOEVAL:
+    description: "Auto-évaluation — lecture et exécution d'évaluation, pas de destruction"
+    allowed_categories: [read, search, knowledge, exec]
+    blocked_categories: [destructive]
+    blocked_tools:
+      - delete_file
+    message: "Phase AUTOEVAL : auto-évaluation, destruction désactivée"
+
+  MEMORY_OBSERVE:
+    description: "Distillation mémoire et observabilité — écriture mémoire, pas de destruction"
+    allowed_categories: [read, search, knowledge, write]
+    blocked_categories: [destructive]
+    blocked_tools:
+      - delete_file
+    message: "Phase MEMORY_OBSERVE : distillation et observation, destruction désactivée"
+
 default_phase: BUILD
