@@ -11,6 +11,11 @@
 >
 > **Comment mettre à jour.** Quand un composant passe à 🟢, changer le statut + ajouter la preuve du câblage
 > + cocher dans le « Tracker d'avancement » en bas. Ne jamais marquer 🟢 sans call-site live prouvé.
+>
+> **Documents liés :**
+> - Vision cible : [`.planning/AGENT-OS-ANALYSE-PROFONDE.md`](AGENT-OS-ANALYSE-PROFONDE.md) (copie durable de `~/Downloads/AGENT-OS-ANALYSE-PROFONDE(2).md`)
+> - Design Milestone 2 (approuvé) : [`docs/superpowers/specs/2026-07-01-odysseus-integration-milestone2-design.md`](../docs/superpowers/specs/2026-07-01-odysseus-integration-milestone2-design.md)
+> - Cadre projet : [`PROJECT.md`](PROJECT.md) · [`ROADMAP.md`](ROADMAP.md) · [`REQUIREMENTS.md`](REQUIREMENTS.md) · [`STATE.md`](STATE.md)
 
 ## Légende de statut
 
