@@ -1,0 +1,35 @@
+"""Model resolution for an agent spec (Milestone 2, P1 slice).
+
+This is the first live call-site of src/llm_router.py::ModelRouter. Actual
+sub-session spawning lands in M2-P2; here we only resolve WHICH model an agent
+should run on.
+"""
+from __future__ import annotations
+
+import logging
+from typing import Optional
+
+from src.orchestrator.spec import AgentSpec
+
+logger = logging.getLogger(__name__)
+
+
+def resolve_model(spec: AgentSpec, router=None, stage: Optional[str] = None) -> Optional[str]:
+    """Resolve the LiteLLM model string for an agent.
+
+    Priority:
+      1. spec.model (explicit override in the agent frontmatter)
+      2. router.route(intent_category="utility", stage=stage)
+      3. None (caller falls back to the session's default model)
+    """
+    if spec.model:
+        logger.debug("[dispatcher] %s uses explicit model %s", spec.name, spec.model)
+        return spec.model
+
+    if router is not None:
+        model = router.route(intent_category="utility", stage=stage)
+        logger.info("[dispatcher] %s routed to %s (stage=%s)", spec.name, model, stage)
+        return model
+
+    logger.debug("[dispatcher] %s has no model and no router; returning None", spec.name)
+    return None
