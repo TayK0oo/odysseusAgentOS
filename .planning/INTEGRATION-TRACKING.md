@@ -200,6 +200,13 @@ Regroupé par sous-système (= futurs blocs de plan GSD). `[ ]` = à faire, `[x]
 - 15 tests verts (phases 6 + loop 6 + intégration 3) ; suite orchestrateur totale = 31 verts
 - ⚠️ Phase-lock passera 🟢 global **quand `agent_loop.py` appellera `CanonicalLoop.apply()`** (câblage live → M2-P3)
 
+### Bloc 0c — Dispatch orchestré (M2-P3) ✅
+- [x] `dispatch(spec, objective, ...)` exécute un objectif **à travers** le loop 7 phases (`src/orchestrator/dispatcher.py`)
+- [x] Résout le modèle via router (`resolve_model`) + pilote le phase-lock par session
+- [x] `runner` injecté (runner réel adossé à `stream_agent_loop` = phase ultérieure)
+- [x] 7 tests verts ; suite orchestrateur totale = 38 verts
+- ⚠️ **Correction de sécurité (validée 2026-07-01)** : le chemin **chat reste intact** (BUILD par défaut). La discipline de phases ne s'applique qu'aux **runs orchestrés**, jamais à chaque tour de chat — sinon CLASSIFY/KNOW bloqueraient écriture+exécution globalement.
+
 ### Bloc A — Routing auto-modèle
 - [ ] Réécrire `stage-model-assignment.yaml` avec les vrais modèles zen
 - [ ] Brancher `ModelRouter.route(intent, stage)` dans `agent_loop.py` (remplacer/compléter llm_core)
