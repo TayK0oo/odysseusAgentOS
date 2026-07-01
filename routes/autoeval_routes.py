@@ -1,6 +1,9 @@
+import logging
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/autoeval", tags=["autoeval"])
 
@@ -38,3 +41,30 @@ async def run_eval_only(project_dir: str, eval_command: str, metric: str = "pass
         return {"score": result.score, "success": result.success, "output": result.raw_output[:500]}
     except Exception as e:
         return {"error": str(e)}
+
+
+@router.get("/summary")
+async def get_eval_summary(project_dir: str = "."):
+    """Retourne le résumé des runs autoeval pour un projet."""
+    try:
+        from src.autoeval_loop import create_from_manifest
+        loop = create_from_manifest(project_dir)
+        if not loop:
+            return {"error": "Pas de PROJECT.yaml avec eval_command dans ce répertoire", "history": []}
+        summary = loop.get_summary()
+        return {
+            "project_dir": project_dir,
+            "total_runs": summary.get("total_runs", 0),
+            "last_score": summary.get("last_score"),
+            "baseline_score": summary.get("baseline_score"),
+            "history": summary.get("history", []),
+        }
+    except Exception as e:
+        logger.exception("[autoeval] /summary error")
+        return {"error": str(e), "history": []}
+
+
+@router.get("/health")
+async def autoeval_health():
+    """Health check autoeval."""
+    return {"status": "ok", "service": "autoeval"}

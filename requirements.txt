@@ -53,5 +53,5 @@ pytest-asyncio
 httpx2
 
 # Channel Gateway — activer selon les canaux utilisés
-# discord.py>=2.4.0
-# python-telegram-bot>=21.0
+discord.py>=2.4.0
+python-telegram-bot>=21.0
