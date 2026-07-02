@@ -1,4 +1,4 @@
-"""Tests d'intégration — harness core : risk_classifier, budget_enforcer, tool_registry, llm_router"""
+"""Tests d'intégration — harness core : risk_classifier, budget_enforcer, tool_registry, command_validator"""
 import pytest
 import threading
 import time
@@ -153,53 +153,11 @@ class TestToolRegistry:
         assert isinstance(result.get("allowed"), bool)
 
 
-# ─── llm_router ───────────────────────────────────────────────────────────────
-
-class TestLlmRouter:
-    def test_import(self):
-        from src.llm_router import ModelRouter
-        assert ModelRouter is not None
-
-    def test_instantiate(self):
-        from src.llm_router import ModelRouter
-        router = ModelRouter()
-        assert router is not None
-
-    def test_route_returns_string(self):
-        from src.llm_router import ModelRouter
-        router = ModelRouter()
-        result = router.route("utility")
-        assert isinstance(result, str)
-        assert len(result) > 0
-
-    def test_route_intent_categories(self):
-        from src.llm_router import ModelRouter
-        router = ModelRouter()
-        for intent in ["quick", "deep", "utility", "code", "creative"]:
-            result = router.route(intent)
-            assert isinstance(result, str), f"route({intent}) n'a pas retourné de string"
-
-    def test_route_with_stage_override(self):
-        """Vérifie que le stage yaml override fonctionne quand le fichier existe."""
-        from src.llm_router import ModelRouter
-        router = ModelRouter()
-        yaml_path = Path(__file__).parent.parent / ".planning" / "stage-model-assignment.yaml"
-        if yaml_path.exists():
-            result = router.route("utility", stage="execution")
-            assert isinstance(result, str)
-            # Si le yaml est chargé, le modèle devrait être celui du yaml
-            assert "claude" in result.lower() or "/" in result, f"Modèle inattendu : {result}"
-        else:
-            pytest.skip("stage-model-assignment.yaml absent")
-
-    def test_load_stage_overrides(self):
-        from src.llm_router import ModelRouter
-        router = ModelRouter()
-        overrides = router._load_stage_overrides()
-        assert isinstance(overrides, dict)
-        # Si le yaml existe, doit avoir les clés attendues
-        if overrides:
-            assert "execution" in overrides or "planning" in overrides
+# ─── llm_router: REMOVED (M3.1) ────────────────────────────────────────────────
+# ModelRouter + model-routing.json/stage-model-assignment.yaml were graded
+# REDUNDANT by the native-capability map (.planning/intel/INDEX.md §2): phantom
+# model catalog, no dispatch call-site, duplicates native resolve_endpoint.
+# Advisory routing now maps intent → native role (see test_orchestrator_router_advice).
 
 
 # ─── command_validator ────────────────────────────────────────────────────────
