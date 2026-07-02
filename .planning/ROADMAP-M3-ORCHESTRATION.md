@@ -102,16 +102,24 @@ Chaque vague est livrable seule et testable seule. **M3.0 est le seul prérequis
 
 ### M3.4 — Sécurité résiduelle & gouvernance (parallélisable)
 > **Verdict :** command_validator = PARTIEL, destructive gate = UNIQUE ✅, governance = mixte.
-- **Fusionner en UNE source canonique** les patterns de `command_validator` + `risk_classifier`
-  (ni l'un ni l'autre n'est superset — INDEX 07 §4). ~~Corriger le bug SAFE_PREFIXES `startswith`~~
-  ✅ **FAIT** (commit 9a2c98a) : `_CHAIN_OPERATORS` empêche le blanchiment d'une commande chaînée.
+- ~~Corriger le bug SAFE_PREFIXES `startswith`~~ ✅ **FAIT** (commit 9a2c98a) : `_CHAIN_OPERATORS`
+  empêche le blanchiment d'une commande chaînée.
 - ✅ **Bypass shell agent-autonomes couverts** (commit e90538a) : helper partagé
   `_validate_shell_or_block` appliqué à `action_ssh_command`/`action_run_script`/`action_run_local`
   (`builtin_actions.py`). **`POST /api/shell/exec`+`/stream` : NON gatés** — admin-only +
   cross-site-protégés = intention humaine explicite ; `rm -rf [/~]` faux-positive sur le cleanup
   légitime à chemin absolu (frontend cookbook). Shell agent-autonome = destructive gate (M2-P4).
-- **Reste M3.4 :** fusion canonique des 2 listes de patterns ; retirer le nom fantôme
-  `run_command` du gate.
+- ✅ **Nom fantôme `run_command` retiré** des 3 guards (`gate._SHELL_TOOLS`, `risk_classifier`
+  TOOL_RISK_MAP+classify_tool, `tool_registry` exec_restriction) : aucun outil de ce nom n'est
+  défini/dispatché (live = `bash`/`python`, `tool_schemas.py:27,41`). Test gate retargeté.
+- ⛔ **Fusion des 2 listes de patterns REJETÉE (après analyse).** `command_validator.BLOCKED_PATTERNS`
+  et `risk_classifier.DESTRUCTIVE_PATTERNS` ne sont pas des doublons : ce sont **2 politiques
+  distinctes** — un *classifieur* avisé large (tout `rm -rf`, `DELETE FROM`, `git reset --hard`
+  → DESTRUCTIVE, pour le gate + trace) vs un *enforceur* étroit (seul le catastrophique-irréversible
+  `rm -rf /`/`*`, avec reason + tiers WARNING + whitelist SAFE_PREFIXES). Les regex diffèrent
+  volontairement (`git push --force(?!-with-lease)` vs `git push --force`). Une fusion à plat ferait
+  hard-bloquer `rm -rf /tmp/x` dans run_script/scheduled tasks = **régression**. Décision : garder 2
+  politiques, se référencer mutuellement (même raisonnement que les routes HTTP admin).
 - **governance :** heartbeat + goal ancestry = UNIQUE → la boucle crée l'ancestry en MEMORY_OBSERVE.
   Budgets/approval = PARTIEL → réutiliser la source tokens unique + le pattern email-confirm natif.
 - **Sandbox (ops) :** activer `cap_drop:[ALL]` + minimal cap_add, proxy/retrait docker.sock.
@@ -182,7 +190,7 @@ Supprimés de la carte v1 (redondants) : ModelRouter(stage), RRF-nouveau-module,
 - [ ] zen Go migré en `ModelEndpoint` natif (bloquant retrait complet)
 - [ ] RRF existant réparé + câblé à la place du blend 0.7/0.3 ; acontext via MemoryProviderRegistry ; Trinité checkpoint (M3.2)
 - [ ] `_run_verifier_subagent` natif étendu pour AUTOEVAL ; observer consomme le SSE metrics (M3.3)
-- [ ] command_validator+risk_classifier fusionnés en 1 liste ; run_script/run_local/api-shell couverts ; governance ancestry live (M3.4)
+- [~] M3.4 sécurité : run_script/run_local/ssh couverts ✅ · SAFE_PREFIXES chaînage corrigé ✅ · phantom `run_command` retiré ✅ · fusion patterns REJETÉE (2 politiques, cf. §M3.4) · api-shell admin non gatée (intention humaine) · **reste** : governance ancestry live
 - [ ] Token accounting unifié (1 writer + run_id de corrélation) (M3.X)
 - [ ] Adapters Discord/Telegram réveillés via event_bus natif ; gateway-as-bus + enums EMAIL/WEBHOOK supprimés (M3.5)
 - [ ] Zéro redondance résiduelle vérifiée contre `.planning/intel/INDEX.md §2`

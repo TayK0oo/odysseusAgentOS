@@ -90,7 +90,8 @@ class ToolRegistry:
                     }
 
         # Vérification exec_restriction (Phase VERIFY)
-        if "exec_restriction" in phase_config and tool_name in ("bash", "run_command"):
+        # `run_command` était un alias fantôme (aucun outil dispatché) — retiré (M3.4).
+        if "exec_restriction" in phase_config and tool_name in ("bash", "python"):
             command = ""
             if tool_args:
                 command = tool_args.get("command", tool_args.get("cmd", ""))

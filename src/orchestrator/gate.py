@@ -16,7 +16,9 @@ from typing import Optional
 
 from src.risk_classifier import classify_bash, RiskLevel
 
-_SHELL_TOOLS = {"bash", "python", "run_command"}
+# Live shell tools (tool_schemas.py). `run_command` was a phantom alias — no
+# such tool is ever defined or dispatched — so it's dropped from the guard (M3.4).
+_SHELL_TOOLS = {"bash", "python"}
 
 
 def gate_enabled() -> bool:

@@ -20,7 +20,7 @@ def test_blocks_drop_database():
 
 def test_blocks_dd_and_mkfs():
     assert should_block_destructive("bash", {"content": "dd if=/dev/zero of=/dev/sda"}) is not None
-    assert should_block_destructive("run_command", {"command": "mkfs.ext4 /dev/sdb"}) is not None
+    assert should_block_destructive("bash", {"command": "mkfs.ext4 /dev/sdb"}) is not None
 
 
 def test_allows_normal_bash():
