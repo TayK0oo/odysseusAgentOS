@@ -63,7 +63,7 @@ Discord/Telegram existent dans `src/adapters/`, mais ne sont jamais enregistrés
 | Composant | Vision | Statut | Preuve | Écart / action |
 |---|---|---|---|---|
 | trace_writer | Trace riche par action | 🟢 | `tool_execution.py:613` `write_trace()` après chaque outil | — |
-| risk_classifier | Le risque **change la loop** (gate destructif) | 🟡 | `tool_execution.py:550` classe ; `:553-558` ne fait que logger + set string `"gate_required"` ; action exécutée quand même `:596` | **Faire respecter le gate** : return/block sur DESTRUCTIVE + approbation humaine |
+| risk_classifier | Le risque **change la loop** (gate destructif) | 🟢 | **M2-P4** : `tool_execution.py:553` bloque désormais les commandes shell catastrophiques via `orchestrator/gate.should_block_destructive` (return `blocked:True`) ; kill-switch `ODYSSEUS_DESTRUCTIVE_GATE` | Fait — reste (v2) approbation humaine interactive pour les outils destructifs explicites |
 | phase-lock | Retrait réel des outils par phase | 🟡 | code de blocage réel `tool_execution.py:583-587` ; MAIS `set_phase` appelé seulement par `routes/phase_routes.py:22` (API manuelle) → phase toujours `BUILD` (blocklist vide `phase-lock.yaml:46`) | **Piloter la phase depuis le loop** selon l'étape GSD |
 | tool_registry | Registre de dispatch phase-aware | 🟡 | `tool_execution.py:571` consulté, mais dispatch réel = imports directs `:642+` ; overlay inerte car phase=BUILD | Brancher au vrai dispatch OU piloter la phase |
 | intent_gate | Filtre d'intention avant lancement | 🟡 | `src/__init__.py:4` export seul ; seul consommateur = ModelRouter (lui-même non appelé) | Appeler en tête de loop |
@@ -207,6 +207,14 @@ Regroupé par sous-système (= futurs blocs de plan GSD). `[ ]` = à faire, `[x]
 - [x] 7 tests verts ; suite orchestrateur totale = 38 verts
 - ⚠️ **Correction de sécurité (validée 2026-07-01)** : le chemin **chat reste intact** (BUILD par défaut). La discipline de phases ne s'applique qu'aux **runs orchestrés**, jamais à chaque tour de chat — sinon CLASSIFY/KNOW bloqueraient écriture+exécution globalement.
 
+### Bloc A0 — Gate destructif réel (M2-P4) ✅
+- [x] `should_block_destructive(tool_name, tool_args)` + `gate_enabled()` (`src/orchestrator/gate.py`) — fonction pure adossée à `risk_classifier.classify_bash` / `RiskLevel.DESTRUCTIVE`
+- [x] Les commandes SHELL catastrophiques (`rm -rf`, fork bomb, `mkfs`, `dd if=`, `drop database`, `git push --force`, …) sont désormais **BLOQUÉES** au point de passage central `execute_tool_block` (`src/tool_execution.py:553`) — avant c'était **log-only** (`_permission_decision="gate_required"` puis exécution quand même)
+- [x] **Portée** : patterns shell uniquement ; les **outils destructifs explicites** (`delete_file`, `remove_dir`, `stop_served_model`, …) ne sont **PAS** bloqués (ce sont des opérations utilisateur avec leur propre sémantique)
+- [x] Kill-switch env `ODYSSEUS_DESTRUCTIVE_GATE` (défaut `on`) ; enforcement gardé par `try/except` (ne casse jamais le loop)
+- [x] 10 tests verts (`tests/test_orchestrator_gate.py`)
+- ✅ **Ferme l'écart d'audit** « risk_classifier logue, ne gate PAS » (ligne 66 ci-dessus)
+
 ### Bloc A — Routing auto-modèle
 - [ ] Réécrire `stage-model-assignment.yaml` avec les vrais modèles zen
 - [ ] Brancher `ModelRouter.route(intent, stage)` dans `agent_loop.py` (remplacer/compléter llm_core)
@@ -247,7 +255,7 @@ Regroupé par sous-système (= futurs blocs de plan GSD). `[ ]` = à faire, `[x]
 
 ### Bloc G — Sandbox durci
 - [ ] command_validator sur `action_run_script` + `action_run_local`
-- [ ] Faire respecter le gate risk DESTRUCTIVE
+- [x] Faire respecter le gate risk DESTRUCTIVE → **fait en M2-P4** (voir Bloc A0 ; commandes shell catastrophiques bloquées à `execute_tool_block`)
 - [ ] cap_drop progressif
 - [ ] (v2) AgentSeal
 
