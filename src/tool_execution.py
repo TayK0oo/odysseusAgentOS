@@ -556,6 +556,23 @@ async def execute_tool_block(
                 _tool_name, _summary, session_id,
             )
             _permission_decision = "gate_required"
+            # M2-P4: real gate — block catastrophic SHELL commands (rm -rf, fork
+            # bomb, mkfs, dd, drop database, ...) before they execute. Explicit
+            # destructive TOOLS (delete_file, ...) are NOT blocked here.
+            try:
+                from src.orchestrator.gate import should_block_destructive, gate_enabled
+                if gate_enabled():
+                    _block_reason = should_block_destructive(_tool_name, _tool_args)
+                    if _block_reason:
+                        logger.error(
+                            "🛑 GATE DESTRUCTIF : %s (session=%s)", _block_reason, session_id
+                        )
+                        return (
+                            "blocked by destructive gate",
+                            {"error": f"🛑 GATE DESTRUCTIF : {_block_reason}", "blocked": True},
+                        )
+            except Exception:
+                pass  # never break the loop on a gate error
         else:
             _permission_decision = "auto_approved"
 
