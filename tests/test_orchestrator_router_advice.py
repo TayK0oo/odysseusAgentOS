@@ -1,20 +1,12 @@
+"""Tests for advisory routing (M3.1, retargeted to NATIVE roles).
+
+After the native-capability mapping (.planning/intel/INDEX.md), the grafted
+ModelRouter was verdict REDUNDANT (phantom catalog, no dispatch call-site). The
+advisory now suggests a NATIVE role (default/utility/research/vision) that the
+native resolve_endpoint already understands — no phantom model catalog.
+"""
 import pytest
-from src.orchestrator.router_advice import advise, router_enabled
-
-
-class _FakeRouter:
-    def __init__(self, ret="openai/glm-5.2"):
-        self.ret = ret
-        self.calls = []
-
-    def route(self, intent_category, stage=None):
-        self.calls.append((intent_category, stage))
-        return self.ret
-
-
-class _BoomRouter:
-    def route(self, intent_category, stage=None):
-        raise RuntimeError("provider down")
+from src.orchestrator.router_advice import advise, router_enabled, intent_to_role
 
 
 def test_router_disabled_by_default(monkeypatch):
@@ -33,31 +25,49 @@ def test_router_enabled_accepts_truthy(monkeypatch):
         assert router_enabled() is True
 
 
-def test_advise_deep_intent_and_router_called():
-    r = _FakeRouter("openai/deepseek-v4-pro")
-    out = advise("implement a distributed consensus algorithm with strong security", router=r)
+def test_intent_to_role_maps_every_category_to_native_role():
+    # Native roles known to resolve_endpoint: default/utility/research/vision.
+    assert intent_to_role("quick") == "utility"
+    assert intent_to_role("utility") == "utility"
+    assert intent_to_role("deep") == "research"
+    assert intent_to_role("code") == "default"
+    assert intent_to_role("creative") == "default"
+    assert intent_to_role("vision") == "vision"
+
+
+def test_intent_to_role_unknown_defaults_to_default():
+    assert intent_to_role("something-else") == "default"
+
+
+def test_advise_deep_intent_suggests_research_role():
+    out = advise("implement a distributed consensus algorithm with strong security")
     assert out["intent"] == "deep"
-    assert out["suggested_model"] == "openai/deepseek-v4-pro"
-    assert r.calls == [("deep", None)]
+    assert out["suggested_role"] == "research"
 
 
 def test_advise_passes_stage_through():
-    r = _FakeRouter()
-    out = advise("hello", stage="planning", router=r)
+    out = advise("hello", stage="planning")
     assert out["stage"] == "planning"
-    assert r.calls == [(out["intent"], "planning")]
 
 
-def test_advise_empty_text_is_utility():
-    r = _FakeRouter()
-    out = advise("", router=r)
+def test_advise_empty_text_is_utility_role():
+    out = advise("")
     assert out["intent"] == "utility"
+    assert out["suggested_role"] == "utility"
 
 
-def test_advise_survives_router_exception():
-    out = advise("anything", router=_BoomRouter())
-    assert out["suggested_model"] is None
-    assert out["intent"]  # still classified
+def test_advise_returns_no_phantom_model_key():
+    # The old phantom-catalog "suggested_model" must be gone.
+    out = advise("anything")
+    assert "suggested_model" not in out
+    assert out["suggested_role"] in {"default", "utility", "research", "vision"}
+
+
+def test_advise_never_raises():
+    # Advisory must never break the loop regardless of input.
+    out = advise(None)  # type: ignore[arg-type]
+    assert out["intent"]
+    assert out["suggested_role"]
 
 
 def test_exported_from_package():

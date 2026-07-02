@@ -2516,7 +2516,9 @@ async def stream_agent_loop(
     from src.orchestrator.phase_tracker import PhaseTracker
     _phase_tracker = PhaseTracker(session_id or "live")
 
-    # M3.1 advisory routing: first live call-site of intent_gate + ModelRouter.
+    # M3.1 advisory routing: first live call-site of intent_gate. Suggests a NATIVE
+    # role (default/utility/research/vision) resolvable by resolve_endpoint — NOT a
+    # phantom model catalog (ModelRouter was graded REDUNDANT, see intel/INDEX.md).
     # Log-only, kill-switched (ODYSSEUS_MODEL_ROUTER, default OFF). Never overrides
     # the user's chosen model — see src/orchestrator/router_advice.py.
     try:
@@ -2524,8 +2526,8 @@ async def stream_agent_loop(
         if _router_enabled():
             _advice = _router_advise(_last_user, stage=None)
             logger.info(
-                "[ModelRouter/advisory] session=%s intent=%s suggested=%s (user model=%s kept)",
-                session_id, _advice.get("intent"), _advice.get("suggested_model"), model,
+                "[intent-advisory] session=%s intent=%s suggested_role=%s (user model=%s kept)",
+                session_id, _advice.get("intent"), _advice.get("suggested_role"), model,
             )
     except Exception:
         pass  # advisory routing must never break the loop
