@@ -1,9 +1,14 @@
 # ROADMAP M3 — Orchestration & Convergence des boucles
 
-> **Statut :** planification validée 2026-07-02. Colonne vertébrale du câblage live.
-> **Objectif Milestone 3 :** faire converger la boucle **live** (`stream_agent_loop`) et la
-> boucle **orchestrée** (`CanonicalLoop`) pour que tous les modules du harness codés en
-> Wave 1-4 s'activent réellement dans le chat, sans jamais casser le base product.
+> **Statut :** re-planifié 2026-07-02 **après cartographie native complète** (`.planning/intel/`).
+> **Objectif Milestone 3 :** activer dans le chat live UNIQUEMENT ce qu'Odysseus n'a PAS déjà,
+> en réparant/supprimant/câblant selon le verdict de redondance — sans jamais casser le base product.
+>
+> ⚠️ **Révision majeure vs version initiale.** La v1 supposait câbler *tous* les modules greffés
+> (ModelRouter par stage, RRF nouveau, gateway-as-bus, Graphify…). La cartographie native
+> (`.planning/intel/INDEX.md`) prouve qu'une **grande partie est REDONDANTE** avec le natif.
+> M3 devient : **supprimer le redondant · réparer le partiel en place · câbler l'unique · réveiller
+> le dormant via les seams natifs.** Voir la redundancy map complète : `.planning/intel/INDEX.md §2`.
 
 ---
 
@@ -15,138 +20,168 @@ Il existe **deux boucles distinctes** dans le code :
 |---|---|---|
 | Fichier | `src/agent_loop.py:1934` `stream_agent_loop` (3321 lignes) | `src/orchestrator/loop.py` `CanonicalLoop` |
 | Déclenchée par | **chaque message de chat** | `dispatch()` uniquement (runs isolés) |
-| Round loop | `for round_num in range(1, max_rounds+1)` @2513 | `advance()` / `goto()` sur 7 phases |
-| Appelle `set_phase()` ? | ❌ **jamais** | ✅ via `apply()` |
-| Active phase-lock / forced_tools / ModelRouter ? | ❌ | ✅ |
+| Round loop | `for round_num in range(1, max_rounds+1)` @2533 | `advance()` / `goto()` sur 7 phases |
+| Appelle `set_phase()` ? | ❌ **jamais** (avant M3.0) | ✅ via `apply()` |
 
-**Conséquence vérifiée :** `stream_agent_loop` n'a **aucune** référence à `CanonicalLoop`,
-`orchestrator`, ni `tool_registry.set_phase`. Chaque session live tombe donc sur
-`default_phase: BUILD` (permissif) → le phase-lock, les forced_tools, le ModelRouter par
-stage, l'intent_gate, le RRF, l'observer, l'autoeval… tous branchés sur `CanonicalLoop`,
-ne sont **jamais atteints par le chat**. D'où : codés, unit-testés, dormants.
+**Racine unique du "35 %" :** les modules greffés pendent à `CanonicalLoop`, une boucle que le
+chat n'emprunte pas → chaque session live tombe sur `default_phase: BUILD` → phase-lock,
+forced_tools, etc. jamais atteints. **PhaseTracker (M3.0) est le pont.**
 
-**La racine unique du "35 %" : les modules pendent à une boucle que le chat n'emprunte pas.**
+**Deuxième cause, révélée par la cartographie :** une partie du "manque" n'était pas un
+câblage absent mais une **redondance** — le natif faisait déjà le travail (routing modèle,
+guardrails, gating, RRF orphelin, eventing). Câbler ces greffons = dupliquer, pas compléter.
 
 ---
 
-## 2. Décision d'architecture — Option C (convergence incrémentale)
+## 2. Décision d'architecture — Option C + principe zéro-redondance
 
-Trois options envisagées :
+**Option C (convergence incrémentale via `PhaseTracker` partagé, kill-switch, mapping tuné
+vague par vague)** reste retenue pour la mécanique de câblage.
 
-- **A — délégation d'un bloc** : `stream_agent_loop` appelle `CanonicalLoop.apply()` par round.
-  Rejeté : chirurgie big-bang sur 3321 lignes, risque de régression produit.
-- **B — réécriture** : `CanonicalLoop` devient l'exécuteur, `stream_agent_loop` une couche mince.
-  Rejeté : casse le base product qui marche à 100 %.
-- **C — convergence incrémentale via `PhaseTracker`** ✅ **RETENUE**.
-  On extrait un middleware léger que **les deux boucles partagent**. Chaque module dormant
-  s'accroche à sa phase, un par un, derrière kill-switch. Zéro big-bang, produit jamais cassé.
+**Nouveau principe directeur (post-cartographie) :** pour chaque module greffé, appliquer le
+verdict de `.planning/intel/INDEX.md §2` :
+
+| Verdict | Règle |
+|---|---|
+| **REDONDANT** | supprimer / ne pas câbler (le natif fait tout) |
+| **PARTIEL** | réparer/étendre le natif en place, garder seulement le delta unique |
+| **UNIQUE** / **UNIQUE-COMPLÉMENT** | câbler (vrai manque natif) |
+| **DORMANT** | réveiller via les seams natifs (event_bus, delivery, provider registry) |
 
 ### Invariant de sécurité M3
 
-> Tout câblage live qui **restreint** le comportement (phase-lock, gate, budget bloquant)
-> arrive derrière un **kill-switch env par défaut OFF** (patron du gate destructif
-> `ODYSSEUS_DESTRUCTIVE_GATE`). On câble d'abord (observe-only / tracking), on teste, on
-> ajuste le mapping, **puis** on flippe l'enforcement phase par phase. Le base product ne
-> change de comportement qu'une fois le mapping prouvé sûr.
+> Tout câblage qui **restreint** le comportement arrive derrière un **kill-switch env défaut OFF**
+> (patron `ODYSSEUS_DESTRUCTIVE_GATE`). On câble d'abord (observe-only), on teste, on ajuste,
+> **puis** on flippe l'enforcement. Le base product ne change qu'une fois le mapping prouvé sûr.
+> Tout **retrait** de module respecte les pièges de `.planning/intel/INDEX.md §3`.
 
 ---
 
-## 3. Les 6 vagues (séquencées par dépendance)
+## 3. Les vagues (re-séquencées par verdict + dépendance)
 
-Chaque vague est **livrable seule**, **testable seule**, et **débloque la suivante**.
-Les codes (A0, Bloc A…) renvoient à `INTEGRATION-TRACKING.md`.
+Chaque vague est livrable seule et testable seule. **M3.0 est le seul prérequis dur universel.**
 
-### M3.0 — Le pont (`PhaseTracker`) 🔴 LINCHPIN
-- **But :** `stream_agent_loop` porte enfin une phase par round via un `PhaseTracker`
-  partagé, qui appelle `ToolRegistry.set_phase(session_id, phase)`.
-- **Sécurité :** kill-switch `ODYSSEUS_PHASE_TRACKER` (défaut **OFF**). OFF → comportement
-  live identique à aujourd'hui (BUILD permissif). ON → phases inférées + phase-lock actif.
-- **Débloque :** phase-lock live, forced_tools, et toute la carte d'articulation §5.
-- **Dépend de :** rien (gate A0 déjà livré).
-- **Plan détaillé :** `docs/superpowers/plans/2026-07-02-m3.0-phase-bridge.md`
+### M3.0 — Le pont (`PhaseTracker`) ✅ LIVRÉ
+- `stream_agent_loop` porte une phase par round via `PhaseTracker` partagé → `set_phase`.
+- Kill-switch `ODYSSEUS_PHASE_TRACKER` (défaut OFF). 10 tests. Commits 7370610, 84e209f.
+- **Débloque :** phase-lock live, forced_tools, toute la carte d'articulation §5.
 
-### M3.1 — Routing & garde en tête de boucle (Bloc A)
-- `ModelRouter.route` + `intent_gate` appelés au début de chaque round live (phase CLASSIFY).
-- Purge des modèles fantômes de `config/stage-model.yaml` → vrais modèles.
-- **Débloque :** sélection de modèle par stage, refus d'intents interdits.
-- **Dépend de :** M3.0 (besoin de la phase pour router par stage).
+### M3.1 — Nettoyage du routing redondant  🔧 REMPLACE l'ancien "routing par stage"
+> **Verdict cartographie :** ModelRouter = REDONDANT, zen_router = PARTIEL (live), intent_gate = UNIQUE.
+- **Retarget `router_advice`** : garder `intent_gate.classify_intent`, **retirer l'appel
+  `ModelRouter.route`**. L'advisory suggère un **rôle natif** (`default`/`utility`/`research`/`task`)
+  résolu par `resolve_endpoint`, PAS un catalogue fantôme. Kill-switch `ODYSSEUS_MODEL_ROUTER` OFF.
+- **Supprimer** (après avoir retiré le re-export `src/__init__.py:3-4` — piège INDEX §3.1) :
+  `src/llm_router.py`, `model-routing.json`, `.planning/stage-model-assignment.yaml`,
+  `routes/routing_routes.py`. Mettre à jour `tests/test_harness_core.py:156-196` + `test_orchestrator_router_advice.py`.
+- **zen_router :** NE PAS supprimer. Migrer d'abord l'endpoint Zen Go → `ModelEndpoint` natif
+  (provider `opencode-go` déjà dans `_detect_provider`), puis retirer les tiers fantômes en
+  gardant la blacklist par-modèle. **Tâche bloquante** — traitée séparément, hors chemin critique M3.
+- **Débloque :** fin de la redondance routing ; intent advisory propre. **Dépend de :** M3.0.
 
-### M3.2 — Connaissance réelle (Bloc RAG / E)
-- RRF hybride appelé en phase KNOW (fin du blend naïf 0.7/0.3 dans le chat).
-- `acontext` : remplacer le stub JSON par le service réel (KNOW + MEMORY_OBSERVE).
-- checkpoint Trinité appelé en phase MEMORY_OBSERVE.
-- **Débloque :** récupération de connaissance de qualité, mémoire persistante réelle.
-- **Dépend de :** M3.0 (phases KNOW/MEMORY_OBSERVE doivent exister en live).
+### M3.2 — Connaissance : réparer l'existant, ne rien dupliquer
+> **Verdict :** RRF = PARTIEL (existe déjà, orphelin+bugué), acontext = PARTIEL, Trinité = UNIQUE.
+- **RRF :** ne PAS ajouter un 3ᵉ hybride. **Réparer `hybrid_search` existant** (`rag_vector.py:731`,
+  bug reflection `top_k` vs `k` `:749`) et le **câbler à la place du blend naïf 0.7/0.3**
+  (`rag_vector.py:378`, constantes `:37-38`). Blast radius faible (source unique). Phase KNOW.
+- **acontext :** alimenter le provider natif via `MemoryProviderRegistry.register`
+  (`memory_provider.py:259`), PAS ré-implémenter recall/store. Distillation fin-de-session =
+  le seul bit neuf (phase MEMORY_OBSERVE). Vérifier volume `/data/acontext`.
+- **Trinité (CBM/Graphify/Obsidian) :** UNIQUE — câbler `checkpoint` en MEMORY_OBSERVE ; déléguer
+  la recherche sémantique doc au `VectorRAG` natif plutôt qu'à Graphify.
+- **Débloque :** RRF réel dans le chat, mémoire persistante. **Dépend de :** M3.0.
 
-### M3.3 — Boucle qualité fermée (Bloc autoeval + observer)
-- autoeval keep/revert piloté par la boucle en phase AUTOEVAL (plus API-only).
-- observer : de log-only à signal exploité (budget token/coût réel, pas juste itérations).
-- **Débloque :** auto-correction, budget économique réel.
-- **Dépend de :** M3.0, M3.1.
+### M3.3 — Qualité : réutiliser le verifier natif, consommer les metrics
+> **Verdict :** autoeval greffé = REDONDANT (verifier natif existe), observer = PARTIEL.
+- **Autoeval :** NE PAS ajouter un 2ᵉ verifier. **Étendre `_run_verifier_subagent`**
+  (`agent_loop.py:1801`, effectful-only, capé, OFF par défaut `agent_verifier_subagent`) pour
+  piloter keep/revert en phase AUTOEVAL. Respecter le design opt-in (petits modèles faux-rejettent).
+- **Observer :** **consommer le SSE `metrics`** (`_compute_final_metrics`) + `tool_events`, ne pas
+  recomputer. Brancher le drift score (UNIQUE, RAM) sur ces signaux existants.
+- **Débloque :** boucle qualité fermée sans duplication de coût. **Dépend de :** M3.0.
 
-### M3.4 — Gouvernance & sécurité résiduelle (Bloc G suite + governance)
-- command_validator sur `run_script` / `run_local` (fermer les contournements du gate A0).
-- governance : la boucle crée l'ancestry/lineage (plus API-only).
-- **Débloque :** couverture sécurité complète, traçabilité des décisions.
-- **Dépend de :** M3.0.
+### M3.4 — Sécurité résiduelle & gouvernance (parallélisable)
+> **Verdict :** command_validator = PARTIEL, destructive gate = UNIQUE ✅, governance = mixte.
+- **Fusionner en UNE source canonique** les patterns de `command_validator` + `risk_classifier`
+  (ni l'un ni l'autre n'est superset — INDEX 07 §4). Corriger le bug SAFE_PREFIXES `startswith`
+  (`ls; rm -rf /` passe, `command_validator.py:76-78`).
+- **Couvrir les bypass shell** (INDEX 07 §2) : `run_script`/`run_local` (`builtin_actions.py:340,352`),
+  `POST /api/shell/exec` + `/stream` (`shell_routes.py:820,834`). Gater à la couche action
+  (`task_scheduler._execute_action`) OU ajouter à `gate._SHELL_TOOLS`. Retirer le nom fantôme
+  `run_command` du gate.
+- **governance :** heartbeat + goal ancestry = UNIQUE → la boucle crée l'ancestry en MEMORY_OBSERVE.
+  Budgets/approval = PARTIEL → réutiliser la source tokens unique + le pattern email-confirm natif.
+- **Sandbox (ops) :** activer `cap_drop:[ALL]` + minimal cap_add, proxy/retrait docker.sock.
+- **Débloque :** couverture sécurité complète, traçabilité. **Dépend de :** M3.0. Parallèle à M3.1-3.3.
 
-### M3.5 — Surface externe (Bloc gateway + agents)
-- Enregistrer les adapters Discord/Telegram sur le bus (bus vide aujourd'hui).
-- Charger les 10 agents `.opencode/agents/*.md` dans l'UI web (pipeline lists Phase 6).
-- Graphify : brancher un vrai service (0 svc aujourd'hui).
-- **Débloque :** canaux externes, subagents visibles, graphe de code.
-- **Dépend de :** M3.0..M3.3 (les agents héritent du loop câblé).
+### M3.5 — Surface externe : réveiller le dormant, supprimer le bus redondant
+> **Verdict :** gateway-as-bus + enums EMAIL/WEBHOOK = REDONDANT, adapters Discord/Telegram = DORMANT.
+- **Supprimer** les arms `ChannelType.EMAIL`/`WEBHOOK` (email pollers + webhook_manager matures)
+  et l'ambition event-bus du gateway (natif `event_bus` + `ScheduledTask(trigger_type=event)`).
+- **Réveiller** les adapters Discord/Telegram (seul vrai neuf, 0 caller hors tests) : câbler
+  `register_adapter`+`set_inbound_handler`+`start_all` dans `_startup_event` (gated `ODYSSEUS_INPROCESS_*`),
+  **inbound → `event_bus.fire_event`**, **outbound → delivery natif** (`_deliver_task_result` /
+  `execute_api_call`). Opt-in par session (éviter le spam broadcast `agent_loop.py:3521`).
+- **Débloque :** canaux 2-way réels sans bus parallèle. **Dépend de :** M3.0..M3.3.
+
+### M3.X — Token accounting unifié (transversal, prérequis fiabilité budget)
+> **Risque #1 cartographie :** tokens comptés en 5 endroits, aucun `run_id` de corrélation.
+- Choisir UN writer de vérité (metrics message `chat_messages.meta_data`), governance/trace **lisent**.
+- Définir un `run_id` de corrélation partagé (traces↔budgets↔task_runs). Prérequis de M3.3/M3.4.
 
 ---
 
 ## 4. Graphe de dépendances
 
 ```
-                 M3.0 (PhaseTracker) ──┬──> M3.1 (routing/gate) ──> M3.3 (qualité)
-                                       ├──> M3.2 (connaissance) ──> M3.3
-                                       ├──> M3.4 (gouvernance/sécu)
-                                       └──> M3.5 (surface externe, après M3.1-3.3)
+   M3.0 (pont ✅) ──┬──> M3.1 (cleanup routing) ──┐
+                    ├──> M3.2 (connaissance) ──────┼──> M3.3 (qualité)
+                    ├──> M3.4 (sécu/gouvernance, ∥)
+                    └──> M3.5 (surface externe, après M3.1-3.3)
+   M3.X (tokens unifiés) ── prérequis de M3.3 & M3.4
+   [bloquant hors chemin] zen Go → ModelEndpoint natif ── prérequis retrait routing complet
 ```
-
-M3.0 est le seul prérequis dur universel. M3.4 peut avancer en parallèle de M3.1-3.3.
 
 ---
 
-## 5. Carte d'articulation — module → phase canonique
+## 5. Carte d'articulation — module → phase (verdict entre crochets)
 
 ```
-CLASSIFY        → intent_gate · risk_classifier (gate ✅) · ModelRouter(stage)
-KNOW            → RRF hybride · acontext · RAG vector · Trinité(read)
-PLAN            → GSD pipeline lists · ModelRouter(planner stage)
-BUILD           → ToolRegistry.set_phase (phase-lock) · forced_tools · gate destructif ✅
-QUALITY         → command_validator (run_script/run_local) · agents Debate/Audit
-AUTOEVAL        → autoeval keep/revert · observer(budget)
-MEMORY_OBSERVE  → governance ancestry · Trinité checkpoint · trace_writer ✅ · CBM
+CLASSIFY        → intent_gate [UNIQUE] · risk_classifier+gate [✅ UNIQUE-COMPL] · rôle natif (pas ModelRouter)
+KNOW            → RRF réparé en place [PARTIEL] · VectorRAG natif · Trinité read [UNIQUE]
+PLAN            → phase-lock write-scoped [PARTIEL] · GSD pipeline lists
+BUILD           → set_phase/phase-lock [✅] · forced_tools · gate destructif [✅ UNIQUE-COMPL]
+QUALITY         → command_validator fusionné+étendu [PARTIEL] · exec allowlist test-only
+AUTOEVAL        → _run_verifier_subagent natif étendu [au lieu de autoeval REDONDANT] · observer via SSE [PARTIEL]
+MEMORY_OBSERVE  → governance ancestry/heartbeat [UNIQUE] · Trinité checkpoint [UNIQUE] · acontext→provider natif [PARTIEL] · trace_writer [✅]
 ```
 
-Les ✅ sont déjà vivants (M2). Tout le reste s'allume quand sa phase existe en live (M3.0)
-puis quand sa vague le branche.
+Supprimés de la carte v1 (redondants) : ModelRouter(stage), RRF-nouveau-module, gateway-as-bus, Graphify-comme-search.
 
 ---
 
 ## 6. Alignement avec l'existant
 
-- **ROADMAP.md (15 phases Wave 1-4)** : décrit *quels modules écrire*. M3 décrit *comment
-  les câbler live*. Pas de conflit : M3 consomme les modules livrés par les 15 phases.
-- **Vision §5.6 (build order harness 1→8 avant 9→15)** : respecté — M3.0-3.3 câblent le
-  harness (routing, connaissance, qualité) avant M3.5 (surface/governance étendue).
-- **INTEGRATION-TRACKING.md** : les Blocs A-G y sont trackés ; M3.x = leur séquencement.
+- **`.planning/intel/` (7 domaines + INDEX)** : source de vérité des capacités natives + verdicts.
+  M3 en dérive directement. Toute nouvelle tâche charge d'abord le domaine concerné (INDEX §1).
+- **ROADMAP.md (15 phases Wave 1-4)** : décrit *quels modules ont été écrits*. M3 décrit *lesquels
+  câbler vs supprimer* selon le natif. Conflit résolu par les verdicts de redondance.
+- **INTEGRATION-TRACKING.md** : à mettre à jour — les Blocs marqués "à câbler" mais REDONDANTS
+  passent en "à supprimer".
 
 ---
 
 ## 7. Definition of Done — Milestone 3
 
-- [ ] `stream_agent_loop` porte une phase par round (M3.0)
-- [ ] Kill-switch `ODYSSEUS_PHASE_TRACKER` documenté dans `.env.example`
-- [ ] ModelRouter + intent_gate actifs en tête de boucle live (M3.1)
-- [ ] RRF + acontext + Trinité actifs dans le chat (M3.2)
-- [ ] autoeval + observer pilotés par la boucle (M3.3)
-- [ ] command_validator couvre run_script/run_local ; governance crée l'ancestry (M3.4)
-- [ ] adapters + agents + Graphify actifs (M3.5)
-- [ ] Câblage live réel ≥ 85 % (mesure INTEGRATION-TRACKING)
-- [ ] Zéro régression : suite de tests verte, base product intact avec kill-switch OFF
+- [x] `stream_agent_loop` porte une phase par round (M3.0)
+- [x] Kill-switch `ODYSSEUS_PHASE_TRACKER` documenté dans `.env.example`
+- [ ] Routing redondant supprimé (ModelRouter/json/yaml/routing_routes) ; `router_advice` retargeté rôles natifs ; re-export `__init__` nettoyé (M3.1)
+- [ ] zen Go migré en `ModelEndpoint` natif (bloquant retrait complet)
+- [ ] RRF existant réparé + câblé à la place du blend 0.7/0.3 ; acontext via MemoryProviderRegistry ; Trinité checkpoint (M3.2)
+- [ ] `_run_verifier_subagent` natif étendu pour AUTOEVAL ; observer consomme le SSE metrics (M3.3)
+- [ ] command_validator+risk_classifier fusionnés en 1 liste ; run_script/run_local/api-shell couverts ; governance ancestry live (M3.4)
+- [ ] Token accounting unifié (1 writer + run_id de corrélation) (M3.X)
+- [ ] Adapters Discord/Telegram réveillés via event_bus natif ; gateway-as-bus + enums EMAIL/WEBHOOK supprimés (M3.5)
+- [ ] Zéro redondance résiduelle vérifiée contre `.planning/intel/INDEX.md §2`
+- [ ] Zéro régression : suite verte, base product intact avec kill-switch OFF
+```
