@@ -96,8 +96,11 @@ Chaque vague est livrable seule et testable seule. **M3.0 est le seul prérequis
 - **Autoeval :** NE PAS ajouter un 2ᵉ verifier. **Étendre `_run_verifier_subagent`**
   (`agent_loop.py:1801`, effectful-only, capé, OFF par défaut `agent_verifier_subagent`) pour
   piloter keep/revert en phase AUTOEVAL. Respecter le design opt-in (petits modèles faux-rejettent).
-- **Observer :** **consommer le SSE `metrics`** (`_compute_final_metrics`) + `tool_events`, ne pas
-  recomputer. Brancher le drift score (UNIQUE, RAM) sur ces signaux existants.
+- **Observer :** ✅ **FAIT** — `Observer.ingest_metrics(metrics, tool_events)` consomme les signaux
+  existants (`_compute_final_metrics` + `tool_events`), ne recompute rien : one_shot_rate = ratio
+  succès, waste_patterns = tools échoués, touched_files = writes seulement (reads harness non flaggés).
+  Réutilise le drift machinery (writes harness → HIGH). Branché dans le bloc observer live
+  (`agent_loop.py`, try-guardé, fresh-per-turn, pas de kill-switch). 8 tests.
 - **Débloque :** boucle qualité fermée sans duplication de coût. **Dépend de :** M3.0.
 
 ### M3.4 — Sécurité résiduelle & gouvernance (parallélisable)
