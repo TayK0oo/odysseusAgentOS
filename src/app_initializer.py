@@ -9,7 +9,12 @@ from src.constants import (
     SESSIONS_FILE, DEFAULT_HOST, OPENAI_API_KEY
 )
 from src.memory import MemoryManager
-from src.memory_provider import MemoryProviderRegistry, NativeMemoryProvider
+from src.memory_provider import (
+    AcontextMemoryProvider,
+    MemoryProviderRegistry,
+    NativeMemoryProvider,
+    set_active_registry,
+)
 from services.memory.skills import SkillsManager
 from core.session_manager import SessionManager
 from core.models import set_session_manager
@@ -76,7 +81,10 @@ def initialize_managers(base_dir: str, rag_manager=None) -> Dict[str, Any]:
 
     memory_provider_registry = MemoryProviderRegistry([
         NativeMemoryProvider(memory_manager, memory_vector),
+        AcontextMemoryProvider(),
     ])
+    # Publish for free functions (e.g. stream_agent_loop) to fan session-end out.
+    set_active_registry(memory_provider_registry)
 
     # Initialize processors
     chat_processor = ChatProcessor(memory_manager, personal_docs_manager, memory_vector=memory_vector, skills_manager=skills_manager)
