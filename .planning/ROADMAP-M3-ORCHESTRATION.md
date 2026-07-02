@@ -188,7 +188,7 @@ Supprimés de la carte v1 (redondants) : ModelRouter(stage), RRF-nouveau-module,
 - [x] Kill-switch `ODYSSEUS_PHASE_TRACKER` documenté dans `.env.example`
 - [ ] Routing redondant supprimé (ModelRouter/json/yaml/routing_routes) ; `router_advice` retargeté rôles natifs ; re-export `__init__` nettoyé (M3.1)
 - [ ] zen Go migré en `ModelEndpoint` natif (bloquant retrait complet)
-- [ ] RRF existant réparé + câblé à la place du blend 0.7/0.3 ; acontext via MemoryProviderRegistry ; Trinité checkpoint (M3.2)
+- [~] M3.2 : RRF existant réparé (fonction pure fusion vecteur+BM25) + câblé dans `search` live derrière kill-switch `ODYSSEUS_RRF_FUSION` (défaut OFF, blend 0.7/0.3 inchangé) ✅ · **reste** : acontext via MemoryProviderRegistry ; Trinité checkpoint
 - [ ] `_run_verifier_subagent` natif étendu pour AUTOEVAL ; observer consomme le SSE metrics (M3.3)
 - [~] M3.4 sécurité : run_script/run_local/ssh couverts ✅ · SAFE_PREFIXES chaînage corrigé ✅ · phantom `run_command` retiré ✅ · fusion patterns REJETÉE (2 politiques, cf. §M3.4) · api-shell admin non gatée (intention humaine) · **reste** : governance ancestry live
 - [ ] Token accounting unifié (1 writer + run_id de corrélation) (M3.X)

@@ -40,6 +40,39 @@ KEYWORD_WEIGHT = 0.3
 COLLECTION_NAME = "odysseus_rag"
 
 
+def _rrf_fusion_enabled() -> bool:
+    """RRF fusion re-ranking is opt-in (default OFF → shipped 0.7/0.3 blend).
+
+    Kill-switch ``ODYSSEUS_RRF_FUSION``: base product behaviour is unchanged
+    unless explicitly turned on (M3.2).
+    """
+    import os
+    val = os.getenv("ODYSSEUS_RRF_FUSION", "off").strip().lower()
+    return val in {"on", "1", "true", "yes"}
+
+
+def _rank_candidates(query: str, candidates: list, k: int) -> list:
+    """Order search candidates for return.
+
+    Default (kill-switch OFF): the shipped naive blend — sort by the precomputed
+    ``similarity`` (0.7·vector + 0.3·keyword-overlap). When ``ODYSSEUS_RRF_FUSION``
+    is on: feed the pure-vector ranking (``vector_similarity``) plus BM25 into
+    :func:`hybrid_search` and return the RRF-fused order. Pure function — the
+    caller still applies dedupe/limit afterwards.
+    """
+    if _rrf_fusion_enabled():
+        by_vector = sorted(
+            candidates,
+            key=lambda c: c.get("vector_similarity", c.get("similarity", 0.0)),
+            reverse=True,
+        )
+        fused = hybrid_search(query, by_vector, top_k=len(by_vector), alpha=VECTOR_WEIGHT)
+        # hybrid_search degrades to vector order on failure; never return empty
+        # when we had candidates.
+        return fused or by_vector
+    return sorted(candidates, key=lambda c: c["similarity"], reverse=True)
+
+
 def _generate_doc_id(text: str, owner: str = "") -> str:
     # Owner-scope the id so two owners can index byte-identical chunks
     # without the second one's add early-returning on the first's id and
@@ -388,7 +421,7 @@ class VectorRAG:
                         "embedding_lane": lane.name,
                     })
 
-            candidates.sort(key=lambda c: c["similarity"], reverse=True)
+            candidates = _rank_candidates(query, candidates, k)
             top = dedupe_results(candidates, limit=k)
             logger.info(f"Hybrid search for '{query[:60]}': {len(top)} results")
             return top
