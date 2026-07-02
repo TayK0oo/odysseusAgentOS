@@ -189,6 +189,26 @@ class TestCommandValidator:
         result = validate_command("git status")
         assert result.allowed is True
 
+    def test_safe_prefix_chained_destructive_blocked(self):
+        # BUG fix (M3.4): a whitelisted prefix must not short-circuit a chained
+        # destructive command. "ls /tmp; rm -rf /" previously passed via "ls ".
+        from src.command_validator import validate_command
+        for cmd in (
+            "ls /tmp; rm -rf /",
+            "ls && rm -rf ~",
+            "git status && git push origin main --force",
+            "cat foo | mkfs.ext4 /dev/sda",
+        ):
+            result = validate_command(cmd)
+            assert result.allowed is False, f"chained destructive not blocked: {cmd!r}"
+
+    def test_safe_prefix_benign_chain_still_allowed(self):
+        # A benign chain must not be blanket-whitelisted, but still passes the
+        # block/warning checks (falls through to safe).
+        from src.command_validator import validate_command
+        result = validate_command("ls /tmp | grep foo")
+        assert result.allowed is True
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

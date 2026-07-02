@@ -62,6 +62,11 @@ SAFE_PREFIXES = [
     "docker ps", "docker logs", "pip list", "pip show",
 ]
 
+# Opérateurs de chaînage / substitution shell qui invalident le short-circuit whitelist.
+# Présents → on ne blanchit pas sur le préfixe, on passe par les checks bloquants.
+_CHAIN_OPERATORS = re.compile(r"[;|&`\n]|\$\(|\|\||&&|>")
+
+
 def validate_command(command: str, session_id: Optional[str] = None) -> ValidationResult:
     """
     Valide une commande bash.
@@ -72,10 +77,15 @@ def validate_command(command: str, session_id: Optional[str] = None) -> Validati
 
     cmd = command.strip()
 
-    # Whitelist — toujours safe
-    for prefix in SAFE_PREFIXES:
-        if cmd.startswith(prefix):
-            return ValidationResult(allowed=True, risk_level="safe", reason=f"whitelisté: {prefix}")
+    # Whitelist — toujours safe, MAIS seulement pour une commande simple.
+    # Une commande chaînée (`;`, `&&`, `||`, `|`, backtick, `$(`, redirection, retour
+    # ligne) ne doit PAS être blanchie par son préfixe : `ls /tmp; rm -rf /` doit
+    # tomber dans les checks bloquants (bug M3.4). Les chaînes bénignes retombent
+    # sur "validée" (safe) plus bas de toute façon.
+    if not _CHAIN_OPERATORS.search(cmd):
+        for prefix in SAFE_PREFIXES:
+            if cmd.startswith(prefix):
+                return ValidationResult(allowed=True, risk_level="safe", reason=f"whitelisté: {prefix}")
 
     # Check patterns bloqués
     for pattern, reason in BLOCKED_PATTERNS:
