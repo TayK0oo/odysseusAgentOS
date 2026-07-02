@@ -2510,7 +2510,17 @@ async def stream_agent_loop(
     # so the user can resume instead of the turn silently stalling.
     _exhausted_rounds = False
 
+    # M3.0 phase bridge: give the live loop a per-round phase. Kill-switched
+    # (ODYSSEUS_PHASE_TRACKER, default OFF) so live behavior is unchanged until
+    # the mapping is tuned in later M3.x waves.
+    from src.orchestrator.phase_tracker import PhaseTracker
+    _phase_tracker = PhaseTracker(session_id or "live")
+
     for round_num in range(1, max_rounds + 1):
+        try:
+            _phase_tracker.on_round_start(round_num, intent=_intent, plan_mode=plan_mode)
+        except Exception:
+            pass  # phase tracking must never break the loop
         # Budget check par itération
         if _budget_enforcer:
             _budget_check = _budget_enforcer.consume_iteration()
