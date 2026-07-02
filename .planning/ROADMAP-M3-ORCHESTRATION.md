@@ -164,7 +164,7 @@ PLAN            → phase-lock write-scoped [PARTIEL] · GSD pipeline lists
 BUILD           → set_phase/phase-lock [✅] · forced_tools · gate destructif [✅ UNIQUE-COMPL]
 QUALITY         → command_validator fusionné+étendu [PARTIEL] · exec allowlist test-only
 AUTOEVAL        → _run_verifier_subagent natif étendu [au lieu de autoeval REDONDANT] · observer via SSE [PARTIEL]
-MEMORY_OBSERVE  → governance ancestry/heartbeat [UNIQUE] · Trinité checkpoint [UNIQUE] · acontext→provider natif [PARTIEL] · trace_writer [✅]
+MEMORY_OBSERVE  → governance ancestry/heartbeat [UNIQUE] · Trinité checkpoint [UNIQUE] · acontext→provider natif [✅] · trace_writer [✅]
 ```
 
 Supprimés de la carte v1 (redondants) : ModelRouter(stage), RRF-nouveau-module, gateway-as-bus, Graphify-comme-search.
@@ -188,7 +188,7 @@ Supprimés de la carte v1 (redondants) : ModelRouter(stage), RRF-nouveau-module,
 - [x] Kill-switch `ODYSSEUS_PHASE_TRACKER` documenté dans `.env.example`
 - [ ] Routing redondant supprimé (ModelRouter/json/yaml/routing_routes) ; `router_advice` retargeté rôles natifs ; re-export `__init__` nettoyé (M3.1)
 - [ ] zen Go migré en `ModelEndpoint` natif (bloquant retrait complet)
-- [~] M3.2 : RRF existant réparé (fonction pure fusion vecteur+BM25) + câblé dans `search` live derrière kill-switch `ODYSSEUS_RRF_FUSION` (défaut OFF, blend 0.7/0.3 inchangé) ✅ · **reste** : acontext via MemoryProviderRegistry ; Trinité checkpoint
+- [~] M3.2 : RRF existant réparé (fonction pure fusion vecteur+BM25) + câblé dans `search` live derrière kill-switch `ODYSSEUS_RRF_FUSION` (défaut OFF, blend 0.7/0.3 inchangé) ✅ · acontext réveillé via `MemoryProviderRegistry` (provider observe-only `on_session_end`, gate `ACONTEXT_ENABLED` défaut OFF, remplace le POST synchrone hardcodé du agent_loop) ✅ · **reste** : Trinité checkpoint
 - [ ] `_run_verifier_subagent` natif étendu pour AUTOEVAL ; observer consomme le SSE metrics (M3.3)
 - [~] M3.4 sécurité : run_script/run_local/ssh couverts ✅ · SAFE_PREFIXES chaînage corrigé ✅ · phantom `run_command` retiré ✅ · fusion patterns REJETÉE (2 politiques, cf. §M3.4) · api-shell admin non gatée (intention humaine) · **reste** : governance ancestry live
 - [ ] Token accounting unifié (1 writer + run_id de corrélation) (M3.X)
