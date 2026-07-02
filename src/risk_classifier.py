@@ -60,7 +60,6 @@ TOOL_RISK_MAP: Dict[str, RiskLevel] = {
     "update_plan": RiskLevel.WRITE,
     # EXEC
     "bash": RiskLevel.EXEC,
-    "run_command": RiskLevel.EXEC,
     "python": RiskLevel.EXEC,
     "api_call": RiskLevel.EXEC,
     "serve_model": RiskLevel.EXEC,
@@ -123,7 +122,7 @@ def classify_tool(tool_name: str, tool_args: dict) -> RiskLevel:
     defaults to EXEC for unknown tools (safest conservative assumption).
     """
     # Bash — inspect the actual command
-    if tool_name in ("bash", "python", "run_command"):
+    if tool_name in ("bash", "python"):
         command = ""
         if isinstance(tool_args, dict):
             command = tool_args.get("command", "") or tool_args.get("content", "") or ""
