@@ -103,11 +103,14 @@ Chaque vague est livrable seule et testable seule. **M3.0 est le seul prérequis
 ### M3.4 — Sécurité résiduelle & gouvernance (parallélisable)
 > **Verdict :** command_validator = PARTIEL, destructive gate = UNIQUE ✅, governance = mixte.
 - **Fusionner en UNE source canonique** les patterns de `command_validator` + `risk_classifier`
-  (ni l'un ni l'autre n'est superset — INDEX 07 §4). Corriger le bug SAFE_PREFIXES `startswith`
-  (`ls; rm -rf /` passe, `command_validator.py:76-78`).
-- **Couvrir les bypass shell** (INDEX 07 §2) : `run_script`/`run_local` (`builtin_actions.py:340,352`),
-  `POST /api/shell/exec` + `/stream` (`shell_routes.py:820,834`). Gater à la couche action
-  (`task_scheduler._execute_action`) OU ajouter à `gate._SHELL_TOOLS`. Retirer le nom fantôme
+  (ni l'un ni l'autre n'est superset — INDEX 07 §4). ~~Corriger le bug SAFE_PREFIXES `startswith`~~
+  ✅ **FAIT** (commit 9a2c98a) : `_CHAIN_OPERATORS` empêche le blanchiment d'une commande chaînée.
+- ✅ **Bypass shell agent-autonomes couverts** (commit e90538a) : helper partagé
+  `_validate_shell_or_block` appliqué à `action_ssh_command`/`action_run_script`/`action_run_local`
+  (`builtin_actions.py`). **`POST /api/shell/exec`+`/stream` : NON gatés** — admin-only +
+  cross-site-protégés = intention humaine explicite ; `rm -rf [/~]` faux-positive sur le cleanup
+  légitime à chemin absolu (frontend cookbook). Shell agent-autonome = destructive gate (M2-P4).
+- **Reste M3.4 :** fusion canonique des 2 listes de patterns ; retirer le nom fantôme
   `run_command` du gate.
 - **governance :** heartbeat + goal ancestry = UNIQUE → la boucle crée l'ancestry en MEMORY_OBSERVE.
   Budgets/approval = PARTIEL → réutiliser la source tokens unique + le pattern email-confirm natif.
