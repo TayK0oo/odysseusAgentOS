@@ -1415,6 +1415,9 @@ def function_call_to_tool_block(name: str, arguments: str) -> Optional[ToolBlock
     else:
         content = json.dumps(args)
 
+    return ToolBlock(tool_type, content)
+
+
 # ============================================================
 # SCRAPLING MCP TOOLS — Phase 4
 # (Actifs si scrapling-mcp:8800 est démarré)
@@ -1478,5 +1481,3 @@ SCRAPLING_TOOLS = [
         }
     }
 ]
-
-    return ToolBlock(tool_type, content)
