@@ -8,7 +8,7 @@ scheduler without needing an LLM call.
 import logging
 import os
 from datetime import datetime
-from typing import Tuple
+from typing import Optional, Tuple
 
 from src.auth_helpers import owner_filter
 from core.platform_compat import IS_WINDOWS, find_bash
@@ -294,8 +294,11 @@ async def _run_subprocess(argv, *, shell: bool = False, timeout: int = 120, labe
     import asyncio
     import subprocess
     try:
+        import os
+        _cwd = os.environ.get("SHELL_CWD", "/app") if os.path.isdir("/app") else None
         result = await asyncio.to_thread(
             subprocess.run, argv, shell=shell, capture_output=True, text=True, timeout=timeout,
+            cwd=_cwd,
         )
         output = (result.stdout or "").strip()
         if result.returncode != 0 and result.stderr:
@@ -307,21 +310,36 @@ async def _run_subprocess(argv, *, shell: bool = False, timeout: int = 120, labe
         return str(e), False
 
 
+def _validate_shell_or_block(command: str, session_id: Optional[str] = None) -> Optional[str]:
+    """Run the Phase-12 command_validator over a shell string.
+
+    Returns a "🛡️ SANDBOX BLOCKED: ..." message when the command is blocked
+    (caller must return it as a failure), or None when the command is allowed.
+    Warnings are logged but do not block. Shared by every action that reaches a
+    shell (ssh_command, run_script, run_local) so no entrypoint can bypass the
+    validator (M3.4). If the validator can't be imported, fail open (None) to
+    preserve prior behaviour rather than break scheduled tasks.
+    """
+    try:
+        from src.command_validator import validate_and_log
+    except ImportError:
+        return None
+    _ok, _reason = validate_and_log(command, session_id)
+    if not _ok:
+        return f"🛡️ SANDBOX BLOCKED: {_reason}"
+    if _reason not in ("validée", "safe", "commande vide") and not _reason.startswith("whitelisté"):
+        logger.warning(f"Command WARNING: {_reason}")
+    return None
+
+
 async def action_ssh_command(owner: str, command: str = "", host: str = "localhost", **kwargs) -> Tuple[str, bool]:
     """Run a shell command locally or on a remote host via SSH."""
     if not command:
         return "No command specified", False
     # COMMAND VALIDATOR — Phase 12
-    try:
-        from src.command_validator import validate_and_log
-        _ok, _reason = validate_and_log(command, kwargs.get('session_id'))
-        if not _ok:
-            return f"🛡️ SANDBOX BLOCKED: {_reason}", False
-        if _reason not in ("validée", "safe", "commande vide") and not _reason.startswith("whitelisté"):
-            import logging as _logging
-            _logging.getLogger(__name__).warning(f"Command WARNING: {_reason}")
-    except ImportError:
-        pass
+    _blocked = _validate_shell_or_block(command, kwargs.get('session_id'))
+    if _blocked:
+        return _blocked, False
     if host in ("localhost", "127.0.0.1", "local"):
         if IS_WINDOWS:
             bash = find_bash()
@@ -338,6 +356,9 @@ async def action_run_script(owner: str, script: str = "", host: str = "", **kwar
     """Run a script locally, or via SSH when a host is configured."""
     if not script:
         return "No script specified", False
+    _blocked = _validate_shell_or_block(script, kwargs.get('session_id'))
+    if _blocked:
+        return _blocked, False
     target_host = (host or os.getenv("ODYSSEUS_SCRIPT_HOST", "localhost")).strip()
     if target_host in ("", "localhost", "127.0.0.1", "local"):
         if IS_WINDOWS and find_bash():
@@ -350,6 +371,9 @@ async def action_run_local(owner: str, script: str = "", **kwargs) -> Tuple[str,
     """Run a script locally (no SSH)."""
     if not script:
         return "No script specified", False
+    _blocked = _validate_shell_or_block(script, kwargs.get('session_id'))
+    if _blocked:
+        return _blocked, False
     if IS_WINDOWS and find_bash():
         return await _run_subprocess([find_bash(), "-c", script], timeout=300, label="Script")
     return await _run_subprocess(script, shell=True, timeout=300, label="Script")
