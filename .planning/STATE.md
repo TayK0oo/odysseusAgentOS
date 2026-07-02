@@ -55,6 +55,7 @@ Phase 15 ~ RAG/BYOX/Tests      RRF codé mais jamais appelé · chat = blend na�
 
 ## Recent Decisions
 
+- 2026-07-02 — **M3.1 (advisory)** : premier call-site LIVE de `intent_gate.classify_intent` + `ModelRouter.route`, en tête de `stream_agent_loop` (`src/orchestrator/router_advice.py`). Log-only, kill-switch `ODYSSEUS_MODEL_ROUTER` (défaut OFF), **n'écrase jamais** le modèle choisi par l'user. Ferme l'audit « llm_router 0 call-site » + « intent_gate non appelé ». 8 tests. Commit f8fb55a. ⚠️ **Enforcement (auto-routing) BLOQUÉ** sur 2 décisions : (1) catalogue de modèles réels — les IDs de `model-routing.json` (deepseek-v4-pro, kimi-k2.6, glm-5.2…) sont fantômes + `stage-model-assignment.yaml` route vers `openrouter` (enabled:false) ; (2) l'auto-routing peut-il écraser le modèle explicite de l'user ?
 - 2026-07-02 — **M3 roadmap** : `ROADMAP-M3-ORCHESTRATION.md`. Diagnostic racine du « 35% » = **deux boucles** (live `stream_agent_loop` vs orchestrée `CanonicalLoop`) ; la live n'appelait jamais `set_phase` → tout tombait sur `default_phase: BUILD`. Décision : **Option C** (convergence incrémentale via `PhaseTracker` partagé, kill-switch, mapping tuné vague par vague). 6 vagues M3.0→M3.5 séquencées par dépendance.
 - 2026-07-02 — **M3.0 livré (le pont)** : `src/orchestrator/phase_tracker.py` `PhaseTracker` branché en tête du round loop live (`agent_loop.py:2513`). Pose une phase par round dans `ToolRegistry` = phase-lock enfin atteignable depuis le chat. Kill-switch `ODYSSEUS_PHASE_TRACKER` (défaut **OFF** → base product inchangé). 10 tests. 2 commits (7370610, 84e209f). Plan détaillé : `docs/superpowers/plans/2026-07-02-m3.0-phase-bridge.md`.
 - 2026-07-01 — **M2-P1** : package `src/orchestrator/` (registry + spec + dispatcher) ; `resolve_model()` = premier call-site live de `ModelRouter`. 16 tests. (Bloc 0)
@@ -92,8 +93,8 @@ Phase 15 ~ RAG/BYOX/Tests      RRF codé mais jamais appelé · chat = blend na�
 ## Session Continuity
 
 Last session: 2026-07-02
-Stopped at: **M3.0 livré** — `PhaseTracker` (le pont) branché au round loop live derrière kill-switch `ODYSSEUS_PHASE_TRACKER` (défaut OFF). Roadmap M3 (6 vagues) écrite. 20 tests verts (10 tracker + 10 gate). 2 commits (7370610, 84e209f).
+Stopped at: **M3.0 + M3.1 (advisory) livrés**. M3.0 = `PhaseTracker` (le pont) branché au round loop live. M3.1 = call-site advisory intent_gate+ModelRouter. Tous deux derrière kill-switch, défaut OFF. 28 tests verts. Commits 7370610, 84e209f, 3ded22d, f8fb55a.
 Resume file: _(aucun)_
 
-**Prochaine action :** **M3.1** — Routing & garde en tête de boucle : brancher `ModelRouter.route` + `intent_gate` en phase CLASSIFY, purger les modèles fantômes de `stage-model.yaml`. Prérequis M3.0 satisfait. Voir `ROADMAP-M3-ORCHESTRATION.md` §3 + `INTEGRATION-TRACKING.md` (Bloc A).
-_(NB : branche `dev` = 44 commits en avance sur `origin/dev`, non poussée.)_
+**Prochaine action :** 2 pistes. (a) **Débloquer M3.1 enforcement** : décider catalogue modèles réels + politique d'override (voir Recent Decisions). (b) **Avancer M3.4** (non bloqué, parallèle) : `command_validator` sur `run_script`/`run_local` — sécurité pure, zéro ambiguïté produit. Voir `ROADMAP-M3-ORCHESTRATION.md` §3-4.
+_(NB : branche `dev` = ~46 commits en avance sur `origin/dev`, non poussée.)_
