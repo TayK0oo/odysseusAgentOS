@@ -55,6 +55,8 @@ Phase 15 ~ RAG/BYOX/Tests      RRF codé mais jamais appelé · chat = blend na�
 
 ## Recent Decisions
 
+- 2026-07-02 — **M3 roadmap** : `ROADMAP-M3-ORCHESTRATION.md`. Diagnostic racine du « 35% » = **deux boucles** (live `stream_agent_loop` vs orchestrée `CanonicalLoop`) ; la live n'appelait jamais `set_phase` → tout tombait sur `default_phase: BUILD`. Décision : **Option C** (convergence incrémentale via `PhaseTracker` partagé, kill-switch, mapping tuné vague par vague). 6 vagues M3.0→M3.5 séquencées par dépendance.
+- 2026-07-02 — **M3.0 livré (le pont)** : `src/orchestrator/phase_tracker.py` `PhaseTracker` branché en tête du round loop live (`agent_loop.py:2513`). Pose une phase par round dans `ToolRegistry` = phase-lock enfin atteignable depuis le chat. Kill-switch `ODYSSEUS_PHASE_TRACKER` (défaut **OFF** → base product inchangé). 10 tests. 2 commits (7370610, 84e209f). Plan détaillé : `docs/superpowers/plans/2026-07-02-m3.0-phase-bridge.md`.
 - 2026-07-01 — **M2-P1** : package `src/orchestrator/` (registry + spec + dispatcher) ; `resolve_model()` = premier call-site live de `ModelRouter`. 16 tests. (Bloc 0)
 - 2026-07-01 — **M2-P2** : `CanonicalLoop` pilote `ToolRegistry.set_phase()` ; 7 phases canoniques dans `phase-lock.yaml` ; le phase-lock bloque/autorise réellement par phase. (Bloc 0b)
 - 2026-07-01 — **M2-P3** : `dispatch()` exécute un objectif à travers le loop 7 phases (runs orchestrés isolés du chat). Suite orchestrateur = 38 verts. (Bloc 0c)
@@ -90,8 +92,8 @@ Phase 15 ~ RAG/BYOX/Tests      RRF codé mais jamais appelé · chat = blend na�
 ## Session Continuity
 
 Last session: 2026-07-02
-Stopped at: M2-P4 livré — gate destructif réel branché à `execute_tool_block` (3 commits, 10 tests verts). Blocs 0/0b/0c/A0 câblés live.
+Stopped at: **M3.0 livré** — `PhaseTracker` (le pont) branché au round loop live derrière kill-switch `ODYSSEUS_PHASE_TRACKER` (défaut OFF). Roadmap M3 (6 vagues) écrite. 20 tests verts (10 tracker + 10 gate). 2 commits (7370610, 84e209f).
 Resume file: _(aucun)_
 
-**Prochaine action :** Bloc A — Routing auto-modèle (brancher `ModelRouter.route` + `intent_gate` en tête de loop live), OU Bloc G suite (command_validator sur run_script/run_local). Voir INTEGRATION-TRACKING.md pour le backlog complet.
-_(NB : branche `dev` = 41 commits en avance sur `origin/dev`, non poussée.)_
+**Prochaine action :** **M3.1** — Routing & garde en tête de boucle : brancher `ModelRouter.route` + `intent_gate` en phase CLASSIFY, purger les modèles fantômes de `stage-model.yaml`. Prérequis M3.0 satisfait. Voir `ROADMAP-M3-ORCHESTRATION.md` §3 + `INTEGRATION-TRACKING.md` (Bloc A).
+_(NB : branche `dev` = 44 commits en avance sur `origin/dev`, non poussée.)_
