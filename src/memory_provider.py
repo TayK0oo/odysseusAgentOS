@@ -48,6 +48,16 @@ class MemoryProvider(ABC):
     async def shutdown(self) -> None:
         """Release provider resources."""
 
+    async def on_session_end(
+        self,
+        *,
+        session_id: Optional[str] = None,
+        messages: Optional[List[Any]] = None,
+        outcome: str = "completed",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Session-lifecycle hook. Default no-op; observe-only providers override."""
+
     @abstractmethod
     async def remember(
         self,
@@ -270,6 +280,25 @@ class MemoryProviderRegistry:
     def active(self) -> List[MemoryProvider]:
         return [provider for provider in self._providers.values() if provider.enabled]
 
+    async def dispatch_session_end(self, **kwargs: Any) -> None:
+        """Fan the end-of-session hook out to every active provider.
+
+        A single provider's failure must not stop the others nor bubble up into
+        the agent loop, so per-provider exceptions are swallowed.
+        """
+        import logging
+
+        log = logging.getLogger(__name__)
+        for provider in self.active():
+            try:
+                await provider.on_session_end(**kwargs)
+            except Exception as exc:  # noqa: BLE001 - isolate per-provider faults
+                log.debug(
+                    "memory provider %s on_session_end failed: %s",
+                    provider.provider_id,
+                    exc,
+                )
+
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
         schemas: List[Dict[str, Any]] = []
         seen: Dict[str, str] = {}
@@ -318,3 +347,122 @@ class MemoryProviderRegistry:
             if isinstance(function_name, str) and function_name:
                 return function_name
         raise ValueError("Memory provider tool schema is missing a tool name")
+
+
+def _env_truthy(value: Optional[str]) -> bool:
+    return (value or "").strip().lower() in {"on", "1", "true", "yes"}
+
+
+class AcontextMemoryProvider(MemoryProvider):
+    """Observe-only provider: distills a finished session to the acontext service.
+
+    It does NOT store or recall memories (the native provider owns that). Its
+    only behavior is the end-of-session distillation POST, gated by
+    ``ACONTEXT_ENABLED`` and targeting ``ACONTEXT_URL``.
+    """
+
+    provider_id = "acontext"
+    display_name = "Acontext session distillation"
+
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        enabled: Optional[bool] = None,
+        timeout: float = 2.0,
+    ):
+        import os
+
+        self.base_url = (
+            base_url
+            or os.getenv("ACONTEXT_URL")
+            or "http://localhost:8029"
+        ).rstrip("/")
+        self.enabled = (
+            enabled if enabled is not None else _env_truthy(os.getenv("ACONTEXT_ENABLED"))
+        )
+        self.timeout = timeout
+
+    async def on_session_end(
+        self,
+        *,
+        session_id: Optional[str] = None,
+        messages: Optional[List[Any]] = None,
+        outcome: str = "completed",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        import logging
+
+        payload = {
+            "session_id": session_id or "unknown",
+            "messages_count": len(messages) if messages is not None else 0,
+            "outcome": outcome,
+        }
+        if metadata:
+            payload["metadata"] = metadata
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                await client.post(
+                    f"{self.base_url}/api/sessions/complete", json=payload
+                )
+        except Exception as exc:  # noqa: BLE001 - distillation is best-effort
+            logging.getLogger(__name__).debug("acontext distillation skipped: %s", exc)
+
+    async def remember(
+        self,
+        text: str,
+        *,
+        owner: Optional[str] = None,
+        session_id: Optional[str] = None,
+        category: str = "fact",
+        source: str = "user",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> MemoryRecord:
+        # Observe-only: acontext is not a memory store, so remember does not
+        # persist. Returns a neutral record echoing the input.
+        return MemoryRecord(
+            id="",
+            text=text,
+            category=category,
+            source=source,
+            owner=owner,
+            session_id=session_id,
+            metadata=dict(metadata) if metadata else {},
+        )
+
+    async def recall(
+        self,
+        query: str,
+        *,
+        owner: Optional[str] = None,
+        top_k: int = 5,
+    ) -> List[MemorySearchHit]:
+        return []
+
+    async def list_memories(
+        self,
+        *,
+        owner: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[MemoryRecord]:
+        return []
+
+    async def delete(self, memory_id: str, *, owner: Optional[str] = None) -> bool:
+        return False
+
+
+# ── Active-registry singleton ──────────────────────────────────────────────
+# Mirrors the channel_gateway ``get_gateway`` pattern: the app builds one
+# registry at startup and stashes it here so free functions (e.g. the streaming
+# agent loop) can fan session-end out without threading it through every call.
+_active_registry: Optional["MemoryProviderRegistry"] = None
+
+
+def set_active_registry(registry: Optional["MemoryProviderRegistry"]) -> None:
+    global _active_registry
+    _active_registry = registry
+
+
+def get_active_registry() -> Optional["MemoryProviderRegistry"]:
+    return _active_registry

@@ -3525,19 +3525,18 @@ async def stream_agent_loop(
             logger.debug("[agent] channel_gateway broadcast ignoré : %s", _gw_exc)
     # ── FIN CHANNEL GATEWAY ──────────────────────────────────────────
 
-    # ACONTEXT — distillation post-session — Phase 8
+    # MEMORY_OBSERVE — end-of-session distillation via the native provider seam.
+    # acontext (gated by ACONTEXT_ENABLED) rides in as an observe-only provider;
+    # dispatch is async and per-provider faults are isolated inside the registry.
     try:
-        import httpx as _httpx, json as _json_ctx
-        _acontext_url = "http://localhost:8029"
-        _session_data = {
-            "session_id": session_id or "unknown",
-            "messages_count": len(messages),
-            "outcome": "completed",
-        }
-        _httpx.post(f"{_acontext_url}/api/sessions/complete",
-                    json=_session_data, timeout=2.0)
-    except Exception:
-        pass  # Acontext optionnel
+        from src.memory_provider import get_active_registry
+        _mem_registry = get_active_registry()
+        if _mem_registry is not None:
+            await _mem_registry.dispatch_session_end(
+                session_id=session_id, messages=messages, outcome="completed",
+            )
+    except Exception as _mem_exc:
+        logger.debug("[agent] session-end dispatch ignoré : %s", _mem_exc)
 
     # OBSERVER — drift score — Phase 5
     try:
