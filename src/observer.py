@@ -23,6 +23,18 @@ _HARNESS_PATTERNS = [
 ]
 
 
+# Write-type tools whose target file counts as "touched". Reads (bash cat,
+# read_file, grep) are deliberately excluded so inspecting the harness never
+# escalates drift — only writes to it do.
+_HARNESS_WRITE_TOOLS = {
+    "write_file",
+    "edit_file",
+    "create_document",
+    "update_document",
+    "edit_document",
+}
+
+
 class DriftLevel(Enum):
     LOW = "low"       # Légère dérive — continuer
     MEDIUM = "medium" # Dérive significative — alerte
@@ -59,6 +71,45 @@ class Observer:
             logger.warning("Observer.record_budget_status: expected dict, got %s", type(usage_report))
             return
         self._budget_statuses[run_id] = usage_report
+
+    def ingest_metrics(self, metrics: dict, tool_events: Optional[list] = None) -> None:
+        """Derive a CodeBurn-style report from existing turn signals (no recompute).
+
+        Consumes the ``tool_events`` already assembled for the SSE stream (falling
+        back to ``metrics["tool_events"]``) and reuses ``record_codeburn_report`` so
+        the drift machinery is unchanged: writes to harness files still escalate to
+        HIGH, failed tools become waste patterns, and one_shot_rate = success ratio.
+        """
+        events = tool_events if tool_events is not None else (metrics or {}).get("tool_events", [])
+        if not events:
+            return
+
+        total = 0
+        failures: list[dict] = []
+        touched: list[str] = []
+        for ev in events:
+            if not isinstance(ev, dict):
+                continue
+            total += 1
+            exit_code = ev.get("exit_code")
+            if exit_code is not None and exit_code != 0:
+                failures.append({"tool": ev.get("tool"), "command": ev.get("command")})
+            if ev.get("tool") in _HARNESS_WRITE_TOOLS:
+                path_blob = " ".join(
+                    str(ev.get(k, "")) for k in ("command", "diff", "doc_title")
+                ).strip()
+                if path_blob:
+                    touched.append(path_blob)
+
+        if total == 0:
+            return
+
+        self.record_codeburn_report({
+            "one_shot_rate": (total - len(failures)) / total,
+            "waste_patterns": failures,
+            "touched_files": touched,
+            "source": "agent_metrics",
+        })
 
     def compute_drift_score(self) -> DriftLevel:
         """Calcule le drift score global. HIGH si fichiers harness/protocole touchés."""

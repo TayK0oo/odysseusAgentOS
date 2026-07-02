@@ -3544,6 +3544,7 @@ async def stream_agent_loop(
         _observer = Observer()
         if _budget_enforcer:
             _observer.record_budget_status(_run_id, _budget_enforcer.get_usage_report())
+        _observer.ingest_metrics(metrics, tool_events)
         drift = _observer.compute_drift_score()
         if drift == DriftLevel.HIGH:
             logger.warning("Drift score HIGH — re-loop ou escalade recommandée")
