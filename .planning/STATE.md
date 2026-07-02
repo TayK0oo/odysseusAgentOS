@@ -55,6 +55,10 @@ Phase 15 ~ RAG/BYOX/Tests      RRF codé mais jamais appelé · chat = blend na�
 
 ## Recent Decisions
 
+- 2026-07-01 — **M2-P1** : package `src/orchestrator/` (registry + spec + dispatcher) ; `resolve_model()` = premier call-site live de `ModelRouter`. 16 tests. (Bloc 0)
+- 2026-07-01 — **M2-P2** : `CanonicalLoop` pilote `ToolRegistry.set_phase()` ; 7 phases canoniques dans `phase-lock.yaml` ; le phase-lock bloque/autorise réellement par phase. (Bloc 0b)
+- 2026-07-01 — **M2-P3** : `dispatch()` exécute un objectif à travers le loop 7 phases (runs orchestrés isolés du chat). Suite orchestrateur = 38 verts. (Bloc 0c)
+- 2026-07-02 — **M2-P4** : gate destructif RÉEL. `orchestrator/gate.should_block_destructive` bloque les commandes shell catastrophiques (`rm -rf`, fork bomb, `mkfs`, `dd`, `drop database`, …) au point central `tool_execution.py:553` (avant = log-only). Outils destructifs explicites préservés ; kill-switch `ODYSSEUS_DESTRUCTIVE_GATE`. 10 tests. Ferme l'écart audit « risk_classifier logue, ne gate PAS ». (Bloc A0)
 - 2026-06-27 — Analyse profonde 60 outils complétée (5 batches + addendum). Toutes les décisions architecturales tranchées (A.7).
 - 2026-06-27 — GSD initialisé sur le projet. 15 phases définies, 76 requirements mappés.
 - 2026-06-27 — Séquence de build confirmée : phases 1→8 (harness) avant 9→15 (mémoire/governance/UI).
@@ -85,8 +89,9 @@ Phase 15 ~ RAG/BYOX/Tests      RRF codé mais jamais appelé · chat = blend na�
 
 ## Session Continuity
 
-Last session: 2026-07-01
-Stopped at: Projet terminé — audit + 6 fixes + 48 tests (29 unitaires + 19 E2E) tous passants
+Last session: 2026-07-02
+Stopped at: M2-P4 livré — gate destructif réel branché à `execute_tool_block` (3 commits, 10 tests verts). Blocs 0/0b/0c/A0 câblés live.
 Resume file: _(aucun)_
 
-**Prochaine action :** Déploiement / tests en conditions réelles. Optionnel : CSS refactor, AgentSeal CI, accessibility.
+**Prochaine action :** Bloc A — Routing auto-modèle (brancher `ModelRouter.route` + `intent_gate` en tête de loop live), OU Bloc G suite (command_validator sur run_script/run_local). Voir INTEGRATION-TRACKING.md pour le backlog complet.
+_(NB : branche `dev` = 41 commits en avance sur `origin/dev`, non poussée.)_
