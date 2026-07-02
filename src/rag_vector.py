@@ -698,6 +698,17 @@ class VectorRAG:
 # Reciprocal Rank Fusion : fusionne vecteur + BM25 full-text
 # ============================================================
 
+def _doc_content(doc) -> str:
+    """Extract the searchable text from a result dict.
+
+    The live search path emits candidates keyed on ``document``; the BM25 tests
+    and some callers use ``content``. Accept either so BM25 can tokenise both.
+    """
+    if isinstance(doc, dict):
+        return str(doc.get("content") or doc.get("document") or "")
+    return str(doc)
+
+
 def _bm25_search(query: str, documents: list, top_k: int = 10) -> list:
     """
     BM25 full-text search sur une liste de documents.
@@ -708,8 +719,7 @@ def _bm25_search(query: str, documents: list, top_k: int = 10) -> list:
         import re
 
         tokenize = lambda text: re.findall(r'\w+', text.lower())
-        tokenized_docs = [tokenize(doc.get("content", "") if isinstance(doc, dict) else str(doc))
-                          for doc in documents]
+        tokenized_docs = [tokenize(_doc_content(doc)) for doc in documents]
 
         bm25 = BM25Okapi(tokenized_docs)
         query_tokens = tokenize(query)
@@ -728,56 +738,54 @@ def _rrf_score(rank: int, k: int = 60) -> float:
     return 1.0 / (k + rank + 1)
 
 
-def hybrid_search(query: str, collection_name: str = None, top_k: int = 10,
-                  alpha: float = 0.5) -> list:
-    """
-    Hybrid search : vecteur (alpha) + BM25 (1-alpha), fusionnés par RRF.
-    alpha=1.0 → vecteur seul ; alpha=0.0 → BM25 seul ; alpha=0.5 → équilibré.
+def _doc_key(doc):
+    """Stable fusion key: the doc's own id when present, else object identity."""
+    if isinstance(doc, dict) and doc.get("id") is not None:
+        return ("id", doc["id"])
+    return ("obj", id(doc))
 
-    Retourne une liste de résultats triés par score RRF.
+
+def hybrid_search(query: str, vector_results: list, top_k: int = 10,
+                  alpha: float = 0.5) -> list:
+    """Fuse pre-ranked vector results with BM25 over the same docs, via RRF.
+
+    ``vector_results`` is the ranked candidate list the caller already produced
+    (each item a dict carrying ``content`` or ``document`` text, ideally an
+    ``id``). BM25 re-ranks those same docs on lexical overlap; the two rankings
+    are merged by Reciprocal Rank Fusion:
+
+        score(doc) = alpha·RRF(vector_rank) + (1-alpha)·RRF(bm25_rank)
+
+    ``alpha=1.0`` → pure vector order ; ``alpha=0.0`` → pure BM25 ; ``0.5`` →
+    balanced. Returns the same dict objects reordered by fused score, capped at
+    ``top_k``. Pure and side-effect-free (no I/O, no reflection) so the live
+    search path can call it directly. On any failure it degrades gracefully to
+    the incoming vector order rather than dropping results.
     """
     try:
-        # 1. Vector search (utilise la fonction existante)
-        vector_results = []
-        try:
-            # Cherche la fonction de search existante dans le module
-            import inspect, sys
-            current_module = sys.modules[__name__]
-            for name, fn in inspect.getmembers(current_module, inspect.isfunction):
-                if 'search' in name.lower() and name != 'hybrid_search':
-                    try:
-                        result = fn(query, top_k=top_k * 2)
-                        if result and isinstance(result, list):
-                            vector_results = result
-                            break
-                    except Exception:
-                        continue
-        except Exception:
-            pass
+        if not vector_results:
+            return []
 
-        # 2. BM25 sur les résultats vecteur (ou documents en cache)
-        bm25_results = _bm25_search(query, vector_results, top_k=top_k * 2)
+        bm25_results = _bm25_search(
+            query, vector_results, top_k=max(top_k * 2, len(vector_results))
+        )
 
-        # 3. RRF Fusion
         rrf_scores: dict = {}
+        docs_by_key: dict = {}
 
-        # Scores depuis vecteur
         for rank, doc in enumerate(vector_results):
-            doc_id = id(doc)
-            rrf_scores[doc_id] = rrf_scores.get(doc_id, 0) + alpha * _rrf_score(rank)
+            key = _doc_key(doc)
+            rrf_scores[key] = rrf_scores.get(key, 0.0) + alpha * _rrf_score(rank)
+            docs_by_key.setdefault(key, doc)
 
-        # Scores depuis BM25
         for rank, (doc, _bm25_score) in enumerate(bm25_results):
-            doc_id = id(doc)
-            rrf_scores[doc_id] = rrf_scores.get(doc_id, 0) + (1 - alpha) * _rrf_score(rank)
+            key = _doc_key(doc)
+            rrf_scores[key] = rrf_scores.get(key, 0.0) + (1 - alpha) * _rrf_score(rank)
+            docs_by_key.setdefault(key, doc)
 
-        # Reconstruction triée
-        all_docs = {id(doc): doc for doc in vector_results}
-        all_docs.update({id(doc): doc for doc, _ in bm25_results})
-
-        sorted_results = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
-        return [all_docs[doc_id] for doc_id, _ in sorted_results[:top_k] if doc_id in all_docs]
+        ordered = sorted(rrf_scores.items(), key=lambda kv: kv[1], reverse=True)
+        return [docs_by_key[key] for key, _ in ordered[:top_k]]
 
     except Exception as e:
-        logger.warning(f"Hybrid search fallback to vector: {e}")
-        return []
+        logger.warning(f"hybrid_search RRF failed, returning vector order: {e}")
+        return list(vector_results[:top_k])
