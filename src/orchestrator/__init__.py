@@ -6,6 +6,7 @@ from src.orchestrator.phases import Phase, CANONICAL_SEQUENCE, phase_lock_name, 
 from src.orchestrator.loop import CanonicalLoop
 from src.orchestrator.gate import should_block_destructive, gate_enabled
 from src.orchestrator.phase_tracker import PhaseTracker, tracker_enabled
+from src.orchestrator.router_advice import advise, router_enabled
 
 __all__ = [
     "AgentSpec", "parse_agent_spec", "AgentRegistry", "resolve_model",
@@ -13,4 +14,5 @@ __all__ = [
     "Phase", "CANONICAL_SEQUENCE", "phase_lock_name", "forced_tools", "CanonicalLoop",
     "should_block_destructive", "gate_enabled",
     "PhaseTracker", "tracker_enabled",
+    "advise", "router_enabled",
 ]
