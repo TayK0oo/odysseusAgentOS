@@ -1,6 +1,9 @@
 """
-Knowledge routes — Orchestration de la Trinité (CBM + Graphify + Obsidian).
-Checkpoint obligatoire avant toute génération : CBM → Graphify → Obsidian.
+Knowledge routes — Orchestration de la Trinité (CBM + VectorRAG natif + Obsidian).
+Checkpoint : CBM (structure code) → VectorRAG natif (sémantique doc) → Obsidian.
+
+La recherche sémantique doc est déléguée au ``VectorRAG`` natif (ChromaDB) au
+lieu du service Graphify fantôme (jamais démarré) — zéro redondance.
 """
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -8,12 +11,25 @@ from typing import Optional, List, Dict, Any
 import httpx
 import logging
 
+from src.rag_singleton import get_rag_manager
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 
 CBM_URL = "http://localhost:9749"
-GRAPHIFY_URL = "http://localhost:9750"  # Graphify sur ce port (configurable)
 OBSIDIAN_URL = "http://localhost:9751"  # Obsidian MCP
+
+
+def _native_semantic_search(query: str, limit: int = 5) -> Dict[str, Any]:
+    """Semantic doc search via the native VectorRAG (replaces phantom Graphify)."""
+    rag = get_rag_manager()
+    if rag is None:
+        return {"results": [], "error": "native RAG unavailable"}
+    try:
+        hits = rag.search(query, k=limit)
+        return {"results": hits, "source": "native-vectorrag"}
+    except Exception as e:
+        return {"results": [], "error": str(e)}
 
 # ---- CBM — Structure code ----
 
@@ -57,27 +73,12 @@ async def get_architecture(aspects: str = "all"):
     except Exception as e:
         return {"error": str(e)}
 
-# ---- Graphify — Sémantique ----
-
-@router.post("/graph/index")
-async def index_project(project_path: str = "."):
-    """Graphify — indexe le projet (on-demand). Lance l'analyse sémantique."""
-    try:
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            resp = await client.post(f"{GRAPHIFY_URL}/index", json={"path": project_path})
-            return resp.json()
-    except Exception as e:
-        return {"error": str(e), "hint": "Démarrer avec: docker compose --profile knowledge up -d"}
+# ---- Sémantique doc — VectorRAG natif (remplace Graphify) ----
 
 @router.get("/graph/search")
 async def search_graph_semantic(q: str, limit: int = 10):
-    """Graphify — recherche sémantique dans le graphe de connaissances."""
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(f"{GRAPHIFY_URL}/search", params={"q": q, "limit": limit})
-            return resp.json()
-    except Exception as e:
-        return {"error": str(e)}
+    """Recherche sémantique doc — déléguée au VectorRAG natif."""
+    return _native_semantic_search(q, limit)
 
 # ---- Obsidian — Mémoire inter-projets ----
 
@@ -120,7 +121,10 @@ async def trinite_checkpoint(query: str, context_type: str = "code"):
     Appelé obligatoirement avant toute génération de code.
     Retourne un contexte enrichi.
     """
-    results = {"cbm": None, "graphify": None, "obsidian": None, "query": query}
+    results = {"cbm": None, "semantic": None, "obsidian": None, "query": query}
+
+    # 2. Sémantique doc — VectorRAG natif (synchrone, pas de HTTP)
+    results["semantic"] = _native_semantic_search(query, 5)
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         # 1. CBM — structure code
@@ -129,13 +133,6 @@ async def trinite_checkpoint(query: str, context_type: str = "code"):
             results["cbm"] = r.json()
         except Exception:
             results["cbm"] = {"error": "CBM offline"}
-
-        # 2. Graphify — sémantique
-        try:
-            r = await client.get(f"{GRAPHIFY_URL}/search", params={"q": query, "limit": 5})
-            results["graphify"] = r.json()
-        except Exception:
-            results["graphify"] = {"error": "Graphify offline"}
 
         # 3. Obsidian — mémoire
         try:
@@ -149,11 +146,11 @@ async def trinite_checkpoint(query: str, context_type: str = "code"):
 @router.get("/status")
 async def knowledge_status():
     """Statut de tous les composants de la Trinité."""
+    status = {"rag": "online" if get_rag_manager() is not None else "offline"}
     async with httpx.AsyncClient(timeout=3.0) as client:
-        status = {}
-        for name, url in [("cbm", CBM_URL), ("graphify", GRAPHIFY_URL), ("obsidian", OBSIDIAN_URL)]:
+        for name, url in [("cbm", CBM_URL), ("obsidian", OBSIDIAN_URL)]:
             try:
-                r = await client.get(f"{url}/health")
+                await client.get(f"{url}/health")
                 status[name] = "online"
             except Exception:
                 status[name] = "offline"
