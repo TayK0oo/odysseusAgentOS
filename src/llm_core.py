@@ -1,7 +1,7 @@
 # src/llm_core.py
-# MIGRATION: Les nouveaux appels LLM doivent passer par src/llm_router.py (LiteLLM).
-# Ce fichier est conservé pour la compatibilité ascendante.
-# TODO: Migrer progressivement les appels existants vers ModelRouter.
+# Canonical LLM dispatch: stream_llm / stream_llm_with_fallback (httpx) driven by
+# the native resolve_endpoint role/fallback chain. The old LiteLLM ModelRouter
+# migration note was removed with llm_router.py (M3.1, graded REDUNDANT).
 import httpx
 import asyncio
 import time

@@ -1,8 +1,9 @@
 """Model resolution for an agent spec (Milestone 2, P1 slice).
 
-This is the first live call-site of src/llm_router.py::ModelRouter. Actual
-sub-session spawning lands in M2-P2; here we only resolve WHICH model an agent
-should run on.
+Resolves WHICH model an agent should run on. `resolve_model` takes an INJECTED,
+duck-typed `router` (`.route(intent_category, stage)`) — it does not import any
+concrete router. The redundant ModelRouter was removed (M3.1); callers pass the
+native resolver or leave `router=None` to fall back to the session default.
 """
 from __future__ import annotations
 
