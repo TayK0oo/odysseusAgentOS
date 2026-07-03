@@ -12,10 +12,11 @@ from enum import Enum
 logger = logging.getLogger(__name__)
 
 class ChannelType(Enum):
+    # Only the two real in-process channels. EMAIL/WEBHOOK were removed: they
+    # had no adapter and duplicated the mature native email-poller and
+    # webhook_manager subsystems (never delivered through this gateway).
     DISCORD = "discord"
     TELEGRAM = "telegram"
-    EMAIL = "email"
-    WEBHOOK = "webhook"
 
 @dataclass
 class InboundMessage:
