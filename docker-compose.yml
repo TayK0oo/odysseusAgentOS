@@ -172,11 +172,23 @@ services:
     ports:
       - "127.0.0.1:8700:8000"
     restart: unless-stopped
+    environment:
+      # Mermaid/BPMN/Excalidraw are rendered by the companion container below.
+      # Without this the core image answers 503 for diagram_type=mermaid (our default).
+      - KROKI_MERMAID_HOST=kroki-mermaid
+    depends_on:
+      - kroki-mermaid
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+
+  kroki-mermaid:
+    image: yuzutech/kroki-mermaid:latest
+    expose:
+      - "8002"
+    restart: unless-stopped
 
   serena-mcp:
     image: python:3.12-slim
@@ -220,13 +232,15 @@ services:
     profiles:
       - scrapling
     healthcheck:
-      # The MCP endpoint lives at /mcp; a reachable TCP port is enough to call
-      # it a healthy start (any HTTP response, incl. 4xx, means it's listening).
-      test: ["CMD-SHELL", "curl -sf -o /dev/null http://localhost:8800/mcp || curl -s -o /dev/null -w '%{http_code}' http://localhost:8800/mcp | grep -qE '^[0-9]'"]
+      # python:3.12-slim has no curl, so probe with python (always present).
+      # A listening TCP port is the right health signal: the streamable-HTTP
+      # /mcp endpoint answers 406 to a bare GET, which curl -f would wrongly
+      # treat as a failure. create_connection() succeeds iff the server is up.
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',8800),5).close()\""]
       interval: 30s
       timeout: 15s
       retries: 3
-      start_period: 60s
+      start_period: 90s
 
   codebase-memory:
     image: ghcr.io/superpowers-sh/codebase-memory-mcp:latest
