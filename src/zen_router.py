@@ -80,14 +80,51 @@ def _resolve_zen_endpoint_row():
 
 
 def _zen_provider_conn(zen_cfg: dict):
-    """(base_url, api_key) for the Zen provider. Prefers a native ModelEndpoint
-    row (single source of truth); falls back to model-routing.json + env."""
+    """(base_url, api_key, from_endpoint). Prefers a native ModelEndpoint row
+    (single source of truth); falls back to model-routing.json + env. The third
+    element tells callers whether the conn came from a registered endpoint, so
+    per-candidate enablement can bypass the JSON `enabled` flag."""
     row = _resolve_zen_endpoint_row()
     if row:
-        return row
+        return row[0], row[1], True
     base_url = zen_cfg.get("base_url", "https://opencode.ai/zen/v1/chat/completions")
     api_key = os.getenv(zen_cfg.get("api_key_env", "OPENCODE_API_KEY"), "")
-    return base_url, api_key
+    return base_url, api_key, False
+
+
+_ZEN_ENDPOINT_CACHE = {"present": None, "ts": 0.0}
+_ZEN_ENDPOINT_TTL = 30.0
+
+
+def _reset_zen_endpoint_cache() -> None:
+    _ZEN_ENDPOINT_CACHE["present"] = None
+    _ZEN_ENDPOINT_CACHE["ts"] = 0.0
+
+
+def zen_endpoint_registered() -> bool:
+    """Cached: is a native opencode.ai ModelEndpoint registered? Used by the
+    live gate so a stream call does not hit the DB every time. Best-effort —
+    any resolution failure caches False."""
+    now = time.time()
+    cached = _ZEN_ENDPOINT_CACHE["present"]
+    if cached is not None and (now - _ZEN_ENDPOINT_CACHE["ts"]) < _ZEN_ENDPOINT_TTL:
+        return cached
+    present = _resolve_zen_endpoint_row() is not None
+    _ZEN_ENDPOINT_CACHE["present"] = present
+    _ZEN_ENDPOINT_CACHE["ts"] = now
+    return present
+
+
+def zen_injection_enabled() -> bool:
+    """Should the live path inject Zen candidates? Env key = today's behavior
+    (unchanged). A registered endpoint only enables Zen when the default-OFF
+    kill-switch ODYSSEUS_ZEN_FROM_ENDPOINT=1 is set — so the live chat path is
+    byte-identical by default."""
+    if os.getenv("OPENCODE_API_KEY"):
+        return True
+    if os.getenv("ODYSSEUS_ZEN_FROM_ENDPOINT") == "1" and zen_endpoint_registered():
+        return True
+    return False
 
 
 def classify_complexity(prompt: str) -> tuple[str, float]:
@@ -144,11 +181,10 @@ def get_zen_candidate(tier: str) -> Optional[tuple[str, str, dict]]:
     models = cfg.get("models", {})
 
     zen_cfg = providers.get("opencode_zen", {})
-    if not zen_cfg.get("enabled", False):
-        return None
-
-    zen_url, api_key = _zen_provider_conn(zen_cfg)
+    zen_url, api_key, from_endpoint = _zen_provider_conn(zen_cfg)
     if not api_key:
+        return None
+    if not from_endpoint and not zen_cfg.get("enabled", False):
         return None
 
     model_cfg = models.get(tier, models.get("fast", {}))
@@ -282,11 +318,10 @@ def build_zen_candidates(messages: list, stage: str = "chat") -> list:
     providers = cfg.get("providers", {})
 
     zen_cfg = providers.get("opencode_zen", {})
-    if not zen_cfg.get("enabled", False):
-        return []
-
-    zen_url, api_key = _zen_provider_conn(zen_cfg)
+    zen_url, api_key, from_endpoint = _zen_provider_conn(zen_cfg)
     if not api_key:
+        return []
+    if not from_endpoint and not zen_cfg.get("enabled", False):
         return []
 
     # Tier depuis le stage

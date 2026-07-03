@@ -2453,8 +2453,8 @@ async def stream_llm_with_fallback(candidates, messages, **kwargs):
     # ── AgentOS: inject Zen candidates at the front ────────────────────────────
     zen_cands: list = []
     try:
-        if os.getenv("OPENCODE_API_KEY"):
-            from src.zen_router import build_zen_candidates
+        from src.zen_router import zen_injection_enabled, build_zen_candidates
+        if zen_injection_enabled():
             stage = kwargs.pop("_agentos_stage", "chat")
             zen_cands = build_zen_candidates(messages, stage=stage)
     except Exception as _ze:
