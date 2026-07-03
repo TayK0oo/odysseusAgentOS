@@ -18,21 +18,23 @@ import src.zen_router as zr
 def test_conn_falls_back_to_json_and_env(monkeypatch):
     monkeypatch.setattr(zr, "_resolve_zen_endpoint_row", lambda: None)
     monkeypatch.setenv("OPENCODE_API_KEY", "env-key")
-    url, key = zr._zen_provider_conn(
+    url, key, from_endpoint = zr._zen_provider_conn(
         {"base_url": "https://json/zen", "api_key_env": "OPENCODE_API_KEY"}
     )
     assert url == "https://json/zen"
     assert key == "env-key"
+    assert from_endpoint is False
 
 
 def test_conn_prefers_native_endpoint_row(monkeypatch):
     monkeypatch.setattr(zr, "_resolve_zen_endpoint_row", lambda: ("https://db/zen", "db-key"))
     monkeypatch.setenv("OPENCODE_API_KEY", "env-key")
-    url, key = zr._zen_provider_conn(
+    url, key, from_endpoint = zr._zen_provider_conn(
         {"base_url": "https://json/zen", "api_key_env": "OPENCODE_API_KEY"}
     )
     assert url == "https://db/zen"
     assert key == "db-key"
+    assert from_endpoint is True
 
 
 def test_build_candidates_uses_db_row_url_and_key(monkeypatch):
