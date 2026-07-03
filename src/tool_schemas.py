@@ -82,6 +82,22 @@ FUNCTION_TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "render_diagram",
+            "description": "Render a text-described diagram into an image to illustrate an explanation (flowcharts, sequence/architecture diagrams, ER, mind maps, ...). Powered by Kroki: pass diagram source in a supported syntax (mermaid, plantuml, graphviz/dot, d2, erd, ...). Returns a PNG that shows inline in the chat. Use this instead of describing a diagram in prose when a picture is clearer.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "content": {"type": "string", "description": "The diagram source text, e.g. 'graph TD; A-->B' for mermaid"},
+                    "diagram_type": {"type": "string", "description": "Diagram syntax: mermaid (default), plantuml, graphviz, dot, d2, erd, blockdiag, seqdiag, ...", "default": "mermaid"},
+                    "output_format": {"type": "string", "enum": ["png", "svg"], "description": "png (default, renders inline) or svg (returns inline SVG text)", "default": "png"}
+                },
+                "required": ["content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "read_file",
             "description": "Read a file from disk. Optionally read a line range with offset/limit for large files.",
             "parameters": {
