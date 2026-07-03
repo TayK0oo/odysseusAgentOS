@@ -192,10 +192,10 @@ Supprimés de la carte v1 (redondants) : ModelRouter(stage), RRF-nouveau-module,
 - [ ] Routing redondant supprimé (ModelRouter/json/yaml/routing_routes) ; `router_advice` retargeté rôles natifs ; re-export `__init__` nettoyé (M3.1)
 - [ ] zen Go migré en `ModelEndpoint` natif (bloquant retrait complet)
 - [~] M3.2 : RRF existant réparé (fonction pure fusion vecteur+BM25) + câblé dans `search` live derrière kill-switch `ODYSSEUS_RRF_FUSION` (défaut OFF, blend 0.7/0.3 inchangé) ✅ · acontext réveillé via `MemoryProviderRegistry` (provider observe-only `on_session_end`, gate `ACONTEXT_ENABLED` défaut OFF, remplace le POST synchrone hardcodé du agent_loop) ✅ · Trinité : sémantique doc déléguée au `VectorRAG` natif, Graphify fantôme supprimé ✅ · **reste** : câbler `checkpoint` dans la boucle live (DÉCISION requise : pré-gen vs MEMORY_OBSERVE post-round ; valeur dépend de CBM-HTTP + Obsidian-MCP en ligne)
-- [ ] `_run_verifier_subagent` natif étendu pour AUTOEVAL ; observer consomme le SSE metrics (M3.3)
+- [~] M3.3 : observer consomme le SSE metrics + tool_events (`Observer.ingest_metrics`, câblé dans le bloc live, 8 tests) ✅ · **reste** : `_run_verifier_subagent` étendu pour AUTOEVAL keep/revert (DÉCISION requise : la boucle live n'a pas de notion de phase, `CanonicalLoop` n'a pas de hook d'exécution, revert = `git reset --hard` destructif)
 - [~] M3.4 sécurité : run_script/run_local/ssh couverts ✅ · SAFE_PREFIXES chaînage corrigé ✅ · phantom `run_command` retiré ✅ · fusion patterns REJETÉE (2 politiques, cf. §M3.4) · api-shell admin non gatée (intention humaine) · **reste** : governance ancestry live
 - [ ] Token accounting unifié (1 writer + run_id de corrélation) (M3.X)
-- [ ] Adapters Discord/Telegram réveillés via event_bus natif ; gateway-as-bus + enums EMAIL/WEBHOOK supprimés (M3.5)
+- [~] M3.5 : enums `ChannelType.EMAIL`/`WEBHOOK` redondants supprimés (0 caller, 5 tests) ✅ · **reste** : adapters Discord/Telegram réveillés via event_bus natif + gateway-as-bus supprimé (feature à concevoir : routing inbound→`event_bus.fire_event`, outbound→delivery natif)
 - [ ] Zéro redondance résiduelle vérifiée contre `.planning/intel/INDEX.md §2`
 - [ ] Zéro régression : suite verte, base product intact avec kill-switch OFF
 ```
