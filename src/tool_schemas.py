@@ -1435,65 +1435,12 @@ def function_call_to_tool_block(name: str, arguments: str) -> Optional[ToolBlock
 
 
 # ============================================================
-# SCRAPLING MCP TOOLS — Phase 4
-# (Actifs si scrapling-mcp:8800 est démarré)
+# SCRAPLING — served via the native MCP manager (no hand-written schema)
 # ============================================================
-
-SCRAPLING_TOOLS = [
-    {
-        "name": "scrapling_fetch",
-        "description": "Récupère une URL avec adaptive scraping (anti-bot, TLS impersonation). Retourne du Markdown propre.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "url": {"type": "string", "description": "URL à scraper"},
-                "mode": {
-                    "type": "string",
-                    "enum": ["basic", "stealth", "dynamic"],
-                    "description": "basic=HTTP, stealth=anti-bot Cloudflare, dynamic=headless browser",
-                    "default": "basic"
-                },
-                "output_format": {
-                    "type": "string",
-                    "enum": ["markdown", "text", "html"],
-                    "default": "markdown"
-                }
-            },
-            "required": ["url"]
-        }
-    },
-    {
-        "name": "scrapling_spider",
-        "description": "Crawl multi-pages async avec pause/resume. Retourne les N premières pages en Markdown.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "start_url": {"type": "string"},
-                "max_pages": {"type": "integer", "default": 10, "maximum": 50},
-                "follow_patterns": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Patterns d'URL à suivre (regex)"
-                },
-                "output_format": {"type": "string", "enum": ["markdown", "json"], "default": "markdown"}
-            },
-            "required": ["start_url"]
-        }
-    },
-    {
-        "name": "scrapling_extract",
-        "description": "Extraction ciblée d'éléments depuis une page (adaptive — survit aux changements de layout).",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "url": {"type": "string"},
-                "selectors": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "CSS selectors ou descriptions texte des éléments à extraire"
-                }
-            },
-            "required": ["url"]
-        }
-    }
-]
+#
+# The old SCRAPLING_TOOLS list here invented tools (scrapling_fetch/spider/
+# extract) that Scrapling's real MCP server does NOT expose. The server's
+# actual tools are get/bulk_get/fetch/bulk_fetch/stealthy_fetch/... and are
+# discovered at connect time by src/mcp_manager.py (EXTERNAL_MCP_SERVERS +
+# connect_external_enabled), surfacing as mcp__scrapling__*. Keeping a static
+# schema here would only drift from the real server, so it was removed.

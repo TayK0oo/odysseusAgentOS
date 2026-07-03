@@ -206,20 +206,27 @@ services:
 
   scrapling-mcp:
     image: python:3.12-slim
+    # Scrapling's own MCP server over Streamable HTTP. `--http` is REQUIRED:
+    # without it the server defaults to stdio and nothing listens on the port.
+    # The streamable-HTTP endpoint is mounted at /mcp (see src/mcp_manager.py
+    # EXTERNAL_MCP_SERVERS["scrapling"]).
     command: >
-      bash -c "pip install scrapling[all] -q &&
+      bash -c "pip install 'scrapling[all]' -q &&
                scrapling install &&
-               python -m scrapling.mcp --port 8800"
+               scrapling mcp --http --host 0.0.0.0 --port 8800"
     ports:
       - "127.0.0.1:8800:8800"
     restart: unless-stopped
     profiles:
       - scrapling
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8800/health"]
+      # The MCP endpoint lives at /mcp; a reachable TCP port is enough to call
+      # it a healthy start (any HTTP response, incl. 4xx, means it's listening).
+      test: ["CMD-SHELL", "curl -sf -o /dev/null http://localhost:8800/mcp || curl -s -o /dev/null -w '%{http_code}' http://localhost:8800/mcp | grep -qE '^[0-9]'"]
       interval: 30s
       timeout: 15s
       retries: 3
+      start_period: 60s
 
   codebase-memory:
     image: ghcr.io/superpowers-sh/codebase-memory-mcp:latest
