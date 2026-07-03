@@ -990,6 +990,13 @@ async def _startup_event():
             logger.warning("User MCP startup timed out (non-critical)")
         except BaseException as e:
             logger.warning(f"MCP startup failed (non-critical): {type(e).__name__}: {e}")
+        # Docker-bundled external MCP servers (Scrapling, ...) gated by their
+        # enable-flag env. Fire-and-forget: each connect is a background task so
+        # an unreachable container never blocks startup.
+        try:
+            await mcp_manager.connect_external_enabled()
+        except BaseException as e:
+            logger.warning(f"External MCP startup failed (non-critical): {type(e).__name__}: {e}")
 
     _startup_tasks.append(asyncio.create_task(_startup_mcp_connections()))
 

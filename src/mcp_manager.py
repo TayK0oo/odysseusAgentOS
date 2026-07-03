@@ -19,25 +19,44 @@ logger = logging.getLogger(__name__)
 # EXTERNAL MCP SERVERS — Phase 4
 # Services HTTP externes (non-stdio). Démarrés via docker-compose.
 # ============================================================
+# Each entry is a docker-compose-bundled service. Entries with a `transport`
+# are real MCP servers connected by connect_external_enabled() at startup —
+# their tools surface as mcp__{id}__* with schemas discovered from the server
+# (no hand-written schema to drift). Entries WITHOUT a transport are not MCP
+# servers (e.g. Kroki, served over REST by the native render_diagram tool) and
+# are never MCP-connected.
 EXTERNAL_MCP_SERVERS = {
     "scrapling": {
-        "url": "http://localhost:8800",
+        "name": "Scrapling (web scraping)",
+        # Scrapling's own MCP server over Streamable HTTP (`scrapling mcp --http
+        # --port 8800`). Real tools: get/bulk_get/fetch/bulk_fetch/
+        # stealthy_fetch/... discovered at connect time. The streamable-HTTP
+        # endpoint is mounted at /mcp.
+        "url": os.getenv("SCRAPLING_MCP_URL", "http://localhost:8800/mcp"),
+        "transport": "http",
         "enabled_env": "SCRAPLING_ENABLED",
-        "tools": "SCRAPLING_TOOLS",  # from tool_schemas
-        "profile": "scrapling"  # profil docker-compose
+        "profile": "scrapling",  # profil docker-compose
     },
     "supabase": {
-        "url": os.getenv("SUPABASE_MCP_URL", "http://localhost:8900"),
+        "name": "Supabase (read-only SQL)",
+        "url": os.getenv("SUPABASE_MCP_URL", "http://localhost:8900/mcp"),
+        "transport": "http",
         "enabled_env": "SUPABASE_MCP_ENABLED",
-        "tools": "SUPABASE_TOOLS",
-        "read_only": True
+        "read_only": True,
     },
     "kroki": {
+        "name": "Kroki (diagrams)",
         "url": "http://localhost:8700",
         "enabled_env": "KROKI_ENABLED",
-        "tools": []  # Kroki = REST direct, pas de tools MCP
-    }
+        "rest_only": True,  # served by the native render_diagram tool, not MCP
+    },
 }
+
+
+def _env_truthy(env_key: Optional[str]) -> bool:
+    if not env_key:
+        return True
+    return os.getenv(env_key, "").strip().lower() in ("1", "true", "yes", "on")
 
 def _format_mcp_connection_error(name: str, command: str = "", args: Optional[List[str]] = None, error: Exception = None) -> str:
     """Return a user-actionable MCP connection error message."""
@@ -454,6 +473,53 @@ class McpManager:
                 )
         finally:
             db.close()
+
+    def _external_servers_to_connect(self):
+        """Pure decision: which EXTERNAL_MCP_SERVERS entries are MCP servers that
+        are enabled right now. Returns a list of (server_id, name, transport, url).
+
+        Only entries with a real MCP `transport` qualify — REST-only bundles
+        (Kroki via render_diagram) are excluded. Each is gated by its enable-flag
+        env (kill-switch), so the base product stays byte-identical when off.
+        """
+        out = []
+        for server_id, cfg in EXTERNAL_MCP_SERVERS.items():
+            transport = cfg.get("transport")
+            if not transport:
+                continue  # not an MCP server (e.g. Kroki REST)
+            if not _env_truthy(cfg.get("enabled_env")):
+                continue  # disabled by kill-switch
+            out.append((server_id, cfg.get("name", server_id), transport, cfg.get("url")))
+        return out
+
+    async def connect_external_enabled(self):
+        """Connect docker-bundled external MCP servers (EXTERNAL_MCP_SERVERS)
+        whose enable-flag env is truthy. Declared in code (not the DB) because
+        they ship with docker-compose. Best-effort and non-blocking: each connect
+        runs as a background task so a slow/unreachable service never delays
+        startup. Returns the created tasks (mainly for tests)."""
+        import asyncio
+        tasks = []
+        for server_id, name, transport, url in self._external_servers_to_connect():
+            tasks.append(asyncio.create_task(
+                self._connect_external_one(server_id, name, transport, url)
+            ))
+        return tasks
+
+    async def _connect_external_one(self, server_id: str, name: str, transport: str, url: Optional[str]):
+        try:
+            ok = await self.connect_server(
+                server_id=server_id, name=name, transport=transport, url=url,
+            )
+            if ok:
+                logger.info(f"External MCP server connected: {name} ({server_id})")
+            else:
+                logger.warning(
+                    f"External MCP server not ready: {name} ({server_id}) — "
+                    f"is the container running? ({url})"
+                )
+        except BaseException as e:
+            logger.warning(f"External MCP server {name} error: {type(e).__name__}: {e}")
 
     async def call_tool(self, qualified_name: str, arguments: Dict) -> Dict:
         """Call an MCP tool by its qualified name (mcp__{server_id}__{tool_name}).
