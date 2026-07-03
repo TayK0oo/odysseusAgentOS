@@ -247,7 +247,8 @@ Regroupé par sous-système (= futurs blocs de plan GSD). `[ ]` = à faire, `[x]
 - [ ] Piloter la phase (phase-lock) depuis les transitions
 
 ### Bloc F — Outils exécution
-- [ ] Enregistrer Scrapling comme tool agent (pas juste REST)
+- [x] Enregistrer Scrapling comme tool agent (pas juste REST) — **E2E validé 2026-07-03** : vrai MCP Streamable-HTTP, 10 tools `mcp__scrapling__*`, container healthy
+- [x] Kroki `render_diagram` — **E2E validé 2026-07-03** : SVG+PNG réels, compagnon `kroki-mermaid` ajouté
 - [ ] Serena : client + schema tools
 - [ ] Graphify : ajouter service OU retirer route
 - [ ] Obsidian MCP : démarrer + rw + brancher
