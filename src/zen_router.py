@@ -48,6 +48,48 @@ def _load_routing_config() -> dict:
     return _routing_config or {}
 
 
+def _resolve_zen_endpoint_row():
+    """Best-effort: resolve the OpenCode Zen provider from a native ModelEndpoint
+    row so the DB is the single source of truth for the base URL + key when an
+    admin has registered one. Returns (base_url, api_key) or None.
+
+    Any failure (no DB, no matching row, import error) returns None → callers
+    fall back to the JSON config + env, so the live chat path is byte-identical
+    when no Zen endpoint is registered.
+    """
+    try:
+        from core.database import SessionLocal, ModelEndpoint
+        from src.endpoint_resolver import resolve_endpoint_runtime
+    except Exception:
+        return None
+    try:
+        db = SessionLocal()
+        try:
+            for ep in db.query(ModelEndpoint).all():
+                base = (getattr(ep, "base_url", "") or "").lower()
+                if "opencode.ai" not in base:
+                    continue
+                url, key = resolve_endpoint_runtime(ep)
+                if url and key:
+                    return url, key
+        finally:
+            db.close()
+    except Exception:
+        return None
+    return None
+
+
+def _zen_provider_conn(zen_cfg: dict):
+    """(base_url, api_key) for the Zen provider. Prefers a native ModelEndpoint
+    row (single source of truth); falls back to model-routing.json + env."""
+    row = _resolve_zen_endpoint_row()
+    if row:
+        return row
+    base_url = zen_cfg.get("base_url", "https://opencode.ai/zen/v1/chat/completions")
+    api_key = os.getenv(zen_cfg.get("api_key_env", "OPENCODE_API_KEY"), "")
+    return base_url, api_key
+
+
 def classify_complexity(prompt: str) -> tuple[str, float]:
     """
     Heuristic classifier (OmO pattern) → (tier, score).
@@ -105,8 +147,7 @@ def get_zen_candidate(tier: str) -> Optional[tuple[str, str, dict]]:
     if not zen_cfg.get("enabled", False):
         return None
 
-    api_key_env = zen_cfg.get("api_key_env", "OPENCODE_API_KEY")
-    api_key = os.getenv(api_key_env, "")
+    zen_url, api_key = _zen_provider_conn(zen_cfg)
     if not api_key:
         return None
 
@@ -127,7 +168,6 @@ def get_zen_candidate(tier: str) -> Optional[tuple[str, str, dict]]:
         else:
             return None
 
-    zen_url = zen_cfg.get("base_url", "https://opencode.ai/zen/v1/chat/completions")
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -245,7 +285,7 @@ def build_zen_candidates(messages: list, stage: str = "chat") -> list:
     if not zen_cfg.get("enabled", False):
         return []
 
-    api_key = os.getenv(zen_cfg.get("api_key_env", "OPENCODE_API_KEY"), "")
+    zen_url, api_key = _zen_provider_conn(zen_cfg)
     if not api_key:
         return []
 
@@ -256,7 +296,6 @@ def build_zen_candidates(messages: list, stage: str = "chat") -> list:
         if last_user:
             tier, _ = classify_complexity(last_user)
 
-    zen_url = zen_cfg.get("base_url", "https://opencode.ai/zen/v1/chat/completions")
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
     candidates = []
