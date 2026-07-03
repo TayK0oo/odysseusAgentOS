@@ -954,6 +954,14 @@ async def _execute_tool_block_impl(
     elif tool == "list_cookbook_servers":
         desc = "list_cookbook_servers"
         result = await do_list_cookbook_servers(content, owner=owner)
+    elif tool == "render_diagram":
+        # Kroki diagram render (agent_tools.diagram_tools). Returns image_url
+        # directly (PNG saved under GENERATED_IMAGES_DIR), which the agent loop
+        # forwards to the native image bubble — same path as generate_image.
+        first_line = content.split(chr(10))[0].strip()[:60]
+        desc = f"render_diagram: {first_line}" if first_line else "render_diagram"
+        result = await _direct_fallback(tool, content, progress_cb=progress_cb) \
+            or {"error": "render_diagram: execution failed", "exit_code": 1}
     elif tool == "edit_image":
         desc = "edit_image"
         result = await do_edit_image(content, owner=owner)
