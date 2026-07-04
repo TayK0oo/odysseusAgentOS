@@ -19,10 +19,30 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 - **Milestone 2 (intégration live dans Odysseus) :** 🔨 EN COURS — planification
 - **Câblage réel :** ~30-40% (voir INTEGRATION-TRACKING.md)
 
-## Progress — RÉEL (post-audit 2026-07-01)
+## Progress — RÉEL (post-audit 2026-07-01, MAJ vérifiée 2026-07-05)
+
+> ✅ **MAJ 2026-07-05 (M3 terminé, vérifié tests verts).** Le snapshot ~35% ci-dessous
+> est PÉRIMÉ : la vague M3 (M3.0→M3.5 + M3.X) a câblé la plupart des modules "dormants",
+> chacun derrière un kill-switch défaut-OFF (comportement byte-identique tant que non activé).
+> **Vérifié câblé cette session (fichier:ligne + suites vertes) :**
+> - `router_advice` (M3.1) — `intent_gate.classify_intent` live → rôle natif ; `ModelRouter`/
+>   `llm_router.py`/`routing_routes.py`/`stage-model-assignment.yaml` **supprimés** ; kill-switch
+>   `ODYSSEUS_MODEL_ROUTER`. `model-routing.json` GARDÉ (politique routing zen, pas fantôme).
+> - `acontext` (M3.2) — n'est PLUS un dump JSON : `AcontextMemoryProvider` observe-only enregistré
+>   dans `MemoryProviderRegistry` (`app_initializer.py:82`), distillation fin-de-session via
+>   `dispatch_session_end` (`agent_loop.py:3569`), gate `ACONTEXT_ENABLED`.
+> - `governance` ancestry (M3.4) — écrit au `agent_loop.py:3575`, gated `project_id` + kill-switch.
+> - `channels` (M3.5) — adapters Discord/Telegram réveillés (gate `ODYSSEUS_INPROCESS_*`) +
+>   round-trip inbound→agent→reply (`run_agent_reply`, gate `ODYSSEUS_CHANNEL_AGENT_REPLY`).
+> - `PhaseTracker` (M3.0, `ODYSSEUS_PHASE_TRACKER`) · token accounting (M3.X) · RRF hybride
+>   réparé+câblé (M3.2/Phase 15, `ODYSSEUS_RRF_FUSION`).
+>
+> **Restent réellement inactifs :** Obsidian MCP (jamais démarré) · Graphify (0 svc) · agents
+> `.opencode/agents/*.md` (CLI only) · `observer`/`autoeval` pilotés API seulement (loop ne les
+> pilote pas encore). Ce sont les candidats Milestone 2 suivants.
 
 ```
-Câblage live : ███░░░░░░░ ~35%
+Câblage live (snapshot 2026-07-01, périmé) : ███░░░░░░░ ~35%
 
 Vraiment vivant :   trace_writer 🟢 · budget itérations 🟢 · command_validator (1 chemin) 🟡
 Codé, non appelé :  llm_router · intent_gate · RRF hybride · governance · observer · autoeval
