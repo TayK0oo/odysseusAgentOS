@@ -7,6 +7,12 @@ from src.orchestrator.loop import CanonicalLoop
 from src.orchestrator.gate import should_block_destructive, gate_enabled
 from src.orchestrator.phase_tracker import PhaseTracker, tracker_enabled
 from src.orchestrator.router_advice import advise, router_enabled
+from src.orchestrator.autoeval import (
+    autoeval_enabled,
+    decide_keep_or_revert,
+    apply_autoeval,
+    AutoevalDecision,
+)
 
 __all__ = [
     "AgentSpec", "parse_agent_spec", "AgentRegistry", "resolve_model",
@@ -15,4 +21,5 @@ __all__ = [
     "should_block_destructive", "gate_enabled",
     "PhaseTracker", "tracker_enabled",
     "advise", "router_enabled",
+    "autoeval_enabled", "decide_keep_or_revert", "apply_autoeval", "AutoevalDecision",
 ]
