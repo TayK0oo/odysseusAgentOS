@@ -207,3 +207,119 @@ def test_outbound_best_effort_when_no_adapter(monkeypatch):
     # No adapter -> False, but never raises.
     ok = asyncio.run(cb.deliver_outbound(msg, gateway=gw))
     assert ok is False
+
+
+# --------------------------------------------------------------------------- #
+# Agent-reply round-trip: gated ODYSSEUS_CHANNEL_AGENT_REPLY (default OFF)     #
+# --------------------------------------------------------------------------- #
+def _inbound(reply_sink=None):
+    async def _reply(text):
+        if reply_sink is not None:
+            reply_sink.append(text)
+
+    return InboundMessage(
+        channel=ChannelType.DISCORD,
+        sender_id="42",
+        sender_name="alice",
+        content="what's the weather?",
+        raw={},
+        reply_fn=_reply if reply_sink is not None else None,
+    )
+
+
+def test_agent_reply_gate_default_off(monkeypatch):
+    monkeypatch.delenv("ODYSSEUS_CHANNEL_AGENT_REPLY", raising=False)
+    assert cb.channel_agent_reply_enabled() is False
+
+
+def test_inbound_gate_off_does_not_run_agent(monkeypatch):
+    monkeypatch.delenv("ODYSSEUS_CHANNEL_AGENT_REPLY", raising=False)
+    fired, replies = [], []
+    called = {"agent": False}
+
+    async def _agent(messages, owner=None):
+        called["agent"] = True
+        return "should not be called"
+
+    handler = cb.make_inbound_handler(
+        fire_event=lambda name, owner=None: fired.append(name),
+        agent_call=_agent,
+    )
+    asyncio.run(handler(_inbound(reply_sink=replies)))
+
+    assert called["agent"] is False
+    assert replies == []
+    assert len(fired) == 1  # event still fires (observability preserved)
+
+
+def test_inbound_gate_on_runs_agent_and_replies(monkeypatch):
+    monkeypatch.setenv("ODYSSEUS_CHANNEL_AGENT_REPLY", "on")
+    fired, replies = [], []
+
+    async def _agent(messages, owner=None):
+        # native one-shot contract: system + user message, returns text
+        assert messages[-1]["content"] == "what's the weather?"
+        return "It's sunny."
+
+    handler = cb.make_inbound_handler(
+        fire_event=lambda name, owner=None: fired.append(name),
+        agent_call=_agent,
+    )
+    asyncio.run(handler(_inbound(reply_sink=replies)))
+
+    assert replies == ["It's sunny."]
+    assert len(fired) == 1  # event fires regardless
+
+
+def test_agent_reply_falls_back_to_gateway_when_no_reply_fn(monkeypatch):
+    monkeypatch.setenv("ODYSSEUS_CHANNEL_AGENT_REPLY", "on")
+    gw = ChannelGateway()
+    adapter = FakeAdapter(ChannelType.DISCORD)
+    gw.register_adapter(adapter)
+
+    async def _agent(messages, owner=None):
+        return "pong"
+
+    msg = _inbound(reply_sink=None)  # no reply_fn
+    asyncio.run(cb.run_agent_reply(msg, agent_call=_agent, gateway=gw))
+
+    assert len(adapter.sent) == 1
+    assert adapter.sent[0].content == "pong"
+    assert adapter.sent[0].recipient_id == "42"
+
+
+def test_agent_reply_best_effort_when_agent_raises(monkeypatch):
+    monkeypatch.setenv("ODYSSEUS_CHANNEL_AGENT_REPLY", "on")
+    replies = []
+
+    async def _boom(messages, owner=None):
+        raise RuntimeError("llm down")
+
+    msg = _inbound(reply_sink=replies)
+    # Must not raise, must not reply.
+    out = asyncio.run(cb.run_agent_reply(msg, agent_call=_boom))
+    assert out is None
+    assert replies == []
+
+
+def test_agent_reply_skips_empty_content(monkeypatch):
+    monkeypatch.setenv("ODYSSEUS_CHANNEL_AGENT_REPLY", "on")
+    replies = []
+    called = {"agent": False}
+
+    async def _agent(messages, owner=None):
+        called["agent"] = True
+        return "x"
+
+    msg = InboundMessage(
+        channel=ChannelType.DISCORD,
+        sender_id="1",
+        sender_name="a",
+        content="   ",
+        raw={},
+        reply_fn=lambda text: replies.append(text),
+    )
+    out = asyncio.run(cb.run_agent_reply(msg, agent_call=_agent))
+    assert out is None
+    assert called["agent"] is False
+    assert replies == []
