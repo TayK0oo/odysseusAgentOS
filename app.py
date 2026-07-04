@@ -1186,6 +1186,22 @@ async def _startup_event():
     from src.cookbook_serve_lifecycle import cookbook_serve_lifecycle_loop
     _startup_tasks.append(asyncio.create_task(cookbook_serve_lifecycle_loop()))
 
+    # Wake the dormant Discord/Telegram channel adapters in-process (M3.5).
+    # Each is gated OFF by default (ODYSSEUS_INPROCESS_DISCORD /
+    # ODYSSEUS_INPROCESS_TELEGRAM); with both OFF this registers/starts nothing
+    # and startup is byte-identical to today. Fire-and-forget + best-effort so a
+    # bad token or unreachable bot never blocks or crashes startup.
+    async def _startup_channel_adapters():
+        try:
+            from src.channel_bootstrap import bootstrap_channels
+            await bootstrap_channels()
+        except Exception as e:
+            logger.warning(
+                f"Channel adapter bootstrap failed (non-critical): {type(e).__name__}: {e}"
+            )
+
+    _startup_tasks.append(asyncio.create_task(_startup_channel_adapters()))
+
     logger.info("Application startup complete")
 
 async def _shutdown_event():
