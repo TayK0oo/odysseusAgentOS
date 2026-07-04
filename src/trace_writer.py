@@ -121,6 +121,70 @@ def write_trace(
         logger.warning("trace_writer: failed to write trace for tool=%s: %s", tool, exc)
 
 
+# ---------------------------------------------------------------------------
+# Unified token accounting (M3.X) — authoritative per-run token totals.
+#
+# Tokens were historically counted in ~5 divergent places (cartography risk #1).
+# The single WRITER OF TRUTH is the final metrics dict from
+# agent_loop._compute_final_metrics (it lands in chat_messages.meta_data). That
+# writer publishes its authoritative per-run totals here, keyed by run_id, so
+# secondary writers (e.g. routes.chat_helpers.accumulate_token_usage) can
+# RECONCILE against them instead of writing their own numbers.
+#
+# Kill-switch: ODYSSEUS_UNIFIED_TOKENS, default OFF (mirrors
+# orchestrator.phase_tracker.tracker_enabled). When OFF, nobody reads this
+# registry and behaviour is byte-identical to before. Best-effort throughout:
+# recording/reading must never raise into the agent loop.
+# ---------------------------------------------------------------------------
+_RUN_TOKENS_CAP = 4096  # bound memory: forget oldest runs beyond this many
+_run_tokens: "dict[str, dict]" = {}
+_run_tokens_lock = threading.Lock()
+
+
+def unified_tokens_enabled() -> bool:
+    """OFF unless ODYSSEUS_UNIFIED_TOKENS is set to a truthy value."""
+    val = os.getenv("ODYSSEUS_UNIFIED_TOKENS", "off").strip().lower()
+    return val in {"on", "1", "true", "yes"}
+
+
+def record_run_tokens(run_id, input_tokens=0, output_tokens=0) -> None:
+    """Publish the authoritative token totals for a run (writer of truth).
+
+    Last-write-wins: the final metrics dict holds the run TOTAL, so re-recording
+    overwrites rather than accumulating. Never raises.
+    """
+    try:
+        if not run_id:
+            return
+        entry = {
+            "input_tokens": int(input_tokens or 0),
+            "output_tokens": int(output_tokens or 0),
+        }
+        with _run_tokens_lock:
+            _run_tokens[str(run_id)] = entry
+            if len(_run_tokens) > _RUN_TOKENS_CAP:
+                # dict preserves insertion order — drop the oldest.
+                for old in list(_run_tokens.keys())[: len(_run_tokens) - _RUN_TOKENS_CAP]:
+                    _run_tokens.pop(old, None)
+    except Exception as exc:
+        logger.warning("trace_writer: failed to record run tokens for run=%s: %s", run_id, exc)
+
+
+def get_run_tokens(run_id) -> Optional[dict]:
+    """Return {'input_tokens', 'output_tokens'} for a run, or None if unknown.
+
+    Never raises.
+    """
+    try:
+        if not run_id:
+            return None
+        with _run_tokens_lock:
+            entry = _run_tokens.get(str(run_id))
+        return dict(entry) if entry is not None else None
+    except Exception:
+        return None
+
+
 def current_run_id() -> str:
     """Return the run id in effect for the current context."""
     return _run_id_var.get()

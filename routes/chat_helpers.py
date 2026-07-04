@@ -735,9 +735,26 @@ async def build_chat_context(
 
 
 def accumulate_token_usage(session_id: str, metrics: dict):
-    """Add input/output token counts to the session's running totals."""
+    """Add input/output token counts to the session's running totals.
+
+    Under the ODYSSEUS_UNIFIED_TOKENS kill-switch (default OFF), reconcile
+    against the authoritative per-run totals published by the single writer of
+    truth (agent_loop._compute_final_metrics, correlated by run_id) instead of
+    trusting whatever divergent numbers are in `metrics`. When OFF, behaviour is
+    byte-identical to before. Best-effort: reconciliation never raises.
+    """
     in_t = metrics.get("input_tokens", 0)
     out_t = metrics.get("output_tokens", 0)
+    try:
+        from src import trace_writer as _tw_tokens
+        if _tw_tokens.unified_tokens_enabled():
+            _run_id = metrics.get("run_id")
+            _authoritative = _tw_tokens.get_run_tokens(_run_id) if _run_id else None
+            if _authoritative is not None:
+                in_t = _authoritative.get("input_tokens", in_t)
+                out_t = _authoritative.get("output_tokens", out_t)
+    except Exception:
+        pass  # fall back to the dict values — never lose accounting
     if not (in_t or out_t):
         return
     db = SessionLocal()
