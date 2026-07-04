@@ -34,12 +34,18 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 > - `governance` ancestry (M3.4) — écrit au `agent_loop.py:3575`, gated `project_id` + kill-switch.
 > - `channels` (M3.5) — adapters Discord/Telegram réveillés (gate `ODYSSEUS_INPROCESS_*`) +
 >   round-trip inbound→agent→reply (`run_agent_reply`, gate `ODYSSEUS_CHANNEL_AGENT_REPLY`).
+> - `observer` (M3.3) — `Observer().compute_drift_score()` calculé live (`agent_loop.py:3619`) et
+>   **pilote** la décision autoeval (n'est plus log-only).
+> - `autoeval` (M3.3) — keep/revert **piloté par le loop** (`agent_loop.py:3647`, git_runner injecté,
+>   gate `ODYSSEUS_AUTOEVAL`) ; n'est plus API-only. `git reset --hard` uniquement si gate ON + verdict.
+> - `checkpoint` Obsidian/Trinité (M3.2) — bridge écrit dans la native Obsidian leg (`agent_loop.py:3599`,
+>   gate `ODYSSEUS_CHECKPOINT`, `checkpoint_tracker.py`).
 > - `PhaseTracker` (M3.0, `ODYSSEUS_PHASE_TRACKER`) · token accounting (M3.X) · RRF hybride
 >   réparé+câblé (M3.2/Phase 15, `ODYSSEUS_RRF_FUSION`).
 >
-> **Restent réellement inactifs :** Obsidian MCP (jamais démarré) · Graphify (0 svc) · agents
-> `.opencode/agents/*.md` (CLI only) · `observer`/`autoeval` pilotés API seulement (loop ne les
-> pilote pas encore). Ce sont les candidats Milestone 2 suivants.
+> **Restent réellement inactifs :** processus serveur Obsidian MCP (`mcp_servers/obsidian_mcp.py` —
+> le bridge checkpoint écrit la leg, mais le serveur MCP lui-même n'est pas démarré) · Graphify (0 svc)
+> · agents `.opencode/agents/*.md` (CLI only). Candidats Milestone 2 suivants.
 
 ```
 Câblage live (snapshot 2026-07-01, périmé) : ███░░░░░░░ ~35%
