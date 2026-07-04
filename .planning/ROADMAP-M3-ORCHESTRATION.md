@@ -137,6 +137,11 @@ Chaque vague est livrable seule et testable seule. **M3.0 est le seul prérequis
   **inbound → `event_bus.fire_event`**, **outbound → delivery natif** (`_deliver_task_result` /
   `execute_api_call`). Opt-in par session (éviter le spam broadcast `agent_loop.py:3521`).
 - **Débloque :** canaux 2-way réels sans bus parallèle. **Dépend de :** M3.0..M3.3.
+- [x] **Round-trip outbound (2026-07-05)** : `make_inbound_handler` jetait l'`InboundMessage`
+  (fire_event sans payload) → rien ne répondait. Ajout `run_agent_reply` : one-shot natif via
+  `task_llm_call_async` (chaîne `ModelEndpoint`, 0 sélection provider bespoke), reply via le
+  `reply_fn` natif de l'adapter (fallback gateway). Gated `ODYSSEUS_CHANNEL_AGENT_REPLY`, default
+  OFF → inbound byte-identique tant que non activé. Spec : `docs/superpowers/specs/2026-07-05-channelgateway-outbound-roundtrip-design.md`. Commit `4ee786b`.
 
 ### M3.X — Token accounting unifié (transversal, prérequis fiabilité budget)
 > **Risque #1 cartographie :** tokens comptés en 5 endroits, aucun `run_id` de corrélation.
