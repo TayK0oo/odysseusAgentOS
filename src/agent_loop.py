@@ -2454,6 +2454,9 @@ async def stream_agent_loop(
     _effectful_used = False
     _verifier_rounds = 0
     _verifier_instruction = _extract_last_user_message(messages)
+    # Last FAIL verdict from the completion verifier, consumed by AUTOEVAL (M3.3).
+    # Empty list == the run finished without a flagged failure.
+    _verifier_last_reasons: list = []
     real_input_tokens = 0   # Accumulated real usage from API
     real_output_tokens = 0
     last_round_input_tokens = 0  # Last round's input tokens (for context % peak)
@@ -2964,6 +2967,8 @@ async def stream_agent_loop(
                     _build_actions_snapshot(tool_events),
                     endpoint_url=endpoint_url, model=model, headers=headers,
                 )
+                # Record the latest verdict for the end-of-run AUTOEVAL step.
+                _verifier_last_reasons = list(_vfail or [])
                 if _vfail:
                     _verifier_rounds += 1
                     logger.info(f"[agent] verifier flagged {len(_vfail)} issue(s) on round {round_num}: {_vfail}")
@@ -3528,6 +3533,18 @@ async def stream_agent_loop(
     metrics["requested_model"] = requested_model
     if _run_id:
         metrics["run_id"] = _run_id
+        # Publish the authoritative per-run token totals (single writer of
+        # truth, M3.X). Secondary writers reconcile against these by run_id
+        # when ODYSSEUS_UNIFIED_TOKENS is on. Best-effort: never break the loop.
+        try:
+            from src import trace_writer as _tw_tokens
+            _tw_tokens.record_run_tokens(
+                _run_id,
+                input_tokens=metrics.get("input_tokens", 0),
+                output_tokens=metrics.get("output_tokens", 0),
+            )
+        except Exception:
+            pass
     yield f"data: {json.dumps({'type': 'metrics', 'data': metrics})}\n\n"
 
     # ── CHANNEL GATEWAY — broadcast résultat final ──────────────────
@@ -3577,6 +3594,21 @@ async def stream_agent_loop(
         except Exception as _anc_exc:
             logger.debug("[agent] ancestry ignoré : %s", _anc_exc)
 
+    # MEMORY_OBSERVE — Trinité checkpoint (M3.2). Post-round: persist ONE record
+    # of this run's state (session_id, run_id, final metrics summary, outcome)
+    # into the native Obsidian memory leg. OFF by default (ODYSSEUS_CHECKPOINT);
+    # when OFF nothing is written and behaviour is byte-identical. Best-effort.
+    try:
+        from src.orchestrator.checkpoint_tracker import record_checkpoint
+        record_checkpoint(
+            session_id=session_id,
+            run_id=_run_id,
+            metrics=metrics,
+            outcome="completed",
+        )
+    except Exception as _ckpt_exc:
+        logger.debug("[agent] checkpoint ignoré : %s", _ckpt_exc)
+
     # OBSERVER — drift score — Phase 5
     try:
         from src.observer import Observer, DriftLevel
@@ -3588,7 +3620,42 @@ async def stream_agent_loop(
         if drift == DriftLevel.HIGH:
             logger.warning("Drift score HIGH — re-loop ou escalade recommandée")
     except Exception:
-        pass
+        drift = None
+
+    # AUTOEVAL — keep/revert verifier (M3.3). Decides whether to KEEP or REVERT
+    # (git reset --hard) the changes this run made, driven by the verifier
+    # verdict and Observer drift. The destructive path is gated behind the
+    # default-OFF ODYSSEUS_AUTOEVAL kill-switch: when OFF (default), apply_autoeval
+    # forces "keep" and never touches git, so behaviour is byte-identical to today.
+    # The git runner is injected so it is fully mockable and never runs in tests.
+    try:
+        from src.orchestrator.autoeval import apply_autoeval, autoeval_enabled
+
+        _drift_level = locals().get("drift")
+
+        def _autoeval_git_reset_hard() -> bool:
+            import subprocess as _sp
+            _cp = _sp.run(
+                ["git", "reset", "--hard", "HEAD"],
+                capture_output=True, text=True,
+            )
+            return _cp.returncode == 0
+
+        # Only build a live runner when the kill-switch is ON; when OFF the
+        # runner is never invoked anyway (apply_autoeval forces "keep").
+        _ae_runner = _autoeval_git_reset_hard if autoeval_enabled() else None
+        _ae = apply_autoeval(
+            locals().get("_verifier_last_reasons"),
+            drift_level=_drift_level,
+            git_runner=_ae_runner,
+        )
+        if _ae.enabled and _ae.decision == "revert":
+            logger.warning(
+                "[autoeval] decision=revert reverted=%s error=%s",
+                _ae.reverted, _ae.error,
+            )
+    except Exception as _ae_exc:
+        logger.debug("[agent] autoeval ignoré : %s", _ae_exc)
 
     # Teacher-escalation: inline takeover visible in the chat stream.
     # The student just finished; if Tier 1 flags failure, the teacher
