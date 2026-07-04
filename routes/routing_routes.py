@@ -13,7 +13,7 @@ Endpoints:
 
 import time
 import logging
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response, Depends
 from pydantic import BaseModel
 from typing import Optional
 
@@ -26,7 +26,29 @@ from src.zen_router import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+
+# M3.1 — /api/route* is REDONDANT with native routing (zen_router + the
+# ModelEndpoint DB). We keep the endpoints for external REST consumers but
+# signal a COORDINATED deprecation via RFC 8594 headers on every response, plus
+# one server-side log. Behaviour is otherwise unchanged; no sunset date is set.
+_DEPRECATION_MSG = (
+    "/api/route* is deprecated: model routing is native via zen_router + "
+    "ModelEndpoint. Endpoints remain for external consumers; please migrate."
+)
+_deprecation_logged = False
+
+
+def _mark_deprecated(response: Response) -> None:
+    """Router dependency: stamp deprecation headers on every /api/route* reply."""
+    global _deprecation_logged
+    response.headers["Deprecation"] = "true"
+    response.headers["Warning"] = f'299 - "{_DEPRECATION_MSG}"'
+    if not _deprecation_logged:
+        logger.warning("[routing_routes] %s", _DEPRECATION_MSG)
+        _deprecation_logged = True
+
+
+router = APIRouter(dependencies=[Depends(_mark_deprecated)])
 
 
 class RouteRequest(BaseModel):
