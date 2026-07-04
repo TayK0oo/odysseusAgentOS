@@ -20,7 +20,7 @@ def test_improved_kept(tmp_path):
     with patch.object(loop, 'run_eval') as mock_eval:
         with patch.object(loop, '_get_git_hash', return_value='abc123'):
             mock_eval.return_value = EvalResult(score=0.9, raw_output="", success=True)
-            run = loop.evaluate_last_change(baseline_score=0.7)
+            run = loop.evaluate_last_change(score_baseline=0.7)
     assert run.action_taken == "kept"
     assert run.improved is True
 
@@ -30,6 +30,6 @@ def test_worse_reverted(tmp_path):
         with patch.object(loop, '_get_git_hash', return_value='abc123'):
             with patch.object(loop, '_git_revert_to', return_value=True) as mock_revert:
                 mock_eval.return_value = EvalResult(score=0.3, raw_output="", success=True)
-                run = loop.evaluate_last_change(baseline_score=0.8)
+                run = loop.evaluate_last_change(score_baseline=0.8)
     assert run.action_taken == "reverted"
     mock_revert.assert_called_once_with('abc123')
