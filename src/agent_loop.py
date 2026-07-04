@@ -1954,6 +1954,8 @@ async def stream_agent_loop(
     tool_policy: Optional[ToolPolicy] = None,
     workspace: Optional[str] = None,
     forced_tools: Optional[Set[str]] = None,
+    project_id: Optional[str] = None,
+    agent_id: Optional[str] = None,
     _is_teacher_run: bool = False,
 ) -> AsyncGenerator[str, None]:
     """Streaming agent loop generator.
@@ -3552,6 +3554,28 @@ async def stream_agent_loop(
             )
     except Exception as _mem_exc:
         logger.debug("[agent] session-end dispatch ignoré : %s", _mem_exc)
+
+    # MEMORY_OBSERVE — governance ancestry (M3.4). Only fires when this run has
+    # an orchestrated goal context (project_id) AND the kill-switch is ON; a
+    # plain chat turn writes nothing. Reuses the correlation run_id as the task
+    # label so the GoalTask joins back to traces/metrics. Best-effort.
+    if project_id:
+        try:
+            from src.orchestrator.ancestry_tracker import record_run_ancestry
+            _last_user = next(
+                (m.get("content", "") for m in reversed(messages)
+                 if isinstance(m, dict) and m.get("role") == "user"),
+                "",
+            )
+            _desc = _last_user if isinstance(_last_user, str) else ""
+            record_run_ancestry(
+                project_id=project_id,
+                task_name=f"run {_run_id[:8]}" if _run_id else "run",
+                description=_desc[:280],
+                agent_id=agent_id or owner or "live",
+            )
+        except Exception as _anc_exc:
+            logger.debug("[agent] ancestry ignoré : %s", _anc_exc)
 
     # OBSERVER — drift score — Phase 5
     try:
