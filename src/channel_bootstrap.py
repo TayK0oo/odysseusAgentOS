@@ -50,13 +50,96 @@ def telegram_inprocess_enabled() -> bool:
     return _gate("ODYSSEUS_INPROCESS_TELEGRAM")
 
 
-def make_inbound_handler(fire_event: Optional[Callable] = None) -> Callable:
+def channel_agent_reply_enabled() -> bool:
+    """OFF unless ODYSSEUS_CHANNEL_AGENT_REPLY is truthy.
+
+    Gates the inbound -> agent -> reply round-trip. With this OFF (the default),
+    inbound handling is byte-identical to before: fire the trigger event only.
+    """
+    return _gate("ODYSSEUS_CHANNEL_AGENT_REPLY")
+
+
+_CHANNEL_SYSTEM_PROMPT = (
+    "You are Odysseus replying to a message received on an external chat channel "
+    "(Discord/Telegram). Answer the user's message directly and concisely."
+)
+
+
+async def run_agent_reply(
+    message: InboundMessage,
+    agent_call: Optional[Callable] = None,
+    gateway: Optional[ChannelGateway] = None,
+) -> Optional[str]:
+    """Run the native one-shot agent on ``message.content`` and reply to origin.
+
+    The agent call routes through ``task_endpoint.task_llm_call_async``, the shared
+    background-task LLM candidate chain, which resolves endpoint/model/fallback from
+    the native ModelEndpoint config — no bespoke provider selection lives here. The
+    reply is delivered via the message's own ``reply_fn`` (the adapter's native
+    direct-reply callback), falling back to native gateway delivery when absent.
+
+    Stateless one-shot (owner=None, no session). Best-effort: returns the reply
+    text on success, or None on empty input or any failure — never raises.
+    """
+    text = (message.content or "").strip()
+    if not text:
+        return None
+
+    if agent_call is None:
+        from src.task_endpoint import task_llm_call_async
+        agent_call = task_llm_call_async
+
+    try:
+        messages = [
+            {"role": "system", "content": _CHANNEL_SYSTEM_PROMPT},
+            {"role": "user", "content": text},
+        ]
+        reply = await agent_call(messages, owner=None)
+        reply = (reply or "").strip()
+    except Exception:
+        logger.exception("Channel agent reply generation failed (best-effort)")
+        return None
+
+    if not reply:
+        return None
+
+    # Prefer the adapter's own direct-reply callback (keeps native thread/context).
+    if message.reply_fn is not None:
+        try:
+            await message.reply_fn(reply)
+            return reply
+        except Exception:
+            logger.exception("Channel direct reply failed; trying gateway (best-effort)")
+
+    # Fallback: native gateway delivery back to the sender.
+    try:
+        await deliver_outbound(
+            OutboundMessage(
+                channel=message.channel,
+                recipient_id=message.sender_id,
+                content=reply,
+            ),
+            gateway=gateway,
+        )
+    except Exception:
+        logger.exception("Channel gateway reply fallback failed (best-effort)")
+    return reply
+
+
+def make_inbound_handler(
+    fire_event: Optional[Callable] = None,
+    agent_call: Optional[Callable] = None,
+    gateway: Optional[ChannelGateway] = None,
+) -> Callable:
     """Build the inbound handler: channel message -> event_bus.fire_event(...).
 
     The event name is ``channel_message_<channel>`` (e.g. channel_message_discord),
-    which event-triggered scheduled tasks can subscribe to. Best-effort: any error
-    (bus down, bad payload) is swallowed so an inbound message never crashes the
-    adapter's listen loop.
+    which event-triggered scheduled tasks can subscribe to. When
+    ``channel_agent_reply_enabled()`` is ON, the handler additionally runs the
+    native one-shot agent on the message and replies to the sender (see
+    ``run_agent_reply``); with it OFF (the default), only the event fires — byte
+    -identical to before. Best-effort: any error (bus down, bad payload) is
+    swallowed so an inbound message never crashes the adapter's listen loop.
     """
     if fire_event is None:
         from src.event_bus import fire_event as _fire_event
@@ -68,6 +151,9 @@ def make_inbound_handler(fire_event: Optional[Callable] = None) -> Callable:
             fire_event(event_name, None)
         except Exception:
             logger.exception("Inbound channel message handling failed (best-effort)")
+
+        if channel_agent_reply_enabled():
+            await run_agent_reply(message, agent_call=agent_call, gateway=gateway)
 
     return _handler
 
@@ -149,7 +235,7 @@ async def bootstrap_channels(
         return []
 
     try:
-        gw.set_inbound_handler(make_inbound_handler(fire_event=fire_event))
+        gw.set_inbound_handler(make_inbound_handler(fire_event=fire_event, gateway=gw))
         await gw.start_all()
     except Exception:
         logger.exception("Failed to start channel adapters (best-effort)")
