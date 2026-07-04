@@ -1967,6 +1967,19 @@ async def stream_agent_loop(
       - data: [DONE]                                        (end)
     """
 
+    # M3.X — one correlation run_id per loop invocation. Generated once here and
+    # reused everywhere: pushed into the trace_writer ContextVar (so every tool
+    # trace this turn carries it), reused by the budget enforcer below, and
+    # stamped onto the final metrics. That lets traces↔metrics↔budgets be joined
+    # by run instead of only by session. Best-effort: never break the loop.
+    import uuid as _uuid_runid
+    _run_id = str(_uuid_runid.uuid4())
+    try:
+        from src import trace_writer as _trace_writer
+        _trace_writer.set_run_id(_run_id)
+    except Exception:
+        pass
+
     mcp_mgr = get_mcp_manager()
     prep_timings: Dict[str, float] = {}
     disabled_tools = set(disabled_tools or [])
@@ -2452,10 +2465,10 @@ async def stream_agent_loop(
     # BUDGET ENFORCER — Phase 5
     _budget_enforcer = None
     try:
-        import uuid as _uuid
         from src.budget_enforcer import BudgetEnforcer, BudgetRegistry
         from src.project_manifest import load_manifest
-        _run_id = str(_uuid.uuid4())
+        # Reuse the correlation run_id set at loop entry so budgets, traces and
+        # metrics all share one id (see M3.X note above).
         _manifest = load_manifest(".")  # PROJECT.yaml à la racine si présent
         if _manifest:
             _budget_enforcer = BudgetEnforcer(_manifest.budgets, _run_id)
@@ -3511,6 +3524,8 @@ async def stream_agent_loop(
         backend_prefill_tps=backend_prefill_tps,
     )
     metrics["requested_model"] = requested_model
+    if _run_id:
+        metrics["run_id"] = _run_id
     yield f"data: {json.dumps({'type': 'metrics', 'data': metrics})}\n\n"
 
     # ── CHANNEL GATEWAY — broadcast résultat final ──────────────────

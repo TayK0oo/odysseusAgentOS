@@ -11,6 +11,7 @@ Each line is a JSON object with:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
@@ -23,9 +24,19 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Global run_id — one UUID per process start
+# run_id — correlation id shared by every trace/metric of a single run.
+#
+# A "run" = one agent-loop invocation (one chat turn or one orchestrated
+# dispatch). It is held in a ContextVar so concurrent requests (each its own
+# asyncio task) get an isolated id without threading it through call sites.
+# The module-level default keeps pre-scope behaviour byte-compatible: until a
+# caller opens a run scope, current_run_id() returns this single process id
+# exactly like the old constant did.
 # ---------------------------------------------------------------------------
-_RUN_ID = str(uuid.uuid4())
+_PROCESS_RUN_ID = str(uuid.uuid4())
+_run_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "trace_run_id", default=_PROCESS_RUN_ID
+)
 
 # ---------------------------------------------------------------------------
 # Thread-safe write lock (per-file)
@@ -87,7 +98,7 @@ def write_trace(
     try:
         record = {
             "ts": datetime.now(timezone.utc).isoformat(),
-            "run_id": _RUN_ID,
+            "run_id": _run_id_var.get(),
             "session_id": session_id or "",
             "tool": tool,
             "risk_level": risk_level,
@@ -111,5 +122,16 @@ def write_trace(
 
 
 def current_run_id() -> str:
-    """Return the current process-level run UUID."""
-    return _RUN_ID
+    """Return the run id in effect for the current context."""
+    return _run_id_var.get()
+
+
+def set_run_id(run_id: str) -> str:
+    """Set the run id for the current context. Returns the value set."""
+    _run_id_var.set(run_id)
+    return run_id
+
+
+def new_run_id() -> str:
+    """Start a fresh run: generate a new UUID, make it current, return it."""
+    return set_run_id(str(uuid.uuid4()))
