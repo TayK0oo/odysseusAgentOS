@@ -209,12 +209,12 @@ class TestChannelGateway:
         assert len(gw._adapters) == 1
 
     def test_channel_type_enum_values(self):
-        """Vérifie que tous les ChannelType attendus existent."""
+        """Seuls les deux canaux in-process réels existent (EMAIL/WEBHOOK retirés — 0 caller)."""
         from src.channel_gateway import ChannelType
         assert hasattr(ChannelType, "DISCORD")
         assert hasattr(ChannelType, "TELEGRAM")
-        assert hasattr(ChannelType, "EMAIL")
-        assert hasattr(ChannelType, "WEBHOOK")
+        assert not hasattr(ChannelType, "EMAIL")
+        assert not hasattr(ChannelType, "WEBHOOK")
 
 
 if __name__ == "__main__":
