@@ -28,6 +28,12 @@ _ROUTING_CONFIG_PATH = Path(__file__).parent.parent / "model-routing.json"
 _routing_config: Optional[dict] = None
 _routing_config_mtime: float = 0.0
 
+# Last-resort model id when a config tier omits `model_id`. Must be a CONFIRMED
+# catalog id (model-routing.json, tested on /zen/go/v1) — never a phantom like
+# the old `deepseek-v4-flash-free`, which would be POSTed to the Zen API and
+# 400 on an unknown model.
+_DEFAULT_ZEN_MODEL = "deepseek-v4-flash"
+
 # Blacklist temporaire : zen_model -> timestamp d'expiration
 _zen_blacklist: dict[str, float] = {}
 _zen_fail_counts: dict[str, int] = {}
@@ -188,7 +194,7 @@ def get_zen_candidate(tier: str) -> Optional[tuple[str, str, dict]]:
         return None
 
     model_cfg = models.get(tier, models.get("fast", {}))
-    model_id = model_cfg.get("model_id", "deepseek-v4-flash-free")
+    model_id = model_cfg.get("model_id", _DEFAULT_ZEN_MODEL)
 
     # Vérifier blacklist
     expiry = _zen_blacklist.get(model_id, 0.0)
@@ -197,7 +203,7 @@ def get_zen_candidate(tier: str) -> Optional[tuple[str, str, dict]]:
         # Essayer le fallback
         for fallback_tier in model_cfg.get("fallback", []):
             fallback_cfg = models.get(fallback_tier, {})
-            fallback_model = fallback_cfg.get("model_id", "deepseek-v4-flash-free")
+            fallback_model = fallback_cfg.get("model_id", _DEFAULT_ZEN_MODEL)
             if time.time() >= _zen_blacklist.get(fallback_model, 0.0):
                 model_id = fallback_model
                 break
@@ -335,13 +341,13 @@ def build_zen_candidates(messages: list, stage: str = "chat") -> list:
 
     candidates = []
     model_cfg = models.get(tier, {})
-    model_id = model_cfg.get("model_id", "deepseek-v4-flash-free")
+    model_id = model_cfg.get("model_id", _DEFAULT_ZEN_MODEL)
     candidates.append((zen_url, model_id, headers))
 
     # Fallbacks
     for fallback_tier in model_cfg.get("fallback", []):
         fb_cfg = models.get(fallback_tier, {})
-        fb_model = fb_cfg.get("model_id", "deepseek-v4-flash-free")
+        fb_model = fb_cfg.get("model_id", _DEFAULT_ZEN_MODEL)
         if fb_model != model_id:
             candidates.append((zen_url, fb_model, headers))
 
