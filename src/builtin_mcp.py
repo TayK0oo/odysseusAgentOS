@@ -89,6 +89,27 @@ _BUILTIN_NPX_SERVERS = {
 MCP_DISABLED = os.environ.get("ODYSSEUS_DISABLE_MCP", "").lower() in ("1", "true", "yes")
 
 
+def _obsidian_mcp_enabled() -> bool:
+    """OFF unless ODYSSEUS_OBSIDIAN_MCP is truthy.
+
+    Gates registration of the Obsidian read/search stdio MCP server. OFF (the
+    default) keeps startup byte-identical: the server is never launched.
+    """
+    return os.environ.get("ODYSSEUS_OBSIDIAN_MCP", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _optional_python_servers() -> dict:
+    """Kill-switched Python stdio servers, included only when their gate is ON.
+
+    Kept separate from _BUILTIN_SERVERS (always-on) so that adding a gated server
+    cannot change default startup behaviour.
+    """
+    optional = {}
+    if _obsidian_mcp_enabled():
+        optional["obsidian"] = ("mcp_servers/obsidian_mcp.py", "Built-in: Obsidian (read/search)")
+    return optional
+
+
 async def register_builtin_servers(mcp_manager):
     """Connect all built-in MCP servers to the manager."""
     if MCP_DISABLED:
@@ -118,7 +139,7 @@ async def register_builtin_servers(mcp_manager):
         except BaseException as e:
             logger.warning(f"Built-in MCP server {name} error: {type(e).__name__}: {e}")
 
-    for server_id, (script, name) in _BUILTIN_SERVERS.items():
+    for server_id, (script, name) in {**_BUILTIN_SERVERS, **_optional_python_servers()}.items():
         script_path = os.path.join(base_dir, script)
         if not os.path.exists(script_path):
             logger.warning(f"Built-in MCP server script not found: {script_path}")

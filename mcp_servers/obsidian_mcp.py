@@ -1,4 +1,6 @@
 """Obsidian second-brain MCP server — reads/writes Markdown files in vault."""
+import asyncio
+import json
 import os
 from pathlib import Path
 
@@ -147,3 +149,98 @@ TOOLS = {
     "create_note": create_note,
     "search_notes": search_notes,
 }
+
+
+# ---------------------------------------------------------------------------
+# stdio MCP server — exposes the READ/search tools to the agent host.
+#
+# Only list_notes/get_note/search_notes are surfaced. create_note is kept off
+# the agent tool surface on purpose: the vault write leg is owned by the native
+# checkpoint bridge (src/orchestrator/checkpoint_tracker.py), which imports
+# create_note directly — not via MCP. This server is registered only when the
+# ODYSSEUS_OBSIDIAN_MCP kill-switch is ON (default OFF), so startup is
+# byte-identical by default.
+# ---------------------------------------------------------------------------
+
+from mcp.server import Server  # noqa: E402
+from mcp.server.stdio import stdio_server  # noqa: E402
+from mcp.types import Tool, TextContent  # noqa: E402
+
+server = Server("obsidian")
+
+
+def _text_result(text: str) -> list[TextContent]:
+    return [TextContent(type="text", text=text)]
+
+
+@server.list_tools()
+async def list_tools() -> list[Tool]:
+    return [
+        Tool(
+            name="list_notes",
+            description="List markdown notes in the Obsidian vault (recursive). "
+            "Optional 'folder' restricts to a sub-folder.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "folder": {
+                        "type": "string",
+                        "description": "Relative sub-folder inside the vault (empty = root).",
+                    }
+                },
+            },
+        ),
+        Tool(
+            name="get_note",
+            description="Read a single markdown note from the Obsidian vault by relative path.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Relative path inside the vault, e.g. 'agentos/learnings/x.md'.",
+                    }
+                },
+                "required": ["path"],
+            },
+        ),
+        Tool(
+            name="search_notes",
+            description="Case-insensitive full-text search across markdown notes in the vault.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search term."},
+                    "folder": {
+                        "type": "string",
+                        "description": "Restrict search to this sub-folder (empty = entire vault).",
+                    },
+                },
+                "required": ["query"],
+            },
+        ),
+    ]
+
+
+@server.call_tool()
+async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+    if name == "list_notes":
+        result = list_notes(arguments.get("folder", ""))
+    elif name == "get_note":
+        result = get_note(arguments.get("path", ""))
+    elif name == "search_notes":
+        result = search_notes(arguments.get("query", ""), arguments.get("folder", ""))
+    else:
+        return _text_result(f"Unknown tool: {name}")
+    return _text_result(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+async def run():
+    async with stdio_server() as (read_stream, write_stream):
+        await server.run(read_stream, write_stream, server.create_initialization_options())
+
+
+if __name__ == "__main__":
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    asyncio.run(run())
