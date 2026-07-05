@@ -46,6 +46,30 @@ class TestAppStructure:
         assert os.path.exists(env_example_path), ".env.example file should exist"
 
 
+class TestAppBoots:
+    """The whole app must assemble — catches dangling router mounts / imports."""
+
+    def test_import_app_succeeds_in_subprocess(self):
+        """`import app` mounts every router; a stale include_router breaks boot.
+
+        Run in a subprocess so app's import side effects (managers, logging,
+        global state) never leak into this test session. This regression-guards
+        the class of bug where a deleted route module leaves a dangling mount.
+        """
+        import subprocess
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        proc = subprocess.run(
+            [sys.executable, "-c", "import app; assert app.app is not None"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert proc.returncode == 0, (
+            f"`import app` failed (app cannot boot):\n{proc.stderr[-2000:]}"
+        )
+
+
 class TestImports:
     """Test that key modules can be imported"""
 
