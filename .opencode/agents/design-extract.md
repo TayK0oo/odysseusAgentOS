@@ -1,3 +1,10 @@
+---
+name: design-extract
+description: >
+  Extrait un design system complet depuis une URL avec designlang.
+  Tokens DTCG, Tailwind, shadcn theme. Audit CSS + anti-drift.
+---
+
 # Design Extract Agent
 
 Extrait un design system complet depuis une URL avec `designlang`.
