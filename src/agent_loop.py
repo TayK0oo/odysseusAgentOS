@@ -3605,6 +3605,25 @@ async def stream_agent_loop(
     except Exception as _ae_exc:
         logger.debug("[agent] autoeval ignoré : %s", _ae_exc)
 
+    # AUTO-EVOLVE — triggers improvement research after drift HIGH + revert.
+    # Gated behind ODYSSEUS_AUTOEVOLVE (default OFF). Best-effort: never blocks.
+    try:
+        from src.orchestrator.autoevolve import maybe_autoevolve
+        _ae_drift = str(getattr(locals().get("drift", ""), "value", "")) if hasattr(locals().get("drift", None), "value") else str(locals().get("drift", "LOW"))
+        _ae_decision = "revert" if (locals().get("_ae") and getattr(locals()["_ae"], "decision", "keep") == "revert") else "keep"
+        _ae_failure = locals().get("_verifier_last_reasons") or ""
+        if isinstance(_ae_failure, list):
+            _ae_failure = "; ".join(str(r) for r in _ae_failure[:3])
+        await maybe_autoevolve(
+            session_id=session_id,
+            run_id=locals().get("_run_id", "?"),
+            drift_level=_ae_drift,
+            autoeval_decision=_ae_decision,
+            failure_summary=str(_ae_failure),
+        )
+    except Exception as _aev_exc:
+        logger.debug("[agent] autoevolve skipped: %s", _aev_exc)
+
     # Teacher-escalation: inline takeover visible in the chat stream.
     # The student just finished; if Tier 1 flags failure, the teacher
     # gets a turn (with its own tool calls forwarded to the user) and
