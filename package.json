@@ -10,6 +10,6 @@
   "devDependencies": {
     "@antithesishq/bombadil": "^0.6.1",
     "@faker-js/faker": "^9.0.0",
-    "purgecss": "^7.0.0"
+    "purgecss": "^7.0.2"
   }
 }
