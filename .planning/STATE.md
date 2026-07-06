@@ -137,4 +137,4 @@ Resume file: _(aucun)_
 **Bug critique corrigé** (2026-07-05, `035d2f6`) : la suppression de `routing_routes.py` (`b4c56e4`) avait laissé un mount mort `app.py:803` → **boot de l'app cassé** (`import app` levait `ModuleNotFoundError`) non détecté par la suite (aucun test n'importait `app` top-level). Fix + **test smoke boot subprocess** (`37a511c`).
 
 **Prochaine action :** M3 terminé. Reste **net-new nécessitant BRAINSTORM** : **`.opencode` agents** (CLI-only, provider `opencode-go` déjà dans `_detect_provider`). **Graphify = verdict REJETÉ** (redondant avec VectorRAG natif, cf. ROADMAP §90). **Opérationnel + humain-gaté** (pas du code) : (a) enregistrer l'endpoint Zen via tool natif `manage_endpoints` + `ODYSSEUS_ZEN_FROM_ENDPOINT=1` puis retirer `model-routing.json providers.*` une fois la DB autoritaire ; (b) configurer `OBSIDIAN_VAULT_PATH` + poser `ODYSSEUS_OBSIDIAN_MCP=1` pour activer les read-tools.
-_(NB : branche `dev` = **101 commits** en avance sur `origin/dev`, non poussée — pas d'autorisation de push.)_
+_(NB : branche `dev` synchronisée avec `origin/dev` — vérifié `git rev-list --count HEAD ^origin/dev` = 0 le 2026-07-06.)_
