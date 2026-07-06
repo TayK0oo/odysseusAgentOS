@@ -823,6 +823,25 @@ app.include_router(mcp_tools_router)
 from routes.knowledge_routes import router as knowledge_router
 app.include_router(knowledge_router)
 
+# ========= AGENT CATALOG — .opencode agents (Phase 3) =========
+from fastapi import APIRouter as _APIRouter
+_agents = _APIRouter(prefix="/api/agents", tags=["agents"])
+
+@_agents.get("")
+async def list_agents():
+    """Liste les agents .opencode/ disponibles (si ODYSSEUS_AGENT_CATALOG=on)."""
+    catalog = getattr(app.state, "agent_catalog", None)
+    if catalog is None:
+        return {"agents": [], "hint": "Set ODYSSEUS_AGENT_CATALOG=on to enable the agent catalog"}
+    return {
+        "agents": [
+            {"name": a.name, "description": a.description, "model": a.model, "tools": a.tools}
+            for a in (catalog.agents if hasattr(catalog, "agents") else catalog.values() if isinstance(catalog, dict) else [])
+        ]
+    }
+
+app.include_router(_agents)
+
 # ========= ROUTES (kept in app.py) =========
 
 @app.get("/")
@@ -1197,6 +1216,20 @@ async def _startup_event():
             )
 
     _startup_tasks.append(asyncio.create_task(_startup_channel_adapters()))
+
+    # Load the .opencode agent catalog (12 agents). Gated OFF by default —
+    # ODYSSEUS_AGENT_CATALOG=on to expose via /api/agents.
+    async def _startup_agent_catalog():
+        try:
+            if os.environ.get("ODYSSEUS_AGENT_CATALOG", "").strip().lower() in ("1", "true", "yes", "on"):
+                from src.orchestrator.registry import AgentRegistry
+                registry = AgentRegistry.discover()
+                app.state.agent_catalog = registry
+                logger.info("Agent catalog loaded: %d agents", len(registry.agents) if registry else 0)
+        except Exception as e:
+            logger.warning(f"Agent catalog load failed (non-critical): {type(e).__name__}: {e}")
+
+    _startup_tasks.append(asyncio.create_task(_startup_agent_catalog()))
 
     logger.info("Application startup complete")
 
