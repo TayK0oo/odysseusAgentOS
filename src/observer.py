@@ -41,20 +41,45 @@ class DriftLevel(Enum):
     HIGH = "high"     # Harness/protocole touché — re-loop ou escalade
 
 
+# Persistent inter-run state — shared across Observer instances so drift
+# accumulates over multiple runs instead of resetting each time.
+_MAX_REPORTS = 100  # cap to bound memory
+_persistent_reports: list[dict] = []
+_persistent_harness_touched: bool = False
+
+
 class Observer:
-    """Agrège les signaux et calcule le drift score global."""
+    """Agrège les signaux et calcule le drift score global.
+    
+    Uses module-level persistent state (_persistent_reports, _persistent_harness_touched)
+    so that drift accumulates across runs — a harness touch in run N is visible in run N+1.
+    """
 
     def __init__(self) -> None:
-        self._codeburn_reports: list[dict] = []
         self._budget_statuses: dict[str, dict] = {}
-        self._harness_touched: bool = False
+
+    @property
+    def _codeburn_reports(self) -> list[dict]:
+        return _persistent_reports
+
+    @property
+    def _harness_touched(self) -> bool:
+        return _persistent_harness_touched
+
+    @_harness_touched.setter
+    def _harness_touched(self, value: bool) -> None:
+        global _persistent_harness_touched
+        _persistent_harness_touched = value
 
     def record_codeburn_report(self, report: dict) -> None:
         """Ingère un rapport CodeBurn (one_shot_rate, waste_patterns, cost_vs_commits)."""
+        global _persistent_reports
         if not isinstance(report, dict):
             logger.warning("Observer.record_codeburn_report: expected dict, got %s", type(report))
             return
-        self._codeburn_reports.append(report)
+        _persistent_reports.append(report)
+        if len(_persistent_reports) > _MAX_REPORTS:
+            _persistent_reports = _persistent_reports[-_MAX_REPORTS:]  # cap
 
         # Check if harness files were touched
         touched_files: list[str] = report.get("touched_files", [])

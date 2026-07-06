@@ -635,6 +635,7 @@ async def execute_tool_block(
                 outcome=_outcome,
                 session_id=session_id,
                 duration_ms=_duration_ms,
+                cost_tokens=result.get("usage", {}).get("total_tokens", 0) if isinstance(result, dict) else 0,
             )
         except Exception:
             pass  # Never let trace writing break the agent loop
