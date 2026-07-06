@@ -1,3 +1,10 @@
+---
+name: open-design
+description: >
+  Génère des artefacts de design (composants, dashboards, prototypes)
+  depuis un brief texte. 142 design systems, Critique Theater 5 personas.
+---
+
 # Open Design Agent
 
 Génère des artefacts de design (composants, dashboards, prototypes) depuis un brief texte.
