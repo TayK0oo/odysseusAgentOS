@@ -31,8 +31,9 @@ def test_graph_search_uses_native_rag(monkeypatch):
 
     out = run(kr.search_graph_semantic("hello", limit=3))
 
-    assert out["source"] == "native-vectorrag"
-    assert out["results"] == [{"id": "d1", "content": "hello world"}]
+    # Post-Graphify integration: search returns merged rag+graphify result
+    assert "rag" in out
+    assert out["rag"]["results"] == [{"id": "d1", "content": "hello world"}]
     assert fake.calls == [("hello", 3)]
 
 
@@ -43,8 +44,9 @@ def test_graph_search_native_unavailable_returns_empty(monkeypatch):
 
     out = run(kr.search_graph_semantic("x"))
 
-    assert out["results"] == []
-    assert "error" in out
+    assert "rag" in out
+    assert out["rag"]["results"] == []
+    assert "error" in out["rag"]
 
 
 def test_checkpoint_semantic_leg_uses_native_rag(monkeypatch):
