@@ -85,7 +85,10 @@ services:
       - OBSIDIAN_MCP_ENABLED=${OBSIDIAN_MCP_ENABLED:-false}
     security_opt:
       - no-new-privileges:true
-    # cap_drop: [ALL]  # Activé quand compatibilité vérifiée — décommenter progressivement
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_ADMIN  # required for Cookbook Docker socket (docker.sock mount)
     read_only: false  # Garder false car Odysseus écrit dans /app/data
     tmpfs:
       - /tmp:size=100m,mode=1777
@@ -95,6 +98,10 @@ services:
       chromadb:
         condition: service_started
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
   chromadb:
     image: docker.io/chromadb/chroma:latest
@@ -104,7 +111,15 @@ services:
       - chromadb-data:/chroma/chroma
     environment:
       - ANONYMIZED_TELEMETRY=FALSE
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
   searxng:
     # Pinned, not :latest — odysseus waits on searxng's healthcheck
@@ -155,6 +170,10 @@ services:
       retries: 20
       start_period: 10s
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
   ntfy:
     image: docker.io/binwiederhier/ntfy
@@ -166,12 +185,20 @@ services:
     environment:
       - NTFY_BASE_URL=${NTFY_BASE_URL:-http://localhost:8091}
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
   kroki:
     image: yuzutech/kroki:latest
     ports:
       - "127.0.0.1:8700:8000"
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       # Mermaid/BPMN/Excalidraw are rendered by the companion container below.
       # Without this the core image answers 503 for diagram_type=mermaid (our default).
@@ -189,6 +216,10 @@ services:
     expose:
       - "8002"
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
   serena-mcp:
     image: python:3.12-slim
@@ -201,6 +232,10 @@ services:
     ports:
       - "127.0.0.1:8765:8765"
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       - SERENA_MODE=ide-assistant
 
@@ -213,6 +248,10 @@ services:
     volumes:
       - ${APP_DATA_DIR:-./data}/acontext:/data/acontext:z
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     profiles:
       - acontext
 
@@ -229,6 +268,10 @@ services:
     ports:
       - "127.0.0.1:8800:8800"
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     profiles:
       - scrapling
     healthcheck:
@@ -253,6 +296,10 @@ services:
       - REPO_PATH=/workspace
       - MCP_PORT=9749
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     profiles:
       - knowledge
 
@@ -269,6 +316,10 @@ services:
       - GRAPHIFY_WORKSPACE=/workspace
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     profiles:
       - knowledge
 
@@ -284,6 +335,10 @@ services:
     depends_on:
       - odysseus
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     profiles:
       - decision-engine
 
