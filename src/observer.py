@@ -48,6 +48,13 @@ _persistent_reports: list[dict] = []
 _persistent_harness_touched: bool = False
 
 
+def reset_observer_state() -> None:
+    """Reset persistent state — used in tests to avoid cross-test contamination."""
+    global _persistent_reports, _persistent_harness_touched
+    _persistent_reports = []
+    _persistent_harness_touched = False
+
+
 class Observer:
     """Agrège les signaux et calcule le drift score global.
     

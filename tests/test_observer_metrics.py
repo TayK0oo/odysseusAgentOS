@@ -8,10 +8,12 @@ CodeBurn-style report (one_shot_rate, waste_patterns, touched_files) from the
 tool events and reuses the existing drift machinery — writes to harness files
 still escalate to HIGH; reads (e.g. ``cat`` via bash) do not.
 """
-from src.observer import Observer, DriftLevel
+from src.observer import Observer, DriftLevel, reset_observer_state
 
 
 def test_clean_run_is_low_drift():
+    reset_observer_state()
+    reset_observer_state()
     obs = Observer()
     obs.ingest_metrics(
         {},
@@ -24,6 +26,8 @@ def test_clean_run_is_low_drift():
 
 
 def test_three_failed_tools_is_medium_drift():
+    reset_observer_state()
+    reset_observer_state()
     obs = Observer()
     obs.ingest_metrics(
         {},
@@ -37,6 +41,7 @@ def test_three_failed_tools_is_medium_drift():
 
 
 def test_harness_write_escalates_to_high():
+    reset_observer_state()
     obs = Observer()
     obs.ingest_metrics(
         {},
@@ -48,6 +53,7 @@ def test_harness_write_escalates_to_high():
 
 
 def test_harness_read_via_bash_is_not_flagged():
+    reset_observer_state()
     obs = Observer()
     obs.ingest_metrics(
         {},
@@ -59,6 +65,7 @@ def test_harness_read_via_bash_is_not_flagged():
 
 
 def test_no_tool_events_is_low_drift():
+    reset_observer_state()
     obs = Observer()
     obs.ingest_metrics({}, tool_events=[])
     assert obs.compute_drift_score() == DriftLevel.LOW
@@ -67,6 +74,7 @@ def test_no_tool_events_is_low_drift():
 
 
 def test_pulls_tool_events_from_metrics_when_arg_omitted():
+    reset_observer_state()
     obs = Observer()
     obs.ingest_metrics(
         {"tool_events": [{"tool": "bash", "command": "x", "exit_code": 1}]}
@@ -76,6 +84,7 @@ def test_pulls_tool_events_from_metrics_when_arg_omitted():
 
 
 def test_derives_one_shot_rate_and_waste_patterns():
+    reset_observer_state()
     obs = Observer()
     obs.ingest_metrics(
         {},
@@ -91,6 +100,7 @@ def test_derives_one_shot_rate_and_waste_patterns():
 
 
 def test_none_exit_code_counts_as_success():
+    reset_observer_state()
     obs = Observer()
     obs.ingest_metrics(
         {},
