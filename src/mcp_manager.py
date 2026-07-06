@@ -37,13 +37,6 @@ EXTERNAL_MCP_SERVERS = {
         "enabled_env": "SCRAPLING_ENABLED",
         "profile": "scrapling",  # profil docker-compose
     },
-    "supabase": {
-        "name": "Supabase (read-only SQL)",
-        "url": os.getenv("SUPABASE_MCP_URL", "http://localhost:8900/mcp"),
-        "transport": "http",
-        "enabled_env": "SUPABASE_MCP_ENABLED",
-        "read_only": True,
-    },
     "kroki": {
         "name": "Kroki (diagrams)",
         "url": "http://localhost:8700",
