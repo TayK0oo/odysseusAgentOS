@@ -3,8 +3,13 @@
     "type": "git",
     "url": "https://github.com/pewdiepie-archdaemon/odysseus.git"
   },
+  "scripts": {
+    "css:refactor": "python scripts/refactor-css.py",
+    "css:purge": "purgecss --css static/css/style.min.css --content static/index.html static/login.html 'static/js/**/*.js' --output static/css/"
+  },
   "devDependencies": {
     "@antithesishq/bombadil": "^0.6.1",
-    "@faker-js/faker": "^9.0.0"
+    "@faker-js/faker": "^9.0.0",
+    "purgecss": "^7.0.0"
   }
 }
