@@ -72,7 +72,6 @@ def test_connect_external_enabled_dispatches_http_connect(monkeypatch):
 
 def test_connect_external_enabled_skips_when_all_disabled(monkeypatch):
     monkeypatch.setenv("SCRAPLING_ENABLED", "false")
-    monkeypatch.setenv("SUPABASE_MCP_ENABLED", "false")
     m = McpManager()
     calls = []
 
