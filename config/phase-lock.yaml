@@ -9,10 +9,7 @@ phases:
     blocked_tools:
       - write_file
       - edit_file
-      - create_file
       - bash
-      - run_command
-      - delete_file
     message: "Phase RESEARCH : écriture et exécution désactivées"
 
   INNOVATE:
@@ -21,8 +18,6 @@ phases:
     blocked_categories: [exec, destructive]
     blocked_tools:
       - bash
-      - run_command
-      - delete_file
     message: "Phase INNOVATE : exécution de commandes désactivée"
 
   PLAN:
@@ -36,8 +31,6 @@ phases:
       message: "Phase PLAN : écriture limitée à process/ et .planning/"
     blocked_tools:
       - bash
-      - run_command
-      - delete_file
     message: "Phase PLAN : écriture limitée aux répertoires planning"
 
   BUILD:
@@ -63,8 +56,7 @@ phases:
     blocked_tools:
       - write_file
       - edit_file
-      - create_file
-      - delete_file
+      - bash
     message: "Phase VERIFY : lecture et tests uniquement"
 
   CLASSIFY:
@@ -74,10 +66,7 @@ phases:
     blocked_tools:
       - write_file
       - edit_file
-      - create_file
       - bash
-      - run_command
-      - delete_file
     message: "Phase CLASSIFY : classification du risque, écriture et exécution désactivées"
 
   KNOW:
@@ -87,10 +76,7 @@ phases:
     blocked_tools:
       - write_file
       - edit_file
-      - create_file
       - bash
-      - run_command
-      - delete_file
     message: "Phase KNOW : récupération de connaissance, écriture et exécution désactivées"
 
   QUALITY:
@@ -108,24 +94,21 @@ phases:
         - "playwright"
         - "lint"
       message: "Phase QUALITY : seules les commandes de test/lint sont autorisées"
-    blocked_tools:
-      - delete_file
+    blocked_tools: []
     message: "Phase QUALITY : tests et lint uniquement"
 
   AUTOEVAL:
     description: "Auto-évaluation — lecture et exécution d'évaluation, pas de destruction"
     allowed_categories: [read, search, knowledge, exec]
     blocked_categories: [destructive]
-    blocked_tools:
-      - delete_file
+    blocked_tools: []
     message: "Phase AUTOEVAL : auto-évaluation, destruction désactivée"
 
   MEMORY_OBSERVE:
     description: "Distillation mémoire et observabilité — écriture mémoire, pas de destruction"
     allowed_categories: [read, search, knowledge, write]
     blocked_categories: [destructive]
-    blocked_tools:
-      - delete_file
+    blocked_tools: []
     message: "Phase MEMORY_OBSERVE : distillation et observation, destruction désactivée"
 
 default_phase: BUILD
