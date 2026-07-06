@@ -27,12 +27,9 @@ class RiskLevel(Enum):
 TOOL_RISK_MAP: Dict[str, RiskLevel] = {
     # READ
     "read_file": RiskLevel.READ,
-    "list_dir": RiskLevel.READ,
     "ls": RiskLevel.READ,
-    "search_files": RiskLevel.READ,
     "grep": RiskLevel.READ,
     "glob": RiskLevel.READ,
-    "get_symbol": RiskLevel.READ,
     "get_workspace": RiskLevel.READ,
     "search_chats": RiskLevel.READ,
     "list_served_models": RiskLevel.READ,
@@ -47,7 +44,6 @@ TOOL_RISK_MAP: Dict[str, RiskLevel] = {
     # WRITE
     "write_file": RiskLevel.WRITE,
     "edit_file": RiskLevel.WRITE,
-    "create_file": RiskLevel.WRITE,
     "create_document": RiskLevel.WRITE,
     "update_document": RiskLevel.WRITE,
     "edit_document": RiskLevel.WRITE,
@@ -70,7 +66,6 @@ TOOL_RISK_MAP: Dict[str, RiskLevel] = {
     "ask_teacher": RiskLevel.EXEC,
     "edit_image": RiskLevel.EXEC,
     # DESTRUCTIVE
-    "delete_file": RiskLevel.DESTRUCTIVE,
     "remove_dir": RiskLevel.DESTRUCTIVE,
     "stop_served_model": RiskLevel.DESTRUCTIVE,
     "cancel_download": RiskLevel.DESTRUCTIVE,
