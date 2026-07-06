@@ -3,11 +3,7 @@ name: edge-case-gen
 description: >
   Generate exhaustive test specs across 12 dimensions for any feature.
   Output is structured, ready to drive TDD or review.
-tools:
-  - read_file
-  - grep
-  - glob
-  - ls
+
 ---
 
 # Agent: Edge Case Generator (12 Dimensions)
