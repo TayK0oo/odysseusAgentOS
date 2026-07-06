@@ -4,12 +4,6 @@ description: >
   Constitution agent — encodes the 10 invariants of the AgentOS Constitution.
   Run before any agentic workflow to verify it respects the invariants,
   or after an incident to diagnose which invariant was violated.
-tools:
-  - read_file
-  - grep
-  - glob
-  - ls
-  - manage_skills
 ---
 
 # Agent: AgentOS Constitution

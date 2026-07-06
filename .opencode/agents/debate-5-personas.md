@@ -4,12 +4,7 @@ description: >
   Run a structured 5-persona debate before any complex implementation.
   Each persona stress-tests the proposal from a different angle.
   Produces a GO / CAUTION / STOP verdict.
-tools:
-  - read_file
-  - grep
-  - glob
-  - ls
-  - manage_skills
+
 ---
 
 # Agent: 5-Persona Debate

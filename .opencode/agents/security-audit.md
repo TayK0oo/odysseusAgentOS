@@ -3,12 +3,7 @@ name: security-audit
 description: >
   STRIDE + OWASP Top 10 security audit agent. Analyses code or architecture
   for vulnerabilities and produces fixes ordered by severity.
-tools:
-  - read_file
-  - grep
-  - glob
-  - ls
-  - search_files
+
 ---
 
 # Agent: Security Audit (STRIDE + OWASP)
