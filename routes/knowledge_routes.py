@@ -7,7 +7,7 @@ lieu du service Graphify fantôme (jamais démarré) — zéro redondance.
 """
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 import httpx
 import logging
 
@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 
 CBM_URL = "http://localhost:9749"
-OBSIDIAN_URL = "http://localhost:9751"  # Obsidian MCP
 
 
 def _native_semantic_search(query: str, limit: int = 5) -> Dict[str, Any]:
@@ -80,48 +79,16 @@ async def search_graph_semantic(q: str, limit: int = 10):
     """Recherche sémantique doc — déléguée au VectorRAG natif."""
     return _native_semantic_search(q, limit)
 
-# ---- Obsidian — Mémoire inter-projets ----
-
-@router.get("/memory/notes")
-async def list_notes(path: str = "agentos/"):
-    """Obsidian MCP — liste les notes du second-brain."""
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{OBSIDIAN_URL}/notes", params={"path": path})
-            return resp.json()
-    except Exception as e:
-        return {"error": str(e), "hint": "Configurer le vault Obsidian dans .env"}
-
-@router.get("/memory/note/{note_path:path}")
-async def get_note(note_path: str):
-    """Obsidian MCP — lit une note du second-brain."""
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{OBSIDIAN_URL}/notes/{note_path}")
-            return resp.json()
-    except Exception as e:
-        return {"error": str(e)}
-
-@router.post("/memory/note")
-async def create_note(path: str, content: str, tags: List[str] = []):
-    """Obsidian MCP — crée/met à jour une note dans le second-brain."""
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(f"{OBSIDIAN_URL}/notes", json={"path": path, "content": content, "tags": tags})
-            return resp.json()
-    except Exception as e:
-        return {"error": str(e)}
-
 # ---- Checkpoint Trinité — utilisé avant génération ----
 
 @router.post("/checkpoint")
 async def trinite_checkpoint(query: str, context_type: str = "code"):
     """
-    Checkpoint Trinité : interroge CBM + Graphify + Obsidian et fusionne.
-    Appelé obligatoirement avant toute génération de code.
-    Retourne un contexte enrichi.
+    Checkpoint Trinité : interroge CBM (structure) + VectorRAG natif (sémantique doc).
+    La jambe Obsidian (mémoire persistante) est gérée par le checkpoint_tracker natif
+    (mcp_servers/obsidian_mcp.py, gate ODYSSEUS_OBSIDIAN_MCP), pas par ce proxy HTTP.
     """
-    results = {"cbm": None, "semantic": None, "obsidian": None, "query": query}
+    results = {"cbm": None, "semantic": None, "query": query}
 
     # 2. Sémantique doc — VectorRAG natif (synchrone, pas de HTTP)
     results["semantic"] = _native_semantic_search(query, 5)
@@ -134,21 +101,15 @@ async def trinite_checkpoint(query: str, context_type: str = "code"):
         except Exception:
             results["cbm"] = {"error": "CBM offline"}
 
-        # 3. Obsidian — mémoire
-        try:
-            r = await client.get(f"{OBSIDIAN_URL}/search", params={"q": query})
-            results["obsidian"] = r.json()
-        except Exception:
-            results["obsidian"] = {"error": "Obsidian offline"}
-
     return results
 
 @router.get("/status")
 async def knowledge_status():
     """Statut de tous les composants de la Trinité."""
-    status = {"rag": "online" if get_rag_manager() is not None else "offline"}
+    status = {"rag": "online" if get_rag_manager() is not None else "offline",
+              "obsidian": "delegated (native checkpoint_tracker + ODYSSEUS_OBSIDIAN_MCP gate)"}
     async with httpx.AsyncClient(timeout=3.0) as client:
-        for name, url in [("cbm", CBM_URL), ("obsidian", OBSIDIAN_URL)]:
+        for name, url in [("cbm", CBM_URL)]:
             try:
                 await client.get(f"{url}/health")
                 status[name] = "online"
