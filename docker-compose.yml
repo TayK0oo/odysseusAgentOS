@@ -256,6 +256,22 @@ services:
     profiles:
       - knowledge
 
+  graphify:
+    image: python:3.12-slim
+    command: >
+      sh -c "pip install graphifyy && python -u /workspace/mcp_servers/graphify_mcp.py"
+    ports:
+      - "127.0.0.1:9750:9750"
+    volumes:
+      - .:/workspace:ro
+      - ${APP_DATA_DIR:-./data}/graphify:/data/graphify
+    environment:
+      - GRAPHIFY_WORKSPACE=/workspace
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    profiles:
+      - knowledge
+
   decision-engine:
     build:
       context: ${DECISION_ENGINE_PATH:-../ConfigOpenCodeNew/decision-engine}
