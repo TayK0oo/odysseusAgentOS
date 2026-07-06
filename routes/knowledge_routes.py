@@ -72,12 +72,70 @@ async def get_architecture(aspects: str = "all"):
     except Exception as e:
         return {"error": str(e)}
 
-# ---- Sémantique doc — VectorRAG natif (remplace Graphify) ----
+# ---- Sémantique — VectorRAG natif + Graphify (3ème leg Trinité) ----
 
 @router.get("/graph/search")
 async def search_graph_semantic(q: str, limit: int = 10):
-    """Recherche sémantique doc — déléguée au VectorRAG natif."""
-    return _native_semantic_search(q, limit)
+    """Recherche sémantique — VectorRAG natif (docs) + Graphify (code) si dispo."""
+    from src.rag_singleton import get_rag_manager
+    results = {"rag": None, "graphify": None, "query": q}
+
+    # 1. VectorRAG natif — recherche documentaire hybride
+    results["rag"] = _native_semantic_search(q, limit)
+
+    # 2. Graphify — sémantique code (si le serveur MCP est enregistré)
+    try:
+        import os
+        if os.environ.get("ODYSSEUS_GRAPHIFY", "").strip().lower() in ("1", "true", "yes", "on"):
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(
+                    "http://localhost:9750/mcp",
+                    json={"method": "tools/call", "params": {"name": "graphify_search", "arguments": {"query": q, "limit": limit}}},
+                )
+                if r.status_code == 200:
+                    results["graphify"] = r.json()
+    except Exception:
+        pass  # Graphify offline — dégradation gracieuse
+
+    return results
+
+
+@router.get("/graph/status")
+async def graphify_status():
+    """Statut du knowledge graph Graphify."""
+    try:
+        import os
+        if not os.environ.get("ODYSSEUS_GRAPHIFY", "").strip().lower() in ("1", "true", "yes", "on"):
+            return {"available": False, "reason": "ODYSSEUS_GRAPHIFY is OFF"}
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.post(
+                "http://localhost:9750/mcp",
+                json={"method": "tools/call", "params": {"name": "graphify_status", "arguments": {}}},
+            )
+            if r.status_code == 200:
+                return r.json()
+            return {"available": False, "error": f"HTTP {r.status_code}"}
+    except Exception as e:
+        return {"available": False, "error": str(e)}
+
+
+@router.post("/graph/analyze")
+async def graphify_analyze(path: str = None, max_depth: int = 5):
+    """Lance une analyse Graphify du codebase (knowledge graph sémantique)."""
+    try:
+        import os
+        if not os.environ.get("ODYSSEUS_GRAPHIFY", "").strip().lower() in ("1", "true", "yes", "on"):
+            return {"error": "ODYSSEUS_GRAPHIFY is OFF — enable it to use Graphify"}
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            r = await client.post(
+                "http://localhost:9750/mcp",
+                json={"method": "tools/call", "params": {"name": "graphify_analyze", "arguments": {"path": path, "max_depth": max_depth}}},
+            )
+            if r.status_code == 200:
+                return r.json()
+            return {"error": f"HTTP {r.status_code}"}
+    except Exception as e:
+        return {"error": str(e)}
 
 # ---- Checkpoint Trinité — utilisé avant génération ----
 

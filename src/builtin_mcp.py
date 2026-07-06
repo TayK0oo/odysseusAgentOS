@@ -98,6 +98,15 @@ def _obsidian_mcp_enabled() -> bool:
     return os.environ.get("ODYSSEUS_OBSIDIAN_MCP", "").strip().lower() in ("1", "true", "yes", "on")
 
 
+def _graphify_mcp_enabled() -> bool:
+    """OFF unless ODYSSEUS_GRAPHIFY is truthy.
+
+    Gates registration of the Graphify semantic knowledge graph MCP server.
+    OFF (default) keeps startup byte-identical.
+    """
+    return os.environ.get("ODYSSEUS_GRAPHIFY", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _optional_python_servers() -> dict:
     """Kill-switched Python stdio servers, included only when their gate is ON.
 
@@ -107,6 +116,8 @@ def _optional_python_servers() -> dict:
     optional = {}
     if _obsidian_mcp_enabled():
         optional["obsidian"] = ("mcp_servers/obsidian_mcp.py", "Built-in: Obsidian (read/search)")
+    if _graphify_mcp_enabled():
+        optional["graphify"] = ("mcp_servers/graphify_mcp.py", "Built-in: Graphify (semantic knowledge graph)")
     return optional
 
 
