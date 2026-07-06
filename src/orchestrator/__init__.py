@@ -13,6 +13,11 @@ from src.orchestrator.autoeval import (
     apply_autoeval,
     AutoevalDecision,
 )
+from src.orchestrator.autoevolve import (
+    autoevolve_enabled,
+    maybe_autoevolve,
+    trigger_improvement_research,
+)
 
 __all__ = [
     "AgentSpec", "parse_agent_spec", "AgentRegistry", "resolve_model",
@@ -22,4 +27,5 @@ __all__ = [
     "PhaseTracker", "tracker_enabled",
     "advise", "router_enabled",
     "autoeval_enabled", "decide_keep_or_revert", "apply_autoeval", "AutoevalDecision",
+    "autoevolve_enabled", "maybe_autoevolve", "trigger_improvement_research",
 ]
