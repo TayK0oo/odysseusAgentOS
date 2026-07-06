@@ -833,6 +833,34 @@ async def list_agents():
     catalog = getattr(app.state, "agent_catalog", None)
     if catalog is None:
         return {"agents": [], "hint": "Set ODYSSEUS_AGENT_CATALOG=on to enable the agent catalog"}
+
+@_agents.post("/dispatch")
+async def dispatch_agent(request: Request):
+    """Dispatch explicite d'un agent (slash command /agent ou /design)."""
+    try:
+        body = await request.json()
+    except Exception:
+        return {"ok": False, "error": "Invalid JSON body"}
+
+    agent_name = (body or {}).get("agent", "")
+    context = (body or {}).get("context", "")
+    session_id = str(getattr(request.state, "session_id", "explicit"))
+
+    if not agent_name:
+        return {"ok": False, "error": "Missing 'agent' field"}
+
+    try:
+        from src.orchestrator.agent_dispatcher import AgentDispatcher
+        dispatcher = AgentDispatcher()
+        result = await dispatcher.dispatch_explicit(agent_name, session_id, context)
+        return {"ok": True, "agent": agent_name, "result": str(result) if result else None}
+    except ValueError as ve:
+        return {"ok": False, "error": str(ve)}
+    except RuntimeError as re:
+        return {"ok": False, "error": str(re)}
+    except Exception as e:
+        logger.warning(f"Agent dispatch failed: {type(e).__name__}: {e}")
+        return {"ok": False, "error": f"{type(e).__name__}: {e}"}
     return {
         "agents": [
             {"name": a.name, "description": a.description, "model": a.model, "tools": a.tools}

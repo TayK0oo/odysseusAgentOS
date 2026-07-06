@@ -2511,6 +2511,16 @@ async def stream_agent_loop(
     except Exception:
         pass  # advisory routing must never break the loop
 
+    # M4 agent dispatch: auto-trigger .opencode agents at each canonical phase.
+    # Each agent has its own kill-switch (default OFF). Best-effort — never breaks
+    # the loop. Uses the shared task_llm_call_async for background agent calls.
+    _agent_dispatcher = None
+    try:
+        from src.orchestrator.agent_dispatcher import AgentDispatcher
+        _agent_dispatcher = AgentDispatcher()
+    except Exception:
+        pass
+
     for round_num in range(1, max_rounds + 1):
         try:
             if _use_canonical and _canonical_loop is not None:
@@ -2519,6 +2529,20 @@ async def stream_agent_loop(
                 _phase_tracker.on_round_start(round_num, intent=_intent, plan_mode=plan_mode)
         except Exception:
             pass  # phase tracking must never break the loop
+
+        # M4: fire agents for current phase (best-effort, never blocks)
+        _current_phase = None
+        if _use_canonical and _canonical_loop is not None:
+            _current_phase = _canonical_loop.current
+        if _agent_dispatcher is not None and _current_phase is not None:
+            try:
+                _ctx = _last_user if isinstance(_last_user, str) else ""
+                import asyncio as _asyncio
+                _asyncio.ensure_future(
+                    _agent_dispatcher.dispatch_for_phase(_current_phase, session_id or "live", _ctx)
+                )
+            except Exception:
+                pass  # agent dispatch must never break the loop
         # Budget check par itération
         if _budget_enforcer:
             _budget_check = _budget_enforcer.consume_iteration()
