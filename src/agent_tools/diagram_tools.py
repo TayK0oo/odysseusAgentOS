@@ -37,7 +37,7 @@ _VALID_FORMATS = ("png", "svg")
 
 
 def _kroki_enabled() -> bool:
-    return os.getenv("KROKI_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
+    return os.getenv("KROKI_ENABLED", "off").strip().lower() in ("1", "true", "yes", "on")
 
 
 def _kroki_base_url() -> str:
