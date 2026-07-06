@@ -1,1 +1,0 @@
-# Channel Gateway adapters
