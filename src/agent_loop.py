@@ -3597,6 +3597,18 @@ async def stream_agent_loop(
     except Exception as _ckpt_exc:
         logger.debug("[agent] checkpoint ignoré : %s", _ckpt_exc)
 
+    # MEMORY_OBSERVE — CodeBurn post-session report (M4).
+    # Runs the codeburn CLI to analyse session traces and feeds the report
+    # (one-shot rate, waste patterns, cost vs commits) to the Observer.
+    # Gated by ODYSSEUS_CODEBURN (default OFF). Best-effort, never breaks.
+    try:
+        from src.orchestrator.codeburn_runner import run_codeburn, feed_observer
+        _cb_report = await run_codeburn(session_id or "live")
+        if _cb_report:
+            feed_observer(_cb_report)
+    except Exception as _cb_exc:
+        logger.debug("[agent] codeburn ignoré : %s", _cb_exc)
+
     # OBSERVER — drift score — Phase 5
     try:
         from src.observer import Observer, DriftLevel
