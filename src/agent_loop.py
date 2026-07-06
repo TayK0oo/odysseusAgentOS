@@ -2479,8 +2479,21 @@ async def stream_agent_loop(
     # M3.0 phase bridge: give the live loop a per-round phase. Kill-switched
     # (ODYSSEUS_PHASE_TRACKER, default OFF) so live behavior is unchanged until
     # the mapping is tuned in later M3.x waves.
+    # M3.x live orchestration: when ODYSSEUS_LIVE_ORCHESTRATION=on, uses the full
+    # CanonicalLoop (7 phases) instead of the simplified PhaseTracker.
     from src.orchestrator.phase_tracker import PhaseTracker
     _phase_tracker = PhaseTracker(session_id or "live")
+
+    _use_canonical = os.environ.get("ODYSSEUS_LIVE_ORCHESTRATION", "").strip().lower() in ("1", "true", "yes", "on")
+    _canonical_loop = None
+    if _use_canonical:
+        try:
+            from src.orchestrator.loop import CanonicalLoop
+            _canonical_loop = CanonicalLoop()
+            logger.info("[orchestration] CanonicalLoop active — 7 phases (ODYSSEUS_LIVE_ORCHESTRATION=on)")
+        except Exception as _cl_err:
+            logger.warning("[orchestration] CanonicalLoop init failed: %s — falling back to PhaseTracker", _cl_err)
+            _use_canonical = False
 
     # M3.1 advisory routing: first live call-site of intent_gate. Suggests a NATIVE
     # role (default/utility/research/vision) resolvable by resolve_endpoint — NOT a
@@ -2500,7 +2513,10 @@ async def stream_agent_loop(
 
     for round_num in range(1, max_rounds + 1):
         try:
-            _phase_tracker.on_round_start(round_num, intent=_intent, plan_mode=plan_mode)
+            if _use_canonical and _canonical_loop is not None:
+                _canonical_loop.advance()
+            else:
+                _phase_tracker.on_round_start(round_num, intent=_intent, plan_mode=plan_mode)
         except Exception:
             pass  # phase tracking must never break the loop
         # Budget check par itération
