@@ -146,6 +146,12 @@ services:
       chromadb:
         condition: service_started
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:7000/', timeout=5).read(1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   chromadb:
     image: docker.io/chromadb/chroma:latest
@@ -160,6 +166,12 @@ services:
     cap_drop:
       - ALL
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v2/heartbeat', timeout=5).read(1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   searxng:
     # Pinned, not :latest — odysseus waits on searxng's healthcheck
@@ -227,6 +239,12 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:80/v1/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   kroki:
     image: yuzutech/kroki:latest
@@ -258,6 +276,12 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',8002),3).close()\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   serena-mcp:
     image: python:3.12-slim
@@ -276,6 +300,12 @@ services:
       - ALL
     environment:
       - SERENA_MODE=ide-assistant
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',8765),5).close()\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   acontext:
     build:
@@ -292,6 +322,12 @@ services:
       - ALL
     profiles:
       - acontext
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',8029),5).close()\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   scrapling-mcp:
     image: python:3.12-slim
@@ -340,6 +376,12 @@ services:
       - ALL
     profiles:
       - knowledge
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',9749),3).close()\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   graphify:
     image: python:3.12-slim
@@ -360,6 +402,12 @@ services:
       - ALL
     profiles:
       - knowledge
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',9750),5).close()\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   decision-engine:
     build:
@@ -379,6 +427,12 @@ services:
       - ALL
     profiles:
       - decision-engine
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',8001),3).close()\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
 volumes:
   searxng-data:
