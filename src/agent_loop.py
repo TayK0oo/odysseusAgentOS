@@ -2526,7 +2526,7 @@ async def stream_agent_loop(
     _agent_events: list = []
 
     for round_num in range(1, max_rounds + 1):
-        # Flush any agent events from the previous round's background tasks
+        # Flush any completed agent events from the previous round's background tasks
         while _agent_events:
             _evt = _agent_events.pop(0)
             yield f'data: {json.dumps(_evt)}\n\n'
@@ -2554,6 +2554,11 @@ async def stream_agent_loop(
         if _agent_dispatcher is not None and _current_phase is not None:
             try:
                 _ctx = _last_user if isinstance(_last_user, str) else ""
+                # Emit "running" events synchronously so UI shows indicators immediately
+                _phase_agents = _agent_dispatcher.agents_for_phase(_current_phase)
+                for _agent_name in _phase_agents:
+                    yield f'data: {json.dumps({"type": "agent_dispatch", "agent": _agent_name, "phase": _current_phase.value, "status": "running"})}\n\n'
+                # Dispatch agents asynchronously; completed events will be flushed later
                 def _on_agent_event(evt):
                     _agent_events.append(evt)
                 import asyncio as _asyncio
