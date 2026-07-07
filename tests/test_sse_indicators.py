@@ -56,3 +56,15 @@ def test_verifier_event_pass_and_fail():
     assert evt["status"] == "fail"
     assert evt["detail"] == "missing test; lint fail; x"
     json.dumps(evt)
+
+
+def test_all_events_are_sse_line_safe():
+    # SSE frames are newline-delimited; payloads must not contain raw newlines
+    for evt in (
+        run_status_event(phase="build", drift="high", used=2, max_rounds=5,
+                         budget_pct=90, budget_tokens=1000),
+        autoeval_event(decision="keep", reason="ok"),
+        verifier_event(reasons=["boom"]),
+    ):
+        line = json.dumps(evt)
+        assert "\n" not in line
