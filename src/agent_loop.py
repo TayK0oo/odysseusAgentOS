@@ -2535,7 +2535,9 @@ async def stream_agent_loop(
             return None, None
         try:
             rep = _budget_enforcer.get_usage_report()
-            return rep.get("pct"), rep.get("tokens")
+            pct = rep.get("percent", {}).get("tokens")
+            tokens = rep.get("usage", {}).get("tokens_used")
+            return (int(pct) if pct is not None else None), tokens
         except Exception:
             return None, None
 
