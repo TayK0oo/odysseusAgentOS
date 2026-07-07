@@ -7,6 +7,13 @@
 # the source of truth — CLI users should keep using the COMPOSE_FILE overlay
 # workflow. Keep this file in sync with both when either changes.
 #
+# ⚠️ MINIMAL — only the core odysseus + chromadb + searxng + ntfy services.
+# Optional services (kroki, serena-mcp, acontext, scrapling, codebase-memory,
+# graphify, decision-engine) are EXCLUDED — they don't need GPU access.
+# For the full stack, use the overlay workflow:
+#   COMPOSE_FILE=docker-compose.yml:docker/gpu.nvidia.yml
+#   docker compose --profile scrapling --profile knowledge up -d
+#
 # Requires the NVIDIA Container Toolkit on the host. See docker/gpu.nvidia.yml
 # for setup details.
 services:
@@ -179,6 +186,16 @@ services:
     environment:
       - NTFY_BASE_URL=${NTFY_BASE_URL:-http://localhost:8091}
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:80/v1/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 volumes:
   searxng-data:
