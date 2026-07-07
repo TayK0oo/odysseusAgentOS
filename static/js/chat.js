@@ -2345,9 +2345,11 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                   const indicator = document.createElement('div');
                   indicator.className = 'msg msg-system agent-indicator agent-running';
                   indicator.dataset.agent = agentName;
+                  const safeName = String(agentName).replace(/[<>&]/g, '');
+                  const safePhase = String(phaseName).replace(/[<>&]/g, '');
                   indicator.innerHTML = '<span class="agent-dot"></span> ' +
-                    _escHtml(agentName) + ' <span class="agent-phase">' + _escHtml(phaseName) + '</span> ' +
-                    '<span class="agent-spin"></span>';
+                    safeName + ' <span class="agent-phase">' + safePhase + '</span> ' +
+                    '<span class="agent-spin">⏳</span>';
                   box.appendChild(indicator);
                   box.scrollTop = box.scrollHeight;
                 } else if (status === 'completed') {
