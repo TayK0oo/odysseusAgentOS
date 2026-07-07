@@ -19,6 +19,11 @@ from urllib.parse import urlparse
 from src.llm_core import stream_llm, stream_llm_with_fallback, _is_ollama_native_url
 from src.model_context import estimate_tokens
 from src.settings import get_setting
+from src.sse_indicators import (
+    run_status_event,
+    autoeval_event,
+    verifier_event,
+)
 from src.prompt_security import untrusted_context_message
 from src.tool_security import blocked_tools_for_owner, plan_mode_disabled_tools
 from src.tool_policy import GUIDE_ONLY_DIRECTIVE, ToolPolicy
@@ -2522,6 +2527,18 @@ async def stream_agent_loop(
     except Exception:
         pass
 
+    _last_drift = None  # updated post-loop; carried into per-round run_status
+
+    def _budget_snapshot():
+        """Best-effort (pct, tokens) from the enforcer; (None, None) if unknown."""
+        if not _budget_enforcer:
+            return None, None
+        try:
+            rep = _budget_enforcer.get_usage_report()
+            return rep.get("pct"), rep.get("tokens")
+        except Exception:
+            return None, None
+
     # Persistent list for agent dispatch SSE events (collected across rounds)
     _agent_events: list = []
 
@@ -2574,6 +2591,14 @@ async def stream_agent_loop(
             if not _budget_check["ok"]:
                 logger.warning(f"Budget épuisé: {_budget_check['reason']}")
                 break
+
+        # Live cockpit: consolidated per-round status (never breaks the loop)
+        try:
+            _bp, _bt = _budget_snapshot()
+            _phase_val = _current_phase.value if _current_phase is not None else None
+            yield f'data: {json.dumps(run_status_event(phase=_phase_val, drift=_last_drift, used=round_num, max_rounds=max_rounds, budget_pct=_bp, budget_tokens=_bt))}\n\n'
+        except Exception:
+            pass
 
         round_response = ""
         round_reasoning = ""  # reasoning_content deltas (DeepSeek-thinking, vLLM --reasoning-parser)
@@ -3654,8 +3679,16 @@ async def stream_agent_loop(
         drift = _observer.compute_drift_score()
         if drift == DriftLevel.HIGH:
             logger.warning("Drift score HIGH — re-loop ou escalade recommandée")
+        _last_drift = drift
     except Exception:
         drift = None
+        _last_drift = None
+    # Live cockpit: final status carrying the computed drift
+    try:
+        _bp, _bt = _budget_snapshot()
+        yield f'data: {json.dumps(run_status_event(phase=None, drift=_last_drift, used=max_rounds, max_rounds=max_rounds, budget_pct=_bp, budget_tokens=_bt))}\n\n'
+    except Exception:
+        pass
 
     # AUTOEVAL — keep/revert verifier (M3.3). Decides whether to KEEP or REVERT
     # (git reset --hard) the changes this run made, driven by the verifier
@@ -3689,6 +3722,18 @@ async def stream_agent_loop(
                 "[autoeval] decision=revert reverted=%s error=%s",
                 _ae.reverted, _ae.error,
             )
+        # Live badge: verifier verdict (derived from the reasons the verifier left)
+        try:
+            yield f'data: {json.dumps(verifier_event(reasons=locals().get("_verifier_last_reasons")))}\n\n'
+        except Exception:
+            pass
+        # Live badge: autoeval decision (only meaningful when the module ran)
+        if getattr(_ae, "enabled", False):
+            try:
+                _reason = _ae.error or (f"drift {getattr(_last_drift, 'value', _last_drift)}" if _ae.decision == "revert" else "checks passed")
+                yield f'data: {json.dumps(autoeval_event(decision=_ae.decision, reason=str(_reason)))}\n\n'
+            except Exception:
+                pass
     except Exception as _ae_exc:
         logger.debug("[agent] autoeval ignoré : %s", _ae_exc)
 
