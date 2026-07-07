@@ -3020,6 +3020,64 @@ function initLogsView() {
 }
 
 /* ═══════════════════════════════════════════
+   KILL-SWITCHES DASHBOARD (read-only)
+   ═══════════════════════════════════════════ */
+function ksClean(s) { return String(s == null ? '' : s).replace(/[<>&]/g, ''); }
+
+function renderKillswitches(data) {
+  const container = el('killswitches-container');
+  if (!container) return;
+  if (!data || data.ok !== true || !Array.isArray(data.switches)) {
+    container.innerHTML = '<div class="settings-system-logs-placeholder">Indisponible.</div>';
+    return;
+  }
+  const byCat = {};
+  for (const sw of data.switches) {
+    (byCat[sw.category] = byCat[sw.category] || []).push(sw);
+  }
+  let html = '';
+  for (const cat of data.categories) {
+    const rows = byCat[cat];
+    if (!rows || !rows.length) continue;
+    html += '<div class="ks-cat-title">' + ksClean(cat) + '</div>';
+    for (const sw of rows) {
+      const on = sw.effective === true;
+      // Destructive gate ON = protection active (good); OFF = warn.
+      let chipCls = on ? 'chip-ok' : 'chip-muted';
+      if (sw.env_var === 'ODYSSEUS_DESTRUCTIVE_GATE') chipCls = on ? 'chip-ok' : 'chip-warn';
+      const state = on ? 'ON' : 'OFF';
+      const badges =
+        (sw.is_default ? '<span class="ks-badge">defaut</span>' : '') +
+        (sw.timing === 'startup' ? '<span class="ks-badge">startup</span>' : '');
+      html += '<div class="ks-row" title="' + ksClean(sw.desc) + ' — ' + ksClean(sw.source) + '">' +
+        '<span class="ks-name">' + ksClean(sw.name) +
+        ' <code>' + ksClean(sw.env_var) + '</code>' + badges + '</span>' +
+        '<span class="cockpit-chip ' + chipCls + '">' +
+        '<span class="chip-val">' + state + '</span></span>' +
+        '</div>';
+    }
+  }
+  container.innerHTML = html || '<div class="settings-system-logs-placeholder">Aucun switch.</div>';
+}
+
+function loadKillswitches() {
+  const container = el('killswitches-container');
+  fetch('/api/killswitches', { credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(renderKillswitches)
+    .catch(function () {
+      if (container) container.innerHTML =
+        '<div class="settings-system-logs-placeholder">Indisponible.</div>';
+    });
+}
+
+function initKillswitchesView() {
+  const btn = el('killswitches-refresh-btn');
+  if (btn) btn.addEventListener('click', loadKillswitches);
+  loadKillswitches();
+}
+
+/* ═══════════════════════════════════════════
    INIT & REFRESH
    ═══════════════════════════════════════════ */
 function initAll() {
@@ -3027,6 +3085,7 @@ function initAll() {
   const inits = [
     initSignupToggle, initShareDefaultsToggle, initAddUser, initEndpointForm, initMcpForm,
     initCalDAV, initBackup, initDangerZone, initTokenForm, initLogsView,
+    initKillswitchesView,
     () => settingsModule.initIntegrations()
   ];
   for (const fn of inits) {
