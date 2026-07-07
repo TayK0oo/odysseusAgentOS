@@ -82,7 +82,55 @@ services:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - OBSIDIAN_VAULT_PATH=/obsidian-vault
-      - OBSIDIAN_MCP_ENABLED=${OBSIDIAN_MCP_ENABLED:-false}
+      - ODYSSEUS_OBSIDIAN_MCP=${ODYSSEUS_OBSIDIAN_MCP:-off}
+      # ── M3 Orchestration kill-switches (all OFF by default) ──────
+      - ODYSSEUS_DESTRUCTIVE_GATE=${ODYSSEUS_DESTRUCTIVE_GATE:-on}
+      - ODYSSEUS_PHASE_TRACKER=${ODYSSEUS_PHASE_TRACKER:-off}
+      - ODYSSEUS_GOVERNANCE_ANCESTRY=${ODYSSEUS_GOVERNANCE_ANCESTRY:-off}
+      - ODYSSEUS_CHECKPOINT=${ODYSSEUS_CHECKPOINT:-off}
+      - ODYSSEUS_MODEL_ROUTER=${ODYSSEUS_MODEL_ROUTER:-off}
+      - ODYSSEUS_RRF_FUSION=${ODYSSEUS_RRF_FUSION:-off}
+      - ODYSSEUS_ZEN_FROM_ENDPOINT=${ODYSSEUS_ZEN_FROM_ENDPOINT:-off}
+      - ODYSSEUS_AUTOEVAL=${ODYSSEUS_AUTOEVAL:-off}
+      - ODYSSEUS_UNIFIED_TOKENS=${ODYSSEUS_UNIFIED_TOKENS:-off}
+      # ── Channel Gateway ──────────────────────────────────────────
+      - ODYSSEUS_INPROCESS_DISCORD=${ODYSSEUS_INPROCESS_DISCORD:-off}
+      - ODYSSEUS_INPROCESS_TELEGRAM=${ODYSSEUS_INPROCESS_TELEGRAM:-off}
+      - ODYSSEUS_CHANNEL_AGENT_REPLY=${ODYSSEUS_CHANNEL_AGENT_REPLY:-off}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
+      - DISCORD_DEFAULT_CHANNEL_ID=${DISCORD_DEFAULT_CHANNEL_ID:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_DEFAULT_CHAT_ID=${TELEGRAM_DEFAULT_CHAT_ID:-}
+      # ── Trinité ──────────────────────────────────────────────────
+      - ODYSSEUS_GRAPHIFY=${ODYSSEUS_GRAPHIFY:-off}
+      - ODYSSEUS_OBSIDIAN_MCP=${ODYSSEUS_OBSIDIAN_MCP:-off}
+      # ── M4 Agent Dispatch ────────────────────────────────────────
+      - ODYSSEUS_AGENT_CATALOG=${ODYSSEUS_AGENT_CATALOG:-off}
+      - ODYSSEUS_AGENT_CONSTITUTION=${ODYSSEUS_AGENT_CONSTITUTION:-off}
+      - ODYSSEUS_AGENT_PLANNER=${ODYSSEUS_AGENT_PLANNER:-off}
+      - ODYSSEUS_AGENT_RESEARCHER=${ODYSSEUS_AGENT_RESEARCHER:-off}
+      - ODYSSEUS_AGENT_EXECUTOR=${ODYSSEUS_AGENT_EXECUTOR:-off}
+      - ODYSSEUS_AGENT_DEBUGGER=${ODYSSEUS_AGENT_DEBUGGER:-off}
+      - ODYSSEUS_AGENT_DEBATE=${ODYSSEUS_AGENT_DEBATE:-off}
+      - ODYSSEUS_AGENT_SECURITY=${ODYSSEUS_AGENT_SECURITY:-off}
+      - ODYSSEUS_AGENT_VERIFIER=${ODYSSEUS_AGENT_VERIFIER:-off}
+      - ODYSSEUS_AGENT_EDGECASE=${ODYSSEUS_AGENT_EDGECASE:-off}
+      - ODYSSEUS_AGENT_ROADMAPPER=${ODYSSEUS_AGENT_ROADMAPPER:-off}
+      - ODYSSEUS_AGENT_DESIGN_EXTRACT=${ODYSSEUS_AGENT_DESIGN_EXTRACT:-off}
+      - ODYSSEUS_AGENT_OPEN_DESIGN=${ODYSSEUS_AGENT_OPEN_DESIGN:-off}
+      # ── Exécution ────────────────────────────────────────────────
+      - SCRAPLING_ENABLED=${SCRAPLING_ENABLED:-false}
+      - KROKI_ENABLED=${KROKI_ENABLED:-off}
+      # ── Mémoire & Évolution ──────────────────────────────────────
+      - ACONTEXT_URL=${ACONTEXT_URL:-http://acontext:8029}
+      - ACONTEXT_ENABLED=${ACONTEXT_ENABLED:-false}
+      - ODYSSEUS_AUTOEVOLVE=${ODYSSEUS_AUTOEVOLVE:-off}
+      # ── Observabilité ────────────────────────────────────────────
+      - ODYSSEUS_CODEBURN=${ODYSSEUS_CODEBURN:-off}
+      - ODYSSEUS_AGENTSEAL=${ODYSSEUS_AGENTSEAL:-off}
+      # ── Orchestration & Projet ───────────────────────────────────
+      - ODYSSEUS_LIVE_ORCHESTRATION=${ODYSSEUS_LIVE_ORCHESTRATION:-off}
+      - ODYSSEUS_PROJECT_MANIFEST=${ODYSSEUS_PROJECT_MANIFEST:-off}
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -98,10 +146,6 @@ services:
       chromadb:
         condition: service_started
     restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
 
   chromadb:
     image: docker.io/chromadb/chroma:latest
@@ -116,10 +160,6 @@ services:
     cap_drop:
       - ALL
     restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
 
   searxng:
     # Pinned, not :latest — odysseus waits on searxng's healthcheck
@@ -172,8 +212,6 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
 
   ntfy:
     image: docker.io/binwiederhier/ntfy
