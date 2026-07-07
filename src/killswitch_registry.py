@@ -120,13 +120,15 @@ _AGENT_SWITCHES = [
     ("Agent: design-extract", "ODYSSEUS_AGENT_DESIGN_EXTRACT"),
     ("Agent: open-design", "ODYSSEUS_AGENT_OPEN_DESIGN"),
 ]
-for _label, _var in _AGENT_SWITCHES:
-    _SWITCHES.append({
-        "name": _label, "env_var": _var, "default": "off",
+_SWITCHES.extend(
+    {
+        "name": label, "env_var": var, "default": "off",
         "category": "Agents", "timing": "runtime",
         "desc": "Dispatch auto de l'agent par phase canonique.",
         "source": "src/orchestrator/agent_dispatcher.py",
-    })
+    }
+    for label, var in _AGENT_SWITCHES
+)
 
 _CATEGORY_ORDER = [
     "Orchestration", "Governance/Memory", "RAG",
