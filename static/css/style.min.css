@@ -8373,3 +8373,8 @@ textarea { font-size: 16px !important; }
 .cockpit-chip.chip-bad .chip-val{color:var(--accent,#ff5555)}
 .agent-indicator.autoeval-revert .agent-dot,.agent-indicator.verifier-fail .agent-dot{background:var(--accent,#ff5555)}
 .agent-indicator.autoeval-keep .agent-dot,.agent-indicator.verifier-pass .agent-dot{background:var(--green,#50fa7b)}
+.ks-cat-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;opacity:.55;margin:10px 0 4px}
+.ks-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid color-mix(in srgb,var(--fg) 8%,transparent)}
+.ks-name{font-size:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ks-name code{font-size:11px;opacity:.7}
+.ks-badge{font-size:9px;text-transform:uppercase;letter-spacing:.03em;padding:1px 5px;border-radius:6px;background:color-mix(in srgb,var(--fg) 12%,transparent);opacity:.75}
