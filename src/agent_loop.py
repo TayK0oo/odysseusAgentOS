@@ -2526,6 +2526,11 @@ async def stream_agent_loop(
     _agent_events: list = []
 
     for round_num in range(1, max_rounds + 1):
+        # Flush any agent events from the previous round's background tasks
+        while _agent_events:
+            _evt = _agent_events.pop(0)
+            yield f'data: {json.dumps(_evt)}\n\n'
+
         try:
             if _use_canonical and _canonical_loop is not None:
                 _canonical_loop.advance()
@@ -3518,6 +3523,11 @@ async def stream_agent_loop(
     if _exhausted_rounds:
         logger.info("[agent] round cap (%d) reached mid-task — emitting rounds_exhausted", max_rounds)
         yield f'data: {json.dumps({"type": "rounds_exhausted", "rounds": max_rounds})}\n\n'
+
+    # Final flush of any pending agent dispatch events (M4)
+    while _agent_events:
+        _evt = _agent_events.pop(0)
+        yield f'data: {json.dumps(_evt)}\n\n'
 
     # If the response is completely empty and no tools were executed,
     # yield a fallback message so the user is not left hanging.
