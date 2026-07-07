@@ -43,7 +43,7 @@
       fetch('/api/health', { credentials: 'same-origin' })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
-          const ok = j && (j.status === 'ok' || j.ok === true);
+          const ok = j && (j.status === 'ok' || j.status === 'healthy' || j.ok === true);
           setChip('cockpit-health', 'health', ok ? 'ok' : 'down', ok ? 'chip-ok' : 'chip-bad');
         })
         .catch(function () { setChip('cockpit-health', 'health', '?', 'chip-muted'); });
