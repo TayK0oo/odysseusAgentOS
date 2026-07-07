@@ -1035,6 +1035,13 @@
         </div>
       </div>
       <div id="pinned-tools-bar"></div>
+      <div id="run-cockpit" class="run-cockpit" aria-label="Run status">
+        <span id="cockpit-phase" class="cockpit-chip chip-muted"><span class="chip-label">phase</span><span class="chip-val">—</span></span>
+        <span id="cockpit-drift" class="cockpit-chip chip-muted"><span class="chip-label">drift</span><span class="chip-val">—</span></span>
+        <span id="cockpit-iters" class="cockpit-chip chip-muted"><span class="chip-label">iters</span><span class="chip-val">—</span></span>
+        <span id="cockpit-budget" class="cockpit-chip chip-muted"><span class="chip-label">budget</span><span class="chip-val">—</span></span>
+        <span id="cockpit-health" class="cockpit-chip chip-muted"><span class="chip-label">health</span><span class="chip-val">—</span></span>
+      </div>
       <div class="chat-input-bottom" style="visibility:hidden">
         <div class="chat-input-left">
           <!-- Overflow menu (+) — always first/left -->
@@ -2479,6 +2486,7 @@
 <script type="module" src="/static/js/chatRenderer.js"></script>
 <script type="module" src="/static/js/codeRunner.js"></script>
 <script type="module" src="/static/js/chatStream.js"></script>
+<script src="/static/js/cockpit.js"></script>
 <script type="module" src="/static/js/chat.js?v=20260609ws"></script>
 <script type="module" src="/static/js/cookbook.js"></script>
 <script src="/static/js/cookbookSchedule.js"></script>
