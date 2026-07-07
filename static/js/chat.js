@@ -2334,6 +2334,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                 if (_pu) _setStoredPlan(_pu);
 
               } else if (json.type === 'agent_dispatch') {
+                console.log('[M4] agent_dispatch event received:', json.agent, json.status);
                 if (_isBg) continue;
                 // M4: visual indicator for background agent activity
                 const agentName = json.agent || 'agent';
