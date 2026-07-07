@@ -833,6 +833,12 @@ async def list_agents():
     catalog = getattr(app.state, "agent_catalog", None)
     if catalog is None:
         return {"agents": [], "hint": "Set ODYSSEUS_AGENT_CATALOG=on to enable the agent catalog"}
+    return {
+        "agents": [
+            {"name": s.name, "description": s.description, "model": s.model, "tools": s.tools}
+            for s in (catalog.all() if hasattr(catalog, 'all') else [])
+        ]
+    }
 
 @_agents.post("/dispatch")
 async def dispatch_agent(request: Request):
@@ -1251,9 +1257,9 @@ async def _startup_event():
         try:
             if os.environ.get("ODYSSEUS_AGENT_CATALOG", "").strip().lower() in ("1", "true", "yes", "on"):
                 from src.orchestrator.registry import AgentRegistry
-                registry = AgentRegistry.discover()
+                registry = AgentRegistry().discover()
                 app.state.agent_catalog = registry
-                logger.info("Agent catalog loaded: %d agents", len(registry.agents) if registry else 0)
+                logger.info("Agent catalog loaded: %d agents", len(registry.list_names()) if registry else 0)
         except Exception as e:
             logger.warning(f"Agent catalog load failed (non-critical): {type(e).__name__}: {e}")
 
