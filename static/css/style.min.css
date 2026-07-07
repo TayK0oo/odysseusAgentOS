@@ -2060,6 +2060,14 @@ to { opacity: 1; transform: translateY(0); }
 .msg.msg-system { padding: 6px 12px; margin: 4px auto 4px 8px; max-width: 85%; background: none; border-left: 2px solid var(--border); }
 .msg.msg-system .body { padding: 0; }
 .msg.msg-system pre { margin: 4px 0; white-space: pre-wrap; font-size: 0.85em; }
+.agent-indicator { padding: 4px 12px; margin: 2px auto 2px 8px; font-size: 0.78em; opacity: 0.8; display: flex; align-items: center; gap: 6px; }
+.agent-indicator .agent-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent, #ff5555); flex-shrink: 0; }
+.agent-indicator.agent-running .agent-dot { animation: agent-pulse 1s infinite; }
+.agent-indicator.agent-completed .agent-dot { background: var(--green, #50fa7b); }
+.agent-indicator .agent-phase { opacity: 0.5; font-size: 0.85em; }
+.agent-indicator .agent-spin { opacity: 0.5; font-size: 0.85em; }
+.agent-indicator.agent-completed { opacity: 0.5; transition: opacity 0.5s; }
+@keyframes agent-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 .msg.stream-done-toast { cursor: pointer; border-left-color: var(--accent, var(--border)); border-radius: 6px; background: color-mix(in srgb, var(--accent) 6%, transparent); transition: background 0.15s; }
 .msg.stream-done-toast:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .msg.stream-done-toast .body { display: flex; align-items: center; gap: 8px; }

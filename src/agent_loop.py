@@ -2522,6 +2522,9 @@ async def stream_agent_loop(
     except Exception:
         pass
 
+    # Persistent list for agent dispatch SSE events (collected across rounds)
+    _agent_events: list = []
+
     for round_num in range(1, max_rounds + 1):
         try:
             if _use_canonical and _canonical_loop is not None:
@@ -2546,9 +2549,12 @@ async def stream_agent_loop(
         if _agent_dispatcher is not None and _current_phase is not None:
             try:
                 _ctx = _last_user if isinstance(_last_user, str) else ""
+                def _on_agent_event(evt):
+                    _agent_events.append(evt)
                 import asyncio as _asyncio
                 _asyncio.ensure_future(
-                    _agent_dispatcher.dispatch_for_phase(_current_phase, session_id or "live", _ctx)
+                    _agent_dispatcher.dispatch_for_phase(_current_phase, session_id or "live", _ctx,
+                                                         on_event=_on_agent_event)
                 )
             except Exception:
                 pass  # agent dispatch must never break the loop
@@ -3490,6 +3496,11 @@ async def stream_agent_loop(
         yield (
             f'data: {json.dumps({"type": "agent_step", "round": round_num + 1})}\n\n'
         )
+
+        # Flush any pending agent dispatch events (M4 visual indicators)
+        while _agent_events:
+            _evt = _agent_events.pop(0)
+            yield f'data: {json.dumps(_evt)}\n\n'
 
         # Separator in accumulated response
         full_response += "\n\n"

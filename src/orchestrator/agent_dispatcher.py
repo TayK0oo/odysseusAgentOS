@@ -118,8 +118,14 @@ class AgentDispatcher:
         return [name for name, env_var in entries if _is_enabled(env_var)]
 
     async def dispatch_for_phase(self, phase: Phase, session_id: str,
-                                 context: Optional[str] = None):
-        """Fire all enabled agents for this phase (best-effort, sequential)."""
+                                 context: Optional[str] = None,
+                                 on_event: Optional[callable] = None):
+        """Fire all enabled agents for this phase (best-effort, sequential).
+
+        If *on_event* is provided, it is called with a dict ``{type, agent, phase,
+        status}`` before each agent starts and after it completes, so callers can
+        emit real-time SSE / UI indicators.
+        """
         agent_names = self.agents_for_phase(phase)
         if not agent_names:
             return
@@ -141,7 +147,12 @@ class AgentDispatcher:
                 continue
 
             try:
-                await self._run_agent(spec, phase.value, session_id, context)
+                if on_event:
+                    on_event({"type": "agent_dispatch", "agent": name, "phase": phase.value, "status": "running"})
+                result = await self._run_agent(spec, phase.value, session_id, context)
+                if on_event:
+                    on_event({"type": "agent_dispatch", "agent": name, "phase": phase.value, "status": "completed",
+                              "result_len": len(str(result)) if result else 0})
             except Exception as exc:
                 logger.warning(
                     "[AgentDispatcher] agent %r failed for phase %s: %s",
