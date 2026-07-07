@@ -8363,3 +8363,13 @@ textarea { font-size: 16px !important; }
 .log-line-error { color: var(--red, #e06c75); }
 .log-line-debug { color: var(--color-muted, #888); }
 .log-line-default { color: var(--fg, #9cdef2); }
+.run-cockpit{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 6px 8px;font-size:.72em}
+.cockpit-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:10px;border:1px solid var(--border);line-height:1.4}
+.cockpit-chip .chip-label{opacity:.55;text-transform:uppercase;letter-spacing:.04em;font-size:.85em}
+.cockpit-chip .chip-val{font-weight:600}
+.cockpit-chip.chip-muted{opacity:.5}
+.cockpit-chip.chip-ok .chip-val{color:var(--green,#50fa7b)}
+.cockpit-chip.chip-warn .chip-val{color:var(--warn,#f0ad4e)}
+.cockpit-chip.chip-bad .chip-val{color:var(--accent,#ff5555)}
+.agent-indicator.autoeval-revert .agent-dot,.agent-indicator.verifier-fail .agent-dot{background:var(--accent,#ff5555)}
+.agent-indicator.autoeval-keep .agent-dot,.agent-indicator.verifier-pass .agent-dot{background:var(--green,#50fa7b)}
