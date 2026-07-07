@@ -3022,7 +3022,7 @@ function initLogsView() {
 /* ═══════════════════════════════════════════
    KILL-SWITCHES DASHBOARD (read-only)
    ═══════════════════════════════════════════ */
-function ksClean(s) { return String(s == null ? '' : s).replace(/[<>&]/g, ''); }
+function ksClean(s) { return String(s == null ? '' : s).replace(/[<>&"']/g, ''); }
 
 function renderKillswitches(data) {
   const container = el('killswitches-container');
