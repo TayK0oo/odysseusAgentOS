@@ -1393,7 +1393,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                 typewriterInto(roundHolder.querySelector('.body'), errMsg);
                 break;
               }
-              if (json.delta || json.type === 'agent_prep' || json.type === 'tool_start' || json.type === 'tool_output' || json.type === 'tool_progress' || json.type === 'agent_step' || json.type === 'agent_dispatch' || json.type === 'doc_stream_open' || json.type === 'doc_stream_delta' || json.type === 'research_progress') {
+              if (json.delta || json.type === 'agent_prep' || json.type === 'tool_start' || json.type === 'tool_output' || json.type === 'tool_progress' || json.type === 'agent_step' || json.type === 'agent_dispatch' || json.type === 'run_status' || json.type === 'doc_stream_open' || json.type === 'doc_stream_delta' || json.type === 'research_progress') {
                 clearResponseTimeout();
                 clearProcessingProbe();
                 clearFirstTokenWaitTimers();
@@ -2364,6 +2364,42 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                     // Auto-remove after 3 seconds
                     setTimeout(() => { if (running.parentNode) running.remove(); }, 3000);
                   }
+                }
+
+              } else if (json.type === 'run_status') {
+                // Persistent cockpit strip (continuous state). Never blocks chat.
+                if (window.cockpit && typeof window.cockpit.update === 'function') {
+                  window.cockpit.update(json);
+                }
+
+              } else if (json.type === 'autoeval_result') {
+                if (_isBg) continue;
+                const box = document.getElementById('chat-history');
+                if (box) {
+                  const decision = json.decision === 'revert' ? 'revert' : 'keep';
+                  const reason = String(json.reason || '').replace(/[<>&]/g, '');
+                  const el = document.createElement('div');
+                  el.className = 'msg msg-system agent-indicator autoeval-' + decision;
+                  el.innerHTML = '<span class="agent-dot"></span> autoeval: ' + decision +
+                    ' <span class="agent-phase">' + reason + '</span>';
+                  box.appendChild(el);
+                  box.scrollTop = box.scrollHeight;
+                  setTimeout(() => { if (el.parentNode) el.remove(); }, 6000);
+                }
+
+              } else if (json.type === 'verifier_result') {
+                if (_isBg) continue;
+                const box = document.getElementById('chat-history');
+                if (box) {
+                  const status = json.status === 'fail' ? 'fail' : 'pass';
+                  const detail = String(json.detail || '').replace(/[<>&]/g, '');
+                  const el = document.createElement('div');
+                  el.className = 'msg msg-system agent-indicator verifier-' + status;
+                  el.innerHTML = '<span class="agent-dot"></span> verifier: ' + status +
+                    ' <span class="agent-phase">' + detail + '</span>';
+                  box.appendChild(el);
+                  box.scrollTop = box.scrollHeight;
+                  setTimeout(() => { if (el.parentNode) el.remove(); }, 6000);
                 }
 
               } else if (json.type === 'agent_step') {
