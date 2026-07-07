@@ -2333,6 +2333,36 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                 const _pu = (json.data && json.data.plan) ? json.data.plan : '';
                 if (_pu) _setStoredPlan(_pu);
 
+              } else if (json.type === 'agent_dispatch') {
+                if (_isBg) continue;
+                // M4: visual indicator for background agent activity
+                const agentName = json.agent || 'agent';
+                const phaseName = json.phase || '';
+                const status = json.status || 'running';
+                const box = document.getElementById('chat-history');
+                if (!box) continue;
+                if (status === 'running') {
+                  const indicator = document.createElement('div');
+                  indicator.className = 'msg msg-system agent-indicator agent-running';
+                  indicator.dataset.agent = agentName;
+                  indicator.innerHTML = '<span class="agent-dot"></span> ' +
+                    _escHtml(agentName) + ' <span class="agent-phase">' + _escHtml(phaseName) + '</span> ' +
+                    '<span class="agent-spin"></span>';
+                  box.appendChild(indicator);
+                  box.scrollTop = box.scrollHeight;
+                } else if (status === 'completed') {
+                  // Mark the running indicator as completed
+                  const running = box.querySelector('.agent-indicator.agent-running[data-agent="' + CSS.escape(agentName) + '"]');
+                  if (running) {
+                    running.classList.remove('agent-running');
+                    running.classList.add('agent-completed');
+                    const spin = running.querySelector('.agent-spin');
+                    if (spin) spin.textContent = '✓';
+                    // Auto-remove after 3 seconds
+                    setTimeout(() => { if (running.parentNode) running.remove(); }, 3000);
+                  }
+                }
+
               } else if (json.type === 'agent_step') {
                 if (_isBg) continue;
                 _cancelThinkingTimer();
