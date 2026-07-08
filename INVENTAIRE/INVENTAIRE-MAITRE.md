@@ -20,7 +20,7 @@
 **Statistiques clés** :
 - 35+ kill-switches (tous les modules M3 = OFF par défaut, `ODYSSEUS_DESTRUCTIVE_GATE` = ON par défaut)
 - 12 agents `.opencode/` (tous dormant, CLI-only)
-- ~38% des capacités backend (~17) sont des **angles morts UI** (aucune représentation visuelle)
+- Angles morts UI : **~38% (~17) → ~18% (~8) après le lot « UI Veracity & Visibility » du 2026-07-08** (drift, budgets, phase, kill-switches, santé, Trinité désormais exposés ; voir `C-COUVERTURE-UI.md`)
 - 113 fichiers `src/`, 60+ routeurs, 16 modules orchestrator, 7 services Docker Compose (+ 4 profils)
 
 ---
@@ -54,13 +54,15 @@
 
 ## TOP ANGLES MORTS UI
 
-Voir détail complet dans `C-COUVERTURE-UI.md`. Top 5 par criticité :
+Voir détail complet dans `C-COUVERTURE-UI.md`. **Mise à jour 2026-07-08 : le Top 5 ci-dessous a été RÉSOLU par le lot « UI Veracity & Visibility ».**
 
-1. **Drift score & qualité** — L'utilisateur ne sait jamais si l'agent dérive (LOW/MED/HIGH). Le score est calculé mais jamais affiché.
-2. **Budgets & consommation** — Pas de jauge de tokens/coûts dans l'UI. Le hard-stop est invisible jusqu'à ce qu'il bloque.
-3. **Phase-lock & orchestration** — Aucun indicateur de phase courante, de forced_tools, ou d'état du phase-lock.
-4. **Kill-switches dashboard** — 35+ switches de configuration, aucun tableau de bord centralisé. L'utilisateur doit lire les variables d'env.
-5. **Trinité Connaissance** — CBM est actif (externe) mais inaccessible depuis l'UI. Graphify et Obsidian sont inactifs.
+1. ~~**Drift score & qualité**~~ → ✅ Cockpit chip `#cockpit-drift` + panneau `#settings-drift-card` (`GET /api/observer/drift`, commit `922c1ac`).
+2. ~~**Budgets & consommation**~~ → ✅ Cockpit chips + panneau `#settings-budgets-card` (`GET /api/governance/budgets`, commit `44b8fa8`).
+3. ~~**Phase-lock & orchestration**~~ → ✅ Cockpit chip `#cockpit-phase`, rendu honnête (neutre si orchestration OFF, commit `af7fe87`).
+4. ~~**Kill-switches dashboard**~~ → ✅ Panneau `#settings-killswitches-card` (`GET /api/killswitches`, Sous-projet B).
+5. ~~**Trinité Connaissance**~~ → ✅ Panneau `#settings-knowledge-card` (santé CBM/RAG/Obsidian, Sous-projet C ; jambe Obsidian rendue neutre par honnêteté).
+
+Angles morts restants (reportés par choix YAGNI) : Graphify, Ancestry mission→goal→task, Channel Gateway, Checkpoint Obsidian, Acontext, Teacher escalation, Readiness, recherche CBM interactive.
 
 ---
 
@@ -68,7 +70,7 @@ Voir détail complet dans `C-COUVERTURE-UI.md`. Top 5 par criticité :
 
 1. **`trace_writer`** — ✅ RÉSOLU : `src/trace_writer.py` existe et est CÂBLÉ-ACTIF (call-sites `agent_loop.py:1934,3584`, `tool_execution.py:542,630`, `killswitch_registry.py:64`). Le « non trouvé » était une lacune d'indexation CBM, pas un fantôme. Le seul vrai stub aspirationnel voisin : la chaîne `"memory_distill"` (`src/orchestrator/phases.py:57`, `_FORCED_TOOLS[MEMORY_OBSERVE]`), sans implémentation — `forced_tools(MEMORY_OBSERVE)` n'est jamais appelé au runtime.
 2. **Redondance `providers.*` vs `ModelEndpoint`** — Le bloc `providers` de `model-routing.json` est déclaré PARTIEL : la DB native (`ModelEndpoint`) est la source autoritaire pour la config provider, le JSON est le fallback. La suppression définitive est bloquée sur une précondition opérationnelle (enregistrement endpoint Zen manuel).
-3. **Orchestrateurs triples** — PhaseTracker, CanonicalLoop, et AgentDispatcher sont trois orchestrateurs qui peuvent théoriquement s'exécuter simultanément (chacun avec son kill-switch). Aucune validation de cohérence entre eux. Risque de comportement imprévisible si plusieurs sont activés.
+3. **Orchestrateurs triples** — PhaseTracker, CanonicalLoop, et AgentDispatcher sont trois orchestrateurs gated indépendamment. *(Mise à jour 2026-07-08 — Sub-projet D : l'autorité de résolution de phase est désormais clarifiée par un seam pur `src/orchestrator/phase_resolver.py::resolve_current_phase` — CanonicalLoop prime si `ODYSSEUS_LIVE_ORCHESTRATION`, sinon PhaseTracker, sinon None. Behavior-preserving, non-fusion. La validation de cohérence globale entre les trois kill-switches reste ouverte.)*
 4. **SPOF `stream_agent_loop`** — Une seule fonction de ~3500 lignes contient toute la logique d'orchestration, le streaming LLM, les hooks post-round, et la gestion d'erreurs. Aucune décomposition modulaire dans le flux principal.
 5. **Couverture de test du boot** — Le bug M3.1 (suppression de `routing_routes.py` → `import app` cassé) n'a été détecté par aucun test avant le fix `37a511c` (test smoke boot subprocess ajouté après). Vérifier la couverture actuelle du chemin de boot complet.
 6. **35 kill-switches sans validation** — Aucune validation de cohérence globale. Par exemple, activer `ODYSSEUS_LIVE_ORCHESTRATION=on` ET `ODYSSEUS_PHASE_TRACKER=on` simultanément crée 2 orchestrateurs concurrents dans la même boucle.
