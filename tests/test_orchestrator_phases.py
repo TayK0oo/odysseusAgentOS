@@ -129,3 +129,48 @@ def test_forced_tools_are_lists():
 
 def test_classify_forces_risk_classifier():
     assert "risk_classifier" in forced_tools(Phase.CLASSIFY)
+
+
+# --- resolve_current_phase (the extracted seam) -----------------------------
+
+from src.orchestrator.phase_resolver import resolve_current_phase
+
+
+class _FakeTracker:
+    """Minimal PhaseTracker stand-in returning a fixed infer_phase result."""
+
+    def __init__(self, phase_name):
+        self._phase_name = phase_name
+
+    def infer_phase(self, round_num, intent=None, plan_mode=False):
+        return self._phase_name
+
+
+def test_resolve_prefers_canonical_when_active():
+    loop = CanonicalLoop("sess")
+    loop.goto(Phase.PLAN)
+    result = resolve_current_phase(True, loop, None, round_num=1)
+    assert result == Phase.PLAN
+
+
+def test_resolve_uses_tracker_plan_mode():
+    tracker = _FakeTracker("PLAN")
+    result = resolve_current_phase(False, None, tracker, round_num=1, plan_mode=True)
+    assert result == Phase.PLAN
+
+
+def test_resolve_uses_tracker_build_default():
+    tracker = _FakeTracker("BUILD")
+    result = resolve_current_phase(False, None, tracker, round_num=1, plan_mode=False)
+    assert result == Phase.BUILD
+
+
+def test_resolve_returns_none_when_no_system():
+    result = resolve_current_phase(False, None, None, round_num=1)
+    assert result is None
+
+
+def test_resolve_coerces_out_of_enum_to_none():
+    tracker = _FakeTracker("WAT")  # not a valid Phase value
+    result = resolve_current_phase(False, None, tracker, round_num=1)
+    assert result is None
