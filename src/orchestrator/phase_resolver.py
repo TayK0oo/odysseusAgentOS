@@ -6,13 +6,20 @@ exactly the same Phase | None the inline block returned for the same inputs.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from src.orchestrator.phases import Phase
 
+if TYPE_CHECKING:  # pragma: no cover - typing only, avoids import at runtime
+    from src.orchestrator.loop import CanonicalLoop
 
-def resolve_current_phase(use_canonical, canonical_loop, phase_tracker,
-                          round_num, intent=None, plan_mode=False) -> Optional[Phase]:
+
+def resolve_current_phase(use_canonical: bool,
+                          canonical_loop: "Optional[CanonicalLoop]",
+                          phase_tracker: Optional[Any],
+                          round_num: int,
+                          intent: Optional[dict] = None,
+                          plan_mode: bool = False) -> Optional[Phase]:
     """Return the canonical Phase for this round, or None.
 
     Mirrors exactly the prior inline logic:

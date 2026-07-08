@@ -17,6 +17,7 @@ from src.orchestrator.phases import (
     phase_lock_name,
     forced_tools,
 )
+from src.orchestrator.phase_resolver import resolve_current_phase
 
 
 class _FakeRegistry:
@@ -132,8 +133,6 @@ def test_classify_forces_risk_classifier():
 
 
 # --- resolve_current_phase (the extracted seam) -----------------------------
-
-from src.orchestrator.phase_resolver import resolve_current_phase
 
 
 class _FakeTracker:
