@@ -73,14 +73,14 @@ def test_canonical_loop_starts_at_classify():
 
 def test_canonical_loop_advances_to_memory_observe():
     loop = CanonicalLoop("sess")
-    for _ in range(6):
+    for _ in range(len(CANONICAL_SEQUENCE) - 1):
         assert loop.advance() is True
     assert loop.current == Phase.MEMORY_OBSERVE
 
 
 def test_canonical_loop_advance_past_end_is_bounded():
     loop = CanonicalLoop("sess")
-    for _ in range(6):
+    for _ in range(len(CANONICAL_SEQUENCE) - 1):
         loop.advance()
     assert loop.advance() is False
     assert loop.current == Phase.MEMORY_OBSERVE
