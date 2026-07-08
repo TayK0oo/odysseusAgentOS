@@ -3206,6 +3206,93 @@ function initDriftView() {
 }
 
 /* ═══════════════════════════════════════════
+   BUDGETS GOVERNANCE PANEL (read-only)
+   ═══════════════════════════════════════════ */
+function budgetPct(used, max) {
+  const u = Number(used) || 0;
+  const m = Number(max) || 0;
+  if (m <= 0) return 0;
+  return Math.min(100, Math.round((u / m) * 100));
+}
+
+function budgetBar(label, used, max, unit) {
+  const pct = budgetPct(used, max);
+  const cls = pct >= 95 ? 'chip-bad' : (pct >= 80 ? 'chip-warn' : 'chip-ok');
+  const usedTxt = (unit === '$') ? '$' + (Number(used) || 0).toFixed(2) : String(used == null ? 0 : used);
+  const maxTxt = (unit === '$') ? '$' + (Number(max) || 0).toFixed(2) : String(max == null ? 0 : max);
+  return '<div class="ks-row" title="' + ksClean(label) + '">' +
+    '<span class="ks-name">' + ksClean(label) + '</span>' +
+    '<span class="chip-val" style="margin-left:auto;font-variant-numeric:tabular-nums">' +
+    ksClean(usedTxt + ' / ' + maxTxt) + ' (' + pct + '%)</span>' +
+    '</div>' +
+    '<div style="height:4px;border-radius:2px;background:rgba(127,127,127,0.2);margin:2px 0 8px">' +
+    '<div class="' + cls + '" style="height:100%;width:' + pct + '%;border-radius:2px;background:currentColor"></div>' +
+    '</div>';
+}
+
+function budgetStatusChip(row) {
+  const status = (row && row.status) || '';
+  if (status === 'exhausted' || status === 'paused') return { cls: 'chip-bad', label: status };
+  // Alert threshold: any usage dimension at or over alert_at_percent.
+  const alertAt = Number(row.alert_at_percent) || 80;
+  const maxPct = Math.max(
+    budgetPct(row.tokens_used, row.max_tokens),
+    budgetPct(row.cost_usd, row.max_cost_usd),
+    budgetPct(row.iterations, row.max_iterations)
+  );
+  if (maxPct >= alertAt) return { cls: 'chip-warn', label: 'alert' };
+  if (status === 'active') return { cls: 'chip-ok', label: 'active' };
+  return { cls: 'chip-muted', label: status || '?' };
+}
+
+function renderBudgets(data) {
+  const container = el('budgets-container');
+  if (!container) return;
+  if (!data || data.ok !== true || !Array.isArray(data.budgets)) {
+    container.innerHTML = '<div class="settings-system-logs-placeholder">Indisponible.</div>';
+    return;
+  }
+  if (data.budgets.length === 0) {
+    container.innerHTML = '<div class="settings-system-logs-placeholder">Aucun budget actif.</div>';
+    return;
+  }
+  let html = '';
+  for (const row of data.budgets) {
+    const chip = budgetStatusChip(row);
+    const runTxt = row.run_id ? (' <code>' + ksClean(String(row.run_id)) + '</code>') : '';
+    html += '<div class="ks-cat-title" style="display:flex;align-items:center;gap:6px">' +
+      '<span>' + ksClean(String(row.agent_id || '?')) + runTxt + '</span>' +
+      '<span class="cockpit-chip ' + chip.cls + '" style="margin-left:auto">' +
+      '<span class="chip-val">' + ksClean(chip.label) + '</span></span>' +
+      '</div>';
+    html += budgetBar('tokens', row.tokens_used, row.max_tokens, '');
+    html += budgetBar('coût', row.cost_usd, row.max_cost_usd, '$');
+    html += budgetBar('itérations', row.iterations, row.max_iterations, '');
+    if (row.paused_reason) {
+      html += '<div class="admin-toggle-sub" style="margin:-4px 0 8px">⏸ ' + ksClean(row.paused_reason) + '</div>';
+    }
+  }
+  container.innerHTML = html;
+}
+
+function loadBudgets() {
+  const container = el('budgets-container');
+  fetch('/api/governance/budgets', { credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(renderBudgets)
+    .catch(function () {
+      if (container) container.innerHTML =
+        '<div class="settings-system-logs-placeholder">Indisponible.</div>';
+    });
+}
+
+function initBudgetsView() {
+  const btn = el('budgets-refresh-btn');
+  if (btn) btn.addEventListener('click', loadBudgets);
+  loadBudgets();
+}
+
+/* ═══════════════════════════════════════════
    INIT & REFRESH
    ═══════════════════════════════════════════ */
 function initAll() {
@@ -3213,7 +3300,7 @@ function initAll() {
   const inits = [
     initSignupToggle, initShareDefaultsToggle, initAddUser, initEndpointForm, initMcpForm,
     initCalDAV, initBackup, initDangerZone, initTokenForm, initLogsView,
-    initKillswitchesView, initKnowledgeView, initDriftView,
+    initKillswitchesView, initKnowledgeView, initDriftView, initBudgetsView,
     () => settingsModule.initIntegrations()
   ];
   for (const fn of inits) {

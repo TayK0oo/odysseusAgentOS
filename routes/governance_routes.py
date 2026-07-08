@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from core.database import SessionLocal, Mission, Goal, GoalProject
+from core.database import SessionLocal, Mission, Goal, GoalProject, AgentBudget
 from src.governance import GovernanceManager
 
 logger = logging.getLogger(__name__)
@@ -35,6 +35,34 @@ class CreateTaskRequest(BaseModel):
 
 
 # ---- Routes ----
+
+@router.get("/budgets")
+async def list_budgets():
+    """Liste tous les budgets agents (lecture seule). Liste vide si aucun budget."""
+    try:
+        with SessionLocal() as db:
+            rows = db.query(AgentBudget).all()
+            budgets = [
+                {
+                    "agent_id": b.agent_id,
+                    "run_id": b.run_id,
+                    "status": b.status,
+                    "tokens_used": b.tokens_used,
+                    "max_tokens": b.max_tokens,
+                    "cost_usd": b.cost_usd,
+                    "max_cost_usd": b.max_cost_usd,
+                    "iterations": b.iterations,
+                    "max_iterations": b.max_iterations,
+                    "alert_at_percent": b.alert_at_percent,
+                    "paused_reason": b.paused_reason,
+                }
+                for b in rows
+            ]
+        return {"ok": True, "budgets": budgets}
+    except Exception as exc:
+        logger.exception("Failed to list agent budgets")
+        return {"ok": False, "error": str(exc)}
+
 
 @router.get("/budgets/{agent_id}")
 async def get_budget_status(agent_id: str, run_id: Optional[str] = None):
