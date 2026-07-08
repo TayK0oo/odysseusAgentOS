@@ -3141,6 +3141,71 @@ function initKnowledgeView() {
 }
 
 /* ═══════════════════════════════════════════
+   DRIFT OBSERVER PANEL (read-only)
+   ═══════════════════════════════════════════ */
+function driftChipClass(level) {
+  if (level === 'high') return 'chip-bad';
+  if (level === 'medium') return 'chip-warn';
+  if (level === 'low') return 'chip-ok';
+  return 'chip-muted';
+}
+
+function renderDrift(data) {
+  const container = el('drift-container');
+  if (!container) return;
+  if (!data || data.ok !== true) {
+    container.innerHTML = '<div class="settings-system-logs-placeholder">Indisponible.</div>';
+    return;
+  }
+  const level = data.drift_level;
+  let html = '<div class="ks-row" title="Niveau de dérive comportementale global.">' +
+    '<span class="ks-name">niveau <code>drift</code></span>' +
+    '<span class="cockpit-chip ' + driftChipClass(level) + '">' +
+    '<span class="chip-val">' + ksClean(level == null ? '?' : level) + '</span></span>' +
+    '</div>';
+  // Harness touched → red when true (a harness write forces HIGH drift), neutral otherwise.
+  const touched = data.harness_touched === true;
+  html += '<div class="ks-row" title="Un fichier harness/protocole a-t-il été modifié ? (force HIGH)">' +
+    '<span class="ks-name">harness touché</span>' +
+    '<span class="cockpit-chip ' + (touched ? 'chip-bad' : 'chip-muted') + '">' +
+    '<span class="chip-val">' + (touched ? 'oui' : 'non') + '</span></span>' +
+    '</div>';
+  // Latest CodeBurn one-shot rate — literal value, neutral (informational, not a health gate).
+  const rate = data.latest_codeburn_one_shot_rate;
+  const rateLabel = (typeof rate === 'number') ? Math.round(rate * 100) + '%' : '\u2014';
+  html += '<div class="ks-row" title="Taux one-shot du dernier rapport CodeBurn.">' +
+    '<span class="ks-name">one-shot (CodeBurn)</span>' +
+    '<span class="cockpit-chip chip-muted"><span class="chip-val">' + ksClean(rateLabel) + '</span></span>' +
+    '</div>';
+  html += '<div class="ks-row" title="Runs dont le budget a été suivi par cet observateur.">' +
+    '<span class="ks-name">runs suivis</span>' +
+    '<span class="cockpit-chip chip-muted"><span class="chip-val">' +
+    ksClean(data.runs_tracked == null ? '\u2014' : String(data.runs_tracked)) +
+    '</span></span></div>';
+  if (data.recommendation) {
+    html += '<div class="admin-toggle-sub" style="margin-top:8px">' + ksClean(data.recommendation) + '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function loadDrift() {
+  const container = el('drift-container');
+  fetch('/api/observer/drift', { credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(renderDrift)
+    .catch(function () {
+      if (container) container.innerHTML =
+        '<div class="settings-system-logs-placeholder">Indisponible.</div>';
+    });
+}
+
+function initDriftView() {
+  const btn = el('drift-refresh-btn');
+  if (btn) btn.addEventListener('click', loadDrift);
+  loadDrift();
+}
+
+/* ═══════════════════════════════════════════
    INIT & REFRESH
    ═══════════════════════════════════════════ */
 function initAll() {
@@ -3148,7 +3213,7 @@ function initAll() {
   const inits = [
     initSignupToggle, initShareDefaultsToggle, initAddUser, initEndpointForm, initMcpForm,
     initCalDAV, initBackup, initDangerZone, initTokenForm, initLogsView,
-    initKillswitchesView, initKnowledgeView,
+    initKillswitchesView, initKnowledgeView, initDriftView,
     () => settingsModule.initIntegrations()
   ];
   for (const fn of inits) {

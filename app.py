@@ -827,6 +827,10 @@ app.include_router(mcp_tools_router)
 from routes.knowledge_routes import router as knowledge_router
 app.include_router(knowledge_router)
 
+# ========= OBSERVER — drift visibility (UI veracity batch — lecture seule) =========
+from routes.observer_routes import router as observer_router
+app.include_router(observer_router)
+
 # ========= AGENT CATALOG — .opencode agents (Phase 3) =========
 from fastapi import APIRouter as _APIRouter
 _agents = _APIRouter(prefix="/api/agents", tags=["agents"])
