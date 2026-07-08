@@ -1,0 +1,133 @@
+%% diagramme-orchestration.mmd
+%% Graphe RÉEL de l'orchestration Odysseus AgentOS
+%% Arêtes = prouvées uniquement (fichier:ligne)
+%% Style nœuds : trait plein = 🟢 actif, pointillé = 🔵 dormant, marqué = 🟡/👻
+
+flowchart TB
+  subgraph Clients["Clients / Gateway"]
+    UI["🖥️ UI SPA (static/index.html)"]
+    DISCORD["💬 Discord Adapter"]
+    TELEGRAM["📱 Telegram Adapter"]
+    COMPANION["📲 Companion mobile"]
+    CLI["⌨️ CLI (scripts/odysseus-*)"]
+  end
+
+  subgraph App["Application (app.py)"]
+    AUTH["🔐 AuthMiddleware"]
+    CORS["🌐 CORS + GZip + SecurityHeaders"]
+    ROUTER["📡 60+ FastAPI routeurs"]
+    LIFESPAN["⏳ Lifespan (startup/shutdown hooks)"]
+  end
+
+  subgraph AgentLoop["Boucle Live (agent_loop.py)"]
+    STREAM["⚡ stream_agent_loop (~3500 lignes)"]
+    CLASSIFY["🏷️ _classify_agent_request"]
+    BUDGET["💰 Budget itérations"]
+    POST["🔄 Bloc POST-ROUND"]
+  end
+
+  subgraph Orchestrator["Orchestrateur (src/orchestrator/)"]
+    PT["🔵 PhaseTracker\n(gated OFF)"]
+    CL["🔵 CanonicalLoop\n(gated OFF)"]
+    AD["🔵 AgentDispatcher\n(gated OFF)"]
+    ROUTE["🔵 router_advice\n(gated OFF)"]
+  end
+
+  subgraph Execution["Exécution"]
+    LLM["🤖 llm_core\n(stream_llm_with_fallback)"]
+    TOOLS["🔧 tool_execution\n(parse + execute + gate)"]
+    GATE["🛡️ destructive_gate\n(ON par défaut)"]
+    MCP["📦 MCP Manager\n(builtins + externes)"]
+  end
+
+  subgraph Quality["Qualité & Observabilité"]
+    OBS["👁️ Observer\n(ingest + drift_score)"]
+    AUTOEVAL["🔵 autoeval\n(gated OFF)"]
+    CODEBURN["🔵 codeburn\n(gated OFF)"]
+    AUTOVOLVE["🔵 autoevolve\n(gated OFF)"]
+    VERIFIER["🔵 verifier_subagent\n(gated OFF)"]
+  end
+
+  subgraph Memory["Mémoire & Gouvernance"]
+    MEMVEC["🧠 MemoryVectorStore"]
+    SKILLS["📚 SkillsManager"]
+    ACONTEXT["🔵 Acontext\n(gated OFF)"]
+    ANCESTRY["🔵 ancestry_tracker\n(gated OFF)"]
+    CHECKPOINT["🔵 checkpoint_tracker\n(gated OFF)"]
+  end
+
+  subgraph Knowledge["Connaissance (Trinité)"]
+    CBM["🟢 CBM (externe, actif)"]
+    GRAPHIFY["🔵 Graphify (0 svc)"]
+    OBSIDIAN["🔵 Obsidian MCP\n(gated OFF)"]
+    RAG["📖 VectorRAG (natif)"]
+  end
+
+  subgraph Channels["Canaux"]
+    GW["📨 ChannelGateway"]
+    EVBUS["📢 event_bus"]
+  end
+
+  %% ── ARÊTES PROUVÉES ──
+
+  %% UI → App
+  UI -->|"POST /api/chat/stream"| ROUTER
+
+  %% App → Agent Loop
+  ROUTER -->|"appel direct"| STREAM
+
+  %% Agent Loop → Orchestrator (gated)
+  STREAM -.->|"import (gated OFF)\nagent_loop.py:2485"| PT
+  STREAM -.->|"import (gated OFF)\nagent_loop.py:2492"| CL
+  STREAM -.->|"import (gated OFF)\nagent_loop.py:2520"| AD
+  STREAM -.->|"import (gated OFF)\nagent_loop.py:2505"| ROUTE
+  STREAM -->|"import\nagent_loop.py:860"| CLASSIFY
+
+  %% Agent Loop → Execution
+  STREAM -->|"import + appel\nasync stream"| LLM
+  STREAM -->|"import + appel\nsync"| TOOLS
+  TOOLS -->|"import + appel\ntool_execution.py:563"| GATE
+
+  %% Agent Loop → MCP
+  LIFESPAN -->|"import + appel\napp.py:1030"| MCP
+
+  %% Agent Loop → Post-round
+  STREAM --> POST
+  POST -->|"import + appel\nagent_loop.py:3649"| OBS
+  POST -.->|"import (gated OFF)\nagent_loop.py:3667"| AUTOEVAL
+  POST -.->|"import (gated OFF)\nagent_loop.py:3640"| CODEBURN
+  POST -.->|"import (gated OFF)\nagent_loop.py:3698"| AUTOVOLVE
+  STREAM -.->|"import (gated OFF)\nagent_loop.py:1801"| VERIFIER
+
+  %% Agent Loop → Memory
+  STREAM -->|"import + appel"| MEMVEC
+  STREAM -->|"import + appel"| SKILLS
+  POST -->|"import + appel\nagent_loop.py:3592"| ACONTEXT
+  POST -.->|"import (gated OFF)\nagent_loop.py:3604"| ANCESTRY
+  POST -.->|"import (gated OFF)\nagent_loop.py:3625"| CHECKPOINT
+
+  %% Memory → Knowledge
+  CHECKPOINT -.->|"write leg\ncheckpoint_tracker.py:119"| OBSIDIAN
+  RAG -->|"recherche sémantique\n(délègue à VectorRAG)"| MEMVEC
+
+  %% Channels
+  LIFESPAN -.->|"import + appel (gated)\napp.py:1243"| GW
+  GW -.->|"register (gated OFF)\nchannel_bootstrap.py:185"| DISCORD
+  GW -.->|"register (gated OFF)\nchannel_bootstrap.py:192"| TELEGRAM
+  GW -->|"fire_event\nchannel_bootstrap.py:150"| EVBUS
+  CLI -->|"scripts/odysseus-*"| ROUTER
+  COMPANION -->|"/api/companion/*"| ROUTER
+
+  %% Knowledge routes
+  ROUTER -.->|"/api/knowledge/*\n(0 appelant UI)"| RAG
+  ROUTER -.->|"/api/knowledge/*\n(0 appelant UI)"| CBM
+
+  %% ── STYLES ──
+  classDef active fill:#2d6,stroke:#1a4,stroke-width:2px,color:#fff
+  classDef dormant fill:#68a,stroke:#468,stroke-width:2px,stroke-dasharray:5,color:#fff
+  classDef config fill:#ca4,stroke:#a82,stroke-width:2px,stroke-dasharray:3,color:#000
+  classDef ghost fill:#e44,stroke:#c22,stroke-width:2px,stroke-dasharray:2,color:#fff
+
+  class UI,AUTH,CORS,ROUTER,LIFESPAN,STREAM,CLASSIFY,BUDGET,POST,LLM,TOOLS,GATE,MCP,OBS,MEMVEC,SKILLS,RAG,EVBUS,GW,COMPANION,CLI active
+  class PT,CL,AD,ROUTE,AUTOEVAL,CODEBURN,AUTOVOLVE,VERIFIER,ACONTEXT,ANCESTRY,CHECKPOINT,OBSIDIAN,DISCORD,TELEGRAM dormant
+  class GRAPHIFY config
