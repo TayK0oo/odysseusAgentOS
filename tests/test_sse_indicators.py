@@ -28,6 +28,7 @@ def test_run_status_event_shape():
     assert evt == {
         "type": "run_status",
         "phase": "build",
+        "phase_active": False,
         "drift": None,
         "iters": {"used": 3, "max": 12},
         "budget": {"pct": 42, "tokens": 18450},
@@ -41,6 +42,21 @@ def test_run_status_event_nulls_when_unknown():
     assert evt["phase"] is None
     assert evt["budget"] is None
     assert evt["drift"] == "low"
+
+
+def test_run_status_event_phase_active_defaults_false():
+    """Honesty: without an explicit active flag, the phase is the hardcoded
+    default (orchestration OFF), so phase_active must be False."""
+    evt = run_status_event(phase="BUILD", drift=None, used=1, max_rounds=8,
+                           budget_pct=None, budget_tokens=None)
+    assert evt["phase_active"] is False
+
+
+def test_run_status_event_phase_active_true_when_orchestrated():
+    evt = run_status_event(phase="PLAN", drift=None, used=1, max_rounds=8,
+                           budget_pct=None, budget_tokens=None, phase_active=True)
+    assert evt["phase_active"] is True
+    assert evt["phase"] == "PLAN"
 
 
 def test_autoeval_event_shape():
