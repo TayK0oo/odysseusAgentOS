@@ -2559,17 +2559,11 @@ async def stream_agent_loop(
             pass  # phase tracking must never break the loop
 
         # M4: fire agents for current phase (best-effort, never blocks)
-        _current_phase = None
-        if _use_canonical and _canonical_loop is not None:
-            _current_phase = _canonical_loop.current
-        elif _phase_tracker is not None:
-            # Map PhaseTracker phase name to canonical Phase enum
-            _pt_phase = _phase_tracker.infer_phase(round_num, intent=_intent, plan_mode=plan_mode)
-            try:
-                from src.orchestrator.phases import Phase
-                _current_phase = Phase(_pt_phase) if _pt_phase in {p.value for p in Phase} else None
-            except Exception:
-                _current_phase = None
+        from src.orchestrator.phase_resolver import resolve_current_phase
+        _current_phase = resolve_current_phase(
+            _use_canonical, _canonical_loop, _phase_tracker,
+            round_num, intent=_intent, plan_mode=plan_mode,
+        )
         if _agent_dispatcher is not None and _current_phase is not None:
             try:
                 _ctx = _last_user if isinstance(_last_user, str) else ""
