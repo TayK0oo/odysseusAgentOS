@@ -26,8 +26,11 @@
   const cockpit = {
     update: function (s) {
       if (!s) return;
+      // Honesty: the phase value is the hardcoded default (BUILD/PLAN) unless an
+      // orchestrator is actually active (phase_active). Show the value, but only
+      // colour it "healthy" when it reflects real orchestration — otherwise neutral.
       setChip('cockpit-phase', 'phase', s.phase || null,
-        s.phase ? 'chip-ok' : 'chip-muted');
+        (s.phase && s.phase_active) ? 'chip-ok' : 'chip-muted');
       setChip('cockpit-drift', 'drift', s.drift || null, driftClass(s.drift));
       if (s.iters && typeof s.iters.used === 'number') {
         setChip('cockpit-iters', 'iters', s.iters.used + '/' + s.iters.max, 'chip-ok');

@@ -29,14 +29,22 @@ def run_status_event(
     max_rounds: int,
     budget_pct: Optional[int],
     budget_tokens: Optional[int],
+    phase_active: bool = False,
 ) -> dict:
-    """Consolidated per-round status for the persistent cockpit strip."""
+    """Consolidated per-round status for the persistent cockpit strip.
+
+    ``phase_active`` is True only when an orchestrator is actually driving the
+    phase (ODYSSEUS_LIVE_ORCHESTRATION or ODYSSEUS_PHASE_TRACKER on). When
+    False, ``phase`` is the hardcoded conservative default (BUILD/PLAN) and the
+    frontend must render it neutrally, never as an active/healthy signal.
+    """
     budget = None
     if budget_pct is not None or budget_tokens is not None:
         budget = {"pct": budget_pct, "tokens": budget_tokens}
     return {
         "type": "run_status",
         "phase": phase,
+        "phase_active": bool(phase_active),
         "drift": normalize_drift(drift),
         "iters": {"used": used, "max": max_rounds},
         "budget": budget,

@@ -2592,7 +2592,8 @@ async def stream_agent_loop(
         try:
             _bp, _bt = _budget_snapshot()
             _phase_val = _current_phase.value if _current_phase is not None else None
-            yield f'data: {json.dumps(run_status_event(phase=_phase_val, drift=_last_drift, used=round_num, max_rounds=max_rounds, budget_pct=_bp, budget_tokens=_bt))}\n\n'
+            _phase_active = bool(_use_canonical or getattr(_phase_tracker, "_enabled", False))
+            yield f'data: {json.dumps(run_status_event(phase=_phase_val, drift=_last_drift, used=round_num, max_rounds=max_rounds, budget_pct=_bp, budget_tokens=_bt, phase_active=_phase_active))}\n\n'
         except Exception:
             pass
 
