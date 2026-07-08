@@ -3078,6 +3078,69 @@ function initKillswitchesView() {
 }
 
 /* ═══════════════════════════════════════════
+   TRINITÉ KNOWLEDGE PANEL (read-only)
+   ═══════════════════════════════════════════ */
+const KNOW_LEG_META = {
+  cbm: { name: 'CBM', desc: 'Graphe de code (fonctions/classes/routes), port 9749.' },
+  rag: { name: 'VectorRAG', desc: 'Recherche sémantique documentaire (ChromaDB).' },
+  obsidian: { name: 'Obsidian', desc: 'Mémoire persistante (notes markdown), déléguée.' },
+};
+
+function renderKnowledge(data) {
+  const container = el('knowledge-container');
+  if (!container) return;
+  const legs = data && data.trinite;
+  if (!legs || typeof legs !== 'object') {
+    container.innerHTML = '<div class="settings-system-logs-placeholder">Indisponible.</div>';
+    return;
+  }
+  let html = '<div class="ks-cat-title">Trinité</div>';
+  for (const key of ['cbm', 'rag', 'obsidian']) {
+    const meta = KNOW_LEG_META[key];
+    const raw = legs[key];
+    let chipCls, label;
+    if (key === 'obsidian') {
+      // Descriptive string, never a health boolean → always neutral.
+      chipCls = 'chip-muted';
+      label = 'delegated';
+    } else if (raw === 'online') {
+      chipCls = 'chip-ok';
+      label = 'online';
+    } else if (raw === 'offline') {
+      chipCls = 'chip-muted';
+      label = 'offline';
+    } else {
+      chipCls = 'chip-muted';
+      label = '?';
+    }
+    html += '<div class="ks-row" title="' + ksClean(meta.desc) + '">' +
+      '<span class="ks-name">' + ksClean(meta.name) +
+      ' <code>' + ksClean(key) + '</code></span>' +
+      '<span class="cockpit-chip ' + chipCls + '">' +
+      '<span class="chip-val">' + ksClean(label) + '</span></span>' +
+      '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function loadKnowledge() {
+  const container = el('knowledge-container');
+  fetch('/api/knowledge/status', { credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(renderKnowledge)
+    .catch(function () {
+      if (container) container.innerHTML =
+        '<div class="settings-system-logs-placeholder">Indisponible.</div>';
+    });
+}
+
+function initKnowledgeView() {
+  const btn = el('knowledge-refresh-btn');
+  if (btn) btn.addEventListener('click', loadKnowledge);
+  loadKnowledge();
+}
+
+/* ═══════════════════════════════════════════
    INIT & REFRESH
    ═══════════════════════════════════════════ */
 function initAll() {
@@ -3085,7 +3148,7 @@ function initAll() {
   const inits = [
     initSignupToggle, initShareDefaultsToggle, initAddUser, initEndpointForm, initMcpForm,
     initCalDAV, initBackup, initDangerZone, initTokenForm, initLogsView,
-    initKillswitchesView,
+    initKillswitchesView, initKnowledgeView,
     () => settingsModule.initIntegrations()
   ];
   for (const fn of inits) {
