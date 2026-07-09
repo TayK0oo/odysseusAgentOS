@@ -35,7 +35,8 @@ logger = logging.getLogger(__name__)
 
 # ── Phase → agent mapping ──────────────────────────────────────────────
 # Each entry: (agent_name, kill_switch_env_var)
-# Agents fire in order within a phase (sequentially, not parallel).
+# Agents fire in parallel within a phase via asyncio.gather.
+# Each agent is isolated — a failure in one never affects the others.
 
 _PHASE_AGENTS: Dict[Phase, List[tuple[str, str]]] = {
     Phase.CLASSIFY: [
@@ -120,11 +121,12 @@ class AgentDispatcher:
     async def dispatch_for_phase(self, phase: Phase, session_id: str,
                                  context: Optional[str] = None,
                                  on_event: Optional[callable] = None):
-        """Fire all enabled agents for this phase (best-effort, sequential).
+        """Fire all enabled agents for this phase IN PARALLEL (best-effort).
 
-        If *on_event* is provided, it is called with a dict ``{type, agent, phase,
-        status}`` before each agent starts and after it completes, so callers can
-        emit real-time SSE / UI indicators.
+        Each agent runs concurrently via asyncio.gather. Failures are isolated —
+        a crash in one agent never affects the others. If *on_event* is provided,
+        it is called with ``{type, agent, phase, status}`` for each agent as it
+        completes (or fails).
         """
         agent_names = self.agents_for_phase(phase)
         if not agent_names:
@@ -140,24 +142,36 @@ class AgentDispatcher:
             logger.debug("[AgentDispatcher] no registry available, skipping phase %s", phase.value)
             return
 
-        for name in agent_names:
+        async def _run_one(name: str):
             spec = registry.get(name) if hasattr(registry, 'get') else None
             if spec is None:
                 logger.warning("[AgentDispatcher] agent %r not found in registry", name)
-                continue
-
+                return None
             try:
-                if on_event:
-                    on_event({"type": "agent_dispatch", "agent": name, "phase": phase.value, "status": "running"})
                 result = await self._run_agent(spec, phase.value, session_id, context)
                 if on_event:
-                    on_event({"type": "agent_dispatch", "agent": name, "phase": phase.value, "status": "completed",
-                              "result_len": len(str(result)) if result else 0})
+                    on_event({
+                        "type": "agent_dispatch", "agent": name,
+                        "phase": phase.value, "status": "completed",
+                        "result_len": len(str(result)) if result else 0,
+                    })
+                return result
             except Exception as exc:
                 logger.warning(
                     "[AgentDispatcher] agent %r failed for phase %s: %s",
                     name, phase.value, exc,
                 )
+                if on_event:
+                    on_event({
+                        "type": "agent_dispatch", "agent": name,
+                        "phase": phase.value, "status": "failed",
+                        "error": str(exc)[:200],
+                    })
+                return None
+
+        # Launch all agents in parallel — each isolated from the others
+        await asyncio.gather(*(_run_one(name) for name in agent_names),
+                             return_exceptions=True)
 
     # ── explicit dispatch ──────────────────────────────────────────────
     def explicit_enabled(self, agent_name: str) -> bool:
