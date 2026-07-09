@@ -2544,7 +2544,47 @@ async def stream_agent_loop(
     # Persistent list for agent dispatch SSE events (collected across rounds)
     _agent_events: list = []
 
+    # ── MULTI-AGENT WORKFLOW (M5) ──────────────────────────────────────
+    # When orchestrator ON + ODYSSEUS_MULTI_AGENT=on + new objective (round 1),
+    # run the full 7-phase multi-agent pipeline instead of the normal
+    # round-by-round loop. Each phase dispatches its dedicated agent(s)
+    # with role-specific tools, and results feed into the next phase.
+    _multi_agent_enabled = os.environ.get("ODYSSEUS_MULTI_AGENT", "").strip().lower() in ("1", "true", "yes", "on")
+    _multi_agent_workflow = (
+        _use_canonical
+        and _multi_agent_enabled
+        and not _is_explicit_continuation(messages)
+    )
+    if _multi_agent_workflow:
+        try:
+            from src.orchestrator.multi_agent import MultiAgentWorkflow
+            _objective = _last_user if isinstance(_last_user, str) else ""
+            _workflow = MultiAgentWorkflow(
+                session_id=session_id or "live",
+                objective=_objective,
+                model=model,
+            )
+            logger.info(
+                "[MultiAgent] starting workflow | session=%s objective=%.100s",
+                session_id, _objective,
+            )
+            async for _wf_event in _workflow.run():
+                yield f'data: {json.dumps(_wf_event)}\n\n'
+
+            # After workflow completes, emit final metrics and skip normal loop
+            yield f'data: {json.dumps({"type": "workflow_done", "session": session_id})}\n\n'
+            _workflow_completed = True
+        except Exception as _wf_exc:
+            logger.warning(
+                "[MultiAgent] workflow failed: %s — falling back to normal loop",
+                _wf_exc,
+            )
+            _multi_agent_workflow = False
+
     for round_num in range(1, max_rounds + 1):
+        # ── MULTI-AGENT WORKFLOW already completed ────────────────────
+        if _multi_agent_workflow and getattr(locals(), '_workflow_completed', False):
+            break  # skip normal round loop — workflow already handled everything
         # Flush any completed agent events from the previous round's background tasks
         while _agent_events:
             _evt = _agent_events.pop(0)
