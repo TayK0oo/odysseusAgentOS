@@ -53,6 +53,7 @@ if "src.database" not in sys.modules:
     _db = types.ModuleType("src.database")
     _db.SessionLocal = MagicMock()
     _db.ModelEndpoint = MagicMock()
+    _db.Webhook = MagicMock()
     sys.modules["src.database"] = _db
 
 # Pre-import core.models before test_agent_loop.py's module-level stubs
