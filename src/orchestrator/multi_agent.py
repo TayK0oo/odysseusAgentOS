@@ -278,30 +278,178 @@ class MultiAgentWorkflow:
                 success=False, error=str(exc),
             )
 
-    async def _call_llm_with_tools(self, messages: list, tools: list) -> str:
-        """Appel LLM avec outils. Retourne le texte de la réponse."""
-        from src.llm_core import llm_call_async_with_fallback
+    async def _call_llm_with_tools(self, messages: list, tool_names: list) -> str:
+        """Appel LLM avec exécution réelle d'outils (jusqu'à 5 tours).
+
+        L'agent peut utiliser ses outils (bash, write_file, read_file, etc.)
+        comme dans le chat normal. Les résultats sont réinjectés dans la
+        conversation pour les tours suivants.
+        """
+        from src.tool_schemas import FUNCTION_TOOL_SCHEMAS
         from src.task_endpoint import resolve_task_candidates
+        from src.tool_execution import execute_tool_block
+        from src.agent_tools import ToolBlock
 
         candidates = resolve_task_candidates(owner=self.session_id)
         if not candidates:
             return "[Erreur: aucun endpoint LLM disponible]"
 
-        # Premier appel : le LLM répond
-        response = await llm_call_async_with_fallback(
-            candidates, messages=messages,
-        )
+        # Filtrer les schémas d'outils pour n'inclure que ceux autorisés
+        allowed_tools = set(tool_names)
+        tool_schemas = [
+            s for s in FUNCTION_TOOL_SCHEMAS
+            if (s.get("function", {}).get("name") or s.get("name", "")) in allowed_tools
+        ]
 
-        if not response:
-            return "[Aucune réponse du LLM]"
+        accumulated_output: list[str] = []
+        max_turns = 5
+        turn_messages = list(messages)  # copie modifiable
 
-        # response peut être un dict ou une string selon le provider
-        if isinstance(response, dict):
-            text = response.get("content") or response.get("text") or str(response)
-        else:
-            text = str(response)
+        for turn in range(max_turns):
+            url, model, headers = candidates[0]
 
-        return text
+            # Appeler le LLM avec les outils
+            try:
+                raw = await self._call_llm_raw(
+                    url, model, headers, turn_messages, tool_schemas
+                )
+            except Exception as exc:
+                logger.warning("[MultiAgent] LLM call failed turn %d: %s", turn, exc)
+                break
+
+            if not raw:
+                break
+
+            # Extraire le contenu texte et les tool_calls
+            content = ""
+            tool_calls = []
+
+            if isinstance(raw, dict):
+                content = raw.get("content") or ""
+                # Format OpenAI : choices[0].message.tool_calls
+                choices = raw.get("choices", [])
+                if choices:
+                    msg = choices[0].get("message", {})
+                    content = content or msg.get("content") or ""
+                    tool_calls = msg.get("tool_calls") or []
+
+            if isinstance(raw, str):
+                content = raw
+
+            # Si pas de tool calls, c'est la réponse finale
+            if not tool_calls:
+                if content:
+                    accumulated_output.append(content)
+                break
+
+            # Ajouter la réponse de l'assistant aux messages
+            assistant_msg = {"role": "assistant", "content": content or None}
+            if tool_calls:
+                assistant_msg["tool_calls"] = tool_calls
+            turn_messages.append(assistant_msg)
+
+            # Exécuter chaque outil
+            for tc in tool_calls:
+                fn = tc.get("function", {})
+                tool_name = fn.get("name", "")
+                try:
+                    tool_args = json.loads(fn.get("arguments", "{}"))
+                except json.JSONDecodeError:
+                    tool_args = {}
+
+                # Construire le contenu pour execute_tool_block
+                # Format attendu par _MCP_ARG_PARSERS dans tool_execution.py :
+                #   bash:        "command"
+                #   write_file:  "path\ncontent"
+                #   read_file:   "path"
+                #   web_search:  "query"
+                #   etc.
+                if tool_name == "write_file":
+                    path = tool_args.get("path", "")
+                    content = tool_args.get("content", "")
+                    tool_content = f"{path}\n{content}"
+                elif tool_name == "edit_file":
+                    path = tool_args.get("path", "")
+                    old = tool_args.get("old_string") or tool_args.get("oldText") or ""
+                    new = tool_args.get("new_string") or tool_args.get("newText") or ""
+                    tool_content = json.dumps({"path": path, "old_string": old, "new_string": new})
+                elif tool_name == "bash":
+                    tool_content = tool_args.get("command", "")
+                elif tool_name == "python":
+                    tool_content = tool_args.get("code", "")
+                elif tool_name in ("web_search", "web_fetch"):
+                    tool_content = tool_args.get("query") or tool_args.get("url", "")
+                elif tool_name in ("read_file", "grep", "glob", "ls"):
+                    tool_content = tool_args.get("path") or tool_args.get("pattern") or tool_args.get("query") or ""
+                elif tool_name == "manage_memory":
+                    tool_content = json.dumps(tool_args)
+                else:
+                    tool_content = json.dumps(tool_args)
+
+                logger.info(
+                    "[MultiAgent] tool call: %s args=%.100s",
+                    tool_name, str(tool_args)[:100],
+                )
+
+                try:
+                    block = ToolBlock(tool_type=tool_name, content=tool_content)
+                    desc, result = await execute_tool_block(
+                        block,
+                        session_id=self.session_id,
+                        owner=self.session_id,
+                    )
+                    tool_output = json.dumps(result) if isinstance(result, dict) else str(result)
+                    accumulated_output.append(
+                        f"[OUTIL {tool_name}] {desc}\n{tool_output[:500]}"
+                    )
+                    logger.info(
+                        "[MultiAgent] tool executed: %s → %.100s",
+                        tool_name, desc,
+                    )
+                except Exception as tool_exc:
+                    logger.warning(
+                        "[MultiAgent] tool %s failed: %s", tool_name, tool_exc,
+                    )
+                    tool_output = f"Erreur: {tool_exc}"
+                    accumulated_output.append(f"[OUTIL {tool_name}] ERREUR: {tool_exc}")
+
+                # Ajouter le résultat au tour de messages
+                turn_messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.get("id", f"call_{turn}_{tool_name}"),
+                    "content": tool_output,
+                })
+
+        return "\n\n".join(accumulated_output) if accumulated_output else "[Aucune réponse]"
+
+    async def _call_llm_raw(self, url: str, model: str, headers: dict,
+                            messages: list, tools: list) -> dict:
+        """Appel LLM brut avec outils. Retourne la réponse brute (dict ou str)."""
+        import httpx
+
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.3,
+            "max_tokens": 4096,
+        }
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(
+                url,
+                json=payload,
+                headers={**headers, "Content-Type": "application/json"},
+            )
+            if resp.status_code != 200:
+                logger.warning(
+                    "[MultiAgent] LLM error %d: %.200s",
+                    resp.status_code, resp.text[:200],
+                )
+                return None
+            return resp.json()
 
     def _load_agent_prompt(self, agent_name: str) -> Optional[str]:
         """Charge le prompt complet depuis le fichier .opencode/agents/{name}.md."""
