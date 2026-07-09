@@ -936,8 +936,18 @@ async def serve_library(request: Request):
 
 @app.get("/backgrounds")
 async def serve_backgrounds(request: Request):
-    """Sandbox page for prototyping background effects. No auth required."""
-    return serve_html_with_nonce(request, abs_join(BASE_DIR, "static/backgrounds.html"))
+    """Sandbox page for prototyping background effects. No auth required.
+
+    This is an optional dev-only page: its template is not shipped by default.
+    When it is absent the page genuinely does not exist, so return a graceful
+    404 here rather than letting serve_html_with_nonce map the missing file to a
+    500 (that helper treats every read failure as a server fault by design, per
+    its docstring, and asks client-influenced call sites to branch 404 here).
+    """
+    page = abs_join(BASE_DIR, "static/backgrounds.html")
+    if not os.path.isfile(page):
+        raise HTTPException(status_code=404, detail="Background sandbox page not found")
+    return serve_html_with_nonce(request, page)
 
 @app.get("/login")
 async def serve_login(request: Request):
