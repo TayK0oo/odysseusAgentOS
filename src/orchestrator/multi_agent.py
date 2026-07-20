@@ -301,6 +301,13 @@ class MultiAgentWorkflow:
             if (s.get("function", {}).get("name") or s.get("name", "")) in allowed_tools
         ]
 
+        # Debug: log what tools are actually being sent
+        _tool_names = [s.get("function", {}).get("name", "?") for s in tool_schemas]
+        logger.info(
+            "[MultiAgent] agent tools: allowed=%s sent=%s",
+            sorted(allowed_tools), sorted(_tool_names),
+        )
+
         accumulated_output: list[str] = []
         max_turns = 5
         turn_messages = list(messages)  # copie modifiable
