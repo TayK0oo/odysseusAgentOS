@@ -18,6 +18,10 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 - **Milestone 1 (modules du harness) :** ✅ écrit & unit-testé — mais majoritairement dormant
 - **Milestone 2 (intégration live dans Odysseus) :** 🔨 EN COURS — planification
 - **Câblage réel :** ~30-40% (voir INTEGRATION-TRACKING.md)
+- **Orchestration Globale v1 :** 🔨 EN COURS — branche `feat/inventaire-global-v1`
+  - 8 fichiers de planification + 22 prompts d'agents spécialisés
+  - 5 vagues : Quick Wins (6), Observabilité (5), Refactor (5), Automatisation (3), Production (3)
+  - Voir `.planning/orchestration/global-v1/MASTER-PLAN.md`
 
 ## Progress — RÉEL (post-audit 2026-07-01, MAJ vérifiée 2026-07-05)
 
@@ -138,3 +142,38 @@ Resume file: _(aucun)_
 
 **Prochaine action :** M3 terminé. Reste **net-new nécessitant BRAINSTORM** : **`.opencode` agents** (CLI-only, provider `opencode-go` déjà dans `_detect_provider`). **Graphify = verdict REJETÉ** (redondant avec VectorRAG natif, cf. ROADMAP §90). **Opérationnel + humain-gaté** (pas du code) : (a) enregistrer l'endpoint Zen via tool natif `manage_endpoints` + `ODYSSEUS_ZEN_FROM_ENDPOINT=1` puis retirer `model-routing.json providers.*` une fois la DB autoritaire ; (b) configurer `OBSIDIAN_VAULT_PATH` + poser `ODYSSEUS_OBSIDIAN_MCP=1` pour activer les read-tools.
 _(NB : branche `dev` synchronisée avec `origin/dev` — vérifié `git rev-list --count HEAD ^origin/dev` = 0 le 2026-07-06.)_
+
+## Global Orchestration v1 (2026-07-21)
+
+**Branche :** `feat/inventaire-global-v1`
+**Statut :** Planification terminée — 30 fichiers, 2,238 lignes
+**Orchestrateur :** OpenAgent (deepseek-v4-pro)
+
+### Résultat de l'inventaire complet :
+- **989 fichiers Python** (7.51 MB, 159,267 lignes)
+- **154 fichiers JS** frontend (5.69 MB)
+- **CSS monolithique** : 37,499 lignes (1.22 MB)
+- **62 modules de routes**, ~200+ endpoints API
+- **Tests** : 4,393 pass / 149 fail (96.7%)
+- **Kill-switches** : 35+ (1 seul actif : DESTRUCTIVE_GATE)
+- **CBM Graph** : 11,749 nœuds, 38,126 arêtes
+
+### Gaps critiques identifiés :
+- G1 : `stream_agent_loop` = 3,568 lignes monolithiques
+- G2 : 3 orchestrateurs sans validation de cohérence
+- G3 : Pas de full-text search (SQLite LIKE uniquement)
+- G4 : Pas de LLM tracing structuré
+- G5 : Pas de prompt testing automatisé
+- G6 : Prompt/context bloat pour petits modèles
+
+### Plan d'amélioration : 22 agents, 5 vagues :
+| Vague | Agents | Outils | Effort |
+|-------|--------|--------|--------|
+| 1 — Quick Wins | A1-A6 | Meilisearch, Apprise, Docling, Mem0, Tailwind, gVisor | ~13h |
+| 2 — Observabilité | A7-A11 | LangFuse, OpenTelemetry, Promptfoo, DeepEval, Ragas | ~14h |
+| 3 — Refactor | A12-A16 | LangGraph, Qdrant, Traefik, OPA, HTMX+Alpine | ~37h |
+| 4 — Automatisation | A17-A19 | n8n, Prefect, Letta/MemGPT | ~14h |
+| 5 — Production | A20-A22 | PostgreSQL+pgvector, LocalAI, Tree-sitter | ~11h |
+
+**Voir :** `.planning/orchestration/global-v1/MASTER-PLAN.md` pour le détail complet.
+**Prochaine action :** Déployer les agents de la Vague 1 en parallèle.
