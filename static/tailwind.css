@@ -1,0 +1,73 @@
+/* Tailwind CSS — Odysseus Design System
+ * Build: npm run css:build
+ * Watch: npm run css:watch
+ *
+ * Phase 1: Foundation — minimal Tailwind utilities + preserved base styles.
+ * The legacy CSS (style.purged.css) remains loaded alongside this file.
+ * During migration, component-specific @apply rules will be added here.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base layer ─── */
+@layer base {
+  html {
+    scrollbar-color: var(--red) var(--panel);
+    scrollbar-width: thin;
+  }
+
+  body {
+    @apply bg-odysseus-bg text-odysseus-fg font-mono;
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-odysseus-panel;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-odysseus-red rounded;
+  }
+}
+
+/* ─── Component layer (future migration targets) ─── */
+@layer components {
+  .btn {
+    @apply rounded px-3 py-1.5 text-sm transition-colors duration-150;
+    @apply bg-semantic-accent text-white hover:opacity-90;
+  }
+
+  .modal {
+    @apply fixed inset-0 z-50 flex items-center justify-center;
+  }
+
+  .modal-content {
+    @apply bg-odysseus-panel border border-odysseus-border rounded-lg shadow-2xl;
+    @apply max-h-[85dvh] overflow-y-auto;
+  }
+
+  .card {
+    @apply bg-odysseus-panel border border-odysseus-border rounded-lg p-4;
+  }
+
+  .input {
+    @apply bg-odysseus-bg border border-odysseus-border text-odysseus-fg font-mono;
+    @apply rounded px-3 py-2 text-sm outline-none focus:border-semantic-accent;
+    @apply transition-colors duration-150;
+  }
+}
+
+/* ─── Utilities layer (custom) ─── */
+@layer utilities {
+  .text-semantic-error { color: var(--color-error); }
+  .text-semantic-success { color: var(--color-success); }
+  .text-semantic-warning { color: var(--color-warning); }
+  .text-semantic-muted { color: var(--color-muted); }
+  .text-semantic-accent { color: var(--color-accent); }
+}
