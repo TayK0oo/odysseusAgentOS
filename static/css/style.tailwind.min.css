@@ -1,0 +1,7 @@
+/* Tailwind CSS — Odysseus Design System (stub)
+ * Build with: npm run css:build
+ * This is a placeholder. Run the build to generate the real output.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

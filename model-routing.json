@@ -23,6 +23,12 @@
       "base_url": "https://openrouter.ai/api/v1",
       "api_key_env": "OPENROUTER_API_KEY",
       "enabled": false
+    },
+    "localai": {
+      "base_url": "http://localai:8080/v1",
+      "api_key_env": null,
+      "enabled": false,
+      "note": "All-in-one local backend (LLM + embeddings + TTS + STT). Enable with ODYSSEUS_LOCALAI=on"
     }
   },
 
@@ -131,6 +137,7 @@
     "ollama": "ollama/{model}",
     "opencode_zen": "openai/{model}",
     "anthropic_claude": "anthropic/{model}",
+    "localai": "openai/{model}",
     "openrouter": "openrouter/{model}"
   }
 }
