@@ -92,3 +92,23 @@ jobs:
         if: steps.docs-check.outputs.docs_only != 'true'
       - run: python -m pytest -q
         if: steps.docs-check.outputs.docs_only != 'true'
+
+  llm-quality:
+    name: LLM quality (DeepEval)
+    runs-on: ubuntu-latest
+    # Only runs when explicitly enabled — costs LLM tokens.
+    # Set ODYSSEUS_DEEPEVAL=on in repo settings to activate.
+    if: env.DEEPEVAL_ENABLED == 'true'
+    env:
+      DEEPEVAL_ENABLED: ${{ vars.ODYSSEUS_DEEPEVAL }}
+      ODYSSEUS_DEEPEVAL: on
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt -r requirements-optional.txt
+      - run: python -m pytest tests/quality/ -v --tb=short

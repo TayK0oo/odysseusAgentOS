@@ -142,6 +142,22 @@ class MemoryVectorStore:
         """Add a single memory entry to the vector index."""
         if not self._healthy:
             return
+
+        # -- Qdrant path --
+        if self._qdrant:
+            emb = self._mem_embed([text])
+            if not emb:
+                return
+            self._qdrant.upsert(
+                self.COLLECTION_NAME,
+                ids=[memory_id],
+                vectors=emb,
+                documents=[text],
+                metadatas=[{"source": "memory"}],
+            )
+            return
+
+        # -- ChromaDB path --
         for lane in self._lanes:
             try:
                 existing = lane.collection.get(ids=[memory_id])
@@ -160,6 +176,13 @@ class MemoryVectorStore:
         """Remove a memory entry. O(1) — no rebuild needed."""
         if not self._healthy:
             return
+
+        # -- Qdrant path --
+        if self._qdrant:
+            self._qdrant.delete_by_ids(self.COLLECTION_NAME, [memory_id])
+            return
+
+        # -- ChromaDB path --
         for collection in self._collections_for_delete():
             try:
                 collection.delete(ids=[memory_id])
@@ -168,14 +191,31 @@ class MemoryVectorStore:
 
     def search(self, query: str, k: int = 8) -> List[Dict]:
         """Search for the most relevant memory IDs by semantic similarity.
-        Returns list of {"memory_id": str, "score": float}.
-
-        ChromaDB cosine distance = 1 - cosine_similarity.
-        We convert back: similarity = 1.0 - distance.
-        """
+        Returns list of {"memory_id": str, "score": float}."""
         if not self._healthy or self.count() == 0:
             return []
 
+        # -- Qdrant path --
+        if self._qdrant:
+            emb = self._mem_embed([query])
+            if not emb:
+                return []
+            results = self._qdrant.search(
+                self.COLLECTION_NAME,
+                query_vector=emb[0],
+                limit=min(k, self._qdrant.collection_count(self.COLLECTION_NAME)),
+            )
+            out = []
+            for r in results:
+                mid = r["metadata"].get("memory_id", r["id"])
+                out.append({
+                    "memory_id": mid,
+                    "score": r["similarity"],
+                    "embedding_lane": "qdrant",
+                })
+            return dedupe_results(out, id_key="memory_id", limit=k)
+
+        # -- ChromaDB path --
         out = []
         lane_priority = {LANE_CUSTOM: 0, LANE_FASTEMBED: 1}
         for lane in self._lanes:
@@ -204,6 +244,21 @@ class MemoryVectorStore:
         if not self._healthy or self.count() == 0:
             return None
 
+        # -- Qdrant path --
+        if self._qdrant:
+            emb = self._mem_embed([text])
+            if not emb:
+                return None
+            results = self._qdrant.search(
+                self.COLLECTION_NAME,
+                query_vector=emb[0],
+                limit=1,
+            )
+            if results and results[0]["similarity"] >= threshold:
+                return results[0]["metadata"].get("memory_id", results[0]["id"])
+            return None
+
+        # -- ChromaDB path --
         for lane in self._lanes:
             try:
                 if lane.count() == 0:
@@ -228,6 +283,31 @@ class MemoryVectorStore:
         if not self._healthy:
             return
 
+        # -- Qdrant path --
+        if self._qdrant:
+            self._qdrant.delete_collection(self.COLLECTION_NAME)
+            texts = []
+            ids = []
+            for mem in memories:
+                text = mem.get("text", "").strip()
+                mid = mem.get("id", "")
+                if text and mid:
+                    texts.append(text)
+                    ids.append(mid)
+            if texts:
+                embs = self._mem_embed(texts)
+                if embs:
+                    self._qdrant.upsert(
+                        self.COLLECTION_NAME,
+                        ids=ids,
+                        vectors=embs,
+                        documents=texts,
+                        metadatas=[{"source": "memory"}] * len(ids),
+                    )
+            logger.info("MemoryVectorStore (Qdrant) rebuilt with %d entries", len(ids))
+            return
+
+        # -- ChromaDB path --
         from src.chroma_client import get_chroma_client
 
         client = get_chroma_client()
@@ -281,8 +361,16 @@ class MemoryVectorStore:
         logger.info(f"MemoryVectorStore rebuilt with {len(ids)} entries across {len(self._lanes)} lanes")
 
     def get_stats(self) -> Dict:
+        if self._qdrant:
+            return {
+                "healthy": self.healthy,
+                "count": self.count(),
+                "backend": "qdrant",
+                "qdrant_url": self._qdrant.url,
+            }
         return {
             "healthy": self.healthy,
             "count": self.count(),
+            "backend": "chromadb",
             "lanes": [lane.stats() for lane in self._lanes],
         }

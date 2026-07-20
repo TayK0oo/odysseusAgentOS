@@ -15,6 +15,12 @@ import time
 import logging
 from typing import AsyncGenerator, List, Dict, Optional, Set
 from urllib.parse import urlparse
+from services.observability.langfuse_tracer import observe
+
+try:
+    from services.observability.langfuse_tracer import langfuse_context
+except ImportError:
+    langfuse_context = None
 
 from src.llm_core import stream_llm, stream_llm_with_fallback, _is_ollama_native_url
 from src.model_context import estimate_tokens
@@ -1885,6 +1891,7 @@ def _detect_runaway_call(call_freq, threshold=15):
     return sig.split(":", 1)[0] if sig else None
 
 
+@observe()
 async def stream_agent_loop(
     endpoint_url: str,
     model: str,
@@ -1922,6 +1929,49 @@ async def stream_agent_loop(
       - data: {"type": "metrics", "data": {...}}            (final metrics)
       - data: [DONE]                                        (end)
     """
+
+    # ── LangGraph kill-switch (ODYSSEUS_LANGGRAPH, default OFF) ───────
+    # When ON, delegate the entire loop to the LangGraph StateGraph.
+    # When OFF (default), behaviour is byte-identical to today.
+    _langgraph_on = os.environ.get("ODYSSEUS_LANGGRAPH", "").strip().lower() in ("1", "true", "yes", "on")
+    if _langgraph_on:
+        try:
+            from src.orchestrator.langgraph_loop import (
+                langgraph_stream,
+                build_input_state,
+            )
+            _lg_state = build_input_state(
+                endpoint_url=endpoint_url,
+                model=model,
+                messages=messages,
+                headers=headers,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                prompt_type=prompt_type,
+                max_rounds=max_rounds,
+                session_id=session_id,
+                disabled_tools=disabled_tools,
+                owner=owner,
+                relevant_tools=relevant_tools,
+                fallbacks=fallbacks,
+                plan_mode=plan_mode,
+                approved_plan=approved_plan,
+                tool_policy=tool_policy,
+                workspace=workspace,
+                forced_tools=forced_tools,
+                project_id=project_id,
+                agent_id=agent_id,
+                active_document=active_document,
+                active_email=active_email,
+            )
+            logger.info("[langgraph] kill-switch ON — delegating to StateGraph")
+            async for _evt in langgraph_stream(_lg_state):
+                yield _evt
+            return
+        except ImportError:
+            logger.warning("[langgraph] langgraph not installed — falling back to standard loop")
+        except Exception as _lg_exc:
+            logger.warning("[langgraph] delegation failed: %s — falling back to standard loop", _lg_exc)
 
     # M3.X — one correlation run_id per loop invocation. Generated once here and
     # reused everywhere: pushed into the trace_writer ContextVar (so every tool
