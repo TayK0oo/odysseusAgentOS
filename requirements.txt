@@ -72,6 +72,10 @@ mem0ai
 letta-client
 # Apprise — notification unifiée 100+ canaux (remplace adapters custom)
 apprise
+# LangGraph — StateGraph orchestration (ODYSSEUS_LANGGRAPH kill-switch).
+# Optional: only needed when ODYSSEUS_LANGGRAPH=on.
+langgraph
+langgraph-checkpoint-sqlite
 # PostgreSQL + pgvector — production database backend (Agent A20).
 # asyncpg: high-performance async PostgreSQL driver for SQLAlchemy.
 # pgvector: vector similarity search column type for PostgreSQL.
