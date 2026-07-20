@@ -819,6 +819,10 @@ app.include_router(autoeval_router)
 from routes.killswitch_routes import router as killswitch_router
 app.include_router(killswitch_router)
 
+# ========= n8n WORKFLOW AUTOMATION (Agent A17) =========
+from routes.n8n_routes import router as n8n_router
+app.include_router(n8n_router)
+
 # ========= MCP EXTERNAL TOOLS (Phase 4 — Scrapling, Supabase, Kroki) =========
 from routes.mcp_tools_routes import router as mcp_tools_router
 app.include_router(mcp_tools_router)

@@ -1,13 +1,18 @@
 """
 memory_vector.py
 
-ChromaDB-backed vector store for memory entries.
+ChromaDB/Qdrant-backed vector store for memory entries.
 Shares the EmbeddingClient with RAG to save memory.
-Stores pre-computed embeddings (ChromaDB does not manage embedding).
+Stores pre-computed embeddings (vector DB does not manage embedding).
+
+Backend selection: ODYSSEUS_QDRANT=on → Qdrant, else ChromaDB.
 """
 
 import logging
+import os
 from typing import List, Dict, Optional
+
+import numpy as np
 
 from src.embedding_lanes import (
     LANE_CUSTOM,
@@ -22,6 +27,25 @@ from src.embedding_lanes import (
 logger = logging.getLogger(__name__)
 
 
+def _qdrant_enabled() -> bool:
+    """Kill-switch: ODYSSEUS_QDRANT env var."""
+    val = os.getenv("ODYSSEUS_QDRANT", "off").strip().lower()
+    return val in {"on", "1", "true", "yes"}
+
+
+def _qdrant_store():
+    """Lazy-init QdrantVectorStore (None when ChromaDB)."""
+    if not _qdrant_enabled():
+        return None
+    try:
+        from services.vector.qdrant_store import QdrantVectorStore
+        store = QdrantVectorStore()
+        return store if store.healthy else None
+    except Exception as e:
+        logger.warning("Qdrant unavailable for memory, falling back to ChromaDB: %s", e)
+        return None
+
+
 class MemoryVectorStore:
     """Vector index over memory entries for semantic retrieval."""
 
@@ -32,8 +56,13 @@ class MemoryVectorStore:
         self._collection = None
         self._lanes = []
         self._healthy = False
+        self._qdrant = _qdrant_store()
 
-        self._initialize()
+        if self._qdrant:
+            self._healthy = True
+            logger.info("MemoryVectorStore: Qdrant backend active")
+        else:
+            self._initialize()
 
     def _initialize(self):
         try:
@@ -60,15 +89,23 @@ class MemoryVectorStore:
     def healthy(self) -> bool:
         return self._healthy
 
-    def _embed(self, texts: List[str]) -> List[List[float]]:
-        if not self._lanes:
+    def _mem_embed(self, texts: List[str]) -> List[List[float]]:
+        """Embed texts using the first lane or fastembed directly."""
+        if self._lanes:
+            return self._lanes[0].encode(texts)
+        try:
+            from fastembed import TextEmbedding
+            model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
+            return [list(v) for v in model.embed(texts)]
+        except Exception:
             return []
-        return self._lanes[0].encode(texts)
 
     def count(self) -> int:
         """Return the number of stored vectors."""
         if not self._healthy:
             return 0
+        if self._qdrant:
+            return self._qdrant.collection_count(self.COLLECTION_NAME)
         return lane_count(self._lanes)
 
     def _collections_for_delete(self):

@@ -89,6 +89,30 @@ class SearchConfig(BaseSettings):
     
     model_config = SettingsConfigDict(env_prefix="SEARCH_")
 
+class NotificationConfig(BaseSettings):
+    """Configuration for Apprise unified notifications."""
+
+    apprise_channels: List[str] = Field(
+        default=[],
+        description=(
+            "Apprise channel URLs (e.g. 'discord://token/webhook_id', "
+            "'tgram://token/chat_id', 'ntfy://topic'). "
+            "Empty list = no Apprise channels configured."
+        ),
+    )
+
+    # Kill-switch: ODYSSEUS_APPRISE env var.  When "off" (the default) the
+    # gateway falls back to the legacy individual adapters (Discord/Telegram).
+    # Any truthy value ("on", "1", "true", "yes") routes outbound through
+    # Apprise instead.
+    enabled: bool = Field(
+        default=False,
+        description="Enable Apprise unified notifications (default: OFF).",
+    )
+
+    model_config = SettingsConfigDict(env_prefix="APPRISE_")
+
+
 class SecurityConfig(BaseSettings):
     """Configuration for security and rate limiting."""
     
@@ -120,13 +144,32 @@ class SecurityConfig(BaseSettings):
     
     model_config = SettingsConfigDict(env_prefix="SECURITY_")
 
+class VectorConfig(BaseSettings):
+    """Configuration for vector database backend selection."""
+
+    # Backend: "chromadb" (default, always available) or "qdrant" (opt-in).
+    # Controlled by env var VECTOR_BACKEND or kill-switch ODYSSEUS_QDRANT.
+    backend: str = Field(
+        default="chromadb",
+        description="Vector backend: 'chromadb' (default) or 'qdrant' (opt-in).",
+    )
+    qdrant_url: str = Field(
+        default="http://localhost:6333",
+        description="Qdrant server URL.",
+    )
+
+    model_config = SettingsConfigDict(env_prefix="VECTOR_")
+
+
 class AppConfig(BaseSettings):
     """Main application configuration combining all components."""
     
     data: DataConfig = DataConfig()
     llm: LLMConfig = LLMConfig()
     search: SearchConfig = SearchConfig()
+    notification: NotificationConfig = NotificationConfig()
     security: SecurityConfig = SecurityConfig()
+    vector: VectorConfig = VectorConfig()
     
     # Application settings
     debug: bool = Field(default=False, description="Enable debug mode")
