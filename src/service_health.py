@@ -211,6 +211,29 @@ def chromadb_health(rag_manager: Any, memory_vector: Any) -> Dict[str, Any]:
     return _svc("chromadb", DOWN, "Vector stores are unavailable.", **meta)
 
 
+# ── Qdrant (opt-in vector backend) ──
+
+def qdrant_health() -> Dict[str, Any]:
+    """Check Qdrant server connectivity.
+
+    Returns ok when ODYSSEUS_QDRANT is off (opt-in, not an error).
+    When on, probes the Qdrant HTTP port.
+    """
+    import os
+    val = os.getenv("ODYSSEUS_QDRANT", "off").strip().lower()
+    enabled = val in {"on", "1", "true", "yes"}
+    if not enabled:
+        return _svc("qdrant", DISABLED,
+                    "Qdrant is opt-in (ODYSSEUS_QDRANT=off).")
+    try:
+        import urllib.request
+        url = os.getenv("VECTOR_QDRANT_URL", "http://localhost:6333")
+        urllib.request.urlopen(f"{url}/collections", timeout=5).read(1)
+        return _svc("qdrant", OK, f"Qdrant reachable at {url}")
+    except Exception as exc:
+        return _svc("qdrant", DOWN, f"Qdrant unreachable: {exc}")
+
+
 # ── SearXNG ──
 
 def _searxng_instance(settings: Dict[str, Any]) -> str:

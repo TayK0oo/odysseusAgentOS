@@ -25,6 +25,7 @@ from src.tool_security import is_public_blocked_tool, owner_is_admin_or_single_u
 from src.tool_policy import ToolPolicy
 from src.constants import MAX_OUTPUT_CHARS, MAX_READ_CHARS, MAX_DIFF_LINES, DATA_DIR
 from src.tool_utils import _truncate, get_mcp_manager
+from services.observability.langfuse_tracer import trace_langfuse
 
 # Persistent working directory for agent subprocesses.
 # Resolves to <repo_root>/data, which is the bind-mounted volume in Docker
@@ -608,18 +609,33 @@ async def execute_tool_block(
         pass  # Ne jamais bloquer le loop sur une erreur de phase-lock
 
     # --- Execute ---
-    token = _active_workspace.set(workspace or None)
-    try:
-        desc, result = await _execute_tool_block_impl(
-            block,
-            session_id=session_id,
-            disabled_tools=disabled_tools,
-            owner=owner,
-            progress_cb=progress_cb,
-            tool_policy=tool_policy,
-        )
-    finally:
-        _active_workspace.reset(token)
+    tool_name_str = getattr(block, "tool_type", "unknown") or "unknown"
+    async with trace_langfuse(
+        f"tool:{tool_name_str}",
+        session_id=session_id,
+        user_id=owner,
+        tags=["tool"],
+        metadata={"tool": tool_name_str},
+    ) as _lf_span:
+        token = _active_workspace.set(workspace or None)
+        try:
+            desc, result = await _execute_tool_block_impl(
+                block,
+                session_id=session_id,
+                disabled_tools=disabled_tools,
+                owner=owner,
+                progress_cb=progress_cb,
+                tool_policy=tool_policy,
+            )
+        finally:
+            _active_workspace.reset(token)
+
+        # --- LangFuse: update tool span with outcome ---
+        try:
+            _lf_outcome = "error" if result.get("error") else "success"
+            _lf_span.update(metadata={"outcome": _lf_outcome, "tool": tool_name_str})
+        except Exception:
+            pass
 
     # --- Constitution: write trace after execution ---
     if _constitution_enabled:

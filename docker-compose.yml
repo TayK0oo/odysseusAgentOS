@@ -235,13 +235,6 @@ services:
     environment:
       - SEARXNG_BASE_URL=http://localhost:8080/
       - SEARXNG_SECRET=${SEARXNG_SECRET:-}
-    # The official searxng image runs as the non-root `searxng` user, but its
-    # entrypoint still needs to chown /etc/searxng on first boot, drop privs via
-    # su-exec, and (with our wrapper above) write settings.yml into the named
-    # volume. Without these capabilities the wrapper aborts at the redirection
-    # with EACCES and the container fails its healthcheck with permission
-    # errors during setup. Mirrors the cap set recommended by the upstream
-    # searxng-docker compose file. See issue #721.
     cap_drop:
       - ALL
     cap_add:
@@ -290,8 +283,6 @@ services:
     cap_drop:
       - ALL
     environment:
-      # Mermaid/BPMN/Excalidraw are rendered by the companion container below.
-      # Without this the core image answers 503 for diagram_type=mermaid (our default).
       - KROKI_MERMAID_HOST=kroki-mermaid
     depends_on:
       - kroki-mermaid
@@ -300,27 +291,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-
-  qdrant:
-    image: qdrant/qdrant:latest
-    ports:
-      - "${QDRANT_BIND:-127.0.0.1}:6333:6333"
-      - "${QDRANT_BIND:-127.0.0.1}:6334:6334"
-    volumes:
-      - qdrant-data:/qdrant/storage
-    profiles:
-      - vectordb
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',6333),5).close()\""]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 10s
 
   kroki-mermaid:
     image: yuzutech/kroki-mermaid:latest
@@ -388,10 +358,6 @@ services:
   scrapling-mcp:
     runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
     image: python:3.12-slim
-    # Scrapling's own MCP server over Streamable HTTP. `--http` is REQUIRED:
-    # without it the server defaults to stdio and nothing listens on the port.
-    # The streamable-HTTP endpoint is mounted at /mcp (see src/mcp_manager.py
-    # EXTERNAL_MCP_SERVERS["scrapling"]).
     command: >
       bash -c "pip install 'scrapling[all]' -q &&
                scrapling install &&
@@ -406,10 +372,6 @@ services:
     profiles:
       - scrapling
     healthcheck:
-      # python:3.12-slim has no curl, so probe with python (always present).
-      # A listening TCP port is the right health signal: the streamable-HTTP
-      # /mcp endpoint answers 406 to a bare GET, which curl -f would wrongly
-      # treat as a failure. create_connection() succeeds iff the server is up.
       test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',8800),5).close()\""]
       interval: 30s
       timeout: 15s
@@ -438,6 +400,27 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "${QDRANT_BIND:-127.0.0.1}:6333:6333"
+      - "${QDRANT_BIND:-127.0.0.1}:6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    profiles:
+      - vectordb
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',6333),5).close()\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
 
   meilisearch:
     image: getmeili/meilisearch:v1.14
@@ -514,6 +497,59 @@ services:
       retries: 3
       start_period: 60s
 
+  # ── LangFuse — LLM tracing & observability (profile: observability) ──
+  langfuse-postgres:
+    image: postgres:16-alpine
+    volumes:
+      - langfuse-db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=odysseus
+      - POSTGRES_PASSWORD=${LANGFUSE_DB_PASSWORD:-odysseus-langfuse}
+      - POSTGRES_DB=langfuse
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    profiles:
+      - observability
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odysseus -d langfuse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  langfuse-server:
+    image: ghcr.io/langfuse/langfuse:latest
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://odysseus:${LANGFUSE_DB_PASSWORD:-odysseus-langfuse}@langfuse-postgres:5432/langfuse
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:-odysseus-langfuse-nextauth-secret}
+      - SALT=${LANGFUSE_SALT:-odysseus-langfuse-salt}
+    depends_on:
+      langfuse-postgres:
+        condition: service_healthy
+    profiles:
+      - observability
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:3000/api/public/health', timeout=5).read(1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   n8n:
     image: n8nio/n8n:latest
     ports:
@@ -536,25 +572,6 @@ services:
       - SETGID
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5678/healthz', timeout=5).read(1)\""]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  prefect-server:
-    image: prefecthq/prefect:latest
-    command: prefect server start --host 0.0.0.0 --port 4200
-    ports:
-      - "127.0.0.1:4200:4200"
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    profiles:
-      - automation
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health', timeout=5).read(1)\""]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -585,6 +602,27 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+
+  opa:
+    image: openpolicyagent/opa:latest
+    command: ["run", "--server", "--log-level", "info", "/policies"]
+    ports:
+      - "127.0.0.1:8181:8181"
+    volumes:
+      - ./config/policies:/policies:ro,z
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    profiles:
+      - security
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8181/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   traefik:
     image: traefik:latest
@@ -651,4 +689,5 @@ volumes:
   letsencrypt-data:
   localai-models:
   n8n-data:
+  langfuse-db-data:
   postgres-data:

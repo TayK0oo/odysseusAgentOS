@@ -47,8 +47,12 @@ from src.agent_tools import (
     ToolBlock,
     MAX_AGENT_ROUNDS,
 )
+from services.observability.otel_setup import get_tracer
 
 logger = logging.getLogger(__name__)
+
+# OTel tracer — no-op when ODYSSEUS_OTEL=off (zero overhead)
+_tracer = get_tracer("odysseus.agent_loop")
 
 
 def _load_mcp_disabled_map() -> Dict[str, set]:
@@ -1986,6 +1990,18 @@ async def stream_agent_loop(
     except Exception:
         pass
 
+    # ── LangFuse trace metadata ──
+    try:
+        if langfuse_context:
+            langfuse_context.update_current_trace(
+                session_id=session_id,
+                user_id=owner,
+                tags=["agent", "stream_agent_loop"],
+                metadata={"run_id": _run_id, "model": model},
+            )
+    except Exception:
+        pass
+
     mcp_mgr = get_mcp_manager()
     prep_timings: Dict[str, float] = {}
     disabled_tools = set(disabled_tools or [])
@@ -3302,19 +3318,26 @@ async def stream_agent_loop(
                     await _progress_q.put(payload)
 
                 async def _run_tool():
-                    try:
-                        return await execute_tool_block(
-                            block,
-                            session_id=session_id,
-                            disabled_tools=disabled_tools,
-                            tool_policy=tool_policy,
-                            owner=owner,
-                            progress_cb=_push_progress,
-                            workspace=workspace,
-                        )
-                    finally:
-                        # Sentinel so the drainer knows to stop.
-                        await _progress_q.put(None)
+                    with _tracer.start_as_current_span("tool_execution") as _tool_span:
+                        _tool_span.set_attribute("tool.name", block.tool_type)
+                        _tool_span.set_attribute("agent.round", round_num)
+                        try:
+                            return await execute_tool_block(
+                                block,
+                                session_id=session_id,
+                                disabled_tools=disabled_tools,
+                                tool_policy=tool_policy,
+                                owner=owner,
+                                progress_cb=_push_progress,
+                                workspace=workspace,
+                            )
+                        except Exception as _tool_exc:
+                            _tool_span.set_attribute("error", True)
+                            _tool_span.record_exception(_tool_exc)
+                            raise
+                        finally:
+                            # Sentinel so the drainer knows to stop.
+                            await _progress_q.put(None)
 
                 _tool_task = asyncio.create_task(_run_tool())
                 # Drain progress events as they arrive — block until the

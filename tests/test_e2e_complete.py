@@ -715,6 +715,7 @@ class TestE2E_Imports:
         "src.orchestrator.ancestry_tracker",
         "src.orchestrator.codeburn_runner",
         "src.orchestrator.router_advice",
+        "src.orchestrator.langgraph_loop",
         "src.sse_indicators",
         "src.trace_writer",
         "core.database",
