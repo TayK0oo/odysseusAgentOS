@@ -1,11 +1,16 @@
 """
 Channel Gateway — Inbound bus + Outbound bus.
 Ajouter un canal = ajouter un adapter. Pas toucher au cœur.
+
+When ODYSSEUS_APPRISE=on, outbound routing is delegated to AppriseService
+(services.notifications.apprise_service).  The ChannelAdapter protocol and
+inbound path remain unchanged.
 """
 import asyncio
 import logging
+import os
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Any
+from typing import Optional, Callable, Any, List
 from dataclasses import dataclass
 from enum import Enum
 
@@ -54,14 +59,57 @@ class ChannelAdapter(ABC):
         """Démarre l'écoute des messages entrants."""
         ...
 
+# ------------------------------------------------------------------
+# Kill-switch helper (module-level for easy import by channel_bootstrap)
+# ------------------------------------------------------------------
+_TRUTHY = {"on", "1", "true", "yes"}
+
+
+def _apprise_kill_switch() -> bool:
+    """Return True when ODYSSEUS_APPRISE env is truthy."""
+    val = os.getenv("ODYSSEUS_APPRISE", "off").strip().lower()
+    return val in _TRUTHY
+
+
+def _get_apprise_service():
+    """Lazy-import and cache the AppriseService singleton."""
+    if not _apprise_kill_switch():
+        return None
+    try:
+        from services.notifications.apprise_service import AppriseService
+        svc = AppriseService()
+        # Load channels from config if available
+        try:
+            from src.config import config as _cfg
+            channels = _cfg.notification.apprise_channels
+            if channels:
+                svc.add_channels(channels)
+        except Exception:
+            logger.debug("Could not load APPRISE_CHANNELS from config")
+        return svc
+    except ImportError:
+        logger.warning("Apprise not installed; falling back to legacy adapters")
+        return None
+
+
 class ChannelGateway:
     """
     Bus central : inbound (adapters → handler) + outbound (handler → adapters).
+
+    When the ODYSSEUS_APPRISE kill-switch is ON, outbound messages are routed
+    through AppriseService instead of the registered ChannelAdapter.  Inbound
+    handling is always adapter-based (Apprise is outbound-only).
     """
 
     def __init__(self):
         self._adapters: dict[ChannelType, ChannelAdapter] = {}
         self._inbound_handler: Optional[Callable] = None
+        self._apprise_service = None  # lazy-init on first use
+
+    @property
+    def apprise_enabled(self) -> bool:
+        """True when the ODYSSEUS_APPRISE kill-switch is ON."""
+        return _apprise_kill_switch()
 
     def register_adapter(self, adapter: ChannelAdapter) -> None:
         """Enregistre un adapter. Remplace si déjà présent."""
@@ -73,12 +121,29 @@ class ChannelGateway:
         self._inbound_handler = handler
 
     async def send(self, message: OutboundMessage) -> bool:
-        """Envoie via l'adapter approprié."""
+        """Envoie via Apprise (kill-switch ON) ou l'adapter approprié (OFF)."""
+        if self.apprise_enabled:
+            return await self._send_via_apprise(message)
+
         adapter = self._adapters.get(message.channel)
         if not adapter:
             logger.warning(f"Pas d'adapter pour {message.channel}")
             return False
         return await adapter.send(message)
+
+    async def _send_via_apprise(self, message: OutboundMessage) -> bool:
+        """Route outbound message through AppriseService."""
+        if self._apprise_service is None:
+            self._apprise_service = _get_apprise_service()
+        if self._apprise_service is None:
+            logger.warning("Apprise kill-switch ON but service unavailable")
+            return False
+        tags = [message.channel.value]
+        return await self._apprise_service.notify(
+            message.content,
+            title=f"{message.channel.value}:{message.recipient_id}",
+            tags=tags,
+        )
 
     async def broadcast(self, content: str, channels: list[ChannelType] = None) -> dict:
         """Broadcast vers plusieurs canaux."""

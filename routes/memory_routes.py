@@ -496,6 +496,56 @@ def setup_memory_routes(memory_manager: MemoryManager, session_manager: SessionM
                 return {"ok": True, "pinned": pinned}
         raise HTTPException(404, f"Memory item {memory_id} not found")
 
+    # ── Mem0 structured facts ─────────────────────────────────────────────
+
+    @router.get("/facts")
+    async def get_mem0_facts(request: Request, user_id: Optional[str] = None):
+        """Return structured facts extracted by Mem0 from conversations."""
+        target_user = user_id or _owner(request) or "default"
+
+        # Find Mem0Provider from the active registry
+        try:
+            from src.memory_provider import get_active_registry
+
+            registry = get_active_registry()
+            mem0 = registry.get("mem0") if registry else None
+        except (KeyError, AttributeError):
+            mem0 = None
+
+        if mem0 is None or not getattr(mem0, "enabled", False):
+            raise HTTPException(404, "Mem0 provider not available")
+
+        facts = await mem0.search_facts(target_user, user_id=target_user)
+        return {
+            "user_id": target_user,
+            "facts": facts,
+            "count": len(facts),
+            "provider": "mem0",
+        }
+
+    @router.get("/profile")
+    async def get_mem0_profile(request: Request, user_id: Optional[str] = None):
+        """Return consolidated user profile with extracted facts."""
+        target_user = user_id or _owner(request) or "default"
+
+        try:
+            from src.memory_provider import get_active_registry
+
+            registry = get_active_registry()
+            mem0 = registry.get("mem0") if registry else None
+        except (KeyError, AttributeError):
+            mem0 = None
+
+        if mem0 is None or not getattr(mem0, "enabled", False):
+            raise HTTPException(404, "Mem0 provider not available")
+
+        profile = await mem0.get_user_profile(target_user)
+        return {
+            "user_id": target_user,
+            "profile": profile,
+            "provider": "mem0",
+        }
+
     # Wildcard routes MUST come last — otherwise they swallow /import, /search, etc.
     @router.get("/{memory_id}")
     def get_memory_item(request: Request, memory_id: str):

@@ -1,4 +1,8 @@
-"""Search routes — /api/search/config GET, /api/search POST."""
+"""Search routes — /api/search/config GET, /api/search POST.
+
+Includes /api/search/fulltext for Meilisearch-powered full-text search
+across messages, notes, and documents (kill-switch: ODYSSEUS_MEILISEARCH).
+"""
 
 import logging
 from typing import Dict, Any
@@ -10,6 +14,7 @@ import time
 from services.search import get_search_config, comprehensive_web_search, PROVIDER_INFO
 from services.search.core import _call_provider
 from services.search.providers import _get_provider_key, _get_search_instance
+from services.search.meilisearch_client import is_enabled as meilisearch_enabled, search_all as meilisearch_search
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +88,37 @@ def setup_search_routes(config) -> APIRouter:
                 "available": available,
             })
         return providers
+
+    @router.get("/api/search/fulltext")
+    async def fulltext_search(request: Request) -> Dict[str, Any]:
+        """Full-text search across messages, notes, and documents.
+
+        Requires ODYSSEUS_MEILISEARCH=on and a running Meilisearch instance.
+        Falls back to SQLite LIKE when Meilisearch is unavailable.
+        """
+        if not meilisearch_enabled():
+            return {
+                "query": request.query_params.get("q", ""),
+                "hits": [],
+                "total": 0,
+                "engine": "sqlite_like",
+                "message": "Meilisearch is disabled (ODYSSEUS_MEILISEARCH=off). Using SQLite LIKE fallback.",
+            }
+        query = str(request.query_params.get("q") or "").strip()
+        if not query:
+            return {"hits": [], "total": 0, "query": "", "error": "q parameter is required"}
+        type_filter = request.query_params.get("type")
+        try:
+            limit = min(int(request.query_params.get("limit", 20)), 100)
+        except (ValueError, TypeError):
+            limit = 20
+        try:
+            offset = int(request.query_params.get("offset", 0))
+        except (ValueError, TypeError):
+            offset = 0
+        results = meilisearch_search(query, type_filter=type_filter, limit=limit, offset=offset)
+        results["engine"] = "meilisearch"
+        return results
 
     @router.post("/api/search/query")
     async def search_with_provider(request: Request) -> Dict[str, Any]:

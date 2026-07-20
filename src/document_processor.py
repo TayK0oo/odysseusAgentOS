@@ -110,7 +110,32 @@ def _process_text_file(path: str) -> str:
 
 
 def _process_pdf(path: str, owner: str | None = None) -> str:
-    """Process PDF file with text extraction (pypdf). Uses VL model for image-heavy pages."""
+    """Process PDF file with text extraction.
+
+    Tries Docling first (when ODYSSEUS_DOCLING=on and docling is installed)
+    for layout-aware Markdown with tables and reading order. Falls back to
+    pypdf when docling is unavailable or disabled.
+    """
+    # --- Docling fast-path (opt-in via kill-switch) ---
+    docling_md = None
+    try:
+        from src.docling_runtime import is_docling_enabled
+        if is_docling_enabled():
+            from services.documents.docling_processor import get_docling_processor
+            proc = get_docling_processor()
+            if proc.available:
+                docling_md = proc.pdf_to_markdown(path)
+    except Exception as _docling_err:
+        logger.debug("Docling fast-path skipped: %s", _docling_err)
+        docling_md = None
+
+    if docling_md:
+        truncated = len(docling_md) > 15000
+        if truncated:
+            docling_md = docling_md[:15000] + "\n[PDF content truncated]"
+        return f"\n\n[PDF content — Docling Markdown]:\n{docling_md}"
+
+    # --- pypdf fallback ---
     try:
         from pypdf import PdfReader
         pdf_text = ""

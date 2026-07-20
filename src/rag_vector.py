@@ -16,6 +16,29 @@ from typing import List, Dict, Any, Optional, Set
 from src.constants import CHROMA_DIR
 from pathlib import Path
 
+# ---------------------------------------------------------------------------
+# Vector backend routing (ChromaDB vs Qdrant)
+# ---------------------------------------------------------------------------
+
+def _qdrant_enabled() -> bool:
+    """Kill-switch: ODYSSEUS_QDRANT env var.  Truthy → use Qdrant."""
+    val = os.getenv("ODYSSEUS_QDRANT", "off").strip().lower()
+    return val in {"on", "1", "true", "yes"}
+
+
+def _qdrant_store():
+    """Lazy-init a QdrantVectorStore (returns None if unavailable)."""
+    if not _qdrant_enabled():
+        return None
+    try:
+        from services.vector.qdrant_store import QdrantVectorStore
+        store = QdrantVectorStore()
+        return store if store.healthy else None
+    except Exception as e:
+        logger.warning("Qdrant unavailable, falling back to ChromaDB: %s", e)
+        return None
+
+
 from src.embedding_lanes import (
     LANE_CUSTOM,
     LANE_FASTEMBED,
@@ -109,9 +132,14 @@ class VectorRAG:
         self._model = None
         self._lanes = []
         self._healthy = False
+        self._qdrant = _qdrant_store()  # None when ChromaDB
 
         Path(self.persist_directory).mkdir(parents=True, exist_ok=True)
-        self._initialize_system()
+        if not self._qdrant:
+            self._initialize_system()
+        else:
+            self._healthy = True
+            logger.info("VectorRAG: Qdrant backend active")
 
     # ------------------------------------------------------------------
     # Initialization
@@ -152,6 +180,8 @@ class VectorRAG:
 
     @property
     def healthy(self) -> bool:
+        if self._qdrant:
+            return self._healthy
         if getattr(self, "_lanes", None):
             return self._healthy and bool(self._lanes)
         return self._healthy and getattr(self, "_collection", None) is not None
@@ -217,6 +247,24 @@ class VectorRAG:
             return False
 
         doc_id = _generate_doc_id(text, metadata.get("owner") or "")
+
+        # ── Qdrant path ──
+        if self._qdrant:
+            existing = self._qdrant.get_by_ids(COLLECTION_NAME, [doc_id])
+            if existing["ids"]:
+                return True
+            emb = self._qdrant_embed([text])
+            if not emb:
+                return False
+            return self._qdrant.upsert(
+                COLLECTION_NAME,
+                ids=[doc_id],
+                vectors=emb,
+                documents=[text],
+                metadatas=[metadata],
+            )
+
+        # ── ChromaDB path ──
         wrote = False
         for lane in self._lanes:
             try:
@@ -373,11 +421,63 @@ class VectorRAG:
     # Search — hybrid: vector similarity + keyword overlap
     # ------------------------------------------------------------------
 
+    def _qdrant_embed(self, texts: List[str]) -> List[List[float]]:
+        """Embed via the first ChromaDB lane encoder (reuses fastembed/custom).
+        When Qdrant is the backend we still need embeddings — fall back to
+        fastembed directly if no lanes exist."""
+        if self._lanes:
+            return np.array(self._lanes[0].encode(texts), dtype=np.float32).tolist()
+        try:
+            from fastembed import TextEmbedding
+            model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
+            return [list(v) for v in model.embed(texts)]
+        except Exception:
+            logger.error("No embedding model available for Qdrant")
+            return []
+
     def search(self, query: str, k: int = 5, owner: Optional[str] = None) -> List[Dict[str, Any]]:
         if not self.healthy:
             return []
         if not query or not isinstance(query, str):
             return []
+
+        # -- Qdrant path --
+        if self._qdrant:
+            try:
+                emb = self._qdrant_embed([query])
+                if not emb:
+                    return []
+                where_filter = {"owner": owner} if owner else None
+                results = self._qdrant.search(
+                    COLLECTION_NAME, query_vector=emb[0],
+                    limit=k * 3 if owner else k,
+                    where=where_filter,
+                )
+                query_words = set(query.lower().split())
+                candidates = []
+                for r in results:
+                    doc_text = r["document"]
+                    doc_words = set(doc_text.lower().split())
+                    overlap = len(query_words & doc_words)
+                    keyword_score = overlap / len(query_words) if query_words else 0.0
+                    vector_sim = r["similarity"]
+                    hybrid_score = (VECTOR_WEIGHT * vector_sim) + (KEYWORD_WEIGHT * keyword_score)
+                    candidates.append({
+                        "id": r["id"],
+                        "document": doc_text,
+                        "metadata": r["metadata"],
+                        "distance": r["distance"],
+                        "similarity": round(hybrid_score, 4),
+                        "vector_similarity": vector_sim,
+                        "keyword_score": round(keyword_score, 4),
+                        "embedding_lane": "qdrant",
+                    })
+                return candidates[:k]
+            except Exception as e:
+                logger.error("Qdrant search failed: %s", e)
+                return []
+
+        # -- ChromaDB path --
         if lane_count(self._lanes) == 0:
             return []
 
@@ -504,8 +604,17 @@ class VectorRAG:
         if not self.healthy:
             return {"error": "Collection not initialized"}
         try:
+            if self._qdrant:
+                return {
+                    "document_count": self._qdrant.collection_count(COLLECTION_NAME),
+                    "backend": "qdrant",
+                    "qdrant_url": self._qdrant.url,
+                    "collection_name": COLLECTION_NAME,
+                    "healthy": True,
+                }
             return {
                 "document_count": lane_count(self._lanes),
+                "backend": "chromadb",
                 "embedding_model": f"{self._lanes[0].model} @ {self._lanes[0].url}" if self._lanes else "N/A",
                 "persist_directory": self.persist_directory,
                 "collection_name": COLLECTION_NAME,

@@ -9,6 +9,32 @@ from typing import Optional, Dict, Any, Tuple
 
 from src.constants import MAX_READ_CHARS, MAX_DIFF_LINES, MAX_OUTPUT_CHARS
 
+# Tree-sitter integration (lazy, kill-switched)
+def _treesitter_enabled() -> bool:
+    """Check ODYSSEUS_TREESITTER kill-switch at runtime."""
+    raw = os.environ.get("ODYSSEUS_TREESITTER", "off")
+    return str(raw).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _try_treesitter_summary(filepath: str) -> Optional[dict[str, Any]]:
+    """Build an AST summary for a file via tree-sitter. Returns None if unavailable."""
+    if not _treesitter_enabled():
+        return None
+    try:
+        from services.code.treesitter_parser import TreeSitterService
+        symbols = TreeSitterService.extract_symbols(filepath)
+        functions = TreeSitterService.find_functions(filepath)
+        if symbols is None and functions is None:
+            return None
+        summary: dict[str, Any] = {}
+        if symbols:
+            summary["symbols"] = symbols
+        if functions:
+            summary["functions"] = functions
+        return summary or None
+    except Exception:
+        return None
+
 _CODENAV_SKIP_DIRS = frozenset({
     ".git", ".hg", ".svn", "node_modules", "venv", ".venv", "__pycache__",
     ".mypy_cache", ".pytest_cache", ".ruff_cache", "dist", "build",
@@ -128,6 +154,19 @@ class EditFileTool:
         diff = _unified_diff(original, updated, path)
         if diff:
             result["diff"] = diff
+        # Tree-sitter: validate syntax after edit (when kill-switch is ON)
+        if _treesitter_enabled() and path.endswith(".py"):
+            try:
+                from services.code.treesitter_parser import TreeSitterService
+                import ast as _ast
+                try:
+                    _ast.parse(updated)
+                    result["syntax_valid"] = True
+                except SyntaxError as syn_err:
+                    result["syntax_valid"] = False
+                    result["syntax_error"] = str(syn_err)
+            except Exception:
+                pass
         return result
 
 class ReadFileTool:
@@ -178,7 +217,13 @@ class ReadFileTool:
             return {"error": f"read_file: {path}: {e}", "exit_code": 1}
         if not (offset > 0 or limit > 0) and len(data) > MAX_READ_CHARS:
             data = data[:MAX_READ_CHARS] + f"\n... [truncated at {MAX_READ_CHARS} chars]"
-        return {"output": data, "exit_code": 0}
+        result: dict[str, Any] = {"output": data, "exit_code": 0}
+        # Tree-sitter AST summary (when kill-switch is ON and file is parseable)
+        if not (offset > 0 or limit > 0):
+            ast_summary = _try_treesitter_summary(path)
+            if ast_summary:
+                result["ast_summary"] = ast_summary
+        return result
 
 class WriteFileTool:
     async def execute(self, content: str, ctx: dict) -> dict:

@@ -15,6 +15,8 @@ from src.memory_provider import (
     NativeMemoryProvider,
     set_active_registry,
 )
+from services.memory.mem0_provider import Mem0Provider
+from services.memory.letta_provider import LettaMemoryProvider
 from services.memory.skills import SkillsManager
 from core.session_manager import SessionManager
 from core.models import set_session_manager
@@ -79,10 +81,28 @@ def initialize_managers(base_dir: str, rag_manager=None) -> Dict[str, Any]:
         logger.warning(f"MemoryVectorStore DEGRADED: {e}")
         memory_vector = None
 
-    memory_provider_registry = MemoryProviderRegistry([
+    # Build provider list — always native + acontext; Mem0 gated by kill-switch.
+    providers = [
         NativeMemoryProvider(memory_manager, memory_vector),
         AcontextMemoryProvider(),
-    ])
+    ]
+    mem0_provider = Mem0Provider(
+        native_provider=NativeMemoryProvider(memory_manager, memory_vector),
+    )
+    if mem0_provider.enabled:
+        providers.append(mem0_provider)
+        logger.info("Mem0Provider enabled (ODYSSEUS_MEM0)")
+    else:
+        logger.debug("Mem0Provider disabled (ODYSSEUS_MEM0=off)")
+
+    letta_provider = LettaMemoryProvider()
+    if letta_provider.enabled:
+        providers.append(letta_provider)
+        logger.info("LettaMemoryProvider enabled (ODYSSEUS_LETTA)")
+    else:
+        logger.debug("LettaMemoryProvider disabled (ODYSSEUS_LETTA=off)")
+
+    memory_provider_registry = MemoryProviderRegistry(providers)
     # Publish for free functions (e.g. stream_agent_loop) to fan session-end out.
     set_active_registry(memory_provider_registry)
 

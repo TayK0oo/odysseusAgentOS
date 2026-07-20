@@ -67,6 +67,21 @@ _SWITCHES: list[dict[str, Any]] = [
      "default": "off", "category": "RAG", "timing": "runtime",
      "desc": "Fusion vecteur+BM25 par Reciprocal Rank Fusion.",
      "source": "src/rag_vector.py:50"},
+    # -- Document Processing --
+    {"name": "Docling", "env_var": "ODYSSEUS_DOCLING",
+     "default": "off", "category": "Document Processing", "timing": "runtime",
+     "desc": "PDF extraction via Docling (tables, layout, reading order).",
+     "source": "src/docling_runtime.py"},
+    # -- Quality --
+    {"name": "DeepEval", "env_var": "ODYSSEUS_DEEPEVAL",
+     "default": "off", "category": "Quality", "timing": "runtime",
+     "desc": "LLM quality evaluation (faithfulness, relevancy, hallucination, bias, toxicity).",
+     "source": "tests/quality/test_llm_quality.py"},
+    # -- Code Parsing --
+    {"name": "Tree-sitter", "env_var": "ODYSSEUS_TREESITTER",
+     "default": "off", "category": "Code Parsing", "timing": "runtime",
+     "desc": "Incremental syntax parsing (AST, symbols, call sites).",
+     "source": "services/code/treesitter_parser.py"},
     # -- MCP / Services --
     {"name": "Disable MCP", "env_var": "ODYSSEUS_DISABLE_MCP",
      "default": "off", "category": "MCP/Services", "timing": "startup",
@@ -84,6 +99,10 @@ _SWITCHES: list[dict[str, Any]] = [
      "default": "off", "category": "MCP/Services", "timing": "runtime",
      "desc": "Route Zen via un endpoint enregistre.",
      "source": "src/zen_router.py:131"},
+    {"name": "n8n integration", "env_var": "ODYSSEUS_N8N",
+     "default": "off", "category": "MCP/Services", "timing": "runtime",
+     "desc": "Active la routing n8n pour trigger de workflows.",
+     "source": "routes/n8n_routes.py"},
     # -- Channels --
     {"name": "In-process Discord", "env_var": "ODYSSEUS_INPROCESS_DISCORD",
      "default": "off", "category": "Channels", "timing": "startup",
@@ -132,7 +151,7 @@ _SWITCHES.extend(
 
 _CATEGORY_ORDER = [
     "Orchestration", "Governance/Memory", "RAG",
-    "MCP/Services", "Channels", "Agents",
+    "Code Parsing", "MCP/Services", "Document Processing", "Quality", "Channels", "Agents",
 ]
 
 

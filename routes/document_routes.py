@@ -163,13 +163,13 @@ def setup_document_routes(session_manager, upload_handler=None) -> APIRouter:
         request: Request,
         file: UploadFile = File(...),
         session_id: Optional[str] = Form(None),
+        format: str = Query("default", description="'markdown' → use Docling for layout-aware extraction"),
     ) -> Dict[str, Any]:
         """Upload a PDF and create the matching Document.
 
-        Detects AcroForm fields — if any, creates a form-backed markdown doc
-        (clickable inputs in the PDF view). Otherwise creates a plain PDF doc
-        with a `pdf_source` marker so the viewer renders the pages without
-        overlays.
+        ``format=markdown`` forces Docling extraction (layout-aware Markdown
+        with tables, reading order) when enabled.  The default behaviour
+        (form detection + pypdf) is preserved for ``format=default``.
         """
         from src.pdf_forms import has_form_fields, extract_fields
         from src.pdf_form_doc import (
@@ -211,6 +211,42 @@ def setup_document_routes(session_manager, upload_handler=None) -> APIRouter:
             raise HTTPException(500, "Saved PDF could not be located")
 
         title = os.path.splitext(meta.get("original_name") or meta.get("name") or upload_id)[0]
+
+        # --- format=markdown → Docling fast-path ---
+        if format == "markdown":
+            docling_md = None
+            try:
+                from src.docling_runtime import is_docling_enabled
+                if is_docling_enabled():
+                    from services.documents.docling_processor import get_docling_processor
+                    proc = get_docling_processor()
+                    if proc.available:
+                        docling_md = proc.pdf_to_markdown(pdf_path)
+            except Exception as _dl_err:
+                logger.debug("Docling import-pdf skipped: %s", _dl_err)
+
+            if docling_md:
+                doc_id = create_plain_pdf_document(
+                    session_id=session_id,
+                    upload_id=upload_id,
+                    title=title,
+                    body_text=docling_md,
+                )
+                if not doc_id:
+                    raise HTTPException(500, "Failed to create document for PDF")
+                db = SessionLocal()
+                try:
+                    doc = db.query(Document).filter(Document.id == doc_id).first()
+                    if doc and not doc.owner and user:
+                        doc.owner = user
+                        db.commit()
+                        db.refresh(doc)
+                    return _doc_to_dict(doc)
+                finally:
+                    db.close()
+            # Docling unavailable/disabled → fall through to default pypdf path
+
+        # --- default path: pypdf + form detection ---
         try:
             body_text = strip_pdf_content_marker(_process_pdf(pdf_path, owner=user))
         except Exception:
