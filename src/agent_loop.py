@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 from services.observability.langfuse_tracer import observe
 
 try:
-    from services.observability.langfuse_tracer import langfuse_context
+    from langfuse.decorators import langfuse_context
 except ImportError:
     langfuse_context = None
 
