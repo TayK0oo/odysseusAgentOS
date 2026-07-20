@@ -299,6 +299,39 @@ To expose Odysseus on a local network or Tailscale with HTTPS:
    ```
 4. Install the `mkcert` CA on any other device you want to access Odysseus from (e.g., for iOS, email the `rootCA.pem` to yourself, install the profile, and trust it in Certificate Trust Settings).
 
+### Traefik HTTPS (automatic Let's Encrypt)
+Traefik auto-discovers Docker services via labels, issues free Let's Encrypt
+SSL certificates, and enforces rate limiting — no manual cert management.
+
+**Prerequisites:** a real domain pointing to your host (DNS A/AAAA record).
+
+1. Configure `.env`:
+   ```bash
+   DOMAIN=odysseus.example.com
+   ACME_EMAIL=you@example.com
+   ODYSSEUS_TRAEFIK=on
+   ```
+2. Start with the `gateway` profile:
+   ```bash
+   docker compose --profile gateway up -d --build
+   ```
+3. Traefik listens on ports 80/443, auto-redirects HTTP to HTTPS, and issues
+   a Let's Encrypt certificate for `${DOMAIN}`. The Odysseus web UI is served
+   at `https://odysseus.example.com`.
+
+**What happens:**
+- Traefik reads labels from all running containers (`traefik.enable=true`).
+- A rate limiter (100 req/s average, 50 burst) protects the API.
+- HTTP requests are 301-redirected to HTTPS.
+- `ACME_EMAIL` is used for Let's Encrypt certificate renewal notifications.
+
+**Kill-switch:** set `ODYSSEUS_TRAEFIK=off` (default) to skip Traefik labels;
+Odysseus binds directly to its port as before.
+
+**Internal services stay private.** Traefik only exposes services with
+`traefik.enable=true`. ChromaDB, SearXNG, ntfy, and model ports remain
+bound to `127.0.0.1` and are not reachable through Traefik.
+
 ### Common self-host traps (30-second fixes)
 A grab-bag of small gotchas that otherwise turn into long debugging sessions.
 
@@ -428,6 +461,69 @@ npx -y @playwright/mcp@latest --version
 ```
 
 That installs `@playwright/mcp` plus Playwright (~300MB total). Restart Odysseus and the server will register at startup.
+
+## gVisor Sandbox (Optional)
+
+[gVisor](https://gvisor.dev) (Google, Apache 2.0) provides kernel-level isolation
+for MCP containers. It intercepts all syscalls in a user-space kernel (Go),
+preventing container exploits from reaching the host kernel. Used by Google
+Cloud Run and Docker/Kubernetes in production.
+
+### Install gVisor
+
+Follow the official guide: https://gvisor.dev/docs/user_guide/install/
+
+Quick install (Linux amd64):
+```bash
+# Add the gVisor apt repository
+curl -fsSL https://gvisor.dev/archive.key | sudo gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" | sudo tee /etc/apt/sources.list.d/gvisor.list
+sudo apt-get update && sudo apt-get install -y runsc
+
+# Configure Docker to use runsc
+sudo tee /etc/docker/daemon.json <<'EOF'
+{
+  "runtimes": {
+    "runsc": {
+      "path": "/usr/bin/runsc"
+    }
+  }
+}
+EOF
+sudo systemctl restart docker
+```
+
+Verify gVisor runtime is available:
+```bash
+docker info | grep runsc
+```
+
+### Enable gVisor for MCP containers
+
+In `.env`:
+```bash
+ODYSSEUS_GVISOR=on
+ODYSSEUS_GVISOR_RUNTIME=runsc
+```
+
+Restart the affected containers:
+```bash
+docker compose up -d serena-mcp scrapling-mcp codebase-memory graphify decision-engine
+```
+
+Verify a container is running under gVisor:
+```bash
+docker inspect serena-mcp | grep Runtime
+# Output: "Runtime": "runsc"
+```
+
+### Disable gVisor (kill-switch)
+
+Set `ODYSSEUS_GVISOR=off` or `ODYSSEUS_GVISOR_RUNTIME=runc` in `.env`.
+The default runtime is `runc` (standard Docker) when unset.
+
+**Note:** gVisor adds ~5-15% I/O overhead. Not recommended for I/O-bound
+workloads in production. Not required for local development.
 
 ## Architecture
 ```
