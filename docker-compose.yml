@@ -49,6 +49,7 @@ services:
       - ODYSSEUS_ADMIN_PASSWORD=${ODYSSEUS_ADMIN_PASSWORD:-}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1}
       - SECURE_COOKIES=${SECURE_COOKIES:-false}
+      - ODYSSEUS_TRAEFIK=${ODYSSEUS_TRAEFIK:-off}
       - EMBEDDING_URL=${EMBEDDING_URL:-}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-}
       - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-}
@@ -93,6 +94,9 @@ services:
       - ODYSSEUS_ZEN_FROM_ENDPOINT=${ODYSSEUS_ZEN_FROM_ENDPOINT:-off}
       - ODYSSEUS_AUTOEVAL=${ODYSSEUS_AUTOEVAL:-off}
       - ODYSSEUS_UNIFIED_TOKENS=${ODYSSEUS_UNIFIED_TOKENS:-off}
+      # ── OPA Policy Engine ───────────────────────────────────────
+      - ODYSSEUS_OPA=${ODYSSEUS_OPA:-off}
+      - ODYSSEUS_OPA_URL=${ODYSSEUS_OPA_URL:-http://opa:8181}
       # ── Channel Gateway ──────────────────────────────────────────
       - ODYSSEUS_INPROCESS_DISCORD=${ODYSSEUS_INPROCESS_DISCORD:-off}
       - ODYSSEUS_INPROCESS_TELEGRAM=${ODYSSEUS_INPROCESS_TELEGRAM:-off}
@@ -131,6 +135,19 @@ services:
       # ── Orchestration & Projet ───────────────────────────────────
       - ODYSSEUS_LIVE_ORCHESTRATION=${ODYSSEUS_LIVE_ORCHESTRATION:-off}
       - ODYSSEUS_PROJECT_MANIFEST=${ODYSSEUS_PROJECT_MANIFEST:-off}
+      - ODYSSEUS_N8N=${ODYSSEUS_N8N:-off}
+      # ── Vector Database Backend ──────────────────────────────────
+      - ODYSSEUS_QDRANT=${ODYSSEUS_QDRANT:-off}
+      # ── Meilisearch full-text search ────────────────────────────
+      - ODYSSEUS_MEILISEARCH=${ODYSSEUS_MEILISEARCH:-off}
+      # ── Prefect pipelines ─────────────────────────────────────────
+      - ODYSSEUS_PREFECT=${ODYSSEUS_PREFECT:-off}
+      - PREFECT_API_URL=${PREFECT_API_URL:-http://prefect-server:4200/api/}
+      # ── LocalAI (all-in-one: LLM + embeddings + TTS + STT) ──────────
+      - ODYSSEUS_LOCALAI=${ODYSSEUS_LOCALAI:-off}
+      - MEILI_HOST=${MEILI_HOST:-meilisearch}
+      - MEILI_PORT=${MEILI_PORT:-7700}
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-odysseus-meili-key}
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -149,6 +166,19 @@ services:
         condition: service_healthy
       chromadb:
         condition: service_started
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.odysseus.rule=Host(`${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.odysseus.entrypoints=websecure"
+      - "traefik.http.routers.odysseus.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.odysseus-web.rule=Host(`${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.odysseus-web.entrypoints=web"
+      - "traefik.http.routers.odysseus-web.middlewares=redirect-https"
+      - "traefik.http.middlewares.redirect-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.ratelimit.ratelimit.average=100"
+      - "traefik.http.middlewares.ratelimit.ratelimit.burst=50"
+      - "traefik.http.routers.odysseus.middlewares=ratelimit"
+      - "traefik.http.services.odysseus.loadbalancer.server.port=7000"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:7000/', timeout=5).read(1)\""]
@@ -271,6 +301,27 @@ services:
       timeout: 10s
       retries: 3
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "${QDRANT_BIND:-127.0.0.1}:6333:6333"
+      - "${QDRANT_BIND:-127.0.0.1}:6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    profiles:
+      - vectordb
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',6333),5).close()\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
   kroki-mermaid:
     image: yuzutech/kroki-mermaid:latest
     expose:
@@ -288,6 +339,7 @@ services:
       start_period: 15s
 
   serena-mcp:
+    runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
     image: python:3.12-slim
     command: >
       bash -c "pip install uv -q &&
@@ -334,6 +386,7 @@ services:
       start_period: 30s
 
   scrapling-mcp:
+    runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
     image: python:3.12-slim
     # Scrapling's own MCP server over Streamable HTTP. `--http` is REQUIRED:
     # without it the server defaults to stdio and nothing listens on the port.
@@ -363,7 +416,54 @@ services:
       retries: 3
       start_period: 90s
 
+  localai:
+    image: localai/localai:latest
+    ports:
+      - "127.0.0.1:8081:8080"
+    environment:
+      MODELS_PATH: /models
+      THREADS: ${LOCALAI_THREADS:-4}
+    volumes:
+      - localai-models:/models
+    profiles:
+      - localai
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/v1/models', timeout=5).read(1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.14
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-odysseus-meili-key}
+      MEILI_ENV: development
+    ports:
+      - "127.0.0.1:7700:7700"
+    volumes:
+      - meilisearch-data:/meili_data
+    profiles:
+      - default
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:7700/health', timeout=5).read(1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
   codebase-memory:
+    runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
     image: ghcr.io/superpowers-sh/codebase-memory-mcp:latest
     ports:
       - "127.0.0.1:9749:9749"
@@ -388,6 +488,7 @@ services:
       start_period: 20s
 
   graphify:
+    runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
     image: python:3.12-slim
     command: >
       sh -c "pip install graphifyy && python -u /workspace/mcp_servers/graphify_mcp.py"
@@ -413,7 +514,54 @@ services:
       retries: 3
       start_period: 60s
 
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      - N8N_SECURE_COOKIE=false
+      - N8N_HOST=localhost
+      - N8N_RUNNERS_ENABLED=true
+    volumes:
+      - n8n-data:/home/node/.n8n
+    profiles:
+      - automation
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5678/healthz', timeout=5).read(1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  prefect-server:
+    image: prefecthq/prefect:latest
+    command: prefect server start --host 0.0.0.0 --port 4200
+    ports:
+      - "127.0.0.1:4200:4200"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    profiles:
+      - automation
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health', timeout=5).read(1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   decision-engine:
+    runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
     build:
       context: ${DECISION_ENGINE_PATH:-../ConfigOpenCodeNew/decision-engine}
       dockerfile: Dockerfile
@@ -438,7 +586,37 @@ services:
       retries: 3
       start_period: 20s
 
+  traefik:
+    image: traefik:latest
+    command:
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt-data:/letsencrypt
+    profiles:
+      - gateway
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
 volumes:
   searxng-data:
   chromadb-data:
+  qdrant-data:
   ntfy-cache:
+  meilisearch-data:
+  letsencrypt-data:
+  localai-models:
+  n8n-data:
