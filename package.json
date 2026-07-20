@@ -14,5 +14,9 @@
     "@faker-js/faker": "^9.0.0",
     "promptfoo": "^0.108.0",
     "purgecss": "^7.0.2"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3"
   }
 }
