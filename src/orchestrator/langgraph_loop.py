@@ -27,9 +27,8 @@ import logging
 import os
 import time
 import uuid
-from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, AsyncGenerator, Dict, List, Literal, Optional, TypedDict
+from typing import Any, AsyncGenerator, Dict, List, Optional, TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -347,7 +346,7 @@ def build_node(state: AgentState) -> dict:
 
     # Build system prompt (reuse existing)
     try:
-        from src.agent_loop import _build_system_prompt, _is_api_model_detect
+        from src.agent_loop import _build_system_prompt
         messages, mcp_schemas = _build_system_prompt(
             messages, model, state.get("active_document"), None, disabled_tools,
         )
@@ -355,13 +354,22 @@ def build_node(state: AgentState) -> dict:
         logger.warning("[langgraph/build] prompt build fallback: %s", exc)
         mcp_schemas = []
 
-    # Detect API model
-    _is_api_model = True
-    try:
-        from src.agent_loop import _is_api_model_detect
-        _is_api_model = _is_api_model_detect(endpoint_url, model)
-    except Exception:
-        pass
+    # Detect API model (simplified heuristic — mirrors agent_loop.py inline logic)
+    _model_lc = (model or "").lower()
+    _is_api_model = any(kw in _model_lc for kw in (
+        "gpt-4", "gpt-5", "gpt-o", "claude", "gemini", "gemma",
+        "qwen3", "qwen2.5", "mixtral", "mistral", "llama-3.1", "llama-3.2",
+        "llama-3.3", "llama-4", "llama3.1", "llama3.2", "llama3.3", "llama4",
+        "minimax", "kimi", "yi-", "phi-3", "phi-4", "command-r",
+        "glm-4", "internlm", "hermes",
+        "deepseek-v", "deepseek-chat",
+    ))
+    if not _is_api_model:
+        try:
+            from src.agent_loop import _API_HOSTS
+            _is_api_model = any(h in endpoint_url for h in _API_HOSTS)
+        except Exception:
+            pass
 
     agent_stream_timeout = int(get_setting("agent_stream_timeout_seconds", 300) or 300)
     total_start = time.time()

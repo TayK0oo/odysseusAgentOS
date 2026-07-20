@@ -18,6 +18,21 @@ from src.orchestrator.autoevolve import (
     maybe_autoevolve,
     trigger_improvement_research,
 )
+# LangGraph imports are lazy — only available when langgraph is installed.
+try:
+    from src.orchestrator.langgraph_loop import (
+        langgraph_enabled,
+        build_langgraph,
+        langgraph_stream,
+        build_input_state,
+        AgentState,
+    )
+except ImportError:
+    langgraph_enabled = None  # type: ignore
+    build_langgraph = None  # type: ignore
+    langgraph_stream = None  # type: ignore
+    build_input_state = None  # type: ignore
+    AgentState = None  # type: ignore
 
 __all__ = [
     "AgentSpec", "parse_agent_spec", "AgentRegistry", "resolve_model",
@@ -28,4 +43,6 @@ __all__ = [
     "advise", "router_enabled",
     "autoeval_enabled", "decide_keep_or_revert", "apply_autoeval", "AutoevalDecision",
     "autoevolve_enabled", "maybe_autoevolve", "trigger_improvement_research",
+    "langgraph_enabled", "build_langgraph", "langgraph_stream",
+    "build_input_state", "AgentState",
 ]

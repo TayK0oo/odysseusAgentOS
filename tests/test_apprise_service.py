@@ -47,9 +47,12 @@ def test_add_channel_exception():
 
 def test_add_channels_multiple():
     svc = AppriseService()
+    # All succeed
     with patch.object(svc._apobj, "add", return_value=True):
-        count = svc.add_channels(["a://1", "b://2", "bad://x"])
-        # Simulate one failure
+        count = svc.add_channels(["a://1", "b://2", "c://3"])
+    assert count == 3
+
+    # Mixed: one failure
     with patch.object(svc._apobj, "add", side_effect=[True, False, True]):
         count = svc.add_channels(["a://1", "b://2", "c://3"])
     assert count == 2

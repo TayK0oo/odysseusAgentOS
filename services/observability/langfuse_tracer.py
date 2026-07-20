@@ -32,12 +32,13 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Kill-switch: ODYSSEUS_LANGFUSE=off by default
 # ---------------------------------------------------------------------------
-_LANGFUSE_ENABLED = False
-
 def _check_langfuse_enabled() -> bool:
     """Read the kill-switch at import time.  Returns True when tracing is on."""
     val = os.getenv("ODYSSEUS_LANGFUSE", "off").strip().lower()
     return val in {"on", "1", "true", "yes"}
+
+
+_LANGFUSE_ENABLED = _check_langfuse_enabled()
 
 
 # ---------------------------------------------------------------------------

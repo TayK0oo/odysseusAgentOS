@@ -54,6 +54,12 @@ def _normalize_sqlite_url(url: str) -> str:
 # Get database URL from environment, default to SQLite in DATA_DIR
 DATABASE_URL = _normalize_sqlite_url(os.getenv("DATABASE_URL", _default_database_url()))
 
+# ── PostgreSQL detection (Agent A20) ───────────────────────────────────────
+def is_postgresql() -> bool:
+    """Return True when the active database backend is PostgreSQL."""
+    return DATABASE_URL.startswith("postgresql")
+
+
 # Create engine
 engine = create_engine(
     DATABASE_URL,
@@ -1834,11 +1840,105 @@ def init_db():
     _migrate_add_calendar_origin()
     _migrate_add_calendar_account_id()
     _migrate_add_caldav_sync_columns()
-    _migrate_chat_messages_fts()
+    if is_postgresql():
+        _pg_fulltext_setup()
+    else:
+        _migrate_chat_messages_fts()
     _migrate_encrypt_email_passwords()
     _migrate_encrypt_signatures()
     _migrate_encrypt_endpoint_keys()
     _migrate_backfill_task_folders()
+
+
+def _pg_fulltext_setup():
+    """Enable PostgreSQL full-text search on chat_messages (tsvector + GIN index).
+
+    Uses ``to_tsvector('simple', content)`` to avoid locale-dependent stop words
+    and ``ts_rank_cd`` for relevance scoring.  Called from ``init_db()`` when
+    DATABASE_URL starts with ``postgresql``.  Idempotent — all DDL is
+    ``IF NOT EXISTS``.
+    """
+    if not is_postgresql():
+        return
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(
+                """
+                ALTER TABLE chat_messages
+                    ADD COLUMN IF NOT EXISTS content_tsv tsvector
+                """
+            ))
+            conn.execute(text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_chat_messages_tsv
+                    ON chat_messages USING gin(content_tsv)
+                """
+            ))
+            # Backfill existing rows
+            conn.execute(text(
+                """
+                UPDATE chat_messages
+                   SET content_tsv = to_tsvector('simple', COALESCE(content, ''))
+                 WHERE content_tsv IS NULL
+                """
+            ))
+            # Keep a trigger in sync for new inserts/updates
+            conn.execute(text(
+                """
+                CREATE OR REPLACE FUNCTION chat_messages_tsv_trigger()
+                RETURNS trigger AS $$
+                BEGIN
+                    NEW.content_tsv := to_tsvector('simple', COALESCE(NEW.content, ''));
+                    RETURN NEW;
+                END
+                $$ LANGUAGE plpgsql
+                """
+            ))
+            conn.execute(text(
+                """
+                DROP TRIGGER IF EXISTS tsvector_update ON chat_messages;
+                CREATE TRIGGER tsvector_update
+                    BEFORE INSERT OR UPDATE ON chat_messages
+                    FOR EACH ROW
+                    EXECUTE FUNCTION chat_messages_tsv_trigger()
+                """
+            ))
+            logger.info("PostgreSQL FTS: tsvector column + GIN index + trigger ready")
+    except Exception as e:
+        logger.warning(f"PostgreSQL FTS setup failed (non-fatal): {e}")
+
+
+def pg_fulltext_search(query: str, limit: int = 50) -> list[dict]:
+    """Search chat messages using PostgreSQL ``ts_rank_cd``.
+
+    Returns a list of dicts: ``{message_id, session_id, role, rank}``.
+    If not running on PostgreSQL, returns an empty list (caller should
+    fall back to Meilisearch or SQLite FTS).
+    """
+    if not is_postgresql():
+        return []
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text(
+                    """
+                    SELECT cm.id AS message_id,
+                           cm.session_id,
+                           cm.role,
+                           ts_rank_cd(cm.content_tsv, q) AS rank
+                      FROM chat_messages cm,
+                           to_tsquery('simple', :tsquery) q
+                     WHERE cm.content_tsv @@ q
+                     ORDER BY rank DESC
+                     LIMIT :lim
+                    """
+                ),
+                {"tsquery": query, "lim": limit},
+            ).fetchall()
+            return [dict(r._mapping) for r in rows]
+    except Exception as e:
+        logger.warning(f"pg_fulltext_search failed: {e}")
+        return []
 
 
 def _migrate_backfill_task_folders():
