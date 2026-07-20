@@ -1393,7 +1393,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                 typewriterInto(roundHolder.querySelector('.body'), errMsg);
                 break;
               }
-              if (json.delta || json.type === 'agent_prep' || json.type === 'tool_start' || json.type === 'tool_output' || json.type === 'tool_progress' || json.type === 'agent_step' || json.type === 'agent_dispatch' || json.type === 'run_status' || json.type === 'doc_stream_open' || json.type === 'doc_stream_delta' || json.type === 'research_progress') {
+              if (json.delta || json.type === 'agent_prep' || json.type === 'tool_start' || json.type === 'tool_output' || json.type === 'tool_progress' || json.type === 'agent_step' || json.type === 'agent_dispatch' || json.type === 'run_status' || json.type === 'doc_stream_open' || json.type === 'doc_stream_delta' || json.type === 'research_progress' || json.type === 'workflow_start' || json.type === 'phase_start' || json.type === 'agent_result' || json.type === 'phase_complete' || json.type === 'workflow_complete' || json.type === 'phase_skip') {
                 clearResponseTimeout();
                 clearProcessingProbe();
                 clearFirstTokenWaitTimers();
@@ -2365,6 +2365,85 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                     setTimeout(() => { if (running.parentNode) running.remove(); }, 3000);
                   }
                 }
+
+              } else if (json.type === 'workflow_start') {
+                if (_isBg) continue;
+                const box = document.getElementById('chat-history');
+                if (!box) continue;
+                const safeObj = String(json.objective || '').replace(/[<>&]/g, '');
+                const el = document.createElement('div');
+                el.className = 'msg msg-system workflow-event workflow-start';
+                el.innerHTML = '<div class="workflow-header">🚀 <b>Workflow démarré</b></div>' +
+                  '<div class="workflow-body">' + safeObj + '</div>' +
+                  '<div class="workflow-phases">' + (json.total_phases || '?') + ' phases</div>';
+                box.appendChild(el);
+                box.scrollTop = box.scrollHeight;
+
+              } else if (json.type === 'phase_start') {
+                if (_isBg) continue;
+                const box = document.getElementById('chat-history');
+                if (!box) continue;
+                const safeMsg = String(json.message || (json.phase + ' — ' + (json.agents || []).join(', '))).replace(/[<>&]/g, '');
+                const el = document.createElement('div');
+                el.className = 'msg msg-system workflow-event phase-start';
+                el.dataset.phase = json.phase;
+                el.innerHTML = '<span class="workflow-dot"></span> ' + safeMsg + ' <span class="agent-spin">⏳</span>';
+                box.appendChild(el);
+                box.scrollTop = box.scrollHeight;
+                window._wfPhaseEls = window._wfPhaseEls || {};
+                window._wfPhaseEls[json.phase] = el;
+
+              } else if (json.type === 'agent_result') {
+                if (_isBg) continue;
+                const box = document.getElementById('chat-history');
+                if (!box) continue;
+                const safeAgent = String(json.agent).replace(/[<>&]/g, '');
+                const safeModel = String(json.model || '').replace(/[<>&]/g, '');
+                const safeOut = String(json.output_preview || '').replace(/[<>&]/g, '');
+                const safeErr = String(json.error || '').replace(/[<>&]/g, '');
+                const icon = json.success ? '✅' : '❌';
+                const el = document.createElement('div');
+                el.className = 'msg msg-system workflow-event agent-result ' + (json.success ? 'wf-ok' : 'wf-fail');
+                el.innerHTML = icon + ' <b>' + safeAgent + '</b>' +
+                  (json.model ? ' <small>(' + safeModel + ')</small>' : '') +
+                  (safeOut ? '<div class="wf-preview">' + safeOut + '</div>' : '') +
+                  (safeErr ? '<div class="wf-error">' + safeErr + '</div>' : '');
+                box.appendChild(el);
+                box.scrollTop = box.scrollHeight;
+
+              } else if (json.type === 'phase_complete') {
+                if (_isBg) continue;
+                const el = window._wfPhaseEls && window._wfPhaseEls[json.phase];
+                if (el) {
+                  el.classList.add('phase-done');
+                  const spin = el.querySelector('.agent-spin');
+                  if (spin) spin.textContent = '✅';
+                }
+
+              } else if (json.type === 'phase_skip') {
+                if (_isBg) continue;
+                const box = document.getElementById('chat-history');
+                if (!box) continue;
+                const safePhase = String(json.phase).replace(/[<>&]/g, '');
+                const el = document.createElement('div');
+                el.className = 'msg msg-system workflow-event phase-skip';
+                el.innerHTML = '⏭️ Phase ' + safePhase + ' ignorée';
+                box.appendChild(el);
+                box.scrollTop = box.scrollHeight;
+
+              } else if (json.type === 'workflow_complete') {
+                if (_isBg) continue;
+                const box = document.getElementById('chat-history');
+                if (!box) continue;
+                const safeOut = String(json.final_output || '').replace(/[<>&]/g, '').substring(0, 500);
+                const el = document.createElement('div');
+                el.className = 'msg msg-system workflow-event workflow-complete';
+                el.innerHTML = '<div class="workflow-header">🎉 <b>Workflow terminé</b></div>' +
+                  '<div class="workflow-body">' + safeOut + '</div>' +
+                  '<div class="workflow-phases">' + (json.phases_completed || '?') + ' phases complétées</div>';
+                box.appendChild(el);
+                box.scrollTop = box.scrollHeight;
+                window._wfPhaseEls = {};
 
               } else if (json.type === 'run_status') {
                 // Persistent cockpit strip (continuous state). Never blocks chat.
