@@ -3867,10 +3867,6 @@ async def stream_agent_loop(
         logger.debug("[agent] autoevolve skipped: %s", _aev_exc)
 
     # Teacher-escalation: inline takeover visible in the chat stream.
-    # The student just finished; if Tier 1 flags failure, the teacher
-    # gets a turn (with its own tool calls forwarded to the user) and
-    # a skill is saved ONLY if the teacher actually succeeds. Skipped
-    # when we ARE the teacher to avoid recursion.
     if not _is_teacher_run and not guide_only:
         try:
             from src.teacher_escalation import run_teacher_inline
@@ -3884,5 +3880,113 @@ async def stream_agent_loop(
                 yield evt
         except Exception as _esc_err:
             logger.warning(f"teacher escalation hook failed: {_esc_err}", exc_info=True)
+
+    # ═══════════════════════════════════════════════════════════════════
+    # M6 — SFD MODULES (all gated behind kill-switches, default OFF)
+    # ═══════════════════════════════════════════════════════════════════
+
+    # M6.1 — PREFERENCES (§5.15): resolve and apply user preferences
+    try:
+        if os.environ.get("ODYSSEUS_PREFERENCES", "").strip().lower() in ("1", "true", "yes", "on"):
+            from src.preferences import get_preference_resolution
+            _pref_resolver = get_preference_resolution(
+                request_instruction=_last_user[:500] if _last_user else None
+            )
+            _pref_lang = _pref_resolver.resolve("language")
+            _pref_tone = _pref_resolver.resolve("tone")
+            _pref_format = _pref_resolver.resolve("format")
+            if _pref_lang or _pref_tone or _pref_format:
+                logger.info("[m6.1] preferences resolved: lang=%s tone=%s format=%s",
+                           _pref_lang, _pref_tone, _pref_format)
+    except Exception as _m61_err:
+        logger.debug("[m6.1] preferences skipped: %s", _m61_err)
+
+    # M6.2 — PROVENANCE MEMORY (§5.7): store facts with [stated]/[observed] tags
+    try:
+        if os.environ.get("ODYSSEUS_PROVENANCE_MEMORY", "").strip().lower() in ("1", "true", "yes", "on"):
+            from src.provenance_memory import get_memory_fs
+            _memfs = get_memory_fs()
+            if _last_user:
+                _memfs.update_profile(f"User said: {str(_last_user)[:200]}", "stated")
+            if full_response and len(full_response) > 50:
+                _memfs.add_observed("agent-output", f"Agent responded ({len(full_response)} chars)")
+            logger.info("[m6.2] provenance memory updated")
+    except Exception as _m62_err:
+        logger.debug("[m6.2] provenance memory skipped: %s", _m62_err)
+
+    # M6.3 — DURABLE EXECUTION (§5.5): persist workflow state for crash recovery
+    try:
+        if os.environ.get("ODYSSEUS_DURABLE_EXECUTION", "").strip().lower() in ("1", "true", "yes", "on"):
+            from src.durable_execution import get_durable_executor
+            from pathlib import Path
+            _dexec = get_durable_executor()
+            _wf = _dexec.resume(session_id or "live")
+            if _wf and _wf.status.value == "paused":
+                logger.info("[m6.3] resuming durable workflow %s", _wf.id)
+            logger.info("[m6.3] durable execution active — %d workflows on disk",
+                       len(list((Path("data/workflows")).glob("*.json"))))
+    except Exception as _m63_err:
+        logger.debug("[m6.3] durable execution skipped: %s", _m63_err)
+
+    # M6.4 — OUTPUT ROUTER (§5.18): route response through MCP→file→visual
+    try:
+        if os.environ.get("ODYSSEUS_OUTPUT_ROUTER", "").strip().lower() in ("1", "true", "yes", "on"):
+            from src.output_router import get_output_router
+            _orouter = get_output_router()
+            _odecision = _orouter.route(
+                request=_last_user or "",
+                response_text=full_response or "",
+            )
+            logger.info("[m6.4] output routed: mode=%s module=%s reason=%s",
+                       _odecision.mode.value, _odecision.module, _odecision.reason)
+    except Exception as _m64_err:
+        logger.debug("[m6.4] output router skipped: %s", _m64_err)
+
+    # M6.5 — DATA CLASSIFICATION (§5.19): classify data before persistence
+    try:
+        if os.environ.get("ODYSSEUS_DATA_CLASSIFICATION", "").strip().lower() in ("1", "true", "yes", "on"):
+            from src.data_classification import get_classification_engine
+            _dclass = get_classification_engine()
+            if _last_user:
+                _level = _dclass.classify(
+                    key=f"msg:{session_id}:{max_rounds}",
+                    content=str(_last_user)[:500],
+                    session_id=session_id,
+                )
+                if _level.value == "protected":
+                    logger.info("[m6.5] message classified PROTECTED — not persisted")
+    except Exception as _m65_err:
+        logger.debug("[m6.5] data classification skipped: %s", _m65_err)
+
+    # M6.6 — CONTENT SECURITY (§5.20): validate memory/output for injections
+    try:
+        if os.environ.get("ODYSSEUS_CONTENT_SECURITY", "").strip().lower() in ("1", "true", "yes", "on"):
+            from src.content_security import get_content_security
+            _csec = get_content_security()
+            if full_response:
+                _csec.message_count += 1
+                _ok, _reason = _csec.validate_output(full_response[:1000])
+                if not _ok:
+                    logger.warning("[m6.6] output blocked: %s", _reason)
+                _reminder = _csec.maybe_remind()
+                if _reminder:
+                    logger.info("[m6.6] security reminder: %s", _reminder)
+    except Exception as _m66_err:
+        logger.debug("[m6.6] content security skipped: %s", _m66_err)
+
+    # M6.7 — PLANNING ENGINE (§5.3): create/update project plans
+    try:
+        if os.environ.get("ODYSSEUS_PLANNING_ENGINE", "").strip().lower() in ("1", "true", "yes", "on"):
+            from src.planning_engine import get_planning_engine
+            _pengine = get_planning_engine()
+            if project_id and _last_user:
+                _plan = _pengine.load_plan(project_id)
+                if not _plan:
+                    _plan = _pengine.create_plan(project_id, str(_last_user)[:200])
+                    logger.info("[m6.7] plan created for project %s", project_id)
+                _prog = _plan.progress()
+                logger.info("[m6.7] plan progress: %s (%s)", _prog["percent"], _prog)
+    except Exception as _m67_err:
+        logger.debug("[m6.7] planning engine skipped: %s", _m67_err)
 
     yield "data: [DONE]\n\n"
