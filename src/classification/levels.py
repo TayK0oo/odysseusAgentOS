@@ -64,7 +64,8 @@ CLASSIFICATION_RULES = {
     ],
     RetentionLevel.PROTECTED: [
         "health data", "religion", "sexual orientation",
-        "bank details", "SSN", "personal address",
+        "bank details", "ssn", "social security",
+        "personal address", "home address",
         "children information", "criminal record",
     ],
 }

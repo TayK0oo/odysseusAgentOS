@@ -1071,6 +1071,91 @@ async def _startup_event():
 
     _startup_tasks.append(asyncio.create_task(_startup_mcp_connections()))
 
+    # ── M6: AgentOS SFD v3.0 Core Modules Initialization ──
+    async def _startup_agentos_core():
+        """Initialize ThoughtBus, DurableExecution, Memory, Preferences, etc."""
+        try:
+            from src.thought_bus import ThoughtBus, SubscriberRegistry
+            from src.thought_bus.integration import ThoughtBusBridge
+
+            registry = SubscriberRegistry()
+            bus = ThoughtBus(registry, objective=None, session_id=None)
+            app.state.thought_bus_registry = registry
+            app.state.thought_bus = bus
+            logger.info("[agentos] ThoughtBus initialized (subscribers: %d)", len(registry.list_all()))
+        except Exception as e:
+            logger.warning("[agentos] ThoughtBus init skipped: %s", e)
+
+        try:
+            from src.durable_execution.engine import DurableEngine, durable_exec_enabled
+            from src.durable_execution.integration import set_durable_engine
+
+            if durable_exec_enabled():
+                engine = DurableEngine(db_path="data/durable.db")
+                await engine.initialize()
+                set_durable_engine(engine)
+                app.state.durable_engine = engine
+                logger.info("[agentos] DurableExecution engine initialized")
+        except Exception as e:
+            logger.warning("[agentos] DurableExecution init skipped: %s", e)
+
+        try:
+            from src.memory_provenance.operations import MemoryOperations
+            from src.memory_provenance.integration import set_memory_operations
+
+            ops = MemoryOperations(base_path="workspace/memory")
+            set_memory_operations(ops)
+            app.state.memory_operations = ops
+            logger.info("[agentos] MemoryOperations initialized")
+        except Exception as e:
+            logger.warning("[agentos] MemoryOperations init skipped: %s", e)
+
+        try:
+            from src.preferences.engine import PreferenceEngine, set_preference_engine
+
+            engine = PreferenceEngine(memory_ops=app.state.memory_operations if hasattr(app.state, 'memory_operations') else None)
+            set_preference_engine(engine)
+            app.state.preference_engine = engine
+            logger.info("[agentos] PreferenceEngine initialized")
+        except Exception as e:
+            logger.warning("[agentos] PreferenceEngine init skipped: %s", e)
+
+        try:
+            from src.visual_output.router import OutputRouter
+            from src.visual_output.integration import set_output_router
+
+            router = OutputRouter()
+            set_output_router(router)
+            app.state.output_router = router
+            logger.info("[agentos] OutputRouter initialized")
+        except Exception as e:
+            logger.warning("[agentos] OutputRouter init skipped: %s", e)
+
+        try:
+            from src.conversation_search.search import ConversationSearch
+            app.state.conversation_search = ConversationSearch(backend="meilisearch")
+            logger.info("[agentos] ConversationSearch initialized")
+        except Exception as e:
+            logger.warning("[agentos] ConversationSearch init skipped: %s", e)
+
+        try:
+            from src.multi_agent_decision import MultiAgentDecisionEngine
+            app.state.multi_agent_engine = MultiAgentDecisionEngine()
+            logger.info("[agentos] MultiAgentDecisionEngine initialized")
+        except Exception as e:
+            logger.warning("[agentos] MultiAgentDecisionEngine init skipped: %s", e)
+
+        try:
+            from src.context_manager import ContextManager
+            app.state.context_manager = ContextManager()
+            logger.info("[agentos] ContextManager initialized")
+        except Exception as e:
+            logger.warning("[agentos] ContextManager init skipped: %s", e)
+
+        logger.info("[agentos] Core modules initialization complete")
+
+    _startup_tasks.append(asyncio.create_task(_startup_agentos_core()))
+
     # Pre-warm the RAG tool index off the request path. Loading the local
     # embedding model + opening ChromaDB + indexing the built-in tools is a
     # one-time ~1-3s cost that otherwise lands on the user's FIRST message
