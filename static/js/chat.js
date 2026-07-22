@@ -1393,7 +1393,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                 typewriterInto(roundHolder.querySelector('.body'), errMsg);
                 break;
               }
-              if (json.delta || json.type === 'agent_prep' || json.type === 'tool_start' || json.type === 'tool_output' || json.type === 'tool_progress' || json.type === 'agent_step' || json.type === 'agent_dispatch' || json.type === 'run_status' || json.type === 'doc_stream_open' || json.type === 'doc_stream_delta' || json.type === 'research_progress' || json.type === 'workflow_start' || json.type === 'phase_start' || json.type === 'agent_result' || json.type === 'phase_complete' || json.type === 'workflow_complete' || json.type === 'phase_skip') {
+              if (json.delta || json.type === 'agent_prep' || json.type === 'tool_start' || json.type === 'tool_output' || json.type === 'tool_progress' || json.type === 'agent_step' || json.type === 'agent_dispatch' || json.type === 'run_status' || json.type === 'doc_stream_open' || json.type === 'doc_stream_delta' || json.type === 'research_progress' || json.type === 'workflow_start' || json.type === 'phase_start' || json.type === 'agent_result' || json.type === 'phase_complete' || json.type === 'workflow_complete' || json.type === 'phase_skip' || json.type === 'phase_enter' || json.type === 'phase_exit' || json.type === 'thought_bus') {
                 clearResponseTimeout();
                 clearProcessingProbe();
                 clearFirstTokenWaitTimers();
@@ -1402,6 +1402,13 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                 if (!_isBg) {
                   _cancelThinkingTimer();
                   _replaceThinkingSpinner('Preparing agent');
+                }
+                continue;
+              }
+              // ── AgentOS SFD v3.0: Thought Bus phase events → cockpit ──
+              if (json.type === 'phase_enter' || json.type === 'phase_exit' || json.type === 'thought_bus') {
+                if (window.cockpit && window.cockpit.onThoughtBusEvent) {
+                  window.cockpit.onThoughtBusEvent(json);
                 }
                 continue;
               }
