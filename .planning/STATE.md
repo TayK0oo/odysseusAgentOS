@@ -12,18 +12,10 @@
 - **Milestone 4 (Documentation) :** ✅ COMPLET — 41 fichiers docs, Mermaid diagrams
 - **Milestone 5 (Activation) :** 🔨 EN COURS — Phase 5.1.5 (Document de Conception) ✅
 - **Milestone 6 (SFD manquants) :** ✅ COMPLET — 100% alignement SFD v3.0
-  - 6.0 Bus de pensée ✅ — 27 tests
-  - 6.1 Exécution durable ✅ — 21 tests
-  - 6.2 Mémoire avec provenance ✅ — 21 tests
-  - 6.3 Préférences utilisateur ✅ — 13 tests
-  - 6.4 Sortie visuelle ✅ — 21 tests
-  - 6.5 Classification données ✅ — 10 tests
-  - 6.6 Sécurité contenus ✅ — 8 tests
-  - 6.7 Découverte outils ✅ — 9 tests
-  - 6.8 Conversation search + signaux linguistiques ✅ — 9 tests
-  - 6.9 Multi-agent decision engine ✅ — 7 tests
-  - 6.10 Context Manager ✅ — 8 tests
-  - **Total: 162 tests, 0 échec**
+  - **173 tests, 0 échec**
+  - 11 modules codés + testés + wirés dans app.py
+  - 12 kill-switches cœur ON par défaut
+  - 20/20 modules SFD couverts
 
 ## Prochaine action
 
