@@ -22,6 +22,10 @@ def _truthy(value: Optional[str]) -> bool:
 # plus the agent/channel gates. Config params (paths, ids, models) are excluded.
 _SWITCHES: list[dict[str, Any]] = [
     # -- Orchestration --
+    {"name": "Thought Bus", "env_var": "ODYSSEUS_THOUGHT_BUS",
+     "default": "on", "category": "Orchestration", "timing": "runtime",
+     "desc": "Bus de pensee event-driven 7 phases avec subscribers @on_phase. Coeur stable ON par defaut.",
+     "source": "src/thought_bus/bus.py:30"},
     {"name": "Live orchestration", "env_var": "ODYSSEUS_LIVE_ORCHESTRATION",
      "default": "off", "category": "Orchestration", "timing": "runtime",
      "desc": "CanonicalLoop 7 phases.", "source": "src/agent_loop.py:2493"},
