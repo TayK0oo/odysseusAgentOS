@@ -86,6 +86,9 @@ async def wrap_agent_stream(
 ) -> AsyncGenerator[str, None]:
     """Wrap an existing agent SSE stream with ThoughtBus phase events.
 
+    Emits phase_enter before the stream, forwards the stream,
+    then emits phase_exit and thought_bus complete after.
+
     Usage in chat routes:
         async for chunk in wrap_agent_stream(
             stream_agent_loop(...),
@@ -93,41 +96,23 @@ async def wrap_agent_stream(
             objective=message,
         ):
             yield chunk
-            if data := _extract_json(chunk):
-                ...
     """
     if not thought_bus_enabled():
-        # Pass-through: no bus events, just forward the stream
         async for chunk in agent_stream:
             yield chunk
         return
 
-    bridge = ThoughtBusBridge(
-        session_id=session_id,
-        objective=objective,
-        project_id=project_id,
-    )
+    # Emit phase_enter for BUILD (the agent runs in BUILD phase)
+    yield f"data: {json.dumps({'type': 'phase_enter', 'phase': 'BUILD', 'index': 4, 'total': 7})}\n\n"
 
-    # Walk phases — at each 'phase_active', forward the agent stream
-    agent_chunks: list = []
-    started = False
+    # Forward the actual agent stream
+    chunk_count = 0
+    async for chunk in agent_stream:
+        chunk_count += 1
+        yield chunk
 
-    async for event in bridge.bus.walk():
-        if event["type"] in ("phase_enter", "phase_exit"):
-            # Emit phase event as SSE metadata
-            yield f"data: {json.dumps({'type': event['type'], 'phase': event.get('phase', ''), 'index': event.get('index', 0), 'total': event.get('total', 7)})}\n\n"
+    # Emit phase_exit
+    yield f"data: {json.dumps({'type': 'phase_exit', 'phase': 'BUILD', 'index': 4, 'total': 7})}\n\n"
 
-        elif event["type"] == "phase_active":
-            if not started:
-                started = True
-                # Forward the actual agent stream
-                async for chunk in agent_stream:
-                    yield chunk
-
-        elif event["type"] == "thought_bus" and event.get("status") == "disabled":
-            # Bus disabled — just forward
-            async for chunk in agent_stream:
-                yield chunk
-
-    # Emit completion
+    # Emit thought_bus complete
     yield f"data: {json.dumps({'type': 'thought_bus', 'status': 'complete', 'phases': 7})}\n\n"
