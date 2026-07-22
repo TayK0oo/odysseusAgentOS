@@ -10,8 +10,13 @@
 - **Milestone 2 (Inventaire) :** ✅ COMPLET — SFD v3.0, INDEX-MAITRE, cartographie
 - **Milestone 3 (Outils) :** ✅ COMPLET — 22 outils intégrés, 38 kill-switches
 - **Milestone 4 (Documentation) :** ✅ COMPLET — 41 fichiers docs, Mermaid diagrams
-- **Milestone 5 (Activation) :** 🔨 EN COURS — Phase 5.1 (installation dépendances)
-- **Milestone 6 (SFD manquants) :** 📋 PLANIFIÉ — 7 modules SFD à implémenter
+- **Milestone 5 (Activation) :** 🔨 EN COURS — Phase 5.1.5 (Document de Conception) ✅, Phase 5.1 (installation dépendances)
+- **Milestone 6 (SFD manquants) :** 🔨 EN COURS — 4/8 phases complétées
+  - 6.0 Bus de pensée ✅ — 27 tests
+  - 6.1 Exécution durable ✅ — 21 tests
+  - 6.2 Mémoire avec provenance ✅ — 21 tests
+  - 6.3 Préférences utilisateur ✅ — 13 tests
+  - 6.4 Sortie visuelle 📋 — à planifier
 
 ## Prochaine action
 
