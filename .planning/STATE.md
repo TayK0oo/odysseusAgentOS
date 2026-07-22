@@ -10,8 +10,8 @@
 - **Milestone 2 (Inventaire) :** ✅ COMPLET — SFD v3.0, INDEX-MAITRE, cartographie
 - **Milestone 3 (Outils) :** ✅ COMPLET — 22 outils intégrés, 38 kill-switches
 - **Milestone 4 (Documentation) :** ✅ COMPLET — 41 fichiers docs, Mermaid diagrams
-- **Milestone 5 (Activation) :** 🔨 EN COURS — Phase 5.1.5 (Document de Conception) ✅, Phase 5.1 (installation dépendances)
-- **Milestone 6 (SFD manquants) :** ✅ COMPLET — 7/7 phases + bus de pensée
+- **Milestone 5 (Activation) :** 🔨 EN COURS — Phase 5.1.5 (Document de Conception) ✅
+- **Milestone 6 (SFD manquants) :** ✅ COMPLET — 100% alignement SFD v3.0
   - 6.0 Bus de pensée ✅ — 27 tests
   - 6.1 Exécution durable ✅ — 21 tests
   - 6.2 Mémoire avec provenance ✅ — 21 tests
@@ -20,6 +20,10 @@
   - 6.5 Classification données ✅ — 10 tests
   - 6.6 Sécurité contenus ✅ — 8 tests
   - 6.7 Découverte outils ✅ — 9 tests
+  - 6.8 Conversation search + signaux linguistiques ✅ — 9 tests
+  - 6.9 Multi-agent decision engine ✅ — 7 tests
+  - 6.10 Context Manager ✅ — 8 tests
+  - **Total: 162 tests, 0 échec**
 
 ## Prochaine action
 
