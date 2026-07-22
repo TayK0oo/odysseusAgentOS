@@ -105,6 +105,7 @@ M6 — SFD manquants        📋 PLANIFIÉ (7 modules SFD)
 | Phase | Description | Kill-switches | Effort |
 |-------|------------|---------------|--------|
 | 5.1 | Installer dépendances | `pip install -r requirements.txt` | 30min |
+| 5.1.5 | Document de Conception | `docs/architecture/design-document.md` — SFD v3.0 → archi concrète | 4h |
 | 5.2 | Phase-lock + RRF | `PHASE_TRACKER`, `RRF_FUSION` | 2h |
 | 5.3 | Mémoire intelligente | `MEM0` (déjà actif) | 1h |
 | 5.4 | Full-text search | `MEILISEARCH` + Docker | 1h |
