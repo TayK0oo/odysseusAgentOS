@@ -8378,3 +8378,4 @@ textarea { font-size: 16px !important; }
 .ks-name{font-size:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ks-name code{font-size:11px;opacity:.7}
 .ks-badge{font-size:9px;text-transform:uppercase;letter-spacing:.03em;padding:1px 5px;border-radius:6px;background:color-mix(in srgb,var(--fg) 12%,transparent);opacity:.75}
+.cockpit-phase-bar{display:inline-flex;align-items:center;gap:0;margin-left:6px}.pb-dot{width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;border:1px solid var(--border);color:var(--fg);opacity:.35;transition:all .3s}.pb-dot.pb-active{opacity:1;border-color:var(--green,#50fa7b);color:var(--green,#50fa7b);box-shadow:0 0 6px var(--green,#50fa7b)}.pb-dot.pb-done{opacity:.7;background:var(--green,#50fa7b);color:#fff;border-color:var(--green,#50fa7b)}.pb-line{width:10px;height:1px;background:var(--border);opacity:.35}
