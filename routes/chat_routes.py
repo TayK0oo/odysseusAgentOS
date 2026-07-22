@@ -1268,7 +1268,10 @@ def setup_chat_routes(
                     if allow_web_search is not None and str(allow_web_search).lower() == "true":
                         _forced_tools = {"web_search", "web_fetch"}
 
-                    async for chunk in stream_agent_loop(
+                    # ── AgentOS SFD v3.0: Thought Bus wrapping ──
+                    from src.thought_bus.integration import wrap_agent_stream
+
+                    _agent_stream = stream_agent_loop(
                         sess.endpoint_url,
                         sess.model,
                         messages,
@@ -1290,6 +1293,12 @@ def setup_chat_routes(
                         approved_plan=approved_plan or None,
                         workspace=workspace or None,
                         forced_tools=_forced_tools,
+                    )
+
+                    async for chunk in wrap_agent_stream(
+                        _agent_stream,
+                        session_id=session,
+                        objective=messages[-1].get("content", "") if messages else None,
                     ):
                         if chunk.startswith("data: ") and not chunk.startswith("data: [DONE]"):
                             try:

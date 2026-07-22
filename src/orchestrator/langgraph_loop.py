@@ -296,7 +296,7 @@ def plan_node(state: AgentState) -> dict:
     }
 
 
-def build_node(state: AgentState) -> dict:
+async def build_node(state: AgentState) -> dict:
     """BUILD phase — execute tools and stream LLM response.
 
     This is the heaviest node.  It streams LLM output, executes tool calls,

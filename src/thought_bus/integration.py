@@ -18,6 +18,7 @@ Usage in agent_loop.py:
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import AsyncGenerator, Optional
 
@@ -75,3 +76,58 @@ class ThoughtBusBridge:
 
     def summary(self) -> dict:
         return self._bus.summary()
+
+
+async def wrap_agent_stream(
+    agent_stream,
+    session_id: str,
+    objective: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> AsyncGenerator[str, None]:
+    """Wrap an existing agent SSE stream with ThoughtBus phase events.
+
+    Usage in chat routes:
+        async for chunk in wrap_agent_stream(
+            stream_agent_loop(...),
+            session_id=session_id,
+            objective=message,
+        ):
+            yield chunk
+            if data := _extract_json(chunk):
+                ...
+    """
+    if not thought_bus_enabled():
+        # Pass-through: no bus events, just forward the stream
+        async for chunk in agent_stream:
+            yield chunk
+        return
+
+    bridge = ThoughtBusBridge(
+        session_id=session_id,
+        objective=objective,
+        project_id=project_id,
+    )
+
+    # Walk phases — at each 'phase_active', forward the agent stream
+    agent_chunks: list = []
+    started = False
+
+    async for event in bridge.bus.walk():
+        if event["type"] in ("phase_enter", "phase_exit"):
+            # Emit phase event as SSE metadata
+            yield f"data: {json.dumps({'type': event['type'], 'phase': event.get('phase', ''), 'index': event.get('index', 0), 'total': event.get('total', 7)})}\n\n"
+
+        elif event["type"] == "phase_active":
+            if not started:
+                started = True
+                # Forward the actual agent stream
+                async for chunk in agent_stream:
+                    yield chunk
+
+        elif event["type"] == "thought_bus" and event.get("status") == "disabled":
+            # Bus disabled — just forward
+            async for chunk in agent_stream:
+                yield chunk
+
+    # Emit completion
+    yield f"data: {json.dumps({'type': 'thought_bus', 'status': 'complete', 'phases': 7})}\n\n"
