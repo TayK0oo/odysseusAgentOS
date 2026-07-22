@@ -11,12 +11,15 @@
 - **Milestone 3 (Outils) :** ✅ COMPLET — 22 outils intégrés, 38 kill-switches
 - **Milestone 4 (Documentation) :** ✅ COMPLET — 41 fichiers docs, Mermaid diagrams
 - **Milestone 5 (Activation) :** 🔨 EN COURS — Phase 5.1.5 (Document de Conception) ✅, Phase 5.1 (installation dépendances)
-- **Milestone 6 (SFD manquants) :** 🔨 EN COURS — 4/8 phases complétées
+- **Milestone 6 (SFD manquants) :** ✅ COMPLET — 7/7 phases + bus de pensée
   - 6.0 Bus de pensée ✅ — 27 tests
   - 6.1 Exécution durable ✅ — 21 tests
   - 6.2 Mémoire avec provenance ✅ — 21 tests
   - 6.3 Préférences utilisateur ✅ — 13 tests
-  - 6.4 Sortie visuelle 📋 — à planifier
+  - 6.4 Sortie visuelle ✅ — 21 tests
+  - 6.5 Classification données ✅ — 10 tests
+  - 6.6 Sécurité contenus ✅ — 8 tests
+  - 6.7 Découverte outils ✅ — 9 tests
 
 ## Prochaine action
 
