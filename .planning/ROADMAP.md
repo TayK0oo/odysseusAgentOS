@@ -124,21 +124,24 @@ M6 — SFD manquants        📋 PLANIFIÉ (7 modules SFD)
 
 ## MILESTONE 6 — Modules SFD manquants 📋
 
-> Implémenter les 7 modules SFD absents
+> Implémenter les modules SFD selon l'ordre du Document de Conception
+> **Ordre:** Bus de pensée → Exécution durable → Mémoire → Préférences → Visuel
+> **Réf:** `docs/architecture/design-document.md` §5, `.planning/phases/05-activation/5.1.5-design-conception/5.1.5-CONTEXT.md`
 
-| Phase | Module SFD | Description | Effort |
-|-------|-----------|------------|--------|
-| 6.1 | §5.15 Préférences | Matrice always/selective/never, résolution conflits | 8h |
-| 6.2 | §5.7 Mémoire + provenance | `/profile.md`, `/topics/`, `[stated]`/`[observed]`, versionnage | 16h |
-| 6.3 | §5.5 Exécution durable | Workflows, retry, compensation, approbation humaine | 24h |
-| 6.4 | §5.18 Sortie visuelle | Arbre décision, visualiseur inline, modules design | 16h |
-| 6.5 | §5.19 Classification données | 5 niveaux rétention, droit à l'oubli | 8h |
-| 6.6 | §5.20 Sécurité contenus | Protection injections, rappels système | 8h |
-| 6.7 | §5.13 Découverte outils | tool_search, search_mcp_registry, suggest_connectors | 16h |
+| Phase | Module SFD | Description | Dépendances | Effort |
+|-------|-----------|------------|-------------|--------|
+| 6.0 | Bus de pensée | Event-driven 7 phases, subscribers, décorateurs `@on_phase` | Aucune (remplace stream_agent_loop) | 12h |
+| 6.1 | §5.5 Exécution durable | Custom SQLite, workflows, retry, saga, approbation humaine | 6.0 (bus) | 24h |
+| 6.2 | §5.7 Mémoire + provenance | MD + ChromaDB + Graphify, taxonomie, `[stated]`/`[observed]`, hash versionné | 6.1 (exécution durable) | 16h |
+| 6.3 | §5.15 Préférences | Matrice always/selective/never, résolution conflits, guardrails | 6.2 (mémoire) | 8h |
+| 6.4 | §5.18 Sortie visuelle | Arbre décision, HTML/SVG inline + Kroki, modules design, skills | 6.0 (bus) | 16h |
+| 6.5 | §5.19 Classification données | 5 niveaux rétention, droit à l'oubli | 6.2 (mémoire) | 8h |
+| 6.6 | §5.20 Sécurité contenus | Protection injections, rappels système | 6.0 (bus) | 8h |
+| 6.7 | §5.13 Découverte outils | tool_search, search_mcp_registry, suggest_connectors | Aucune | 16h |
 
-**Livrables :** 7 modules SFD implémentés, alignement 45% → 85%.
+**Livrables :** 8 modules (7 SFD + bus de pensée), alignement 45% → 85%.
 
-**Références :** `SFD.md` §5.5, §5.7, §5.13, §5.15, §5.18, §5.19, §5.20
+**Références :** `SFD.md` §5.5, §5.7, §5.13, §5.15, §5.18, §5.19, §5.20, `docs/architecture/design-document.md`
 
 ---
 
