@@ -1246,11 +1246,11 @@ def setup_chat_routes(
                 finally:
                     _active_streams.pop(session, None)
             else:
-                # ── AgentOS SFD v3.0: Full 7-Phase Pipeline ──
+                # ── AgentOS SFD v3.0: Full System Pipeline ──
                 from src.mode_detector import detect_mode, InteractionMode
-                from src.agent_pipeline import walk_agent_pipeline, walk_chat_pipeline
+                from src.full_system import full_system_pipeline
                 _detected_mode = detect_mode(message or "")
-                _use_agent_pipeline = (_detected_mode == InteractionMode.AGENT)
+                _use_agent = (_detected_mode == InteractionMode.AGENT)
                 yield f"data: {json.dumps({'type': 'mode_detected', 'mode': _detected_mode.value})}\n\n"
                 
                 try:
@@ -1281,11 +1281,16 @@ def setup_chat_routes(
                             workspace=workspace or None, forced_tools=_forced_tools,
                         )
                     
-                    if _use_agent_pipeline:
-                        async for chunk in walk_agent_pipeline(_make_agent_stream, session, message or ""):
+                    if _use_agent:
+                        async for chunk in full_system_pipeline(
+                            message or "", session,
+                            _make_agent_stream,
+                            endpoint_url=sess.endpoint_url,
+                            model_name=sess.model,
+                        ):
                             yield chunk
                     else:
-                        async for chunk in walk_chat_pipeline(_make_agent_stream):
+                        async for chunk in _make_agent_stream():
                             yield chunk
                     # Client disconnected — save partial response. Wrap
                     # the save in its own try so an exception inside
