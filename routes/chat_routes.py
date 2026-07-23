@@ -1246,149 +1246,47 @@ def setup_chat_routes(
                 finally:
                     _active_streams.pop(session, None)
             else:
-                # ── Agent mode: full agent loop with tools ──
-                _agent_rounds = 0
-                _agent_tool_calls = 0
-                _answered_by = None  # set if the selected model failed and a fallback answered
-                _requested_model = sess.model
-                _actual_model = None
-
-                # ── AgentOS SFD v3.0: Mode detection + ThoughtBus activation ──
+                # ── AgentOS SFD v3.0: Full 7-Phase Pipeline ──
                 from src.mode_detector import detect_mode, InteractionMode
-                from src.agent_instructions import AGENT_SYSTEM_PROMPT, get_phase_checklist
+                from src.agent_pipeline import walk_agent_pipeline, walk_chat_pipeline
                 _detected_mode = detect_mode(message or "")
-                _use_thought_bus = (_detected_mode == InteractionMode.AGENT)
-                yield f"data: {json.dumps({'type': 'mode_detected', 'mode': _detected_mode.value, 'thought_bus': _use_thought_bus})}\n\n"
+                _use_agent_pipeline = (_detected_mode == InteractionMode.AGENT)
+                yield f"data: {json.dumps({'type': 'mode_detected', 'mode': _detected_mode.value})}\n\n"
                 
-                # Inject agent system prompt if in agent mode
-                if _use_thought_bus:
-                    _agent_instructions = AGENT_SYSTEM_PROMPT
-                    yield f"data: {json.dumps({'type': 'agent_instructions_loaded', 'phases': 7})}\n\n"
                 try:
                     from src.settings import get_setting
                     from src.agent_tools import MAX_AGENT_ROUNDS as _DEFAULT_ROUNDS
                     _tool_budget = int(get_setting("agent_max_tool_calls", 0))
-                    # Per-message round cap from settings; clamp defensively in
-                    # case settings.json was hand-edited to a bad value.
                     try:
                         _max_rounds = int(get_setting("agent_max_rounds", _DEFAULT_ROUNDS) or _DEFAULT_ROUNDS)
                     except (TypeError, ValueError):
                         _max_rounds = _DEFAULT_ROUNDS
                     _max_rounds = max(1, min(_max_rounds, 200))
-
                     _forced_tools = None
                     if allow_web_search is not None and str(allow_web_search).lower() == "true":
                         _forced_tools = {"web_search", "web_fetch"}
-
-                    # ── AgentOS SFD v3.0: Thought Bus wrapping ──
-                    from src.thought_bus.integration import wrap_agent_stream
-
-                    _agent_stream = stream_agent_loop(
-                        sess.endpoint_url,
-                        sess.model,
-                        messages,
-                        headers=sess.headers,
-                        temperature=ctx.preset.temperature,
-                        max_tokens=ctx.preset.max_tokens,
-                        prompt_type=preset_id,
-                        max_tool_calls=_tool_budget,
-                        max_rounds=_max_rounds,
-                        context_length=ctx.context_length,
-                        active_document=active_doc,
-                        active_email=active_email_ctx,
-                        session_id=session,
-                        disabled_tools=disabled_tools if disabled_tools else None,
-                        tool_policy=tool_policy,
-                        owner=_user,
-                        fallbacks=_fallback_candidates,
-                        plan_mode=plan_mode,
-                        approved_plan=approved_plan or None,
-                        workspace=workspace or None,
-                        forced_tools=_forced_tools,
-                    )
-
-                    async for chunk in wrap_agent_stream(
-                        _agent_stream,
-                        session_id=session,
-                        objective=messages[-1].get("content", "") if messages else None,
-                    ):
-                        if chunk.startswith("data: ") and not chunk.startswith("data: [DONE]"):
-                            try:
-                                data = json.loads(chunk[6:])
-                                if "delta" in data:
-                                    # Reasoning tokens arrive flagged thinking:true.
-                                    # Forward them for the live indicator, but keep
-                                    # them out of the saved reply (same as chat mode).
-                                    if not data.get("thinking"):
-                                        full_response += data["delta"]
-                                        _stream_set(session, partial=full_response)
-                                    yield chunk
-                                elif data.get("type") == "web_sources":
-                                    web_sources = data.get("data", [])
-                                    yield chunk
-                                elif data.get("type") in (
-                                    "tool_start", "tool_output", "agent_step",
-                                    "doc_stream_open", "doc_stream_delta",
-                                    "doc_update", "doc_suggestions", "ui_control",
-                                    "rounds_exhausted",
-                                    "ask_user",
-                                    "plan_update",
-                                ):
-                                    if data.get("type") == "agent_step":
-                                        _agent_rounds = max(_agent_rounds, data.get("round", 1))
-                                    elif data.get("type") == "tool_start":
-                                        _agent_tool_calls += 1
-                                    yield chunk
-                                elif data.get("type") == "fallback":
-                                    # Selected model failed; a fallback answered.
-                                    # Forward the notice and remember the real
-                                    # model so metrics reflect it, not the masked
-                                    # selected model.
-                                    _answered_by = data.get("answered_by") or _answered_by
-                                    _actual_model = _actual_model or _answered_by
-                                    data["selected_model"] = data.get("selected_model") or _requested_model
-                                    yield chunk
-                                elif data.get("type") == "model_actual":
-                                    _actual_model = data.get("model") or _actual_model
-                                    data["requested_model"] = _requested_model
-                                    yield f'data: {json.dumps(data)}\n\n'
-                                elif data.get("type") == "metrics":
-                                    last_metrics = data.get("data", {})
-                                    _reported_model = last_metrics.get("model")
-                                    last_metrics["requested_model"] = last_metrics.get("requested_model") or _requested_model
-                                    last_metrics["model"] = _reported_model or _actual_model or _answered_by or _requested_model
-                                    yield f'data: {json.dumps({"type": "metrics", "data": last_metrics})}\n\n'
-                            except json.JSONDecodeError:
-                                yield chunk
-                        elif chunk.startswith("event: "):
+                    
+                    def _make_agent_stream():
+                        return stream_agent_loop(
+                            sess.endpoint_url, sess.model, messages,
+                            headers=sess.headers, temperature=ctx.preset.temperature,
+                            max_tokens=ctx.preset.max_tokens, prompt_type=preset_id,
+                            max_tool_calls=_tool_budget, max_rounds=_max_rounds,
+                            context_length=ctx.context_length,
+                            active_document=active_doc, active_email=active_email_ctx,
+                            session_id=session, disabled_tools=disabled_tools if disabled_tools else None,
+                            tool_policy=tool_policy, owner=_user,
+                            fallbacks=_fallback_candidates, plan_mode=plan_mode,
+                            approved_plan=approved_plan or None,
+                            workspace=workspace or None, forced_tools=_forced_tools,
+                        )
+                    
+                    if _use_agent_pipeline:
+                        async for chunk in walk_agent_pipeline(_make_agent_stream, session, message or ""):
                             yield chunk
-                        elif chunk == "data: [DONE]\n\n":
-                            if full_response:
-                                _saved_id = save_assistant_response(
-                                    sess, session_manager, session, full_response, last_metrics,
-                                    character_name=ctx.preset.character_name,
-                                    web_sources=web_sources,
-                                    rag_sources=ctx.rag_sources,
-                                    used_memories=ctx.used_memories,
-                                    incognito=incognito,
-                                )
-                                if _saved_id:
-                                    yield f'data: {json.dumps({"type": "message_saved", "id": _saved_id})}\n\n'
-                                run_post_response_tasks(
-                                    sess, session_manager, session, message, full_response,
-                                    last_metrics, ctx.uprefs, memory_manager, memory_vector, webhook_manager,
-                                    incognito=incognito, compare_mode=compare_mode,
-                                    character_name=ctx.preset.character_name,
-                                                            agent_rounds=_agent_rounds,
-                                    agent_tool_calls=_agent_tool_calls,
-                                    skills_manager=skills_manager,
-                                    owner=_user,
-                                    extract_skills=user_requested_agent,
-                                    allow_background_extraction=not tool_policy.block_all_tool_calls,
-                                )
-                            _stream_set(session, status="done")
+                    else:
+                        async for chunk in walk_chat_pipeline(_make_agent_stream):
                             yield chunk
-                except (asyncio.CancelledError, GeneratorExit):
                     # Client disconnected — save partial response. Wrap
                     # the save in its own try so an exception inside
                     # add_message / save_sessions doesn't mask the
