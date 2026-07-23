@@ -1252,6 +1252,12 @@ def setup_chat_routes(
                 _answered_by = None  # set if the selected model failed and a fallback answered
                 _requested_model = sess.model
                 _actual_model = None
+
+                # ── AgentOS SFD v3.0: Mode detection + ThoughtBus activation ──
+                from src.mode_detector import detect_mode, InteractionMode
+                _detected_mode = detect_mode(message or "")
+                _use_thought_bus = (_detected_mode == InteractionMode.AGENT)
+                yield f"data: {json.dumps({'type': 'mode_detected', 'mode': _detected_mode.value, 'thought_bus': _use_thought_bus})}\n\n"
                 try:
                     from src.settings import get_setting
                     from src.agent_tools import MAX_AGENT_ROUNDS as _DEFAULT_ROUNDS
