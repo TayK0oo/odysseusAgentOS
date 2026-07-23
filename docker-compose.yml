@@ -124,6 +124,7 @@ services:
       - ODYSSEUS_AGENT_OPEN_DESIGN=${ODYSSEUS_AGENT_OPEN_DESIGN:-off}
       # ── Exécution ────────────────────────────────────────────────
       - SCRAPLING_ENABLED=${SCRAPLING_ENABLED:-false}
+      - SCRAPLING_MCP_URL=${SCRAPLING_MCP_URL:-http://scrapling-mcp:8800/mcp}
       - KROKI_ENABLED=${KROKI_ENABLED:-off}
       # ── Mémoire & Évolution ──────────────────────────────────────
       - ACONTEXT_URL=${ACONTEXT_URL:-http://acontext:8029}
@@ -310,11 +311,9 @@ services:
 
   serena-mcp:
     runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
-    image: python:3.12-slim
+    image: python:3.12
     command: >
-      bash -c "pip install uv -q &&
-               uvx --from git+https://github.com/oraios/serena serena start-mcp-server
-               --context ide-assistant --project /workspace --transport sse --port 8765"
+      bash -c "pip install uv -q && uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context ide-assistant --project /workspace --transport sse --port 8765"
     volumes:
       - .:/workspace:ro
     ports:
@@ -324,6 +323,11 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
     environment:
       - SERENA_MODE=ide-assistant
     healthcheck:
@@ -355,13 +359,11 @@ services:
       retries: 3
       start_period: 30s
 
+  # ── Scrapling MCP — Web scraping with anti-bot bypass ──
+  # Uses official pyd4vinci/scrapling image with all browsers + MCP pre-installed.
   scrapling-mcp:
-    runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
-    image: python:3.12-slim
-    command: >
-      bash -c "pip install 'scrapling[all]' -q &&
-               scrapling install &&
-               scrapling mcp --http --host 0.0.0.0 --port 8800"
+    image: pyd4vinci/scrapling:latest
+    command: mcp --http --host 0.0.0.0 --port 8800
     ports:
       - "127.0.0.1:8800:8800"
     restart: unless-stopped
@@ -369,6 +371,11 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
     profiles:
       - scrapling
     healthcheck:
@@ -376,7 +383,7 @@ services:
       interval: 30s
       timeout: 15s
       retries: 3
-      start_period: 90s
+      start_period: 30s
 
   localai:
     image: localai/localai:latest
@@ -434,13 +441,14 @@ services:
       - meilisearch-data:/meili_data
     profiles:
       - default
+      - ""
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:7700/health', timeout=5).read(1)\""]
-      interval: 15s
+      test: ["CMD-SHELL", "/bin/meilisearch --version || exit 1"]
+      interval: 30s
       timeout: 10s
       retries: 5
       start_period: 15s
@@ -525,7 +533,7 @@ services:
       start_period: 10s
 
   langfuse-server:
-    image: ghcr.io/langfuse/langfuse:latest
+    image: ghcr.io/langfuse/langfuse:2
     ports:
       - "127.0.0.1:3000:3000"
     environment:
