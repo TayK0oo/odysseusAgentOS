@@ -38,7 +38,8 @@ async def walk_agent_pipeline(
             risk, is_multi = await _do_classify(message)
             pipeline_state["risk_level"] = risk
             pipeline_state["is_multi_agent"] = is_multi
-            yield f"data: {json.dumps({'type': 'phase_active', 'phase': phase, 'action': f'Risk: {risk.upper()}, Mode: {\"MULTI\" if is_multi else \"SINGLE\"}-agent'})}\n\n"
+            mode_label = "MULTI" if is_multi else "SINGLE"
+            yield f"data: {json.dumps({'type': 'phase_active', 'phase': phase, 'action': f'Risk: {risk.upper()}, Mode: {mode_label}-agent'})}\n\n"
 
         # ═══════════════ KNOW ═══════════════
         elif phase == "KNOW":
@@ -53,7 +54,9 @@ async def walk_agent_pipeline(
         elif phase == "PLAN":
             plan = await _do_plan(message, pipeline_state["risk_level"])
             pipeline_state["plan"] = plan
-            yield f"data: {json.dumps({'type': 'phase_active', 'phase': phase, 'action': f'Plan: {len(plan.get(\"objectives\",[]))} objectives, {plan.get(\"estimated_tokens\",\"?\")} tokens estimated'})}\n\n"
+            obj_count = len(plan.get("objectives", []))
+            est_tokens = plan.get("estimated_tokens", "?")
+            yield f"data: {json.dumps({'type': 'phase_active', 'phase': phase, 'action': f'Plan: {obj_count} objectives, {est_tokens} tokens estimated'})}\n\n"
             if plan.get("objectives"):
                 yield f"data: {json.dumps({'type': 'plan_update', 'plan': plan})}\n\n"
 
@@ -71,7 +74,9 @@ async def walk_agent_pipeline(
         elif phase == "QUALITY":
             qr = await _do_quality()
             pipeline_state["quality_result"] = qr
-            yield f"data: {json.dumps({'type': 'phase_active', 'phase': phase, 'action': f'Quality: tests={qr.get(\"tests\",\"?\")}, lint={qr.get(\"lint\",\"?\")}'})}\n\n"
+            q_tests = qr.get("tests", "?")
+            q_lint = qr.get("lint", "?")
+            yield f"data: {json.dumps({'type': 'phase_active', 'phase': phase, 'action': f'Quality: tests={q_tests}, lint={q_lint}'})}\n\n"
 
         # ═══════════════ AUTOEVAL ═══════════════
         elif phase == "AUTOEVAL":
