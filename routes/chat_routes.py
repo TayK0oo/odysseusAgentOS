@@ -1255,9 +1255,15 @@ def setup_chat_routes(
 
                 # ── AgentOS SFD v3.0: Mode detection + ThoughtBus activation ──
                 from src.mode_detector import detect_mode, InteractionMode
+                from src.agent_instructions import AGENT_SYSTEM_PROMPT, get_phase_checklist
                 _detected_mode = detect_mode(message or "")
                 _use_thought_bus = (_detected_mode == InteractionMode.AGENT)
                 yield f"data: {json.dumps({'type': 'mode_detected', 'mode': _detected_mode.value, 'thought_bus': _use_thought_bus})}\n\n"
+                
+                # Inject agent system prompt if in agent mode
+                if _use_thought_bus:
+                    _agent_instructions = AGENT_SYSTEM_PROMPT
+                    yield f"data: {json.dumps({'type': 'agent_instructions_loaded', 'phases': 7})}\n\n"
                 try:
                     from src.settings import get_setting
                     from src.agent_tools import MAX_AGENT_ROUNDS as _DEFAULT_ROUNDS
