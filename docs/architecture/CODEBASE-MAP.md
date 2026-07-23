@@ -585,3 +585,455 @@ bash scripts/test-e2e.sh
 ---
 
 *Document généré par traversée complète du code — 2026-07-23*
+
+---
+
+## 10. Chemins d'Exécution Détaillés
+
+### 10.1 Flux SSE Complet (Requête → Réponse)
+
+```
+┌─ NAVIGATEUR ─────────────────────────────────────────────────────────┐
+│ 1. L'utilisateur tape "build a REST API"                             │
+│ 2. chat.js → POST /api/chat_stream (SSE)                             │
+└──────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─ routes/chat_routes.py:chat_stream() ────────────────────────────────┐
+│ 3. message = "build a REST API"                                       │
+│ 4. mode_detector.detect(message) → InteractionMode.AGENT              │
+│    → yield "mode_detected: agent"                                     │
+│ 5. _make_agent_stream = lambda: stream_agent_loop(...)                │
+│ 6. walk_agent_pipeline(_make_agent_stream, session_id, message)       │
+└──────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─ src/agent_pipeline.py:walk_agent_pipeline() ────────────────────────┐
+│                                                                       │
+│  PHASE 1: CLASSIFY                                                    │
+│    7. _do_classify(message) → risk="medium", is_multi=False          │
+│       → risk_classifier: "medium" (contient "build")                  │
+│       → multi_agent_decision: TaskProfile(tool_count=8) → SINGLE      │
+│    8. yield SSE: phase_enter CLASSIFY (1/7)                           │
+│    9. yield SSE: phase_active "Risk: MEDIUM, Mode: SINGLE-agent"      │
+│   10. yield SSE: phase_exit CLASSIFY (1/7)                            │
+│   11. cockpit.js reçoit → chip: "CLASSIFY (1/7)" verte               │
+│                                                                       │
+│  PHASE 2: KNOW                                                        │
+│   12. _do_know(message) → memories=["Python", "FastAPI", "Docker"]   │
+│       → sfd_wiring.recall("technology") → cherche dans MD files       │
+│       → LinguisticSignalDetector.should_search() → pas de signal      │
+│   13. yield SSE: phase_enter KNOW (2/7)                               │
+│   14. yield SSE: phase_active "Found 3 memories, 7 skills"            │
+│   15. yield SSE: memory_recalled ×3 (pour affichage UI)               │
+│   16. yield SSE: phase_exit KNOW (2/7)                                │
+│                                                                       │
+│  PHASE 3: PLAN                                                        │
+│   17. _do_plan(message, risk) → {objectives: [...], estimated_tokens} │
+│   18. yield SSE: phase_enter PLAN (3/7)                               │
+│   19. yield SSE: phase_active "Plan: 3 objectives, 2000-5000 tokens"  │
+│   20. yield SSE: plan_update {objectives: [...]}                      │
+│   21. yield SSE: phase_exit PLAN (3/7)                                │
+│                                                                       │
+│  PHASE 4: BUILD                                                       │
+│   22. yield SSE: phase_enter BUILD (4/7)                              │
+│   23. yield SSE: phase_active "Executing with tools + agents..."      │
+│   24. async for chunk in stream_agent_loop():                         │
+│       → LLM call (deepseek-v4-pro)                                    │
+│       → tool: BASH → "pip install fastapi"                           │
+│       → tool: WRITE_FILE → main.py                                    │
+│       → tool: MANAGE_SKILLS → view skill                              │
+│       → agent: gsd-executor (BUILD) spawné                            │
+│       → chaque chunk SSE forwardé au navigateur                       │
+│   25. yield SSE: phase_exit BUILD (4/7)                               │
+│                                                                       │
+│  PHASE 5: QUALITY                                                     │
+│   26. _do_quality() → py_compile → lint="pass"                       │
+│   27. yield SSE: phase_enter QUALITY (5/7)                            │
+│   28. yield SSE: phase_active "Quality: tests=pending, lint=pass"     │
+│   29. Agent: debate-5-personas (QUALITY) spawné                       │
+│   30. Agent: security-audit (QUALITY) spawné                          │
+│   31. yield SSE: phase_exit QUALITY (5/7)                             │
+│                                                                       │
+│  PHASE 6: AUTOEVAL                                                    │
+│   32. _do_autoeval(objective, quality) → score=0.9, verdict="PASS"   │
+│   33. yield SSE: phase_enter AUTOEVAL (6/7)                           │
+│   34. yield SSE: phase_active "Score: 90% — PASS"                     │
+│   35. Agent: gsd-verifier (AUTOEVAL) spawné                           │
+│   36. Agent: edge-case-gen (AUTOEVAL) spawné                          │
+│   37. yield SSE: phase_exit AUTOEVAL (6/7)                            │
+│                                                                       │
+│  PHASE 7: MEMORY_OBSERVE                                              │
+│   38. _do_memory_observe(message, state) → 3 leçons                   │
+│       → sfd_wiring.remember("conversation", "Project: build...",      │
+│                              "[stated]")                              │
+│       → memory_provenance.operations.memory_write()                   │
+│       → OmissionFilter.is_safe() → OK                                 │
+│       → écrit /topics/conversation.md + ChromaDB                      │
+│   39. yield SSE: phase_enter MEMORY_OBSERVE (7/7)                     │
+│   40. yield SSE: phase_active "Stored 3 lessons in memory"            │
+│   41. yield SSE: phase_exit MEMORY_OBSERVE (7/7)                      │
+│                                                                       │
+│  COMPLETION:                                                          │
+│   42. yield SSE: thought_bus {status: complete, phases_walked: 7}    │
+└──────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─ NAVIGATEUR ─────────────────────────────────────────────────────────┐
+│ 43. chat.js parse chaque SSE event                                    │
+│ 44. json.type == "phase_enter" → cockpit.onThoughtBusEvent(json)      │
+│ 45. cockpit.js: activePhase = "CLASSIFY", renderPhaseBar()            │
+│ 46. Phase bar: C● K○ P○ B○ Q○ A○ M○                                  │
+│ 47. json.type == "delta" → affiché dans le chat                       │
+│ 48. json.type == "tool_start" → icône outil + spinner                 │
+│ 49. json.type == "agent_step" → nom agent + phase                     │
+│ 50. Final: C● K● P● B● Q● A● M● (toutes complétées)                  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.2 Arbre de Décision Kill-Switch
+
+```
+À CHAQUE PHASE, avant exécution :
+
+if not thought_bus_enabled():
+    → pas de phase_enter/phase_exit
+    → stream_agent_loop direct (mode legacy)
+
+if phase == "CLASSIFY":
+    ODYSSEUS_THOUGHT_BUS=off → skip pipeline, mode legacy
+    
+if phase == "KNOW":
+    ODYSSEUS_MEMORY_PROVENANCE=off → pas de memory recall
+    ODYSSEUS_MEILISEARCH=off → pas de conversation search
+    
+if phase == "BUILD":
+    ODYSSEUS_DURABLE_EXEC=off → pas de wrap tool execution
+    ODYSSEUS_TOOL_DISCOVERY=off → pas de registry search
+    
+if phase == "QUALITY":
+    ODYSSEUS_CONTENT_SECURITY=off → pas de output filter
+    ODYSSEUS_AUTOEVAL=off → pas de quality checks
+    
+if phase == "AUTOEVAL":
+    ODYSSEUS_AUTOEVAL=off → skip auto-evaluation
+    
+if phase == "MEMORY_OBSERVE":
+    ODYSSEUS_MEMORY_PROVENANCE=off → pas d'écriture MD
+    ODYSSEUS_GOVERNANCE_ANCESTRY=off → pas de GoalTask
+```
+
+### 10.3 Flux Mémoire Complet
+
+```
+┌─ ÉCRITURE ───────────────────────────────────────────────────────────┐
+│                                                                       │
+│  Appel: sfd_wiring.remember("technology", "prefers Python",           │
+│                              "[stated]")                              │
+│     │                                                                 │
+│     ├── 1. OmissionFilter.is_safe("prefers Python")                   │
+│     │      → vérifie les patterns: SSN, santé, religion...            │
+│     │      → OK (pas de donnée protégée)                              │
+│     │                                                                 │
+│     ├── 2. memory_provenance.operations.memory_read(path)             │
+│     │      → path = "topics/technology.md"                            │
+│     │      → retourne (content, version_token="a1b2c3d4e5f6")        │
+│     │                                                                 │
+│     ├── 3. memory_provenance.operations.memory_append(                │
+│     │         path, "- [stated] prefers Python", version_token)       │
+│     │      → vérifie: l'entrée n'existe pas déjà                      │
+│     │      → vérifie: if_version match                                │
+│     │      → ajoute la ligne au fichier MD                            │
+│     │      → calcule nouveau hash → "x7y8z9..."                       │
+│     │      → retourne SUCCESS + new_token                             │
+│     │                                                                 │
+│     ├── 4. Dual-write: ChromaDB (pour la recherche)                   │
+│     │      → memory_vector.add("prefers Python", embedding)           │
+│     │                                                                 │
+│     └── 5. Stats: sfd_wiring._stats["facts_stored"] += 1             │
+│                                                                       │
+│  Fichier résultant: /topics/technology.md                             │
+│     ---                                                               │
+│     name: technology                                                   │
+│     description: Facts about technology                                │
+│     sources: [chat]                                                    │
+│     version: x7y8z9a0b1c2                                              │
+│     ---                                                               │
+│     - [stated] prefers Python                                          │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌─ LECTURE ────────────────────────────────────────────────────────────┐
+│                                                                       │
+│  Appel: sfd_wiring.recall("technology")                               │
+│     │                                                                 │
+│     ├── 1. memory_provenance.operations.memory_read(                  │
+│     │         "topics/technology.md")                                 │
+│     │      → retourne (content, version_token)                        │
+│     │                                                                 │
+│     ├── 2. Parse le frontmatter YAML                                  │
+│     │      → name, description, sources, version                      │
+│     │                                                                 │
+│     ├── 3. Extrait les lignes taguées                                 │
+│     │      → ["- [stated] prefers Python", ...]                       │
+│     │                                                                 │
+│     └── 4. Retourne les faits au pipeline KNOW                        │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌─ CONTRÔLE DE CONCURRENCE ────────────────────────────────────────────┐
+│                                                                       │
+│  Agent A: memory_read(path) → token="a1b2"                            │
+│  Agent B: memory_read(path) → token="a1b2"                            │
+│                                                                       │
+│  Agent A: memory_append(path, fact, "a1b2")                           │
+│     → SUCCESS, new_token="x7y8"                                       │
+│                                                                       │
+│  Agent B: memory_append(path, fact, "a1b2")                           │
+│     → REJETÉ: "Version mismatch — file was modified"                  │
+│     → Retourne contenu actuel + token "x7y8"                          │
+│     → Agent B doit merger et réessayer avec "x7y8"                    │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.4 Machine d'État — Exécution Durable
+
+```
+┌─ WORKFLOW ───────────────────────────────────────────────────────────┐
+│                                                                       │
+│  Création:                                                            │
+│    DurableEngine.create_workflow("deploy")                            │
+│    → INSERT INTO workflows (id, name, status="pending")               │
+│                                                                       │
+│  Activité:                                                            │
+│    DurableEngine.add_activity(wf_id, DurableActivity(                 │
+│      action="docker_build", retry_policy=RetryPolicy(...),            │
+│      compensation="docker_rmi"                                        │
+│    ))                                                                 │
+│    → INSERT INTO activities (...)                                     │
+│                                                                       │
+│  Exécution:                                                           │
+│    DurableEngine.start_workflow(wf_id, executor_fn)                   │
+│    → UPDATE workflows SET status="running"                            │
+│    → Pour chaque activité:                                            │
+│        ├── UPDATE activities SET status="running", attempt++          │
+│        ├── executor(action, params)                                   │
+│        │     ├── SUCCESS → status="completed", next activity          │
+│        │     └── FAILURE → retry? (attempt < max_attempts)            │
+│        │           ├── OUI → sleep(delay_for_attempt) → retry         │
+│        │           └── NON → status="failed"                          │
+│        │                 → SagaCoordinator.compensate()               │
+│        │                 → parcourt en ordre inverse                  │
+│        │                 → exécute chaque compensation                │
+│    → UPDATE workflows SET status="completed"|"failed"                 │
+│                                                                       │
+│  Approbation humaine:                                                 │
+│    DurableEngine.create_approval_signal(wf_id, act_id, message)       │
+│    → UPDATE workflows SET status="waiting_approval"                   │
+│    → INSERT INTO approval_signals (...)                               │
+│    → (le workflow attend, zéro CPU)                                   │
+│    → L'utilisateur répond via Gateway                                 │
+│    → DurableEngine.resolve_approval(signal_id, approved=True)         │
+│    → UPDATE workflows SET status="running" (reprise)                  │
+│                                                                       │
+│  Reprise après crash:                                                 │
+│    Au démarrage: scan workflows WHERE status IN                       │
+│      ('running', 'waiting_approval')                                  │
+│    → Pour chaque workflow interrompu:                                 │
+│        ├── Trouver la dernière activité exécutée                      │
+│        ├── Vérifier idempotence (activity_id déjà completed?)         │
+│        ├── Si non → reprendre à cette activité                        │
+│        └── Si oui → passer à la suivante                              │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.5 Dispatch des Agents par Phase
+
+```
+┌─ PHASE → AGENTS ─────────────────────────────────────────────────────┐
+│                                                                       │
+│  CLASSIFY:                                                            │
+│    constitution (vérifie invariants SFD)                              │
+│                                                                       │
+│  PLAN:                                                                │
+│    gsd-planner (décomposition objectifs→tâches)                       │
+│    gsd-researcher (recherche contexte/solutions)                      │
+│                                                                       │
+│  BUILD:                                                               │
+│    gsd-executor (exécute tâches avec outils)                          │
+│    open-coder (génération de code)                                    │
+│    open-design (génération UI/design)                                 │
+│                                                                       │
+│  QUALITY:                                                             │
+│    debate-5-personas (débat qualité, 5 angles)                        │
+│    security-audit (STRIDE + OWASP Top 10)                             │
+│    reviewer (code review)                                             │
+│                                                                       │
+│  AUTOEVAL:                                                            │
+│    gsd-verifier (vérification critères succès)                        │
+│    edge-case-gen (génération cas limites)                             │
+│    test-engineer (exécution tests)                                    │
+│                                                                       │
+│  MEMORY_OBSERVE:                                                      │
+│    gsd-roadmapper (mise à jour roadmap)                               │
+│    context-agent (consolidation contexte)                             │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.6 Flux de Préférences
+
+```
+┌─ INJECTION ──────────────────────────────────────────────────────────┐
+│                                                                       │
+│  Au démarrage CLASSIFY:                                               │
+│    PreferencesSubscriber.on_phase_enter("CLASSIFY", ctx)              │
+│      │                                                                │
+│      ├── 1. memory_ops.memory_read("preferences.md")                  │
+│      │      → contenu YAML des préférences stockées                   │
+│      │                                                                │
+│      ├── 2. PreferenceEngine.load(raw_yaml)                           │
+│      │      → [Preference("format", "bullet", SELECTIVE),             │
+│      │         Preference("langue", "fr", ALWAYS), ...]               │
+│      │                                                                │
+│      ├── 3. BehavioralGuardrail.filter_preferences(prefs)             │
+│      │      → supprime "always agree", "never disagree"...            │
+│      │                                                                │
+│      ├── 4. PreferenceEngine.resolve(                                 │
+│      │         stored=filtered_prefs,                                 │
+│      │         request_instruction=ctx.objective)                      │
+│      │      → {"format": "bullet", "langue": "fr", ...}               │
+│      │      → Ordre: request > always > userStyle > selective > défaut│
+│      │                                                                │
+│      └── 5. ctx.enrich(preferences=resolved)                          │
+│             → injecté dans le système prompt du LLM                   │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.7 Flux de Conversation Search
+
+```
+┌─ DÉTECTION → RECHERCHE ─────────────────────────────────────────────┐
+│                                                                       │
+│  Message: "tu te souviens du projet de backup ?"                      │
+│      │                                                                │
+│      ├── 1. LinguisticSignalDetector.detect(message)                  │
+│      │      → [DetectedSignal(POSSESSIVE, "ton projet"),              │
+│      │         DetectedSignal(DIRECT_REQUEST, "tu te souviens")]      │
+│      │                                                                │
+│      ├── 2. should_search(message) → True                            │
+│      │                                                                │
+│      ├── 3. extract_query(message) → "projet backup"                  │
+│      │      (supprime "tu te souviens du", "?")                       │
+│      │                                                                │
+│      ├── 4. ConversationSearch.conversation_search("projet backup")  │
+│      │      → Cherche dans l'index (Meilisearch ou mémoire)           │
+│      │      → [SearchResult("session-123", "discussed backup...")]    │
+│      │                                                                │
+│      ├── 5. ConversationSearch.recent_chats(project_id, window=7)    │
+│      │      → Conversations des 7 derniers jours                      │
+│      │                                                                │
+│      └── 6. Résultats injectés dans le contexte KNOW                  │
+│             → L'agent peut référencer la conversation passée          │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.8 Flux de Sortie Visuelle
+
+```
+┌─ ROUTAGE ───────────────────────────────────────────────────────────┐
+│                                                                       │
+│  Message: "montre-moi un diagramme de l'archi"                        │
+│  Réponse LLM: "Le système a 3 couches..."                             │
+│      │                                                                │
+│      ├── 1. OutputRouter.has_visual_pattern(request) → True           │
+│      │      ("montre-moi" + "diagramme")                              │
+│      │                                                                │
+│      ├── 2. OutputRouter.decide(request, response)                   │
+│      │      ├── Step 0: is_purely_textual? → NON (pattern match)      │
+│      │      ├── Step 1: available_mcp_tools? "kroki" → OUI           │
+│      │      └── Décision: MCP_TOOL, module="diagram", tool="kroki"   │
+│      │                                                                │
+│      ├── 3. ServiceConnector.render_diagram(mermaid_code, "mermaid") │
+│      │      → POST http://kroki:8700/mermaid/svg                      │
+│      │      → Retourne <svg>...</svg>                                 │
+│      │                                                                │
+│      ├── 4. InlineRenderer.wrap(svg, module="diagram")               │
+│      │      → <div class="inline-visual" data-module="diagram">       │
+│      │          <svg>...</svg>                                        │
+│      │        </div>                                                  │
+│      │                                                                │
+│      └── 5. SSE: yield visual_output avec le SVG inline               │
+│             → Le navigateur affiche le diagramme dans le chat         │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.9 Arbre de Décision Complet — CHAT vs AGENT
+
+```
+┌─ mode_detector.detect(message) ──────────────────────────────────────┐
+│                                                                       │
+│  1. agent_switch_on? (bouton Agent dans l'UI)                         │
+│     → NON → CHAT                                                      │
+│     → OUI → continuer                                                 │
+│                                                                       │
+│  2. Message très court (≤ 2 mots) ?                                   │
+│     → OUI → vérifier si verbe agent ("build", "deploy", "fix"...)     │
+│         → OUI → AGENT                                                 │
+│         → NON → CHAT                                                  │
+│                                                                       │
+│  3. Contient un trigger agent ?                                       │
+│     build, create, develop, implement, generate, deploy,              │
+│     refactor, debug, fix, optimize, design, architect, plan,          │
+│     test, validate, verify, audit, document, analyze, research...     │
+│     → OUI → AGENT                                                     │
+│     → NON → CHAT                                                      │
+│                                                                       │
+│  Résultat:                                                            │
+│    CHAT → walk_chat_pipeline() → pas de phases → réponse directe      │
+│    AGENT → walk_agent_pipeline() → 7 phases → cockpit → mémoire       │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.10 Chemins d'Erreur
+
+```
+┌─ GESTION D'ERREURS PAR PHASE ────────────────────────────────────────┐
+│                                                                       │
+│  CLASSIFY:                                                            │
+│    Exception → risk="unknown", is_multi=False (défaut safe)           │
+│                                                                       │
+│  KNOW:                                                                │
+│    memory_provenance indisponible → memories=[] (mode dégradé)        │
+│    Meilisearch down → pas de conversation search                      │
+│                                                                       │
+│  PLAN:                                                                │
+│    Exception → plan vide, continue vers BUILD quand même              │
+│                                                                       │
+│  BUILD:                                                               │
+│    LLM timeout → fallback model (ZenRouter)                           │
+│    Outil échoue → affiché dans UI (✗), l'agent peut réessayer       │
+│    Crash processus → durable_execution reprend au restart             │
+│    Client disconnect → save partial response                          │
+│                                                                       │
+│  QUALITY:                                                             │
+│    py_compile échoue → lint="fail", rapporté dans AUTOEVAL            │
+│                                                                       │
+│  AUTOEVAL:                                                            │
+│    Exception → score=0.5 (défaut neutre)                              │
+│                                                                       │
+│  MEMORY_OBSERVE:                                                      │
+│    Écriture échoue → logged, n'arrête pas le pipeline                 │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+*Sections 10.1-10.10 ajoutées — Chemins d'exécution, machines d'état, arbres de décision, flux de données complets.*
