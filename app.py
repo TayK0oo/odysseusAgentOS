@@ -1071,6 +1071,22 @@ async def _startup_event():
 
     _startup_tasks.append(asyncio.create_task(_startup_mcp_connections()))
 
+    # ── M6: AgentOS SFD v3.0 — Unified System Wiring ──
+    async def _startup_sfd_wiring():
+        try:
+            from src.sfd_wiring import init_wiring, set_wiring
+            wiring = init_wiring(
+                memory_base_path="workspace/memory",
+                durable_db_path="data/durable.db",
+            )
+            set_wiring(wiring)
+            app.state.sfd_wiring = wiring
+            logger.info("[agentos] SFD System Wiring complete (%d modules)", 8)
+        except Exception as e:
+            logger.warning("[agentos] SFD Wiring init skipped: %s", e)
+
+    _startup_tasks.append(asyncio.create_task(_startup_sfd_wiring()))
+
     # ── M6: AgentOS SFD v3.0 Core Modules Initialization ──
     async def _startup_agentos_core():
         """Initialize ThoughtBus, DurableExecution, Memory, Preferences, etc."""
