@@ -48,16 +48,40 @@ async def full_system_pipeline(
                 yield f"data: {json.dumps({'type': 'memory_recalled', 'content': str(mem)[:200]})}\n\n"
 
         elif phase == "PLAN":
-            # ── REAL: decompose into objectives + assign agents + select models ──
+            # ── REAL: decompose objectives + dispatch agents ──
             plan, assignments = await _real_plan(message, state)
             state["plan"] = plan
             obj_count = len(plan.get("objectives", []))
             yield f"data: {json.dumps({'type': 'phase_active', 'phase': phase, 'action': f'Objectives: {obj_count}, Agents assigned: {len(assignments)}'})}\n\n"
             yield f"data: {json.dumps({'type': 'plan_update', 'plan': plan, 'assignments': assignments})}\n\n"
+            # Dispatch Odysseus native agents for PLAN phase
+            try:
+                from src.orchestrator.agent_dispatcher import AgentDispatcher
+                dispatcher = AgentDispatcher()
+                plan_agents = dispatcher.agents_for_phase("PLAN")
+                if plan_agents:
+                    yield f"data: {json.dumps({'type': 'agent_dispatch', 'phase': phase, 'agents': plan_agents})}\n\n"
+            except Exception:
+                pass
 
         elif phase == "BUILD":
-            # ── REAL: execute with durable wrapping + tool discovery + preference injection ──
-            yield f"data: {json.dumps({'type': 'phase_active', 'phase': phase, 'action': 'Executing with durable tools + discovered services + injected preferences...'})}\n\n"
+            # ── REAL: execute with phase context injected into prompt ──
+            # Enrich messages with CLASSIFY+KNOW+PLAN results BEFORE calling LLM
+            phase_context = (
+                f"[AGENT OS PHASE CONTEXT]\n"
+                f"Current phase: BUILD (4/7)\n"
+                f"Risk level: {state.get('risk', 'low').upper()}\n"
+                f"Mode: {'MULTI-AGENT' if state.get('is_multi') else 'SINGLE-AGENT'}\n"
+                f"Plan: {json.dumps(state.get('plan', {}).get('objectives', []))[:500]}\n"
+                f"Memories available: {len(state.get('memories', []))}\n"
+                f"Skills available: {len(state.get('skills', []))}\n"
+            )
+            # Inject as system message — the agent_loop will include it in the prompt
+            if messages and len(messages) > 0:
+                if messages[0].get('role') == 'system':
+                    messages[0]['content'] = phase_context + '\n' + messages[0]['content']
+            
+            yield f"data: {json.dumps({'type': 'phase_active', 'phase': phase, 'action': 'Executing with phase context injected + durable tools + discovered services...'})}\n\n"
             try:
                 async for chunk in agent_stream_fn():
                     # Wrap tool calls in durable execution
