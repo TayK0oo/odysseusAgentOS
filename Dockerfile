@@ -91,6 +91,9 @@ RUN mkdir -p data logs services/cache/search
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# Install OpenCode CLI — native agent core for Odysseus
+RUN curl -fsSL https://opencode.ai/install | bash
+
 EXPOSE 7000
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
