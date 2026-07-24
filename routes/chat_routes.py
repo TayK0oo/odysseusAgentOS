@@ -1246,77 +1246,11 @@ def setup_chat_routes(
                 finally:
                     _active_streams.pop(session, None)
             else:
-                # ── AgentOS SFD v3.0: Full System Pipeline ──
-                from src.mode_detector import detect_mode, InteractionMode
-                from src.full_system import full_system_pipeline
-                _detected_mode = detect_mode(message or "")
-                _use_agent = (_detected_mode == InteractionMode.AGENT)
-                yield f"data: {json.dumps({'type': 'mode_detected', 'mode': _detected_mode.value})}\n\n"
-                
-                try:
-                    from src.settings import get_setting
-                    from src.agent_tools import MAX_AGENT_ROUNDS as _DEFAULT_ROUNDS
-                    _tool_budget = int(get_setting("agent_max_tool_calls", 0))
-                    try:
-                        _max_rounds = int(get_setting("agent_max_rounds", _DEFAULT_ROUNDS) or _DEFAULT_ROUNDS)
-                    except (TypeError, ValueError):
-                        _max_rounds = _DEFAULT_ROUNDS
-                    _max_rounds = max(1, min(_max_rounds, 200))
-                    _forced_tools = None
-                    if allow_web_search is not None and str(allow_web_search).lower() == "true":
-                        _forced_tools = {"web_search", "web_fetch"}
-                    
-                    def _make_agent_stream():
-                        return stream_agent_loop(
-                            sess.endpoint_url, sess.model, messages,
-                            headers=sess.headers, temperature=ctx.preset.temperature,
-                            max_tokens=ctx.preset.max_tokens, prompt_type=preset_id,
-                            max_tool_calls=_tool_budget, max_rounds=_max_rounds,
-                            context_length=ctx.context_length,
-                            active_document=active_doc, active_email=active_email_ctx,
-                            session_id=session, disabled_tools=disabled_tools if disabled_tools else None,
-                            tool_policy=tool_policy, owner=_user,
-                            fallbacks=_fallback_candidates, plan_mode=plan_mode,
-                            approved_plan=approved_plan or None,
-                            workspace=workspace or None, forced_tools=_forced_tools,
-                        )
-                    
-                    if _use_agent:
-                        async for chunk in full_system_pipeline(
-                            message or "", session,
-                            _make_agent_stream,
-                            endpoint_url=sess.endpoint_url,
-                            model_name=sess.model,
-                        ):
-                            yield chunk
-                    else:
-                        async for chunk in _make_agent_stream():
-                            yield chunk
-                    # Client disconnected — save partial response. Wrap
-                    # the save in its own try so an exception inside
-                    # add_message / save_sessions doesn't mask the
-                    # original CancelledError (which prevented the
-                    # outer finally from running and left _active_streams
-                    # with a stale entry).
-                    try:
-                        if full_response:
-                            logger.info("Client disconnected mid-stream for session %s, saving partial response (%d chars)", session, len(full_response))
-                            _stopped_content2, _stopped_md2 = clean_thinking_for_save(
-                                full_response,
-                                {
-                                    "stopped": True,
-                                    "model": _actual_model or _answered_by or _requested_model,
-                                    "requested_model": _requested_model,
-                                },
-                            )
-                            sess.add_message(ChatMessage("assistant", _stopped_content2, metadata=_stopped_md2))
-                            if not incognito:
-                                session_manager.save_sessions()
-                    except Exception:
-                        logger.exception("Failed to save partial response on disconnect (session %s)", session)
-                    raise
-                finally:
-                    _active_streams.pop(session, None)
+                # ── AgentOS: OpenCode Bridge ──
+                from src.opencode_bridge import OpenCodeBridge
+                bridge = OpenCodeBridge(session, message or "", worktree=workspace)
+                async for chunk in bridge.stream():
+                    yield chunk
 
         async def _safe_stream() -> AsyncGenerator[str, None]:
             """Wrapper that guarantees _active_streams cleanup even if stream_with_save
