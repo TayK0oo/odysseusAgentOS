@@ -1,0 +1,1 @@
+{"name":"@agentos/sfd-visual","version":"1.0.0","description":"SFD Visual Output — decision tree, Kroki diagrams, SVG/HTML inline","main":"index.ts","dependencies":{"@opencode-ai/plugin":"latest"}}

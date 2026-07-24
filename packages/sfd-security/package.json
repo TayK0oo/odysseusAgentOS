@@ -1,0 +1,1 @@
+{"name":"@agentos/sfd-security","version":"1.0.0","description":"SFD Content Security — injection guard, output filter","main":"index.ts","dependencies":{"@opencode-ai/plugin":"latest"}}

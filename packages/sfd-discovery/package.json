@@ -1,0 +1,1 @@
+{"name":"@agentos/sfd-discovery","version":"1.0.0","description":"SFD Tool Discovery — MCP registry search, connector suggestions","main":"index.ts","dependencies":{"@opencode-ai/plugin":"latest"}}
