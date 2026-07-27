@@ -74,7 +74,6 @@
         setChip('cockpit-phase', 'phase', evt.phase + ' (' + ((evt.index||0)) + '/' + _phaseTotal + ')', 'chip-ok');
         renderPhaseBar();
       } else if (evt.type === 'phase_exit' && evt.phase) {
-        // Keep showing completed phase dimmed
         setChip('cockpit-phase', 'phase', evt.phase + ' \u2713', 'chip-muted');
       } else if (evt.type === 'thought_bus') {
         if (evt.status === 'complete') {
@@ -82,10 +81,25 @@
           _phaseIndex = PHASES.length;
           setChip('cockpit-phase', 'phase', 'done', 'chip-ok');
           renderPhaseBar();
+          // Budget update
+          if (evt.budget && evt.budget.percent != null) {
+            var pct = evt.budget.percent;
+            var cls = pct >= 85 ? 'chip-bad' : (pct >= 60 ? 'chip-warn' : 'chip-ok');
+            setChip('cockpit-budget', 'budget', pct + '%', cls);
+          }
         } else if (evt.status === 'disabled') {
           _activePhase = null;
           setChip('cockpit-phase', 'phase', 'direct', 'chip-muted');
         }
+      }
+      // Agent dispatch
+      if (evt.type === 'agent_dispatch' && evt.agents) {
+        setChip('cockpit-iters', 'agents', evt.agents.length + ' active', 'chip-ok');
+      }
+      // Model selected
+      if (evt.type === 'model_selected' && evt.model) {
+        var shortModel = evt.model.split('/').pop() || evt.model;
+        setChip('cockpit-drift', 'model', shortModel, 'chip-ok');
       }
     },
 
