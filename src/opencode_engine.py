@@ -229,8 +229,10 @@ class OpenCodeEngine:
             yield f"data: {json.dumps({'type': 'phase_exit', 'phase': phase, 'index': idx+1, 'total': 7})}\n\n"
 
         total_duration = int((time.time() - start_time) * 1000)
+        budget = self.get_budget(self.session_id)
         self.bus.emit("system", "health_change", {"status": "complete", "phases_walked": 7, "duration_ms": total_duration})
-        yield f"data: {json.dumps({'type': 'thought_bus', 'status': 'complete', 'phases_walked': 7})}\n\n"
+        self.bus.emit("budget", "budget_updated", budget)
+        yield f"data: {json.dumps({'type': 'thought_bus', 'status': 'complete', 'phases_walked': 7, 'budget': budget})}\n\n"
 
     @property
     def stats(self) -> dict:
