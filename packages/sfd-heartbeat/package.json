@@ -1,0 +1,7 @@
+{
+  "name": "@agentos/sfd-heartbeat",
+  "version": "1.0.0",
+  "description": "SFD Heartbeat Scheduler — periodic task execution, budget enforcement, auto-resume",
+  "main": "index.ts",
+  "dependencies": { "@opencode-ai/plugin": "latest" }
+}
