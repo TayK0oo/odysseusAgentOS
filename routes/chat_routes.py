@@ -1246,17 +1246,21 @@ def setup_chat_routes(
                 finally:
                     _active_streams.pop(session, None)
             else:
-                # ── Agent mode: OpenCode Engine ──
+                # ── Agent mode: OpenCode Engine v2 ──
                 from src.opencode_engine import OpenCodeEngine
                 engine = OpenCodeEngine(session, message or "", worktree=workspace)
                 
+                from src.settings import get_setting
+                _tool_budget = int(get_setting("agent_max_tool_calls", 0))
+                _max_rounds = max(1, min(int(get_setting("agent_max_rounds", "10") or "10"), 200))
+                _forced_tools = {"web_search", "web_fetch"} if allow_web_search and str(allow_web_search).lower() == "true" else None
+                
                 async def _agent_stream():
-                    return stream_agent_loop(
+                    async for chunk in stream_agent_loop(
                         sess.endpoint_url, sess.model, messages,
                         headers=sess.headers, temperature=ctx.preset.temperature,
                         max_tokens=ctx.preset.max_tokens, prompt_type=preset_id,
-                        max_tool_calls=int(get_setting("agent_max_tool_calls", 0)),
-                        max_rounds=max(1, min(int(get_setting("agent_max_rounds", "10") or "10"), 200)),
+                        max_tool_calls=_tool_budget, max_rounds=_max_rounds,
                         context_length=ctx.context_length,
                         active_document=active_doc, active_email=active_email_ctx,
                         session_id=session, disabled_tools=disabled_tools if disabled_tools else None,
@@ -1264,9 +1268,10 @@ def setup_chat_routes(
                         fallbacks=_fallback_candidates, plan_mode=plan_mode,
                         approved_plan=approved_plan or None,
                         workspace=workspace or None, forced_tools=_forced_tools,
-                    )
+                    ):
+                        yield chunk
                 
-                async for chunk in engine.walk_phases(_agent_stream):
+                async for chunk in engine.walk(_agent_stream):
                     yield chunk
 
         async def _safe_stream() -> AsyncGenerator[str, None]:
