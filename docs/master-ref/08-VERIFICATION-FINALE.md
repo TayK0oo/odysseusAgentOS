@@ -34,13 +34,14 @@
 | Fallback chain | 🟢 80% | 🟢 80% | Inchangé |
 | Model cockpit display | 🔴 0% | 🟢 100% | "model: minimax-m3" dans cockpit |
 
-## AXE 4 — Trinité Connaissance 🟡 53% (inchangé)
+## AXE 4 — Trinité Connaissance 🟢 70% (était 🟡 53%)
 
-| Sous-capacité | Statut | Bloquant |
-|---|---|---|
-| CBM | 🟡 90% codé, pas live | Registry docker pull denied |
-| Graphify | 🟡 30% | Service non configuré |
-| Obsidian | 🟡 10% | Kill-switch OFF |
+| Sous-capacité | Avant | Après | Note |
+|---|---|---|---|
+| CBM | 🟡 90% | 🟢 100% | **LIVE sur port 9749 !** 11 749 nœuds, répond en HTML |
+| Graphify | 🟡 30% | 🟡 30% | Service Docker non démarré (profil knowledge) |
+| Obsidian | 🟡 10% | 🟢 50% | Kill-switch ON, vault path configuré |
+| Trinité UI | 🔴 0% | 🔴 0% | Dashboard unifié non fait |
 
 ## AXE 5 — Exécution sandboxée 🟢 80% (était 🟢 75%)
 
@@ -90,16 +91,15 @@
 ║  AXE 1 — Orchestration     🟡 57% → 🟢 90%  (+33%)          ║
 ║  AXE 2 — Modularité        🟢 82% → 🟢 90%  (+8%)           ║
 ║  AXE 3 — Routing           🟡 50% → 🟢 85%  (+35%)          ║
-║  AXE 4 — Trinité           🟡 53% → 🟡 53%  (bloqué)        ║
+║  AXE 4 — Trinité           🟡 53% → 🟢 70%  (+17%) CBM LIVE ║
 ║  AXE 5 — Sandbox           🟢 75% → 🟢 80%  (+5%)           ║
 ║  AXE 6 — Gouvernance       🟡 38% → 🟢 65%  (+27%)          ║
 ║  AXE 7 — Apprentissage     🟡 45% → 🟢 70%  (+25%)          ║
 ║  AXE 8 — UI Cockpit        🟢 70% → 🟢 95%  (+25%)          ║
 ║                                                              ║
-║  GLOBAL : 🟡 59% → 🟢 78%  (+19 points)                     ║
+║  GLOBAL : 🟡 59% → 🟢 80%  (+21 points)                     ║
 ║                                                              ║
-║  BLOQUÉ (hors contrôle) : Axe 4 Trinité (registry)           ║
-║  FAISABLE restant : Heartbeat, goal-ancestry, Obsidian      ║
+║  RESTE : Graphify Docker, Obsidian vault, goal-ancestry      ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
