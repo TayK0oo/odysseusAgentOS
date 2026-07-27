@@ -1246,30 +1246,17 @@ def setup_chat_routes(
                 finally:
                     _active_streams.pop(session, None)
             else:
-                # ── Agent mode: OpenCode via ZenRouter ──
-                _agent_rounds = 0
-                _agent_tool_calls = 0
-                _answered_by = None
-                _requested_model = sess.model
-                _actual_model = None
-                try:
-                    from src.settings import get_setting
-                    from src.agent_tools import MAX_AGENT_ROUNDS as _DEFAULT_ROUNDS
-                    _tool_budget = int(get_setting("agent_max_tool_calls", 0))
-                    try:
-                        _max_rounds = int(get_setting("agent_max_rounds", _DEFAULT_ROUNDS) or _DEFAULT_ROUNDS)
-                    except (TypeError, ValueError):
-                        _max_rounds = _DEFAULT_ROUNDS
-                    _max_rounds = max(1, min(_max_rounds, 200))
-                    _forced_tools = None
-                    if allow_web_search is not None and str(allow_web_search).lower() == "true":
-                        _forced_tools = {"web_search", "web_fetch"}
-
-                    async for chunk in stream_agent_loop(
+                # ── Agent mode: OpenCode Engine ──
+                from src.opencode_engine import OpenCodeEngine
+                engine = OpenCodeEngine(session, message or "", worktree=workspace)
+                
+                async def _agent_stream():
+                    return stream_agent_loop(
                         sess.endpoint_url, sess.model, messages,
                         headers=sess.headers, temperature=ctx.preset.temperature,
                         max_tokens=ctx.preset.max_tokens, prompt_type=preset_id,
-                        max_tool_calls=_tool_budget, max_rounds=_max_rounds,
+                        max_tool_calls=int(get_setting("agent_max_tool_calls", 0)),
+                        max_rounds=max(1, min(int(get_setting("agent_max_rounds", "10") or "10"), 200)),
                         context_length=ctx.context_length,
                         active_document=active_doc, active_email=active_email_ctx,
                         session_id=session, disabled_tools=disabled_tools if disabled_tools else None,
@@ -1277,22 +1264,10 @@ def setup_chat_routes(
                         fallbacks=_fallback_candidates, plan_mode=plan_mode,
                         approved_plan=approved_plan or None,
                         workspace=workspace or None, forced_tools=_forced_tools,
-                    ):
-                        yield chunk
-                except (asyncio.CancelledError, GeneratorExit):
-                    try:
-                        if full_response:
-                            _stopped_content2, _stopped_md2 = clean_thinking_for_save(
-                                full_response,
-                                {"stopped": True, "model": _actual_model or _answered_by or _requested_model,
-                                 "requested_model": _requested_model},
-                            )
-                            sess.add_message(ChatMessage("assistant", _stopped_content2, metadata=_stopped_md2))
-                            if not incognito: session_manager.save_sessions()
-                    except Exception: pass
-                    raise
-                finally:
-                    _active_streams.pop(session, None)
+                    )
+                
+                async for chunk in engine.walk_phases(_agent_stream):
+                    yield chunk
 
         async def _safe_stream() -> AsyncGenerator[str, None]:
             """Wrapper that guarantees _active_streams cleanup even if stream_with_save
