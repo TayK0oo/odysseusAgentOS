@@ -1246,10 +1246,35 @@ def setup_chat_routes(
                 finally:
                     _active_streams.pop(session, None)
             else:
-                # ── AgentOS: OpenCode Bridge ──
+                # ── Agent mode: OpenCode (ZenRouter) Bridge ──
+                from src.settings import get_setting
+                from src.agent_tools import MAX_AGENT_ROUNDS as _DEFAULT_ROUNDS
                 from src.opencode_bridge import OpenCodeBridge
+                
+                _tool_budget = int(get_setting("agent_max_tool_calls", 0))
+                try:
+                    _max_rounds = int(get_setting("agent_max_rounds", _DEFAULT_ROUNDS) or _DEFAULT_ROUNDS)
+                except (TypeError, ValueError):
+                    _max_rounds = _DEFAULT_ROUNDS
+                _max_rounds = max(1, min(_max_rounds, 200))
+                _forced_tools = None
+                if allow_web_search is not None and str(allow_web_search).lower() == "true":
+                    _forced_tools = {"web_search", "web_fetch"}
+                
                 bridge = OpenCodeBridge(session, message or "", worktree=workspace)
-                async for chunk in bridge.stream():
+                async for chunk in bridge.stream(stream_agent_loop(
+                    sess.endpoint_url, sess.model, messages,
+                    headers=sess.headers, temperature=ctx.preset.temperature,
+                    max_tokens=ctx.preset.max_tokens, prompt_type=preset_id,
+                    max_tool_calls=_tool_budget, max_rounds=_max_rounds,
+                    context_length=ctx.context_length,
+                    active_document=active_doc, active_email=active_email_ctx,
+                    session_id=session, disabled_tools=disabled_tools if disabled_tools else None,
+                    tool_policy=tool_policy, owner=_user,
+                    fallbacks=_fallback_candidates, plan_mode=plan_mode,
+                    approved_plan=approved_plan or None,
+                    workspace=workspace or None, forced_tools=_forced_tools,
+                )):
                     yield chunk
 
         async def _safe_stream() -> AsyncGenerator[str, None]:
