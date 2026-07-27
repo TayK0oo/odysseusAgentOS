@@ -232,6 +232,22 @@ class OpenCodeEngine:
         budget = self.get_budget(self.session_id)
         self.bus.emit("system", "health_change", {"status": "complete", "phases_walked": 7, "duration_ms": total_duration})
         self.bus.emit("budget", "budget_updated", budget)
+        
+        # Goal-ancestry: create goal record
+        try:
+            from core.database import SessionLocal, Goal
+            from datetime import datetime as dt, timezone as tz
+            db = SessionLocal()
+            try:
+                goal = Goal(name=self.message[:200], description=f"Agent OS — {idx+1} phases, {total_duration}ms")
+                db.add(goal)
+                db.commit()
+                self.bus.emit("governance", "goal_created", {"goal_id": goal.id})
+            finally:
+                db.close()
+        except Exception:
+            pass
+        
         yield f"data: {json.dumps({'type': 'thought_bus', 'status': 'complete', 'phases_walked': 7, 'budget': budget})}\n\n"
 
     @property
