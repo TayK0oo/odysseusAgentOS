@@ -178,8 +178,15 @@ class OpenCodeEngine:
             yield f"data: {json.dumps({'type': 'phase_enter', 'phase': phase, 'index': idx+1, 'total': 7, 'agents': agents, 'tools': tools, 'model': model})}\n\n"
 
             if phase == "BUILD":
-                # Actual LLM execution
+                # Agent dispatch
+                if agents:
+                    self.bus.emit("agent", "agent_dispatch", {"phase": phase, "agents": agents, "model": model})
+                    yield f"data: {json.dumps({'type': 'agent_dispatch', 'phase': phase, 'agents': agents, 'model': model})}\n\n"
+                
+                # Model selected
                 self.bus.emit("model", "model_selected", {"model": model, "phase": phase, "tier": "code" if "minimax" in model else "standard"})
+                yield f"data: {json.dumps({'type': 'model_selected', 'model': model, 'phase': phase})}\n\n"
+                
                 yield f"data: {json.dumps({'type': 'phase_active', 'phase': phase, 'agents': agents, 'tools': tools, 'model': model, 'action': 'Executing with tools...'})}\n\n"
                 
                 build_start = time.time()
