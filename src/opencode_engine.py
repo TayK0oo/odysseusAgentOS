@@ -100,6 +100,27 @@ class OpenCodeEngine:
         "MEMORY_OBSERVE": "opencode/deepseek-v4-pro",
     }
 
+    # Budget tracking
+    _budgets: dict = {}  # session_id → {tokens, cost, limit}
+
+    @classmethod
+    def set_budget(cls, session_id: str, token_limit: int = 100000, cost_limit: float = 5.0):
+        cls._budgets[session_id] = {"tokens_used": 0, "token_limit": token_limit, "cost": 0.0, "cost_limit": cost_limit}
+
+    @classmethod
+    def track_tokens(cls, session_id: str, tokens: int, cost: float = 0.0):
+        if session_id in cls._budgets:
+            cls._budgets[session_id]["tokens_used"] += tokens
+            cls._budgets[session_id]["cost"] += cost
+
+    @classmethod
+    def get_budget(cls, session_id: str) -> dict:
+        b = cls._budgets.get(session_id, {})
+        used = b.get("tokens_used", 0)
+        limit = b.get("token_limit", 100000)
+        pct = int(used / limit * 100) if limit > 0 else 0
+        return {"tokens_used": used, "token_limit": limit, "percent": pct, "cost": b.get("cost", 0)}
+
     def __init__(self, session_id: str, message: str, worktree: str = None):
         self.session_id = session_id
         self.message = message
