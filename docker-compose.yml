@@ -482,7 +482,7 @@ services:
     runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
     image: python:3.12-slim
     command: >
-      sh -c "pip install graphifyy && python -u /workspace/mcp_servers/graphify_mcp.py"
+      sh -c "pip install graphifyy mcp --no-cache-dir; python -u /workspace/mcp_servers/graphify_mcp.py"
     ports:
       - "127.0.0.1:9750:9750"
     volumes:
