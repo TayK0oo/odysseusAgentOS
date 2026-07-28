@@ -9,6 +9,9 @@ import yaml, json, logging, os, asyncio, re, time, uuid
 from typing import AsyncGenerator, Optional, Callable
 from datetime import datetime, timezone
 
+from src.event_bus import EventBus, _event_bus
+from src.perf_profiler import profiler as perf_profiler
+
 logger = logging.getLogger(__name__)
 
 PHASES = ["CLASSIFY", "KNOW", "PLAN", "BUILD", "QUALITY", "AUTOEVAL", "MEMORY_OBSERVE"]
@@ -73,8 +76,8 @@ class OpenCodeEngine:
         "KNOW":     ["mcp__cbm__search_graph", "mcp__graphify__query", "web_search"],
         "PLAN":     [],
         "BUILD":    ["mcp__scrapling__fetch", "mcp__kroki__render", "BASH", "WRITE_FILE", "mcp__serena__references"],
-        "QUALITY":  [],
-        "AUTOEVAL": [],
+        "QUALITY":  ["pa11y__audit", "i18n__scan", "k6__load_test", "reviewer__audit", "security__audit"],
+        "AUTOEVAL": ["gsd_verifier", "k6__run", "perf__profile"],
         "MEMORY_OBSERVE": [],
     }
 

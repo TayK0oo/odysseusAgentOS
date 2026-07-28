@@ -699,3 +699,41 @@ volumes:
   n8n-data:
   langfuse-db-data:
   postgres-data:
+
+  # ============================================================
+  # G1 — WCAG Accessibility Scanner (pa11y)
+  # ============================================================
+  pa11y:
+    runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
+    image: node:22-slim
+    command: >
+      sh -c "npm install -g pa11y-ci && pa11y-ci --config /workspace/.pa11yci.json || true"
+    profiles: [quality, production]
+    volumes:
+      - .:/workspace:ro
+    environment:
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+
+  # ============================================================
+  # G3 — Load Testing (k6)
+  # ============================================================
+  k6:
+    runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
+    image: grafana/k6:latest
+    command: >
+      sh -c "echo 'k6 ready — run via MCP or manual: docker compose run k6 run /workspace/tests/load/k6-test.js'"
+    profiles: [quality, production]
+    volumes:
+      - .:/workspace:ro
+    environment:
+      - K6_WEB_DASHBOARD=true
+      - K6_WEB_DASHBOARD_PORT=5665
+      - TARGET_URL=http://odysseus:7000
+    ports:
+      - "127.0.0.1:5665:5665"
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"

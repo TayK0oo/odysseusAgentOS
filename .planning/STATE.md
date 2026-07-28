@@ -1,63 +1,52 @@
 # STATE — Odysseus AgentOS
 
-**Date :** 2026-07-21 | **Méthodologie :** GSD | **Modèle :** balanced
+**Date :** 2026-07-28 | **Méthodologie :** GSD | **Modèle :** balanced
+**Score Audit :** 90% (8 axes) | **Pipeline :** 7 phases opérationnelles
 
 ---
 
 ## Position actuelle
 
-- **Milestone 1 (Fondations) :** ✅ COMPLET — Odysseus de base opérationnel
-- **Milestone 2 (Inventaire) :** ✅ COMPLET — SFD v3.0, INDEX-MAITRE, cartographie
-- **Milestone 3 (Outils) :** ✅ COMPLET — 22 outils intégrés, 38 kill-switches
-- **Milestone 4 (Documentation) :** ✅ COMPLET — 41 fichiers docs, Mermaid diagrams
-- **Milestone 5 (Activation) :** 🔨 EN COURS — Phase 5.1.5 (Document de Conception) ✅
-- **Milestone 6 (SFD manquants) :** ✅ COMPLET — 100% alignement SFD v3.0
-  - **173 tests, 0 échec**
-  - 11 modules codés + testés + wirés dans app.py
-  - 12 kill-switches cœur ON par défaut
-  - 20/20 modules SFD couverts
+- **M1 Fondations :** ✅ COMPLET
+- **M2 Inventaire :** ✅ COMPLET
+- **M3 Outils :** ✅ COMPLET
+- **M4 Documentation :** ✅ COMPLET (10 master-ref + 12 certification)
+- **M5 Activation :** ✅ COMPLET (45+ kill-switches ON)
+- **M6 SFD manquants :** ✅ COMPLET (100% alignement, 90% audit)
+- **M7 OpenCode Migration :** ✅ COMPLET (Big Bang — 8,014 lignes supprimées)
+- **M8 Certification 100% :** 🔨 EN COURS
+  - Pipeline 7 phases live (E2E test passé)
+  - 16 agents OpenCode
+  - 10 packages @agentos/sfd-*
+  - 62 event types (48 confirmés live)
+  - Trinité: CBM(LIVE) + Graphify + Obsidian
+  - Certification Guide Dev: 86% (83/97)
+  - Objectif: 100% (intégration 4 gaps techniques)
 
-## Prochaine action
-
-**Phase 5.1 — Installer les dépendances :**
-```bash
-pip install -r requirements.txt
-npm install
-npm run css:build
-```
-
-## Fichiers de référence
+## Fichiers clés
 
 | Fichier | Rôle |
 |---------|------|
-| `SFD.md` | Spécification fonctionnelle v3.0 |
-| `.planning/INDEX-MAITRE.md` | Cartographie exhaustive |
-| `.planning/ROADMAP.md` | GSD roadmap (6 milestones) |
-| `.planning/PLANIFICATION-COMPLETE.md` | SFD vs Code + plan d'action |
-| `.planning/orchestration/global-v1/MASTER-PLAN.md` | Plan orchestration (22 agents) |
-| `docs/README.md` | Hub documentation |
+| `docs/master-ref/01-SFD-v3.0.md` | Spécification 22 principes, 20 modules |
+| `docs/master-ref/11-VERIFICATION-COMPLETE.md` | Audit complet vs SFD |
+| `docs/master-ref/12-CERTIFICATION-GUIDE-DEV.md` | Certification vs Guide Dev |
+| `src/opencode_engine.py` | Engine pipeline 7 phases |
+| `opencode.json` | Config OpenCode (plugins, agents) |
+| `docker-compose.yml` | 11 services Docker |
 
-## État des tests
+## Gaps à fermer pour 100%
 
-- **Passés :** 4,393 / 4,566 (96.7%)
-- **Échecs :** 149 (95% environnementaux)
-- **Erreurs collection :** 5 (nouveaux modules orchestrator)
-- **Core/auth/DB :** 0% couvert — priorité
-
-## Kill-switches actifs
-
-- `ODYSSEUS_DESTRUCTIVE_GATE=on` (seul switch actif)
-- Tous les autres = OFF (38 switches dormants)
-
-## Décisions
-
-1. Architecture "câblé mais dormant" — tout nouveau module est OFF par défaut
-2. Documentation = docs/ structurée + SFD.md + INDEX-MAITRE.md
-3. Tests = pytest avec taxonomie par domaine
-4. Déploiement = Docker Compose avec profils
+| # | Gap | Phase Guide | Solution |
+|---|-----|------------|----------|
+| G1 | WCAG accessibility scanner | Conception §2.9 | pa11y MCP server |
+| G2 | i18n detection | Conception §2.9 | i18n skill + scan tool |
+| G3 | Load testing (k6) | Qualité §6.2 | k6 MCP server |
+| G4 | Performance profiling | Dev §4.7 | Profiling tool intégré |
+| G5 | 8 aspects partiels → 100% | Multi | Perfection pipeline |
 
 ## Session
 
-- **Dernière session :** 2026-07-21
-- **Branche :** `feat/inventaire-global-v1`
-- **Commit HEAD :** planification + documentation refonte
+- **Dernière session :** 2026-07-28
+- **Branche :** `feat/in`
+- **Docker :** 10/11 services healthy
+- **Cockpit :** http://127.0.0.1:7000
