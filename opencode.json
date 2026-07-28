@@ -10,7 +10,8 @@
     "@agentos/sfd-visual",
     "@agentos/sfd-classify",
     "@agentos/sfd-security",
-    "@agentos/sfd-discovery"
+    "@agentos/sfd-discovery",
+    "@agentos/sfd-heartbeat"
   ],
   "permission": {
     "edit": "ask",

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class MemoryWriter:
     """Writes [stated] facts to MD files after each run."""
     
-    def __init__(self, base_path: str = "workspace/memory"):
+    def __init__(self, base_path: str = "obsidian-vault"):
         self.base_path = base_path
         os.makedirs(base_path, exist_ok=True)
         self._stats = {"written": 0, "omitted": 0}

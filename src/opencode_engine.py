@@ -86,7 +86,7 @@ class OpenCodeEngine:
         "BUILD":    ["executor", "gsd-executor"],
         "QUALITY":  ["reviewer", "security-audit"],
         "AUTOEVAL": ["gsd-verifier"],
-        "MEMORY_OBSERVE": ["gsd-roadmapper"],
+        "MEMORY_OBSERVE": ["gsd-roadmapper", "auto-evolve"],
     }
 
     # Model per phase
