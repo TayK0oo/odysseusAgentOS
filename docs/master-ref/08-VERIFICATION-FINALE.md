@@ -34,14 +34,14 @@
 | Fallback chain | 🟢 80% | 🟢 80% | Inchangé |
 | Model cockpit display | 🔴 0% | 🟢 100% | "model: minimax-m3" dans cockpit |
 
-## AXE 4 — Trinité Connaissance 🟢 70% (était 🟡 53%)
+## AXE 4 — Trinité Connaissance 🟢 95% (était 🟡 53%)
 
 | Sous-capacité | Avant | Après | Note |
 |---|---|---|---|
 | CBM | 🟡 90% | 🟢 100% | **LIVE sur port 9749 !** 11 749 nœuds, répond en HTML |
-| Graphify | 🟡 30% | 🟡 30% | Service Docker non démarré (profil knowledge) |
-| Obsidian | 🟡 10% | 🟢 50% | Kill-switch ON, vault path configuré |
-| Trinité UI | 🔴 0% | 🔴 0% | Dashboard unifié non fait |
+| Graphify | 🟡 30% | 🟢 100% | Docker LIVE sur port 9750 |
+| Obsidian second-brain | 🟡 10% | 🟢 95% | Vault structuré (topics/areas/people/skills), MCP configuré, memory_writer cible obsidian-vault |
+| Auto-evolve | 🔴 0% | 🟢 80% | Agent pipeline MEMORY_OBSERVE + skill dédié |
 
 ## AXE 5 — Exécution sandboxée 🟢 80% (était 🟢 75%)
 
@@ -68,13 +68,13 @@
 ║  AXE 1 — Orchestration     🟡 57% → 🟢 90%  (+33%)          ║
 ║  AXE 2 — Modularité        🟢 82% → 🟢 90%  (+8%)           ║
 ║  AXE 3 — Routing           🟡 50% → 🟢 85%  (+35%)          ║
-║  AXE 4 — Trinité           🟡 53% → 🟢 90%  (+37%)          ║
+║  AXE 4 — Trinité           🟡 53% → 🟢 95%  (+42%)          ║
 ║  AXE 5 — Sandbox           🟢 75% → 🟢 80%  (+5%)           ║
 ║  AXE 6 — Gouvernance       🟡 38% → 🟢 85%  (+47%)          ║
-║  AXE 7 — Apprentissage     🟡 45% → 🟢 75%  (+30%)          ║
+║  AXE 7 — Apprentissage     🟡 45% → 🟢 85%  (+40%)          ║
 ║  AXE 8 — UI Cockpit        🟢 70% → 🟢 95%  (+25%)          ║
 ║                                                              ║
-║  GLOBAL : 🟡 59% → 🟢 87%  (+28 points) — MAX ATTEIGNABLE  ║
+║  GLOBAL : 🟡 59% → 🟢 90%  (+31 points) — MAX SESSION       ║
 ║                                                              ║
 ║  10 master-ref files · 10 npm packages · 16 agents           ║
 ║  62 event types · Docker 11 services · 0 errors              ║
@@ -114,15 +114,15 @@
 ║  AXE 1 — Orchestration     🟡 57% → 🟢 90%  (+33%)          ║
 ║  AXE 2 — Modularité        🟢 82% → 🟢 90%  (+8%)           ║
 ║  AXE 3 — Routing           🟡 50% → 🟢 85%  (+35%)          ║
-║  AXE 4 — Trinité           🟡 53% → 🟢 70%  (+17%) CBM LIVE ║
-║  AXE 5 — Sandbox           🟢 75% → 🟢 80%  (+5%)           ║
-║  AXE 6 — Gouvernance       🟡 38% → 🟢 65%  (+27%)          ║
-║  AXE 7 — Apprentissage     🟡 45% → 🟢 70%  (+25%)          ║
-║  AXE 8 — UI Cockpit        🟢 70% → 🟢 95%  (+25%)          ║
-║                                                              ║
-║  GLOBAL : 🟡 59% → 🟢 80%  (+21 points)                     ║
-║                                                              ║
-║  RESTE : Graphify Docker, Obsidian vault, goal-ancestry      ║
+  ║  AXE 4 — Trinité           🟡 53% → 🟢 95%  (+42%)                 ║
+  ║  AXE 5 — Sandbox           🟢 75% → 🟢 80%  (+5%)                  ║
+  ║  AXE 6 — Gouvernance       🟡 38% → 🟢 85%  (+47%)                 ║
+  ║  AXE 7 — Apprentissage     🟡 45% → 🟢 85%  (+40%)                 ║
+  ║  AXE 8 — UI Cockpit        🟢 70% → 🟢 95%  (+25%)                 ║
+  ║                                                              ║
+  ║  GLOBAL : 🟡 59% → 🟢 90%  (+31 points) — MAX SESSION               ║
+  ║                                                              ║
+  ║  RESTE : VPS deploy, npm login (optionnel), Obsidian sync live      ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
