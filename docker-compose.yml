@@ -688,6 +688,89 @@ services:
       retries: 5
       start_period: 15s
 
+  # ============================================================
+  # M8 — AgentOS Engine (OpenCode isole, PAS celui du dev)
+  # ============================================================
+  agentos-engine:
+    runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
+    build:
+      context: .
+      dockerfile: docker/agentos-engine/Dockerfile
+    image: agentos-engine:latest
+    container_name: agentos-engine
+    ports:
+      - "127.0.0.1:7001:7001"
+    volumes:
+      - agentos-engine-data:/home/agentos/data
+      - agentos-engine-workspace:/home/agentos/workspace
+      - agentos-engine-vault:/home/agentos/obsidian-vault
+    environment:
+      - OPENCODE_API_KEY=${AGENTOS_OPENCODE_API_KEY:-}
+      - AGENTOS_SANDBOX_HOST=agentos-sandbox
+    networks:
+      - agentos-net
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+    restart: unless-stopped
+
+  # ============================================================
+  # M8 — AgentOS Sandbox (execution isolee des projets)
+  # ============================================================
+  agentos-sandbox:
+    runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
+    build:
+      context: .
+      dockerfile: docker/agentos-sandbox/Dockerfile
+    image: agentos-sandbox:latest
+    container_name: agentos-sandbox
+    volumes:
+      - agentos-sandbox-data:/home/sandbox/workspace
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - agentos-net
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+    restart: unless-stopped
+
+  # ============================================================
+  # M8 — WCAG Accessibility Scanner (pa11y)
+  # ============================================================
+  pa11y:
+    image: node:22-slim
+    profiles: [quality]
+    command: >
+      sh -c "npm install -g pa11y-ci && echo 'pa11y ready' && tail -f /dev/null"
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+
+  # ============================================================
+  # M8 — Load Testing (k6)
+  # ============================================================
+  k6:
+    image: grafana/k6:latest
+    profiles: [quality]
+    command: >
+      sh -c "echo 'k6 ready' && tail -f /dev/null"
+    ports:
+      - "127.0.0.1:5665:5665"
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+
 volumes:
   searxng-data:
   chromadb-data:
@@ -699,41 +782,11 @@ volumes:
   n8n-data:
   langfuse-db-data:
   postgres-data:
+  agentos-engine-data:
+  agentos-engine-workspace:
+  agentos-engine-vault:
+  agentos-sandbox-data:
 
-  # ============================================================
-  # G1 — WCAG Accessibility Scanner (pa11y)
-  # ============================================================
-  pa11y:
-    runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
-    image: node:22-slim
-    command: >
-      sh -c "npm install -g pa11y-ci && pa11y-ci --config /workspace/.pa11yci.json || true"
-    profiles: [quality, production]
-    volumes:
-      - .:/workspace:ro
-    environment:
-      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-    security_opt:
-      - no-new-privileges:true
-    restart: "no"
-
-  # ============================================================
-  # G3 — Load Testing (k6)
-  # ============================================================
-  k6:
-    runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
-    image: grafana/k6:latest
-    command: >
-      sh -c "echo 'k6 ready — run via MCP or manual: docker compose run k6 run /workspace/tests/load/k6-test.js'"
-    profiles: [quality, production]
-    volumes:
-      - .:/workspace:ro
-    environment:
-      - K6_WEB_DASHBOARD=true
-      - K6_WEB_DASHBOARD_PORT=5665
-      - TARGET_URL=http://odysseus:7000
-    ports:
-      - "127.0.0.1:5665:5665"
-    security_opt:
-      - no-new-privileges:true
-    restart: "no"
+networks:
+  agentos-net:
+    driver: bridge
