@@ -37,24 +37,18 @@ RUN cd /home/agentos/packages/sfd-eventbus && npm install && npm link && \
     @agentos/sfd-durable @agentos/sfd-prefs @agentos/sfd-visual @agentos/sfd-classify \
     @agentos/sfd-security @agentos/sfd-discovery @agentos/sfd-heartbeat
 
-# Copy bridge script
-COPY --chown=agentos:agentos src/opencode_bridge.py /home/agentos/bridge.py
-COPY --chown=agentos:agentos src/opencode_engine.py /home/agentos/engine.py
+# Python deps for the bridge server
+RUN pip install --no-cache-dir fastapi uvicorn httpx
 
-# Workspace for project execution (INTERNAL only, no host mount)
-RUN mkdir -p /home/agentos/workspace && chown agentos:agentos /home/agentos/workspace
+# Copy bridge server
+COPY docker/agentos-engine/engine_server.py /home/agentos/server.py
 
-# Data directory (traces, memory, etc.)
-RUN mkdir -p /home/agentos/data/traces /home/agentos/obsidian-vault
-RUN chown -R agentos:agentos /home/agentos/data /home/agentos/obsidian-vault
+# Copy engine code
+COPY src/opencode_engine.py /home/agentos/engine.py
+COPY src/perf_profiler.py /home/agentos/perf_profiler.py
 
 USER agentos
 ENV HOME=/home/agentos
-ENV OPENCODE_HOME=/home/agentos/.opencode
-
-# The engine API key (separate from user's key)
-# Set via docker-compose environment
-ENV OPENCODE_API_KEY=""
 
 EXPOSE 7001
-CMD ["sh", "-c", "echo 'AgentOS Engine ready' && tail -f /dev/null"]
+CMD ["python", "/home/agentos/server.py"]

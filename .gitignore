@@ -98,6 +98,9 @@ dev-docs/
 # Windows-port working docs (local only, not for public repo)
 docs/windows-port/
 
+# OpenCode session metadata (run-continuation state)
+.omo/
+
 # Local config
 compound.config.json
 *.error.log
