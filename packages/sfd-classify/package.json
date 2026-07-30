@@ -1,1 +1,0 @@
-{"name":"@agentos/sfd-classify","version":"1.0.0","description":"SFD Data Classification — 5 retention levels, right to be forgotten","main":"index.ts","dependencies":{"@opencode-ai/plugin":"latest"}}

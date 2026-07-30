@@ -1,1 +1,0 @@
-{"name":"@agentos/sfd-memory","version":"1.0.0","description":"SFD Memory with Provenance — [stated]/[observed]/[inferred] tags, MD files + ChromaDB, hash versioning","main":"index.ts","dependencies":{"@opencode-ai/plugin":"latest"}}
