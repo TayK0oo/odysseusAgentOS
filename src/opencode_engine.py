@@ -9,7 +9,6 @@ import yaml, json, logging, os, asyncio, re, time, uuid
 from typing import AsyncGenerator, Optional, Callable
 from datetime import datetime, timezone
 
-from src.event_bus import EventBus, _event_bus
 from src.perf_profiler import profiler as perf_profiler
 
 logger = logging.getLogger(__name__)
