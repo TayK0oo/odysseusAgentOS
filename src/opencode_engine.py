@@ -19,14 +19,35 @@ PHASES = ["CLASSIFY", "KNOW", "PLAN", "BUILD", "QUALITY", "AUTOEVAL", "MEMORY_OB
 # Event Bus (Python-side — mirrors the TS plugin)
 # ============================================================================
 class EventBus:
-    """Central event bus — 15 families, 62 event types."""
-    
+    """Central event bus — 15 families, 62 event types.
+
+    Format imposse par master-ref 05-EVENT-BUS:
+    { event_id, timestamp, source, type, data, trace_id }
+
+    trace_id: correlation cross-familles pour une meme run (UC-12 audit).
+    Defini au demarrage du walk() et propage a tous les events de la run.
+    """
+
     def __init__(self, trace_dir: str = "data/traces"):
         self.trace_dir = trace_dir
         self._subscribers: dict[str, list[Callable]] = {}
         self._buffer: list[dict] = []
+        self._current_trace: Optional[str] = None
         os.makedirs(trace_dir, exist_ok=True)
-    
+
+    def start_trace(self, trace_id: Optional[str] = None) -> str:
+        """Demarre une nouvelle trace pour la run courante (idempotent)."""
+        self._current_trace = trace_id or str(uuid.uuid4())[:12]
+        return self._current_trace
+
+    def end_trace(self) -> None:
+        """Termine la trace courante (les events ulterieux n'ont plus trace_id)."""
+        self._current_trace = None
+
+    @property
+    def current_trace(self) -> Optional[str]:
+        return self._current_trace
+
     def emit(self, source: str, type: str, data: dict = None) -> dict:
         event = {
             "event_id": str(uuid.uuid4())[:8],
@@ -34,6 +55,7 @@ class EventBus:
             "source": source,
             "type": type,
             "data": data or {},
+            "trace_id": self._current_trace,
         }
         for handler in self._subscribers.get(type, []) + self._subscribers.get("*", []):
             try: handler(event)
@@ -42,10 +64,10 @@ class EventBus:
         if len(self._buffer) > 50:
             self._flush()
         return event
-    
+
     def on(self, type: str, handler: Callable):
         self._subscribers.setdefault(type, []).append(handler)
-    
+
     def _flush(self):
         if not self._buffer: return
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -174,10 +196,14 @@ class OpenCodeEngine:
     async def walk(self, agent_stream_fn) -> AsyncGenerator[str, None]:
         """Walk phases, emitting SSE events with full event bus integration."""
 
+        # Start a trace so every event of this run shares a trace_id (UC-12)
+        trace_id = self.bus.start_trace()
+        logger.info(f"Walk start session={self.session_id[:8]} trace_id={trace_id} mode-pending")
+
         # Mode detection
         mode = "agent" if self.is_agent_mode() else "chat"
-        self.bus.emit("user", "message_sent", {"mode": mode, "preview": self.message[:100]})
-        yield f"data: {json.dumps({'type': 'mode_detected', 'mode': mode})}\n\n"
+        self.bus.emit("user", "message_sent", {"mode": mode, "preview": self.message[:100], "trace_id": trace_id})
+        yield f"data: {json.dumps({'type': 'mode_detected', 'mode': mode, 'trace_id': trace_id})}\n\n"
 
         if mode == "chat":
             self.bus.emit("phase", "phase_enter", {"phase": "CHAT", "index": 1, "total": 1})
