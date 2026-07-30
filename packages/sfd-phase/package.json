@@ -1,7 +1,0 @@
-{
-  "name": "@agentos/sfd-phase",
-  "version": "1.0.0",
-  "description": "SFD 7-phase state machine for OpenCode — enforces CLASSIFY→KNOW→PLAN→BUILD→QUALITY→AUTOEVAL→MEMORY",
-  "main": "index.ts",
-  "dependencies": { "@opencode-ai/plugin": "latest" }
-}

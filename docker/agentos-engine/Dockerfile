@@ -22,20 +22,9 @@ COPY --chown=agentos:agentos opencode.json /home/agentos/opencode.json
 COPY --chown=agentos:agentos .opencode/ /home/agentos/.opencode/
 COPY --chown=agentos:agentos packages/ /home/agentos/packages/
 
-# Install local SFD packages
+# Install local SFD eventbus package (only one with real TS impl; sfd-phase is a custom tool loaded via .opencode/tools/)
 RUN cd /home/agentos/packages/sfd-eventbus && npm install && npm link && \
-    cd /home/agentos/packages/sfd-phase && npm install && npm link && \
-    cd /home/agentos/packages/sfd-memory && npm install && npm link && \
-    cd /home/agentos/packages/sfd-durable && npm install && npm link && \
-    cd /home/agentos/packages/sfd-prefs && npm install && npm link && \
-    cd /home/agentos/packages/sfd-visual && npm install && npm link && \
-    cd /home/agentos/packages/sfd-classify && npm install && npm link && \
-    cd /home/agentos/packages/sfd-security && npm install && npm link && \
-    cd /home/agentos/packages/sfd-discovery && npm install && npm link && \
-    cd /home/agentos/packages/sfd-heartbeat && npm install && npm link && \
-    cd /home/agentos && npm link @agentos/sfd-eventbus @agentos/sfd-phase @agentos/sfd-memory \
-    @agentos/sfd-durable @agentos/sfd-prefs @agentos/sfd-visual @agentos/sfd-classify \
-    @agentos/sfd-security @agentos/sfd-discovery @agentos/sfd-heartbeat
+    cd /home/agentos && npm link @agentos/sfd-eventbus
 
 # Python deps for the bridge server
 RUN pip install --no-cache-dir fastapi uvicorn httpx

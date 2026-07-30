@@ -1,1 +1,0 @@
-{"name":"@agentos/sfd-prefs","version":"1.0.0","description":"SFD Preferences — 5-level resolution, behavioral guardrails","main":"index.ts","dependencies":{"@opencode-ai/plugin":"latest"}}

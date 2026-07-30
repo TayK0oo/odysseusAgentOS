@@ -94,19 +94,10 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Install OpenCode CLI — native agent core for Odysseus
 RUN curl -fsSL https://opencode.ai/install | bash
 
-# Bundle local SFD packages (no npm publish needed)
+# Bundle local SFD eventbus (only package with real TS impl; sfd-phase is a custom tool loaded via .opencode/tools/)
 COPY packages/ /app/packages/
 RUN cd /app/packages/sfd-eventbus && npm install && npm link && \
-    cd /app/packages/sfd-phase && npm install && npm link && \
-    cd /app/packages/sfd-memory && npm install && npm link && \
-    cd /app/packages/sfd-durable && npm install && npm link && \
-    cd /app/packages/sfd-prefs && npm install && npm link && \
-    cd /app/packages/sfd-visual && npm install && npm link && \
-    cd /app/packages/sfd-classify && npm install && npm link && \
-    cd /app/packages/sfd-security && npm install && npm link && \
-    cd /app/packages/sfd-discovery && npm install && npm link && \
-    cd /app/packages/sfd-heartbeat && npm install && npm link && \
-    cd /app && npm link @agentos/sfd-eventbus @agentos/sfd-phase @agentos/sfd-memory @agentos/sfd-durable @agentos/sfd-prefs @agentos/sfd-visual @agentos/sfd-classify @agentos/sfd-security @agentos/sfd-discovery @agentos/sfd-heartbeat
+    cd /app && npm link @agentos/sfd-eventbus
 
 EXPOSE 7000
 

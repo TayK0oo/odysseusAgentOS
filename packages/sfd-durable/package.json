@@ -1,1 +1,0 @@
-{"name":"@agentos/sfd-durable","version":"1.0.0","description":"SFD Durable Execution — SQLite workflows, retry policies, saga compensation, human approval signals","main":"index.ts","dependencies":{"@opencode-ai/plugin":"latest","better-sqlite3":"latest"}}
