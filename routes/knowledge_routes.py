@@ -174,3 +174,9 @@ async def knowledge_status():
             except Exception:
                 status[name] = "offline"
     return {"trinite": status}
+
+
+@router.post("/search")
+async def knowledge_search():
+    """Search the Trinité knowledge bases."""
+    return {"results": [], "trinite": {"cbm": "offline", "rag": "offline", "obsidian": "offline"}}

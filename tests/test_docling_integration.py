@@ -10,7 +10,6 @@ Covers:
 
 import os
 import sys
-import types
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -97,22 +96,18 @@ class TestProcessPdfDocling:
         # When ODYSSEUS_DOCLING is not set, docling_md stays None
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("ODYSSEUS_DOCLING", None)
-            # Mock pypdf to avoid needing a real PDF
+            # Mock pypdf (the module _process_pdf imports locally) to avoid
+            # needing a real PDF file.
             fake_reader = MagicMock()
             fake_page = MagicMock()
             fake_page.extract_text.return_value = "Hello from pypdf"
             fake_page.images = []
             fake_reader.pages = [fake_page]
-            with patch("src.document_processor.PdfReader", return_value=fake_reader):
-                # Need to patch the import inside the function
-                with patch.dict("sys.modules", {"pypdf": types.ModuleType("pypdf")}):
-                    # Re-import to get fresh PdfReader reference
-                    pass
-            # Simpler: just verify the function works with the original pypdf path
-            # by checking it returns a string containing [PDF content]
-            result = _process_pdf.__wrapped__ if hasattr(_process_pdf, '__wrapped__') else None
-            # The actual function call needs a real file; we test the flow via mock
-            assert True  # Structure check passes
+            with patch("pypdf.PdfReader", return_value=fake_reader) as mock_reader:
+                result = _process_pdf("/fake/test.pdf")
+        assert mock_reader.called
+        assert "Hello from pypdf" in result
+        assert "Docling Markdown" not in result
 
     def test_docling_path_used_when_enabled(self):
         """When kill-switch on and docling returns markdown → Docling Markdown marker."""
@@ -139,17 +134,17 @@ class TestProcessPdfDocling:
                     mock_proc.available = True
                     mock_proc.pdf_to_markdown.return_value = None  # Docling failed
                     mock_get.return_value = mock_proc
-                    # pypdf path: mock the reader
+                    # pypdf path: mock the reader (module imported locally)
                     fake_reader = MagicMock()
                     fake_page = MagicMock()
                     fake_page.extract_text.return_value = "fallback text"
                     fake_page.images = []
                     fake_reader.pages = [fake_page]
-                    with patch.dict("sys.modules", {"pypdf": types.ModuleType("pypdf")}):
-                        with patch("pypdf.PdfReader", return_value=fake_reader):
-                            result = _process_pdf("/fake/test.pdf")
-                            # Should NOT contain Docling marker
-                            assert "Docling Markdown" not in result
+                    with patch("pypdf.PdfReader", return_value=fake_reader) as mock_reader:
+                        result = _process_pdf("/fake/test.pdf")
+                        # Should NOT contain Docling marker
+                        assert "Docling Markdown" not in result
+                        assert mock_reader.called
 
 
 # ---------------------------------------------------------------------------

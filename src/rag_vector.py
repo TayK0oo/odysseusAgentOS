@@ -126,6 +126,9 @@ def _rewrite_owner_path(value: str, path_map: Dict[str, str], path_prefixes: Lis
 class VectorRAG:
     """RAG system using ChromaDB vector storage with hybrid search."""
 
+    # Class-level default so attribute access is safe when __init__ fails early
+    _qdrant = None
+
     def __init__(self, persist_directory: str = CHROMA_DIR):
         self.persist_directory = persist_directory
         self._collection = None

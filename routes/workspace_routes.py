@@ -82,4 +82,9 @@ def setup_workspace_routes():
         resolved = vet_workspace(path)
         return {"ok": resolved is not None, "path": resolved}
 
+    @router.get("/read")
+    async def workspace_read():
+        """Read a workspace file (stub)."""
+        return {"ok": True, "path": "", "content": ""}
+
     return router

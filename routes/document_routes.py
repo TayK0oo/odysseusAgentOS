@@ -1758,4 +1758,9 @@ def setup_document_routes(session_manager, upload_handler=None) -> APIRouter:
         finally:
             db.close()
 
+    @router.post("/api/documents")
+    async def document_root_create():
+        """Create a document (stub)."""
+        return {"id": "", "status": "ok"}
+
     return router

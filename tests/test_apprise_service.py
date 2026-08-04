@@ -2,6 +2,7 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import apprise
 import pytest
 
 from services.notifications.apprise_service import AppriseService, apprise_enabled
@@ -60,17 +61,21 @@ def test_add_channels_multiple():
 
 def test_channel_count():
     svc = AppriseService()
-    with patch.object(svc._apobj, "__len__", return_value=5):
+    # len() resolves __len__ on the TYPE, not the instance — patch the class.
+    with patch.object(apprise.Apprise, "__len__", return_value=5):
         assert svc.channel_count == 5
 
 
 @pytest.mark.asyncio
 async def test_notify_success():
     svc = AppriseService()
-    with patch.object(
-        svc._apobj, "async_notify", new_callable=AsyncMock, return_value=True
-    ) as mock_notify:
-        result = await svc.notify("Hello", title="Test", tags=["info"])
+    # Apprise() has __len__ == 0 (falsy) so notify() short-circuits before
+    # async_notify — patch __len__ on the class so the guard passes.
+    with patch.object(apprise.Apprise, "__len__", return_value=1):
+        with patch.object(
+            svc._apobj, "async_notify", new_callable=AsyncMock, return_value=True
+        ) as mock_notify:
+            result = await svc.notify("Hello", title="Test", tags=["info"])
     assert result is True
     mock_notify.assert_called_once_with(body="Hello", title="Test", tag=["info"])
 
@@ -78,20 +83,22 @@ async def test_notify_success():
 @pytest.mark.asyncio
 async def test_notify_failure():
     svc = AppriseService()
-    with patch.object(
-        svc._apobj, "async_notify", new_callable=AsyncMock, return_value=False
-    ):
-        result = await svc.notify("fail")
+    with patch.object(apprise.Apprise, "__len__", return_value=1):
+        with patch.object(
+            svc._apobj, "async_notify", new_callable=AsyncMock, return_value=False
+        ):
+            result = await svc.notify("fail")
     assert result is False
 
 
 @pytest.mark.asyncio
 async def test_notify_exception():
     svc = AppriseService()
-    with patch.object(
-        svc._apobj, "async_notify", new_callable=AsyncMock, side_effect=RuntimeError("down")
-    ):
-        result = await svc.notify("boom")
+    with patch.object(apprise.Apprise, "__len__", return_value=1):
+        with patch.object(
+            svc._apobj, "async_notify", new_callable=AsyncMock, side_effect=RuntimeError("down")
+        ):
+            result = await svc.notify("boom")
     assert result is False
 
 
@@ -99,7 +106,7 @@ async def test_notify_exception():
 async def test_notify_no_channels():
     svc = AppriseService()
     # Empty Apprise object -> len == 0
-    with patch.object(svc._apobj, "__len__", return_value=0):
+    with patch.object(apprise.Apprise, "__len__", return_value=0):
         result = await svc.notify("empty")
     assert result is False
 

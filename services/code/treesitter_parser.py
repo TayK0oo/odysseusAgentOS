@@ -138,12 +138,12 @@ class TreeSitterService:
         if not query:
             # Fallback: walk the tree manually
             return _walk_functions_manual(tree.root_node, source)
-        captures = query.captures(tree.root_node)
+        from tree_sitter import QueryCursor
+        capture_groups = QueryCursor(query).captures(tree.root_node)
         results = []
         text = source.decode("utf-8", errors="replace")
         lines = text.split("\n")
-        for node_list in captures.get("fn", []):
-            for node in node_list:
+        for node in capture_groups.get("fn", []):
                 # Walk up to find the full function_definition node
                 func_node = node
                 while func_node and func_node.type != "function_definition":
@@ -195,9 +195,9 @@ class TreeSitterService:
             query = parser.language.query(
                 f"(call function: (identifier) @caller (#eq? @caller {function_name}))"
             )
-            captures = query.captures(tree.root_node)
-            for node_list in captures.get("caller", []):
-                for node in node_list:
+            from tree_sitter import QueryCursor
+            capture_groups = QueryCursor(query).captures(tree.root_node)
+            for node in capture_groups.get("caller", []):
                     line_num = node.start_point[0] + 1
                     col = node.start_point[1]
                     context = lines[line_num - 1].strip() if line_num <= len(lines) else ""
