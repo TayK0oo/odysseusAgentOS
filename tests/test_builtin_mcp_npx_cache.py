@@ -80,6 +80,9 @@ def test_npx_cache_check_falls_back_when_async_subprocess_is_unsupported(monkeyp
         captured["kwargs"] = kwargs
         return subprocess.CompletedProcess(args, 0, stdout=b"1.2.3\n", stderr=b"")
 
+    # Force a cache miss so the npx fallback path is exercised regardless of
+    # the machine's real npm cache (e.g. LOCALAPPDATA\npm-cache).
+    monkeypatch.setattr(builtin_mcp, "_is_package_in_npx_cache", lambda spec: False)
     monkeypatch.setattr(builtin_mcp.asyncio, "create_subprocess_exec", unsupported_exec)
     monkeypatch.setattr(builtin_mcp.subprocess, "run", fake_run)
     monkeypatch.setenv("HOME", str(tmp_path))
@@ -111,6 +114,8 @@ def test_npx_cache_check_fallback_treats_timeout_as_cache_miss(monkeypatch, tmp_
     def fake_run(args, **kwargs):
         raise subprocess.TimeoutExpired(args, kwargs["timeout"])
 
+    # Force a cache miss (see fallback test above).
+    monkeypatch.setattr(builtin_mcp, "_is_package_in_npx_cache", lambda spec: False)
     monkeypatch.setattr(builtin_mcp.asyncio, "create_subprocess_exec", unsupported_exec)
     monkeypatch.setattr(builtin_mcp.subprocess, "run", fake_run)
     monkeypatch.setenv("HOME", str(tmp_path))

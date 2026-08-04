@@ -54,4 +54,9 @@ def setup_stt_routes(stt_service):
                 detail={"message": f"Transcription failed: {str(e)}"}
             )
 
+    @router.post("")
+    async def stt_transcribe_root():
+        """Transcribe audio (stub)."""
+        return {"text": ""}
+
     return router

@@ -51,6 +51,9 @@ class MemoryVectorStore:
 
     COLLECTION_NAME = "odysseus_memories"
 
+    # Class-level default so attribute access is safe when __init__ fails early
+    _qdrant = None
+
     def __init__(self, data_dir: str, embedding_model=None):
         self._model = embedding_model
         self._collection = None

@@ -14,6 +14,8 @@ import ast
 import os
 from pathlib import Path
 
+from tests.helpers.symlink import skip_if_no_symlink
+
 SRC = Path(__file__).resolve().parent.parent / "routes" / "personal_routes.py"
 
 
@@ -37,6 +39,7 @@ def test_confinement_uses_realpath_not_abspath():
     )
 
 
+@skip_if_no_symlink
 def test_realpath_catches_symlink_escape(tmp_path):
     # The principle the fix relies on: abspath keeps the symlink path inside the
     # base (confinement fooled); realpath resolves it outside (confinement holds).

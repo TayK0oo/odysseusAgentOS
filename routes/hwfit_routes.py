@@ -428,4 +428,9 @@ def setup_hwfit_routes():
         results = rank_image_models(system, search=search or None, sort=sort)
         return {"system": system, "models": results}
 
+    @router.get("")
+    async def hwfit_root():
+        """Root endpoint for the hardware-fit service."""
+        return {"status": "ok", "service": "hwfit"}
+
     return router

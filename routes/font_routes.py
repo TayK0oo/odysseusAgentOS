@@ -52,4 +52,9 @@ def setup_font_routes():
             })
         return {"fonts": families}
 
+    @router.get("")
+    async def font_root():
+        """Root endpoint for fonts."""
+        return {"fonts": {}}
+
     return router

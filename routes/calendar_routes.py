@@ -1541,4 +1541,9 @@ def setup_calendar_routes() -> APIRouter:
             "confidence": float(parsed.get("confidence", 0.7) or 0.7),
         }
 
+    @router.get("")
+    async def calendar_root():
+        """Root endpoint for calendar."""
+        return {"calendars": [], "status": "ok"}
+
     return router

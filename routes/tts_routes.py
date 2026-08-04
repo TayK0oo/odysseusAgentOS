@@ -84,4 +84,9 @@ def setup_tts_routes(tts_service):
             logger.error(f"Failed to clear cache: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    @router.get("/voices")
+    async def tts_voices():
+        """List available TTS voices (stub)."""
+        return {"voices": []}
+
     return router

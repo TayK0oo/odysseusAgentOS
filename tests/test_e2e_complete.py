@@ -344,7 +344,8 @@ class TestE2E_Email:
         assert route_exists("POST", "/api/email/send")
 
     def test_search(self):
-        assert route_exists("POST", "/api/email/search")
+        # Email search is exposed as a GET route.
+        assert route_exists("GET", "/api/email/search")
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -636,7 +637,8 @@ class TestE2E_UploadAdmin:
         "/api/admin/wipe/memory",
     ])
     def test_admin_wipe(self, path):
-        assert route_exists("POST", path)
+        # Wipe routes are DELETE, not POST.
+        assert route_exists("DELETE", path)
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -645,10 +647,14 @@ class TestE2E_UploadAdmin:
 
 class TestE2E_Cookbook:
     def test_cookbook_routes_exist(self):
-        # Cookbook routes use /api/cookbook prefix
-        for p in ["/api/cookbook/setup", "/api/cookbook/status"]:
+        # GET endpoints are safe to call. POST /api/cookbook/setup would run a
+        # real SSH setup command, so we only assert its existence via the
+        # OpenAPI spec instead of invoking it.
+        for p in ["/api/cookbook/state", "/api/cookbook/tasks/status"]:
             resp = api("GET", p)
             assert resp.status_code != 404, f"Missing: {p}"
+        paths = _app_module.app.openapi().get("paths", {})
+        assert "/api/cookbook/setup" in paths, "Missing POST /api/cookbook/setup in spec"
 
     def test_workspace_read(self):
         resp = api("GET", "/api/workspace/read")

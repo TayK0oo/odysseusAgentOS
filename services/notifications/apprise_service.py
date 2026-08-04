@@ -23,7 +23,6 @@ import os
 from typing import List, Optional
 
 import apprise
-import apprise.Apprise
 
 logger = logging.getLogger(__name__)
 

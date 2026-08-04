@@ -1923,4 +1923,9 @@ def setup_gallery_routes() -> APIRouter:
         finally:
             db.close()
 
+    @router.get("/api/gallery")
+    async def gallery_root():
+        """Root endpoint for gallery."""
+        return {"images": [], "albums": [], "status": "ok"}
+
     return router

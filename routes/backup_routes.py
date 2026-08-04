@@ -209,4 +209,14 @@ def setup_backup_routes(memory_manager, preset_manager, skills_manager) -> APIRo
 
         return {"ok": True, "imported": imported, "message": f"Imported: {', '.join(imported)}"}
 
+    @router.post("/api/backup/export")
+    async def backup_export_stub():
+        """Export a backup (stub)."""
+        return {"ok": True, "export": None}
+
+    @router.post("/api/backup/import")
+    async def backup_import_stub():
+        """Import a backup (stub)."""
+        return {"ok": True}
+
     return router

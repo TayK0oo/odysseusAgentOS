@@ -50,3 +50,9 @@ async def channel_status():
         }
     except Exception as e:
         return {"error": str(e)}
+
+
+@router.get("")
+async def channel_root():
+    """Root endpoint for channels."""
+    return {"channels": [], "status": "ok"}

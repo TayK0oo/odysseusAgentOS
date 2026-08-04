@@ -20,7 +20,6 @@ constructs and (optionally) executes a pytest invocation.
 from __future__ import annotations
 
 import argparse
-import shlex
 import subprocess
 import sys
 from collections.abc import Callable, Sequence
@@ -277,6 +276,23 @@ def build_parser(
     return parser
 
 
+def _join_command_line(command: list[str]) -> str:
+    """Join an argv list into a human-readable command line for dry-run output.
+
+    POSIX-lite quoting: arguments containing spaces are wrapped in single
+    quotes so the intent is readable; backslash paths (Windows) are left
+    untouched (``shlex.join`` would escape them, which reads poorly on
+    Windows where this runner is primarily used).
+    """
+    parts: list[str] = []
+    for arg in command:
+        if " " in arg or "'" in arg or '"' in arg:
+            parts.append(f"'{arg}'")
+        else:
+            parts.append(arg)
+    return " ".join(parts)
+
+
 def run(
     argv: Sequence[str] | None = None,
     executor: Callable[[list[str]], int] = subprocess.call,
@@ -302,7 +318,7 @@ def run(
         )
     command = build_pytest_command(selection)
     if namespace.dry_run:
-        print(shlex.join(command))
+        print(_join_command_line(command))
         return 0
     return executor(command)
 
