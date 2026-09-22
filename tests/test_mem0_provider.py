@@ -11,14 +11,12 @@ Covers:
 from __future__ import annotations
 
 import os
-import sys
-import types
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────
+
 
 def _make_provider(enabled: bool = True):
     """Build a Mem0Provider with the real module but mocked internals."""
@@ -37,6 +35,7 @@ def _make_disabled_provider():
 
 
 # ── Kill-switch tests ───────────────────────────────────────────────────
+
 
 class TestKillSwitch:
     def test_off_disables(self):
@@ -83,6 +82,7 @@ class TestKillSwitch:
 
 # ── Provider metadata ───────────────────────────────────────────────────
 
+
 class TestProviderMeta:
     def test_provider_id(self):
         p = _make_provider()
@@ -94,6 +94,7 @@ class TestProviderMeta:
 
 
 # ── Disabled provider behaviour ─────────────────────────────────────────
+
 
 class TestDisabledBehaviour:
     @pytest.mark.asyncio
@@ -141,6 +142,7 @@ class TestDisabledBehaviour:
 
 # ── Tool schemas ─────────────────────────────────────────────────────────
 
+
 class TestToolSchemas:
     def test_exposes_two_tools(self):
         p = _make_provider()
@@ -156,16 +158,19 @@ class TestToolSchemas:
 
 # ── Enabled provider with mock mem0ai ───────────────────────────────────
 
+
 class TestEnabledBehaviour:
     @pytest.mark.asyncio
     async def test_search_facts_calls_mem0(self):
         p = _make_provider()
-        p._memory.search = MagicMock(return_value={
-            "results": [
-                {"id": "f1", "memory": "User likes dark mode", "score": 0.9, "event": "ADD"},
-                {"id": "f2", "memory": "User prefers tabs over spaces", "score": 0.7, "event": "ADD"},
-            ]
-        })
+        p._memory.search = MagicMock(
+            return_value={
+                "results": [
+                    {"id": "f1", "memory": "User likes dark mode", "score": 0.9, "event": "ADD"},
+                    {"id": "f2", "memory": "User prefers tabs over spaces", "score": 0.7, "event": "ADD"},
+                ]
+            }
+        )
         facts = await p.search_facts("preferences", user_id="u1")
         assert len(facts) == 2
         assert facts[0]["text"] == "User likes dark mode"
@@ -174,11 +179,13 @@ class TestEnabledBehaviour:
     @pytest.mark.asyncio
     async def test_get_user_profile_calls_mem0(self):
         p = _make_provider()
-        p._memory.get_all = MagicMock(return_value={
-            "results": [
-                {"id": "f1", "memory": "Alice is a developer", "score": 1.0, "event": "ADD"},
-            ]
-        })
+        p._memory.get_all = MagicMock(
+            return_value={
+                "results": [
+                    {"id": "f1", "memory": "Alice is a developer", "score": 1.0, "event": "ADD"},
+                ]
+            }
+        )
         profile = await p.get_user_profile("u1")
         assert profile["count"] == 1
         assert profile["facts"][0]["text"] == "Alice is a developer"
@@ -186,11 +193,13 @@ class TestEnabledBehaviour:
     @pytest.mark.asyncio
     async def test_on_session_end_extracts_facts(self):
         p = _make_provider()
-        p._memory.add = MagicMock(return_value={
-            "results": [
-                {"id": "new1", "memory": "User works at Acme", "event": "ADD", "score": 0.95},
-            ]
-        })
+        p._memory.add = MagicMock(
+            return_value={
+                "results": [
+                    {"id": "new1", "memory": "User works at Acme", "event": "ADD", "score": 0.95},
+                ]
+            }
+        )
         await p.on_session_end(
             session_id="s1",
             messages=[

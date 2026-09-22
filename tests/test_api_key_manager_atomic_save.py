@@ -1,8 +1,11 @@
 """Test that APIKeyManager.save() uses atomic write to prevent data loss."""
-import os
+
 import json
+import os
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, mock_open
+
 from src.api_key_manager import APIKeyManager
 
 
@@ -13,7 +16,7 @@ def test_save_creates_atomic_tmp_file(tmp_path):
 
     # The final file should exist with the correct content
     assert os.path.exists(mgr.api_keys_file)
-    with open(mgr.api_keys_file, "r", encoding="utf-8") as f:
+    with open(mgr.api_keys_file, encoding="utf-8") as f:
         keys = json.load(f)
     assert "openai" in keys
 

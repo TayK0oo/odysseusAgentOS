@@ -4,13 +4,14 @@ The loop's only side effect is calling registry.set_phase(session_id, name)
 so the already-wired enforcement in tool_execution.py takes effect. If no
 registry is injected, apply() is a no-op (useful for pure unit tests).
 """
+
 from __future__ import annotations
 
 import logging
 
 from src.orchestrator.phases import (
-    Phase,
     CANONICAL_SEQUENCE,
+    Phase,
     phase_lock_name,
 )
 

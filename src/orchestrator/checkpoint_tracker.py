@@ -18,13 +18,13 @@ live behaviour is byte-identical. When ON, one checkpoint note is written via th
 native Obsidian primitive. Best-effort: any fault is swallowed so it can never
 break the loop.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import os
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -75,12 +75,12 @@ def _render_note(payload: dict) -> str:
 def record_checkpoint(
     *,
     session_id: str,
-    run_id: Optional[str],
-    metrics: Optional[dict],
+    run_id: str | None,
+    metrics: dict | None,
     outcome: str = "completed",
-    enabled: Optional[bool] = None,
+    enabled: bool | None = None,
     backend=None,
-) -> Optional[dict]:
+) -> dict | None:
     """Persist ONE run checkpoint via the native Obsidian memory primitive.
 
     No-op (returns None) when the kill-switch is OFF. Otherwise builds a bounded
@@ -102,7 +102,7 @@ def record_checkpoint(
             # Lazy import so importing this module never forces the MCP dep.
             from mcp_servers import obsidian_mcp as vault  # type: ignore
 
-        created_at = datetime.now(timezone.utc).isoformat()
+        created_at = datetime.now(UTC).isoformat()
         payload = {
             "session_id": session_id,
             "run_id": run_id,
@@ -120,7 +120,10 @@ def record_checkpoint(
         if isinstance(result, dict) and not result.get("error"):
             logger.info(
                 "[checkpoint] recorded session=%s run=%s outcome=%s path=%s",
-                session_id, run_id, outcome, path,
+                session_id,
+                run_id,
+                outcome,
+                path,
             )
         return result
     except Exception as exc:

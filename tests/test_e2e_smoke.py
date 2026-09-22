@@ -1,23 +1,27 @@
 """Smoke tests E2E — RAG hybrid search, autoeval loop, channel gateway"""
-import pytest
+
 import sys
-import json
 import tempfile
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 # ─── RAG Hybrid Search ────────────────────────────────────────────────────────
 
+
 class TestRagHybridSearch:
     def test_import(self):
         from src.rag_vector import hybrid_search
+
         assert hybrid_search is not None
 
     def test_rrf_score_formula(self):
         """Vérifie la formule RRF : 1/(k + rank + 1)"""
         from src.rag_vector import _rrf_score
+
         score_rank0 = _rrf_score(0, k=60)
         score_rank10 = _rrf_score(10, k=60)
         # Rang 0 doit avoir un score plus élevé que rang 10
@@ -28,6 +32,7 @@ class TestRagHybridSearch:
     def test_bm25_search_basic(self):
         """Vérifie que _bm25_search retourne des résultats rankés."""
         from src.rag_vector import _bm25_search
+
         documents = [
             {"content": "Python est un langage de programmation", "id": "doc1"},
             {"content": "FastAPI est un framework web Python", "id": "doc2"},
@@ -43,13 +48,16 @@ class TestRagHybridSearch:
 
     def test_bm25_empty_query(self):
         from src.rag_vector import _bm25_search
+
         results = _bm25_search("", [], top_k=5)
         assert results == [] or isinstance(results, list)
 
     def test_hybrid_search_signature(self):
         """Vérifie que hybrid_search accepte les bons paramètres."""
         import inspect
+
         from src.rag_vector import hybrid_search
+
         sig = inspect.signature(hybrid_search)
         params = list(sig.parameters.keys())
         assert "query" in params
@@ -58,6 +66,7 @@ class TestRagHybridSearch:
     def test_rrf_ordering(self):
         """Vérifie que le RRF fusionne correctement deux listes rankées."""
         from src.rag_vector import _rrf_score
+
         # Un résultat rank 1 dans les deux listes doit scorer plus haut
         # qu'un rank 1 dans une seule liste
         combined_top = _rrf_score(0) + _rrf_score(0)  # top des deux listes
@@ -67,21 +76,25 @@ class TestRagHybridSearch:
 
 # ─── Autoeval Loop ────────────────────────────────────────────────────────────
 
+
 class TestAutoevalLoop:
     def test_import(self):
         from src.autoeval_loop import AutoevalLoop, create_from_manifest
+
         assert AutoevalLoop is not None
         assert create_from_manifest is not None
 
     def test_create_from_manifest_missing_dir(self):
         """create_from_manifest retourne None si pas de PROJECT.yaml."""
         from src.autoeval_loop import create_from_manifest
+
         result = create_from_manifest("/tmp/inexistant_xyz_12345")
         assert result is None
 
     def test_create_from_manifest_with_yaml(self):
         """create_from_manifest retourne un AutoevalLoop si PROJECT.yaml valide."""
         from src.autoeval_loop import create_from_manifest
+
         with tempfile.TemporaryDirectory() as tmpdir:
             project_yaml = Path(tmpdir) / "PROJECT.yaml"
             project_yaml.write_text("""
@@ -104,6 +117,7 @@ metric: score
     def test_autoeval_loop_run_eval_echo(self):
         """AutoevalLoop.run_eval() exécute la commande et extrait la métrique."""
         from src.autoeval_loop import AutoevalLoop
+
         with tempfile.TemporaryDirectory() as tmpdir:
             loop = AutoevalLoop(
                 project_dir=tmpdir,
@@ -119,6 +133,7 @@ metric: score
     def test_get_summary_empty(self):
         """get_summary() retourne un dict cohérent même sans historique."""
         from src.autoeval_loop import AutoevalLoop
+
         with tempfile.TemporaryDirectory() as tmpdir:
             loop = AutoevalLoop(
                 project_dir=tmpdir,
@@ -133,6 +148,7 @@ metric: score
     def test_eval_result_dataclass(self):
         """EvalResult est un dataclass avec les bons champs."""
         from src.autoeval_loop import EvalResult
+
         er = EvalResult(score=0.9, raw_output="ok", success=True)
         assert er.score == 0.9
         assert er.success is True
@@ -141,14 +157,17 @@ metric: score
 
 # ─── Channel Gateway ──────────────────────────────────────────────────────────
 
+
 class TestChannelGateway:
     def test_import(self):
         from src.channel_gateway import ChannelGateway, get_gateway
+
         assert ChannelGateway is not None
         assert get_gateway is not None
 
     def test_singleton(self):
         from src.channel_gateway import get_gateway
+
         g1 = get_gateway()
         g2 = get_gateway()
         assert g1 is g2
@@ -156,6 +175,7 @@ class TestChannelGateway:
     def test_adapters_dict_by_default(self):
         """Sans adapters enregistrés, _adapters doit être un dict vide."""
         from src.channel_gateway import ChannelGateway
+
         # Créer une nouvelle instance (pas le singleton) pour isoler le test
         gw = ChannelGateway()
         assert hasattr(gw, "_adapters")
@@ -164,7 +184,8 @@ class TestChannelGateway:
 
     def test_outbound_message_dataclass(self):
         """OutboundMessage est construit avec channel, recipient_id, content."""
-        from src.channel_gateway import OutboundMessage, ChannelType
+        from src.channel_gateway import ChannelType, OutboundMessage
+
         msg = OutboundMessage(
             channel=ChannelType.DISCORD,
             recipient_id="user123",
@@ -176,6 +197,7 @@ class TestChannelGateway:
     def test_broadcast_no_adapters(self):
         """broadcast() sans adapters retourne un dict vide sans exception."""
         import asyncio
+
         from src.channel_gateway import ChannelGateway
 
         gw = ChannelGateway()
@@ -190,14 +212,18 @@ class TestChannelGateway:
 
     def test_register_mock_adapter(self):
         """Enregistrer un adapter mock et vérifier qu'il est dans le dict."""
-        from src.channel_gateway import ChannelGateway, ChannelAdapter, ChannelType, OutboundMessage, InboundMessage
-        from typing import Callable, Any
+        from collections.abc import Callable
+        from typing import Any
+
+        from src.channel_gateway import ChannelAdapter, ChannelGateway, ChannelType, InboundMessage, OutboundMessage
 
         class MockAdapter(ChannelAdapter):
             async def send(self, message: OutboundMessage) -> bool:
                 return True
+
             async def start_listening(self, on_message: Callable[[InboundMessage], Any]) -> None:
                 pass
+
             @property
             def channel_type(self) -> ChannelType:
                 return ChannelType.DISCORD
@@ -211,6 +237,7 @@ class TestChannelGateway:
     def test_channel_type_enum_values(self):
         """Seuls les deux canaux in-process réels existent (EMAIL/WEBHOOK retirés — 0 caller)."""
         from src.channel_gateway import ChannelType
+
         assert hasattr(ChannelType, "DISCORD")
         assert hasattr(ChannelType, "TELEGRAM")
         assert not hasattr(ChannelType, "EMAIL")

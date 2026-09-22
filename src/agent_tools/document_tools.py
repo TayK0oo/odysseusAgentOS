@@ -1,6 +1,7 @@
-from typing import Any, Dict, List, Optional
 import logging
 import re
+from datetime import UTC
+
 from src.constants import MAX_READ_CHARS
 from src.tool_utils import _parse_tool_args
 
@@ -10,17 +11,17 @@ logger = logging.getLogger(__name__)
 # Active document state
 # ---------------------------------------------------------------------------
 
-_active_document_id: Optional[str] = None
-_active_model: Optional[str] = None
+_active_document_id: str | None = None
+_active_model: str | None = None
 
 
-def set_active_document(doc_id: Optional[str]):
+def set_active_document(doc_id: str | None):
     """Set the active document ID for document tool execution."""
     global _active_document_id
     _active_document_id = doc_id
 
 
-def set_active_model(model: Optional[str]):
+def set_active_model(model: str | None):
     """Set the current model name for version summaries."""
     global _active_model
     _active_model = model
@@ -30,7 +31,7 @@ def get_active_document():
     return _active_document_id
 
 
-def clear_active_document(doc_id: Optional[str] = None) -> bool:
+def clear_active_document(doc_id: str | None = None) -> bool:
     """Clear the in-memory active-document pointer.
 
     With ``doc_id`` given, only clears when it matches the current pointer, so a
@@ -48,17 +49,18 @@ def clear_active_document(doc_id: Optional[str] = None) -> bool:
     return False
 
 
-def _owned_document_query(query, Document, owner: Optional[str]):
+def _owned_document_query(query, Document, owner: str | None):
     if owner is None:
         # A bare Python `False` is not a valid SQL expression — SQLAlchemy 1.4
         # deprecates it and 2.0 raises ArgumentError. Use the SQL `false()`
         # literal to return zero rows for an unscoped (owner-less) query.
         from sqlalchemy import false
+
         return query.filter(false())
     return query.filter(Document.owner == owner)
 
 
-def _get_owned_document(db, Document, doc_id: str, owner: Optional[str], active_only: bool = False):
+def _get_owned_document(db, Document, doc_id: str, owner: str | None, active_only: bool = False):
     q = db.query(Document).filter(Document.id == doc_id)
     if active_only:
         q = q.filter(Document.is_active == True)
@@ -66,7 +68,7 @@ def _get_owned_document(db, Document, doc_id: str, owner: Optional[str], active_
     return q.first()
 
 
-def _most_recent_owned_document(db, Document, owner: Optional[str], active_only: bool = False):
+def _most_recent_owned_document(db, Document, owner: str | None, active_only: bool = False):
     q = db.query(Document)
     if active_only:
         q = q.filter(Document.is_active == True)
@@ -78,11 +80,14 @@ def _most_recent_owned_document(db, Document, owner: Optional[str], active_only:
 # Document tools — create/update/edit/suggest living documents
 # ---------------------------------------------------------------------------
 
+
 def _sniff_doc_language(text: str) -> str:
     """Best-effort detect a document's language from its content when the model
     didn't specify one. Defaults to 'markdown' (prose). Recognizes the common
     markup/code types the editor supports so e.g. an SVG isn't saved as markdown."""
-    import json as _json, re as _re2
+    import json as _json
+    import re as _re2
+
     s = (text or "").strip()
     if not s:
         return "markdown"
@@ -95,8 +100,11 @@ def _sniff_doc_language(text: str) -> str:
         return "svg"
     if hl.startswith("<?xml"):
         return "xml"
-    if (hl.startswith("<!doctype html") or hl.startswith("<html")
-            or _re2.search(r"<(div|body|head|p|span|table|button|h[1-6]|ul|ol|li|img)\b", hl)):
+    if (
+        hl.startswith("<!doctype html")
+        or hl.startswith("<html")
+        or _re2.search(r"<(div|body|head|p|span|table|button|h[1-6]|ul|ol|li|img)\b", hl)
+    ):
         return "html"
     # JSON
     if s[0] in "{[":
@@ -120,8 +128,10 @@ def _sniff_doc_language(text: str) -> str:
         return "css"
     return "markdown"
 
+
 def _looks_like_email_document(text: str = "", title: str = "") -> bool:
     import re as _re
+
     title_l = (title or "").strip().lower()
     if title_l in {"new email", "new mail", "new message"}:
         return True
@@ -130,10 +140,12 @@ def _looks_like_email_document(text: str = "", title: str = "") -> bool:
         return True
     return bool(_re.search(r"(?im)^To:\s*", s) and _re.search(r"(?im)^Subject:\s*", s))
 
+
 def _coerce_email_document_content(existing: str, incoming: str) -> str:
     """Keep email docs in the To/Subject/---/body shape even if a model writes
     only the body or dumps header labels without the separator."""
     import re as _re
+
     old = existing or ""
     new = (incoming or "").strip()
     if "\n---\n" in new:
@@ -142,11 +154,13 @@ def _coerce_email_document_content(existing: str, incoming: str) -> str:
     if _looks_like_email_document(new):
         lines = new.splitlines()
         last_header_idx = -1
-        header_re = _re.compile(r"^(To|Cc|Bcc|Subject|In-Reply-To|References|X-Source-UID|X-Source-Folder|X-Attachments):", _re.I)
+        header_re = _re.compile(
+            r"^(To|Cc|Bcc|Subject|In-Reply-To|References|X-Source-UID|X-Source-Folder|X-Attachments):", _re.I
+        )
         for i, line in enumerate(lines):
             if header_re.match(line.strip()):
                 last_header_idx = i
-        body_lines = lines[last_header_idx + 1:] if last_header_idx >= 0 else lines
+        body_lines = lines[last_header_idx + 1 :] if last_header_idx >= 0 else lines
         while body_lines and not body_lines[0].strip():
             body_lines.pop(0)
         body = "\n".join(body_lines).strip()
@@ -154,19 +168,21 @@ def _coerce_email_document_content(existing: str, incoming: str) -> str:
         body = new
     return header.rstrip() + "\n---\n" + body
 
+
 def parse_edit_blocks(content: str) -> list:
     """Parse <<<FIND>>>...<<<REPLACE>>>...<<<END>>> blocks."""
     edits = []
-    pattern = r'<<<FIND>>>\n(.*?)\n<<<REPLACE>>>\n(.*?)\n<<<END>>>'
+    pattern = r"<<<FIND>>>\n(.*?)\n<<<REPLACE>>>\n(.*?)\n<<<END>>>"
     for m in re.finditer(pattern, content, re.DOTALL):
         edits.append({"find": m.group(1), "replace": m.group(2)})
     return edits
+
 
 def parse_suggest_blocks(content: str) -> list:
     """Parse <<<FIND>>>...<<<SUGGEST>>>...<<<REASON>>>...<<<END>>> blocks."""
     suggestions = []
     _skip_phrases = ["no change", "clear", "fine as", "looks good", "no improvement", "keep as"]
-    pattern = r'<<<FIND>>>\n(.*?)\n<<<SUGGEST>>>\n(.*?)\n<<<REASON>>>\n(.*?)\n<<<END>>>'
+    pattern = r"<<<FIND>>>\n(.*?)\n<<<SUGGEST>>>\n(.*?)\n<<<REASON>>>\n(.*?)\n<<<END>>>"
     for m in re.finditer(pattern, content, re.DOTALL):
         find_text = m.group(1)
         replace_text = m.group(2)
@@ -176,12 +192,14 @@ def parse_suggest_blocks(content: str) -> list:
             continue
         if any(phrase in reason.lower() for phrase in _skip_phrases):
             continue
-        suggestions.append({
-            "id": f"sugg-{len(suggestions)+1}",
-            "find": find_text,
-            "replace": replace_text,
-            "reason": reason,
-        })
+        suggestions.append(
+            {
+                "id": f"sugg-{len(suggestions) + 1}",
+                "find": find_text,
+                "replace": replace_text,
+                "reason": reason,
+            }
+        )
     return suggestions
 
 
@@ -191,8 +209,11 @@ class CreateDocumentTool:
         1) Line-based: line 1 = title, line 2 (optional) = language, rest = content
         2) XML-like tags: <title>...</title><language>...</language><content>...</content>
         Some models mix them — strip any XML-style tags and fall back to line parsing."""
-        import uuid, re as _re
-        from src.database import SessionLocal, Document, DocumentVersion, Session as DbSession
+        import re as _re
+        import uuid
+
+        from src.database import Document, DocumentVersion, SessionLocal
+        from src.database import Session as DbSession
 
         raw = content or ""
         session_id = ctx.get("session_id")
@@ -200,9 +221,31 @@ class CreateDocumentTool:
 
         # Known languages the editor understands (match the <select> in HTML)
         _KNOWN_LANGS = {
-            "python", "javascript", "typescript", "html", "css", "markdown", "json",
-            "yaml", "bash", "sql", "rust", "go", "java", "c", "cpp", "xml", "toml",
-            "ini", "ruby", "php", "csv", "email", "text", "plain", "svg",
+            "python",
+            "javascript",
+            "typescript",
+            "html",
+            "css",
+            "markdown",
+            "json",
+            "yaml",
+            "bash",
+            "sql",
+            "rust",
+            "go",
+            "java",
+            "c",
+            "cpp",
+            "xml",
+            "toml",
+            "ini",
+            "ruby",
+            "php",
+            "csv",
+            "email",
+            "text",
+            "plain",
+            "svg",
         }
 
         # Try XML tag extraction first
@@ -286,6 +329,7 @@ class CreateDocumentTool:
             set_active_document(doc_id)
             try:
                 from src.event_bus import fire_event
+
                 fire_event("document_created", _owner)
             except Exception:
                 logger.debug("document_created event dispatch failed", exc_info=True)
@@ -304,13 +348,15 @@ class CreateDocumentTool:
         finally:
             db.close()
 
-class UpdateDocumentTool:    
-    async def execute(self, content: str, ctx: dict) -> Dict:
+
+class UpdateDocumentTool:
+    async def execute(self, content: str, ctx: dict) -> dict:
         """Update an existing document. Content = full new document text."""
         import uuid
-        from src.database import SessionLocal, Document, DocumentVersion
 
-        target_id = ctx.get("doc_id", None) or _active_document_id
+        from src.database import Document, DocumentVersion, SessionLocal
+
+        target_id = ctx.get("doc_id") or _active_document_id
         owner = ctx.get("owner")
 
         db = SessionLocal()
@@ -327,8 +373,12 @@ class UpdateDocumentTool:
             if not doc:
                 return {"error": "No documents exist to update"}
 
-            is_email_doc = doc.language == "email" or _looks_like_email_document(doc.current_content or "", doc.title or "")
-            new_content = _coerce_email_document_content(doc.current_content or "", content) if is_email_doc else content.strip()
+            is_email_doc = doc.language == "email" or _looks_like_email_document(
+                doc.current_content or "", doc.title or ""
+            )
+            new_content = (
+                _coerce_email_document_content(doc.current_content or "", content) if is_email_doc else content.strip()
+            )
             if is_email_doc:
                 doc.language = "email"
 
@@ -360,13 +410,15 @@ class UpdateDocumentTool:
         finally:
             db.close()
 
+
 class EditDocumentTool:
-    async def execute(self, content: str, ctx: dict) -> Dict:
+    async def execute(self, content: str, ctx: dict) -> dict:
         """Apply targeted FIND/REPLACE edits to an existing document."""
         import uuid
-        from src.database import SessionLocal, Document, DocumentVersion
 
-        target_id = ctx.get("doc_id", None) or _active_document_id
+        from src.database import Document, DocumentVersion, SessionLocal
+
+        target_id = ctx.get("doc_id") or _active_document_id
         owner = ctx.get("owner")
 
         edits = parse_edit_blocks(content)
@@ -414,7 +466,9 @@ class EditDocumentTool:
                         skipped += 1
 
             if applied == 0:
-                return {"error": f"No edits applied — none of the FIND blocks matched the document content (skipped {skipped})"}
+                return {
+                    "error": f"No edits applied — none of the FIND blocks matched the document content (skipped {skipped})"
+                }
 
             new_ver = doc.version_count + 1
             ver = DocumentVersion(
@@ -446,12 +500,13 @@ class EditDocumentTool:
         finally:
             db.close()
 
-class SuggestDocumentTool:
-    async def execute(self, content: str, ctx: dict) -> Dict:
-        """Create inline suggestions for the active document WITHOUT modifying it."""
-        from src.database import SessionLocal, Document
 
-        target_id = ctx.get("doc_id", None) or _active_document_id
+class SuggestDocumentTool:
+    async def execute(self, content: str, ctx: dict) -> dict:
+        """Create inline suggestions for the active document WITHOUT modifying it."""
+        from src.database import Document, SessionLocal
+
+        target_id = ctx.get("doc_id") or _active_document_id
         owner = ctx.get("owner")
 
         if not target_id:
@@ -492,15 +547,16 @@ class SuggestDocumentTool:
 # Document management tool (delete, list, organize)
 # ---------------------------------------------------------------------------
 class ManageDocumentTool:
-    async def execute(self, content: str, ctx: dict) -> Dict:
+    async def execute(self, content: str, ctx: dict) -> dict:
         """Manage documents: list, read/view/open, delete, tidy.
 
         Output format mirrors `manage_session`: list rows include a
         clickable `[Title](#document-<id>)` anchor + relative timestamps
         so the user can click straight from chat to open the editor.
         """
-        from core.database import SessionLocal, Document
-        from datetime import datetime, timezone
+        from datetime import datetime
+
+        from core.database import Document, SessionLocal
 
         owner = ctx.get("owner")
 
@@ -514,17 +570,21 @@ class ManageDocumentTool:
 
         def _rel(ts):
             if not ts:
-                return 'never'
+                return "never"
             try:
-                now = datetime.now(timezone.utc) if ts.tzinfo is not None else datetime.utcnow()
+                now = datetime.now(UTC) if ts.tzinfo is not None else datetime.utcnow()
                 diff = (now - ts).total_seconds()
             except Exception:
-                return 'unknown'
-            if diff < 60: return 'just now'
-            if diff < 3600: return f'{int(diff / 60)}m ago'
-            if diff < 86400: return f'{int(diff / 3600)}h ago'
-            if diff < 86400 * 7: return f'{int(diff / 86400)}d ago'
-            return ts.strftime('%Y-%m-%d')
+                return "unknown"
+            if diff < 60:
+                return "just now"
+            if diff < 3600:
+                return f"{int(diff / 60)}m ago"
+            if diff < 86400:
+                return f"{int(diff / 3600)}h ago"
+            if diff < 86400 * 7:
+                return f"{int(diff / 86400)}d ago"
+            return ts.strftime("%Y-%m-%d")
 
         try:
             if action == "list":
@@ -543,11 +603,9 @@ class ManageDocumentTool:
                 for i, d in enumerate(docs):
                     size = len(d.current_content or "")
                     lang = d.language or "text"
-                    ts = getattr(d, 'updated_at', None) or getattr(d, 'created_at', None)
+                    ts = getattr(d, "updated_at", None) or getattr(d, "created_at", None)
                     marker = " ← most recent" if i == 0 else ""
-                    lines.append(
-                        f"- [{d.title}](#document-{d.id}) — {lang}, {size} chars, updated {_rel(ts)}{marker}"
-                    )
+                    lines.append(f"- [{d.title}](#document-{d.id}) — {lang}, {size} chars, updated {_rel(ts)}{marker}")
                     items.append({"id": d.id, "title": d.title, "language": lang, "size": size})
                 header = f"Found {len(docs)} document(s), sorted most-recent first. Click a title to open:"
                 return {
@@ -600,6 +658,7 @@ class ManageDocumentTool:
 
             elif action == "tidy":
                 from src.document_actions import run_document_tidy
+
                 result = await run_document_tidy(owner or "")
                 return {"response": result, "exit_code": 0}
 

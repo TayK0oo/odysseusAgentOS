@@ -4,10 +4,10 @@ Catégories : quick / deep / utility / vision / code / creative
 
 Utilisé par ModelRouter pour sélectionner le bon tier de modèle.
 """
+
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 # ---------------------------------------------------------------------------
 # Dictionnaire de mots-clés par catégorie
@@ -16,48 +16,143 @@ from typing import Optional
 
 INTENT_KEYWORDS: dict[str, list[str]] = {
     "code": [
-        "implémente", "implemente", "implement", "code", "function", "classe",
-        "class", "bug", "fix", "refactor", "test", "debug", "lint",
-        "script", "module", "api", "endpoint", "migration", "schema",
-        "algorithm", "algorithme", "programme", "program",
+        "implémente",
+        "implemente",
+        "implement",
+        "code",
+        "function",
+        "classe",
+        "class",
+        "bug",
+        "fix",
+        "refactor",
+        "test",
+        "debug",
+        "lint",
+        "script",
+        "module",
+        "api",
+        "endpoint",
+        "migration",
+        "schema",
+        "algorithm",
+        "algorithme",
+        "programme",
+        "program",
     ],
     "deep": [
-        "analyse", "analyze", "recherche", "research", "explique en détail",
-        "explique en detail", "explain in detail", "architecture", "pourquoi",
-        "why", "compare", "comparison", "stratégie", "strategy",
-        "deep dive", "comprehensive", "exhaustif", "exhaustive",
-        "distributed", "distribué", "consensus", "benchmark",
+        "analyse",
+        "analyze",
+        "recherche",
+        "research",
+        "explique en détail",
+        "explique en detail",
+        "explain in detail",
+        "architecture",
+        "pourquoi",
+        "why",
+        "compare",
+        "comparison",
+        "stratégie",
+        "strategy",
+        "deep dive",
+        "comprehensive",
+        "exhaustif",
+        "exhaustive",
+        "distributed",
+        "distribué",
+        "consensus",
+        "benchmark",
     ],
     "vision": [
-        "image", "screenshot", "photo", "visuel", "visual", "picture",
-        "regarde", "look at", "voir", "see", "diagram", "diagramme",
-        "capture", "écran", "screen",
+        "image",
+        "screenshot",
+        "photo",
+        "visuel",
+        "visual",
+        "picture",
+        "regarde",
+        "look at",
+        "voir",
+        "see",
+        "diagram",
+        "diagramme",
+        "capture",
+        "écran",
+        "screen",
     ],
     "creative": [
-        "génère", "genere", "generate", "invente", "invent",
-        "crée un design", "create a design", "brainstorm", "idée", "idea",
-        "imagine", "propose", "suggest", "novel", "original",
-        "story", "histoire", "poem", "poème", "narrative",
+        "génère",
+        "genere",
+        "generate",
+        "invente",
+        "invent",
+        "crée un design",
+        "create a design",
+        "brainstorm",
+        "idée",
+        "idea",
+        "imagine",
+        "propose",
+        "suggest",
+        "novel",
+        "original",
+        "story",
+        "histoire",
+        "poem",
+        "poème",
+        "narrative",
     ],
     "quick": [
-        "résume", "resume", "summarize", "liste", "list",
-        "court", "short", "rapide", "quick", "simple", "brief",
-        "définition", "definition", "define", "qu'est-ce", "what is",
-        "donne-moi", "give me", "show me",
+        "résume",
+        "resume",
+        "summarize",
+        "liste",
+        "list",
+        "court",
+        "short",
+        "rapide",
+        "quick",
+        "simple",
+        "brief",
+        "définition",
+        "definition",
+        "define",
+        "qu'est-ce",
+        "what is",
+        "donne-moi",
+        "give me",
+        "show me",
     ],
 }
 
 # Signaux forts pour "deep" issus du heuristique existant dans model-routing.json
 _STRONG_SIGNALS: list[str] = [
-    "implement", "architect", "design system", "security", "performance",
-    "implémenter", "architecturer", "concevoir", "analyse profonde",
+    "implement",
+    "architect",
+    "design system",
+    "security",
+    "performance",
+    "implémenter",
+    "architecturer",
+    "concevoir",
+    "analyse profonde",
     "migration",
 ]
 
 # Signaux faibles → quick
 _WEAK_SIGNALS: list[str] = [
-    "hello", "bonjour", "hi", "merci", "thanks", "ok", "oui", "non",
-    "capital", "what is", "qu'est",
+    "hello",
+    "bonjour",
+    "hi",
+    "merci",
+    "thanks",
+    "ok",
+    "oui",
+    "non",
+    "capital",
+    "what is",
+    "qu'est",
 ]
 
 # Seuils de longueur (en mots)
@@ -73,6 +168,7 @@ _SCORE_THRESHOLD = 0.25
 # ---------------------------------------------------------------------------
 # API publique
 # ---------------------------------------------------------------------------
+
 
 def classify_intent(prompt: str) -> str:
     """
@@ -136,9 +232,7 @@ def classify_by_word_count(prompt: str) -> str:
     return "utility"
 
 
-def classify_intent_with_stage(
-    prompt: str, stage: Optional[str] = None
-) -> tuple[str, Optional[str]]:
+def classify_intent_with_stage(prompt: str, stage: str | None = None) -> tuple[str, str | None]:
     """
     Retourne (intent_category, stage) prêt pour ModelRouter.complete().
 
@@ -152,6 +246,7 @@ def classify_intent_with_stage(
 # ---------------------------------------------------------------------------
 # Helpers internes
 # ---------------------------------------------------------------------------
+
 
 def _word_count(text: str) -> int:
     """Nombre de mots dans un texte (split naïf sur espaces/ponctuation)."""

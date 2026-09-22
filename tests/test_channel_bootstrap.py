@@ -10,18 +10,18 @@ These tests pin the gated in-process wake-up wiring:
 
 No real Discord/Telegram connection is ever opened: adapters/gateway are fakes.
 """
+
 import asyncio
-import os
 
 import pytest
 
+import src.channel_bootstrap as cb
 from src.channel_gateway import (
     ChannelGateway,
     ChannelType,
     InboundMessage,
     OutboundMessage,
 )
-import src.channel_bootstrap as cb
 
 
 # --------------------------------------------------------------------------- #
@@ -91,9 +91,7 @@ def test_bootstrap_noop_when_both_gates_off(monkeypatch):
         made.append(a)
         return a
 
-    started = asyncio.run(
-        cb.bootstrap_channels(gateway=gw, adapter_factory=_factory)
-    )
+    started = asyncio.run(cb.bootstrap_channels(gateway=gw, adapter_factory=_factory))
 
     assert started == []
     assert made == []
@@ -116,9 +114,7 @@ def test_bootstrap_starts_discord_when_gated_on(monkeypatch):
         made[channel] = a
         return a
 
-    started = asyncio.run(
-        cb.bootstrap_channels(gateway=gw, adapter_factory=_factory)
-    )
+    started = asyncio.run(cb.bootstrap_channels(gateway=gw, adapter_factory=_factory))
 
     assert ChannelType.DISCORD in gw._adapters
     assert ChannelType.TELEGRAM not in gw._adapters
@@ -135,9 +131,7 @@ def test_bootstrap_starts_both_when_both_gated_on(monkeypatch):
     def _factory(channel):
         return FakeAdapter(channel)
 
-    started = asyncio.run(
-        cb.bootstrap_channels(gateway=gw, adapter_factory=_factory)
-    )
+    started = asyncio.run(cb.bootstrap_channels(gateway=gw, adapter_factory=_factory))
 
     assert set(started) == {ChannelType.DISCORD, ChannelType.TELEGRAM}
     assert set(gw._adapters) == {ChannelType.DISCORD, ChannelType.TELEGRAM}
@@ -148,9 +142,7 @@ def test_bootstrap_starts_both_when_both_gated_on(monkeypatch):
 # --------------------------------------------------------------------------- #
 def test_inbound_handler_fires_event(monkeypatch):
     fired = []
-    handler = cb.make_inbound_handler(
-        fire_event=lambda name, owner=None: fired.append((name, owner))
-    )
+    handler = cb.make_inbound_handler(fire_event=lambda name, owner=None: fired.append((name, owner)))
 
     inbound = InboundMessage(
         channel=ChannelType.DISCORD,
@@ -190,9 +182,7 @@ def test_outbound_delivers_via_gateway(monkeypatch):
     adapter = FakeAdapter(ChannelType.DISCORD)
     gw.register_adapter(adapter)
 
-    msg = OutboundMessage(
-        channel=ChannelType.DISCORD, recipient_id="123", content="pong"
-    )
+    msg = OutboundMessage(channel=ChannelType.DISCORD, recipient_id="123", content="pong")
     ok = asyncio.run(cb.deliver_outbound(msg, gateway=gw))
 
     assert ok is True
@@ -201,9 +191,7 @@ def test_outbound_delivers_via_gateway(monkeypatch):
 
 def test_outbound_best_effort_when_no_adapter(monkeypatch):
     gw = ChannelGateway()  # nothing registered
-    msg = OutboundMessage(
-        channel=ChannelType.TELEGRAM, recipient_id="1", content="x"
-    )
+    msg = OutboundMessage(channel=ChannelType.TELEGRAM, recipient_id="1", content="x")
     # No adapter -> False, but never raises.
     ok = asyncio.run(cb.deliver_outbound(msg, gateway=gw))
     assert ok is False

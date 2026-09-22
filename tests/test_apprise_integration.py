@@ -6,8 +6,8 @@ Pins:
 - ChannelGateway delegates to Apprise when kill-switch ON.
 - ChannelGateway falls back to legacy adapters when kill-switch OFF.
 """
+
 import asyncio
-import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -80,9 +80,7 @@ def test_send_routes_through_apprise_when_killswitch_on(monkeypatch):
     mock_svc.notify = AsyncMock(return_value=True)
 
     with patch("src.channel_gateway._get_apprise_service", return_value=mock_svc):
-        msg = OutboundMessage(
-            channel=ChannelType.DISCORD, recipient_id="42", content="hello"
-        )
+        msg = OutboundMessage(channel=ChannelType.DISCORD, recipient_id="42", content="hello")
         ok = asyncio.run(gw.send(msg))
 
     assert ok is True
@@ -98,9 +96,7 @@ def test_send_apprise_fallback_when_service_none(monkeypatch):
     gw = ChannelGateway()
 
     with patch("src.channel_gateway._get_apprise_service", return_value=None):
-        msg = OutboundMessage(
-            channel=ChannelType.TELEGRAM, recipient_id="1", content="x"
-        )
+        msg = OutboundMessage(channel=ChannelType.TELEGRAM, recipient_id="1", content="x")
         ok = asyncio.run(gw.send(msg))
 
     assert ok is False

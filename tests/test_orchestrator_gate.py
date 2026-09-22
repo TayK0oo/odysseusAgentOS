@@ -1,7 +1,6 @@
 """Tests for src/orchestrator/gate.py — catastrophic command gate."""
-import os
-import pytest
-from src.orchestrator.gate import should_block_destructive, gate_enabled
+
+from src.orchestrator.gate import gate_enabled, should_block_destructive
 
 
 def test_blocks_rm_rf():

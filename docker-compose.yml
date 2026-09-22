@@ -202,11 +202,11 @@ services:
       - ALL
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v2/heartbeat', timeout=5).read(1)\""]
-      interval: 15s
+      test: ["CMD-SHELL", "bash -c 'timeout 5 bash -c \"echo > /dev/tcp/localhost/8000\"' || exit 1"]
+      interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 20s
+      retries: 3
+      start_period: 15s
 
   searxng:
     # Pinned, not :latest — odysseus waits on searxng's healthcheck
@@ -303,11 +303,11 @@ services:
     cap_drop:
       - ALL
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',8002),3).close()\""]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8002/health || exit 1"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
 
   serena-mcp:
     runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
@@ -350,8 +350,6 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    profiles:
-      - acontext
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',8029),5).close()\""]
       interval: 30s
@@ -376,8 +374,6 @@ services:
       - SETUID
       - SETGID
       - DAC_OVERRIDE
-    profiles:
-      - scrapling
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',8800),5).close()\""]
       interval: 30s
@@ -455,7 +451,9 @@ services:
 
   codebase-memory:
     runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
-    image: ghcr.io/superpowers-sh/codebase-memory-mcp:latest
+    build:
+      context: .
+      dockerfile: docker/cbm/Dockerfile
     ports:
       - "127.0.0.1:9749:9749"
     volumes:
@@ -469,41 +467,37 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    profiles:
-      - knowledge
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',9749),3).close()\""]
+      test: ["CMD-SHELL", "kill -0 1 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 20s
 
   graphify:
-    runtime: ${ODYSSEUS_GVISOR_RUNTIME:-runc}
-    image: python:3.12-slim
-    command: >
-      sh -c "pip install graphifyy mcp --no-cache-dir; python -u /workspace/mcp_servers/graphify_mcp.py"
-    ports:
-      - "127.0.0.1:9750:9750"
+    build:
+      context: .
+      dockerfile: docker/graphify/Dockerfile
+    image: agentos-graphify:latest
     volumes:
       - .:/workspace:ro
       - ${APP_DATA_DIR:-./data}/graphify:/data/graphify
     environment:
       - GRAPHIFY_WORKSPACE=/workspace
       - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    profiles:
-      - knowledge
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',9750),5).close()\""]
+      test: ["CMD-SHELL", "kill -0 1 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 15s
 
   # ── LangFuse — LLM tracing & observability (profile: observability) ──
   langfuse-postgres:
@@ -523,8 +517,6 @@ services:
       - SETUID
       - SETGID
       - DAC_OVERRIDE
-    profiles:
-      - observability
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U odysseus -d langfuse"]
       interval: 10s
@@ -544,18 +536,16 @@ services:
     depends_on:
       langfuse-postgres:
         condition: service_healthy
-    profiles:
-      - observability
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:3000/api/public/health', timeout=5).read(1)\""]
+      test: ["CMD-SHELL", "wget -qO- http://$(hostname):3000/api/public/health || exit 1"]
       interval: 15s
       timeout: 10s
-      retries: 5
+      retries: 10
       start_period: 30s
 
   n8n:
@@ -718,6 +708,12 @@ services:
       - SETUID
       - SETGID
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:7001/health', timeout=5).read(1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   # ============================================================
   # M8 — AgentOS Sandbox (execution isolee des projets)
@@ -744,6 +740,12 @@ services:
       - SETUID
       - SETGID
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   # ============================================================
   # M8 — WCAG Accessibility Scanner (pa11y)
@@ -771,6 +773,246 @@ services:
       - no-new-privileges:true
     restart: "no"
 
+  # ============================================================
+  # Supabase MCP — local Supabase + MCP wrapper
+  # ============================================================
+  supabase:
+    build:
+      context: docker/supabase-mcp
+    ports:
+      - "127.0.0.1:54321:54321"
+    environment:
+      - SUPABASE_URL=http://localhost:54321
+      - SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    volumes:
+      - supabase-data:/var/lib/postgresql/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:54321/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ============================================================
+  # Vaultwarden — password manager
+  # ============================================================
+  vaultwarden:
+    image: vaultwarden/server:latest
+    ports:
+      - "127.0.0.1:8087:80"
+    volumes:
+      - vaultwarden-data:/data
+    environment:
+      - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN:-}
+      - SIGNUPS_ALLOWED=false
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:80/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ============================================================
+  # Forgejo — self-hosted Git forge
+  # ============================================================
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:10
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - forgejo-data:/data
+    environment:
+      - FORGEJO__server__ROOT_URL=http://localhost:3001
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ============================================================
+  # Dockge — Docker compose stack manager
+  # ============================================================
+  dockge:
+    image: louislam/dockge:latest
+    ports:
+      - "127.0.0.1:5001:5001"
+    volumes:
+      - dockge-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DOCKGE_STACKS_DIR=/app/data/stacks
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5001/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ============================================================
+  # Uptime Kuma — status monitoring
+  # ============================================================
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    ports:
+      - "127.0.0.1:3002:3001"
+    volumes:
+      - uptime-kuma-data:/app/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3001/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ============================================================
+  # Gotify — push notification server
+  # ============================================================
+  gotify:
+    image: gotify/server:latest
+    ports:
+      - "127.0.0.1:8092:80"
+    volumes:
+      - gotify-data:/app/data
+    environment:
+      - GOTIFY_DEFAULTUSER_PASS=${GOTIFY_ADMIN_PASSWORD:-admin}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:80/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ============================================================
+  # Playwright MCP — headless browser automation
+  # ============================================================
+  playwright-mcp:
+    image: mcr.microsoft.com/playwright:latest
+    command: sh -c "while true; do npx @playwright/mcp; sleep 1; done"
+    ports:
+      - "127.0.0.1:8931:8931"
+    environment:
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ============================================================
+  # Browser-Harness — Scrapling fallback web fetcher
+  # ============================================================
+  browser-harness:
+    image: python:3.12-slim
+    command:
+      - bash
+      - -c
+      - |
+        pip install httpx -q && exec python -c '
+        import http.server, json, httpx, urllib.parse
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                parsed = urllib.parse.urlparse(self.path)
+                qs = urllib.parse.parse_qs(parsed.query)
+                url = qs.get("url", [None])[0]
+                if url:
+                    try:
+                        r = httpx.get(url, timeout=30, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
+                        self.send_response(r.status_code)
+                        self.send_header("Content-Type", r.headers.get("content-type", "text/html"))
+                        self.end_headers()
+                        self.wfile.write(r.content)
+                    except Exception as e:
+                        self.send_response(500)
+                        self.end_headers()
+                        self.wfile.write(str(e).encode())
+                else:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"service": "browser-harness", "status": "ok"}).encode())
+        http.server.HTTPServer(("0.0.0.0", 8801), H).serve_forever()
+        '
+    ports:
+      - "127.0.0.1:8801:8801"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost',8801),3).close()\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
 volumes:
   searxng-data:
   chromadb-data:
@@ -786,6 +1028,12 @@ volumes:
   agentos-engine-workspace:
   agentos-engine-vault:
   agentos-sandbox-data:
+  vaultwarden-data:
+  forgejo-data:
+  dockge-data:
+  uptime-kuma-data:
+  gotify-data:
+  supabase-data:
 
 networks:
   agentos-net:

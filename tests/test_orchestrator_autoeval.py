@@ -4,14 +4,13 @@ SAFETY: the git revert path is NEVER exercised for real here. Every test
 injects a fake git-runner and asserts on calls. `apply_autoeval` must be a
 no-op (byte-identical to today) whenever the kill-switch is OFF.
 """
-import pytest
 
 from src.observer import DriftLevel
 from src.orchestrator.autoeval import (
+    AutoevalDecision,
+    apply_autoeval,
     autoeval_enabled,
     decide_keep_or_revert,
-    apply_autoeval,
-    AutoevalDecision,
 )
 
 
@@ -31,6 +30,7 @@ class _FakeGitRunner:
 
 
 # ── kill-switch ─────────────────────────────────────────────────────────
+
 
 def test_autoeval_disabled_by_default(monkeypatch):
     monkeypatch.delenv("ODYSSEUS_AUTOEVAL", raising=False)
@@ -55,6 +55,7 @@ def test_autoeval_off_for_falsey_values(monkeypatch):
 
 
 # ── pure decision function ──────────────────────────────────────────────
+
 
 def test_decide_keep_when_verifier_passes():
     # empty verifier reasons == SUCCESS
@@ -85,13 +86,14 @@ def test_decide_verifier_failure_dominates_low_drift():
 
 # ── apply_autoeval: gating + injected git runner ────────────────────────
 
+
 def test_apply_noop_when_disabled_even_on_failure(monkeypatch):
     monkeypatch.delenv("ODYSSEUS_AUTOEVAL", raising=False)
     runner = _FakeGitRunner()
     d = apply_autoeval(["failed"], drift_level=DriftLevel.HIGH, git_runner=runner)
-    assert runner.calls == []            # NO destructive path when OFF
+    assert runner.calls == []  # NO destructive path when OFF
     assert d.reverted is False
-    assert d.decision == "keep"          # forced keep when disabled
+    assert d.decision == "keep"  # forced keep when disabled
     assert d.enabled is False
 
 
@@ -109,7 +111,7 @@ def test_apply_keeps_on_success_when_enabled(monkeypatch):
     monkeypatch.setenv("ODYSSEUS_AUTOEVAL", "on")
     runner = _FakeGitRunner()
     d = apply_autoeval([], drift_level=DriftLevel.LOW, git_runner=runner)
-    assert runner.calls == []            # keep never calls git
+    assert runner.calls == []  # keep never calls git
     assert d.decision == "keep"
     assert d.reverted is False
 
@@ -130,7 +132,7 @@ def test_apply_never_raises_when_git_runner_throws(monkeypatch):
     d = apply_autoeval(["failed"], drift_level=None, git_runner=runner)
     assert runner.calls == ["reset_hard"]
     assert d.decision == "revert"
-    assert d.reverted is False           # runner blew up → not reverted
+    assert d.reverted is False  # runner blew up → not reverted
     assert d.error is not None
 
 
@@ -160,10 +162,15 @@ def test_decision_is_dataclass_with_expected_fields():
 
 def test_exported_from_package():
     from src.orchestrator import (
-        autoeval_enabled as ae,
-        decide_keep_or_revert as dk,
         apply_autoeval as ap,
     )
+    from src.orchestrator import (
+        autoeval_enabled as ae,
+    )
+    from src.orchestrator import (
+        decide_keep_or_revert as dk,
+    )
+
     assert ae is autoeval_enabled
     assert dk is decide_keep_or_revert
     assert ap is apply_autoeval

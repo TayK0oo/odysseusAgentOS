@@ -130,7 +130,7 @@ def _install_core_middleware_stub(monkeypatch):
 
 def test_providers_requires_admin_before_discovery_and_cache(monkeypatch):
     _install_model_route_import_stubs(monkeypatch)
-    import routes.model_routes as model_routes
+    from routes import model_routes
 
     class _Discovery:
         def __init__(self):
@@ -142,11 +142,7 @@ def test_providers_requires_admin_before_discovery_and_cache(monkeypatch):
 
     discovery = _Discovery()
     router = model_routes.setup_model_routes(discovery)
-    endpoint = next(
-        route.endpoint
-        for route in router.routes
-        if getattr(route, "path", "") == "/api/providers"
-    )
+    endpoint = next(route.endpoint for route in router.routes if getattr(route, "path", "") == "/api/providers")
     request = SimpleNamespace()
 
     assert endpoint(request, refresh=True) == {"providers": [{"host": "internal.example"}]}
@@ -166,8 +162,7 @@ def test_providers_requires_admin_before_discovery_and_cache(monkeypatch):
 
 def test_default_chat_does_not_auto_pick_shared_endpoint_for_fresh_user(monkeypatch):
     _install_model_route_import_stubs(monkeypatch)
-    import routes.model_routes as model_routes
-    import routes.prefs_routes as prefs_routes
+    from routes import model_routes, prefs_routes
 
     shared_ep = SimpleNamespace(
         id="shared",
@@ -178,10 +173,7 @@ def test_default_chat_does_not_auto_pick_shared_endpoint_for_fresh_user(monkeypa
     )
 
     def scoped_owner_filter(query, model_cls, user, *, include_shared=True):
-        query.rows = [
-            row for row in query.rows
-            if row.owner == user or (include_shared and row.owner is None)
-        ]
+        query.rows = [row for row in query.rows if row.owner == user or (include_shared and row.owner is None)]
         return query
 
     monkeypatch.setattr(model_routes, "ModelEndpoint", _FakeModelEndpoint)
@@ -194,9 +186,7 @@ def test_default_chat_does_not_auto_pick_shared_endpoint_for_fresh_user(monkeypa
 
     request = SimpleNamespace(
         state=SimpleNamespace(current_user="fresh"),
-        app=SimpleNamespace(state=SimpleNamespace(
-            auth_manager=SimpleNamespace(is_admin=lambda user: False)
-        )),
+        app=SimpleNamespace(state=SimpleNamespace(auth_manager=SimpleNamespace(is_admin=lambda user: False))),
     )
 
     assert _default_chat_endpoint()(request) == {
@@ -208,8 +198,7 @@ def test_default_chat_does_not_auto_pick_shared_endpoint_for_fresh_user(monkeypa
 
 def test_default_chat_uses_owned_endpoint_as_regular_user_last_resort(monkeypatch):
     _install_model_route_import_stubs(monkeypatch)
-    import routes.model_routes as model_routes
-    import routes.prefs_routes as prefs_routes
+    from routes import model_routes, prefs_routes
 
     owned_ep = SimpleNamespace(
         id="owned",
@@ -220,10 +209,7 @@ def test_default_chat_uses_owned_endpoint_as_regular_user_last_resort(monkeypatc
     )
 
     def scoped_owner_filter(query, model_cls, user, *, include_shared=True):
-        query.rows = [
-            row for row in query.rows
-            if row.owner == user or (include_shared and row.owner is None)
-        ]
+        query.rows = [row for row in query.rows if row.owner == user or (include_shared and row.owner is None)]
         return query
 
     monkeypatch.setattr(model_routes, "ModelEndpoint", _FakeModelEndpoint)
@@ -236,9 +222,7 @@ def test_default_chat_uses_owned_endpoint_as_regular_user_last_resort(monkeypatc
 
     request = SimpleNamespace(
         state=SimpleNamespace(current_user="fresh"),
-        app=SimpleNamespace(state=SimpleNamespace(
-            auth_manager=SimpleNamespace(is_admin=lambda user: False)
-        )),
+        app=SimpleNamespace(state=SimpleNamespace(auth_manager=SimpleNamespace(is_admin=lambda user: False))),
     )
 
     assert _default_chat_endpoint()(request) == {
@@ -284,14 +268,16 @@ def test_preset_manager_default_custom_preset_starts_disabled(tmp_path):
 def test_preset_manager_migrates_legacy_default_custom_preset_disabled(tmp_path):
     presets_file = tmp_path / "presets.json"
     presets_file.write_text(
-        json.dumps({
-            "custom": {
-                "name": "Custom",
-                "temperature": 0.7,
-                "max_tokens": 4096,
-                "system_prompt": "You are a helpful, balanced assistant. Match your response style to the user's needs.",
+        json.dumps(
+            {
+                "custom": {
+                    "name": "Custom",
+                    "temperature": 0.7,
+                    "max_tokens": 4096,
+                    "system_prompt": "You are a helpful, balanced assistant. Match your response style to the user's needs.",
+                }
             }
-        }),
+        ),
         encoding="utf-8",
     )
 
@@ -322,17 +308,12 @@ def test_normalize_thinking_handles_lowercase_thinking_process(monkeypatch):
 
     chat_helpers = importlib.import_module("routes.chat_helpers")
 
-    text = (
-        "Thinking process:\n"
-        "Analyze the Request: The user is explicitly instructing me to use the tag.\n\n"
-        "hi"
-    )
+    text = "Thinking process:\nAnalyze the Request: The user is explicitly instructing me to use the tag.\n\nhi"
 
     normalized = chat_helpers._normalize_thinking(text)
 
     assert normalized == (
-        "<think>Analyze the Request: The user is explicitly instructing me to use the tag.</think>\n\n"
-        "hi"
+        "<think>Analyze the Request: The user is explicitly instructing me to use the tag.</think>\n\nhi"
     )
 
 
@@ -444,6 +425,7 @@ async def test_admin_agent_tools_require_admin(monkeypatch):
 @pytest.mark.asyncio
 async def test_app_api_blocks_shell_routes_before_loopback(monkeypatch):
     import httpx
+
     from src.tool_implementations import do_app_api
 
     class UnexpectedAsyncClient:
@@ -473,6 +455,7 @@ async def test_app_api_blocks_shell_routes_before_loopback(monkeypatch):
 @pytest.mark.asyncio
 async def test_app_api_blocks_cookbook_host_control_routes_before_loopback(monkeypatch):
     import httpx
+
     from src.tool_implementations import do_app_api
 
     class UnexpectedAsyncClient:
@@ -520,6 +503,7 @@ async def test_app_api_blocks_cookbook_host_control_routes_before_loopback(monke
 async def test_app_api_endpoint_discovery_hides_shell_routes(monkeypatch):
     _install_core_middleware_stub(monkeypatch)
     import httpx
+
     from src.tool_implementations import do_app_api
 
     class FakeResponse:
@@ -563,6 +547,7 @@ async def test_app_api_endpoint_discovery_hides_shell_routes(monkeypatch):
 async def test_app_api_endpoint_discovery_hides_cookbook_host_control_routes(monkeypatch):
     _install_core_middleware_stub(monkeypatch)
     import httpx
+
     from src.tool_implementations import do_app_api
 
     class FakeResponse:
@@ -628,7 +613,7 @@ async def test_public_agent_policy_blocks_sensitive_tools(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_email_mcp_non_object_args_fail_before_dispatch(monkeypatch):
-    import src.tool_execution as tool_execution
+    from src import tool_execution
     from src.tool_execution import execute_tool_block
 
     class FakeMcp:
@@ -656,7 +641,7 @@ async def test_email_mcp_non_object_args_fail_before_dispatch(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_email_mcp_dispatch_includes_hidden_owner(monkeypatch):
-    import src.tool_execution as tool_execution
+    from src import tool_execution
     from src.tool_execution import execute_tool_block
 
     class FakeMcp:
@@ -807,9 +792,7 @@ async def test_webhook_tool_reuses_private_url_validation():
     _ABSENT = object()
     _wm_saved_module = sys.modules.get("src.webhook_manager", _ABSENT)
     _src_pkg = sys.modules.get("src")
-    _wm_saved_attr = (
-        getattr(_src_pkg, "webhook_manager", _ABSENT) if _src_pkg is not None else _ABSENT
-    )
+    _wm_saved_attr = getattr(_src_pkg, "webhook_manager", _ABSENT) if _src_pkg is not None else _ABSENT
 
     # Drop both bindings so the import re-executes against the fake src.database,
     # still exercising the intended import path.
@@ -841,7 +824,7 @@ async def test_webhook_tool_reuses_private_url_validation():
                 if hasattr(_src_pkg, "webhook_manager"):
                     delattr(_src_pkg, "webhook_manager")
             else:
-                setattr(_src_pkg, "webhook_manager", _wm_saved_attr)
+                _src_pkg.webhook_manager = _wm_saved_attr
 
     assert result["exit_code"] == 1
     assert "private/internal" in result["error"]
@@ -851,8 +834,7 @@ def test_default_chat_skips_hidden_first_model(monkeypatch):
     """get_default_chat picks first visible model when default_model is empty
     and the first cached model is hidden."""
     _install_model_route_import_stubs(monkeypatch)
-    import routes.model_routes as model_routes
-    import routes.prefs_routes as prefs_routes
+    from routes import model_routes, prefs_routes
 
     ep = SimpleNamespace(
         id="ep1",
@@ -873,9 +855,7 @@ def test_default_chat_skips_hidden_first_model(monkeypatch):
 
     request = SimpleNamespace(
         state=SimpleNamespace(current_user="fresh"),
-        app=SimpleNamespace(state=SimpleNamespace(
-            auth_manager=SimpleNamespace(is_admin=lambda user: False)
-        )),
+        app=SimpleNamespace(state=SimpleNamespace(auth_manager=SimpleNamespace(is_admin=lambda user: False))),
     )
 
     result = _default_chat_endpoint()(request)
@@ -885,7 +865,7 @@ def test_default_chat_skips_hidden_first_model(monkeypatch):
 def test_default_chat_admin_skips_hidden_first_model(monkeypatch):
     """Admin user with global defaults also skips hidden models in fallback."""
     _install_model_route_import_stubs(monkeypatch)
-    import routes.model_routes as model_routes
+    from routes import model_routes
 
     ep = SimpleNamespace(
         id="ep1",
@@ -905,9 +885,7 @@ def test_default_chat_admin_skips_hidden_first_model(monkeypatch):
 
     request = SimpleNamespace(
         state=SimpleNamespace(current_user="admin"),
-        app=SimpleNamespace(state=SimpleNamespace(
-            auth_manager=SimpleNamespace(is_admin=lambda user: True)
-        )),
+        app=SimpleNamespace(state=SimpleNamespace(auth_manager=SimpleNamespace(is_admin=lambda user: True))),
     )
 
     result = _default_chat_endpoint()(request)
@@ -917,7 +895,7 @@ def test_default_chat_admin_skips_hidden_first_model(monkeypatch):
 def test_default_chat_all_models_hidden_returns_empty_model(monkeypatch):
     """When all cached models are hidden, get_default_chat returns model: ''."""
     _install_model_route_import_stubs(monkeypatch)
-    import routes.model_routes as model_routes
+    from routes import model_routes
 
     ep = SimpleNamespace(
         id="ep1",
@@ -937,9 +915,7 @@ def test_default_chat_all_models_hidden_returns_empty_model(monkeypatch):
 
     request = SimpleNamespace(
         state=SimpleNamespace(current_user="admin"),
-        app=SimpleNamespace(state=SimpleNamespace(
-            auth_manager=SimpleNamespace(is_admin=lambda user: True)
-        )),
+        app=SimpleNamespace(state=SimpleNamespace(auth_manager=SimpleNamespace(is_admin=lambda user: True))),
     )
 
     result = _default_chat_endpoint()(request)

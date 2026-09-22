@@ -33,7 +33,7 @@ class FakeCollection:
         self._check_dim(embeddings)
         documents = documents or [None] * len(ids)
         metadatas = metadatas or [{}] * len(ids)
-        for row_id, emb, doc, meta in zip(ids, embeddings, documents, metadatas):
+        for row_id, emb, doc, meta in zip(ids, embeddings, documents, metadatas, strict=False):
             self.rows[row_id] = {"embedding": emb, "document": doc, "metadata": meta}
 
     def upsert(self, ids, embeddings, documents=None, metadatas=None):
@@ -46,9 +46,7 @@ class FakeCollection:
             selected = [(row_id, row) for row_id, row in selected if row_id in id_set]
         if where:
             selected = [
-                (row_id, row)
-                for row_id, row in selected
-                if all(row["metadata"].get(k) == v for k, v in where.items())
+                (row_id, row) for row_id, row in selected if all(row["metadata"].get(k) == v for k, v in where.items())
             ]
         if limit is not None:
             selected = selected[:limit]
@@ -119,6 +117,6 @@ class FakeChroma:
 
 
 def patch_chroma(monkeypatch, fake):
-    import src.chroma_client as chroma_client
+    from src import chroma_client
 
     monkeypatch.setattr(chroma_client, "get_chroma_client", lambda: fake)

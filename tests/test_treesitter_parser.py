@@ -5,6 +5,7 @@ Run with:
 
 Requires: tree-sitter tree-sitter-python (pip install tree-sitter tree-sitter-python)
 """
+
 from __future__ import annotations
 
 import os
@@ -26,6 +27,7 @@ class TestKillSwitch:
     def test_off_by_default(self):
         _disable()
         from services.code.treesitter_parser import TreeSitterService
+
         assert TreeSitterService.parse_file("app.py") is None
         assert TreeSitterService.find_functions("app.py") is None
         assert TreeSitterService.extract_symbols("app.py") is None
@@ -35,6 +37,7 @@ class TestKillSwitch:
         _enable()
         try:
             from services.code.treesitter_parser import TreeSitterService
+
             result = TreeSitterService.parse_file("app.py")
             # Should succeed if tree-sitter is installed
             if result is not None:
@@ -49,6 +52,7 @@ class TestParseFile:
         _enable()
         try:
             from services.code.treesitter_parser import TreeSitterService
+
             result = TreeSitterService.parse_file("app.py")
             if result is None:
                 # tree-sitter not installed — skip gracefully
@@ -63,6 +67,7 @@ class TestParseFile:
         _enable()
         try:
             from services.code.treesitter_parser import TreeSitterService
+
             result = TreeSitterService.parse_file("nonexistent_xyz.py")
             assert result is None
         finally:
@@ -74,6 +79,7 @@ class TestFindFunctions:
         _enable()
         try:
             from services.code.treesitter_parser import TreeSitterService
+
             funcs = TreeSitterService.find_functions("app.py")
             if funcs is None:
                 return  # tree-sitter not installed
@@ -94,6 +100,7 @@ class TestExtractSymbols:
         _enable()
         try:
             from services.code.treesitter_parser import TreeSitterService
+
             syms = TreeSitterService.extract_symbols("app.py")
             if syms is None:
                 return
@@ -110,6 +117,7 @@ class TestSyntaxDiff:
         _enable()
         try:
             from services.code.treesitter_parser import TreeSitterService
+
             old = "def foo():\n    return 1\n\ndef bar():\n    return 2\n"
             new = "def foo():\n    return 1\n\ndef bar():\n    return 3\n"
             diff = TreeSitterService.syntax_diff(old, new)
@@ -127,6 +135,7 @@ class TestSyntaxDiff:
         _enable()
         try:
             from services.code.treesitter_parser import TreeSitterService
+
             old = "def foo():\n    return 1\n"
             new = "def foo():\n    return 1\n\ndef baz():\n    return 42\n"
             diff = TreeSitterService.syntax_diff(old, new)
@@ -141,6 +150,7 @@ class TestSyntaxDiff:
         _enable()
         try:
             from services.code.treesitter_parser import TreeSitterService
+
             old = "def foo():\n    return 1\n\ndef bar():\n    return 2\n"
             new = "def foo():\n    return 1\n"
             diff = TreeSitterService.syntax_diff(old, new)
@@ -156,9 +166,11 @@ class TestFindCallers:
     def test_find_callers(self):
         _enable()
         try:
-            from services.code.treesitter_parser import TreeSitterService
             # Create a temp file to test caller finding
             import tempfile
+
+            from services.code.treesitter_parser import TreeSitterService
+
             with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
                 f.write("def helper():\n    pass\n\ndef main():\n    helper()\n    helper()\n")
                 tmp = f.name

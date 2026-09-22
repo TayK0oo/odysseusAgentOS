@@ -1,14 +1,22 @@
 """E2E test v6: FULL AGENT MODE project pipeline."""
-import requests, json, sys, time
+
+import json
+import sys
+import time
+
+import requests
 
 BASE = "http://127.0.0.1:7000"
 
 # Create session
-r = requests.post(f"{BASE}/api/session", data={
-    "name": "E2E Agent Pipeline Test",
-    "model": "minimax-m3",
-    "endpoint_url": "https://opencode.ai/zen/go/v1/chat/completions"
-})
+r = requests.post(
+    f"{BASE}/api/session",
+    data={
+        "name": "E2E Agent Pipeline Test",
+        "model": "minimax-m3",
+        "endpoint_url": "https://opencode.ai/zen/go/v1/chat/completions",
+    },
+)
 if r.status_code != 200:
     print(f"ERROR: {r.status_code} {r.text[:300]}")
     sys.exit(1)
@@ -24,14 +32,9 @@ print(f"\nSENDING agent: {msg[:80]}...\n")
 start = time.time()
 r = requests.post(
     f"{BASE}/api/chat_stream",
-    data={
-        "message": msg,
-        "session": sid,
-        "mode": "agent",
-        "use_web": "false",
-        "allow_bash": "true"
-    },
-    stream=True, timeout=600
+    data={"message": msg, "session": sid, "mode": "agent", "use_web": "false", "allow_bash": "true"},
+    stream=True,
+    timeout=600,
 )
 
 lc = 0
@@ -44,12 +47,12 @@ for line in r.iter_lines():
         if lc <= 5:
             print(f"[{lc}] {d[:250]}")
             continue
-        
+
         if d.startswith("data: "):
             try:
                 data = json.loads(d[6:])
                 t = data.get("type", "")
-                
+
                 if t == "phase_enter":
                     p = data.get("phase", "")
                     phases.append(p)
@@ -67,9 +70,13 @@ for line in r.iter_lines():
                 elif t == "model_info":
                     print(f"[{lc}] >>> MODEL: {data.get('model', '')}")
                 elif t == "metrics":
-                    print(f"[{lc}] >>> METRICS: {data.get('data', {}).get('total_tokens', 0)} tokens, {data.get('data', {}).get('response_time', 0)}s")
+                    print(
+                        f"[{lc}] >>> METRICS: {data.get('data', {}).get('total_tokens', 0)} tokens, {data.get('data', {}).get('response_time', 0)}s"
+                    )
                 elif t == "run_status":
-                    print(f"[{lc}] >>> STATUS: active={data.get('phase_active')} phase={data.get('phase')} drift={data.get('drift')}")
+                    print(
+                        f"[{lc}] >>> STATUS: active={data.get('phase_active')} phase={data.get('phase')} drift={data.get('drift')}"
+                    )
                 elif t == "budget":
                     print(f"[{lc}] >>> BUDGET: {data}")
                 elif "[DONE]" in d:
@@ -82,9 +89,9 @@ for line in r.iter_lines():
             print(f"[{lc}] ...")
 
 elapsed = time.time() - start
-print(f"\n{'='*60}")
+print(f"\n{'=' * 60}")
 print(f"LINES: {lc}")
 print(f"ELAPSED: {elapsed:.1f}s")
 print(f"PHASES: {phases}")
 print(f"TOOLS USED: {sorted(tools_used)}")
-print(f"{'='*60}")
+print(f"{'=' * 60}")

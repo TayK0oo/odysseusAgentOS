@@ -2,22 +2,25 @@
 Autoeval Loop — Pattern autoresearch (Karpathy).
 L'agent modifie du code → eval_command → compare metric → keep si mieux / git revert si pire.
 """
-import subprocess
+
 import json
 import logging
 import re
+import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class EvalResult:
     score: float
     raw_output: str
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
+
 
 @dataclass
 class AutoevalRun:
@@ -27,7 +30,8 @@ class AutoevalRun:
     improved: bool
     action_taken: str  # "kept" ou "reverted"
     git_hash_before: str
-    git_hash_after: Optional[str]
+    git_hash_after: str | None
+
 
 class AutoevalLoop:
     """
@@ -41,10 +45,10 @@ class AutoevalLoop:
     def __init__(
         self,
         project_dir: str,
-        eval_command: str,          # Figé — jamais modifié par l'agent
-        metric: str,                # Nom de la métrique à extraire
+        eval_command: str,  # Figé — jamais modifié par l'agent
+        metric: str,  # Nom de la métrique à extraire
         higher_is_better: bool = True,
-        timeout_seconds: int = 300, # Timeout par run
+        timeout_seconds: int = 300,  # Timeout par run
     ):
         self.project_dir = Path(project_dir)
         self.eval_command = eval_command  # JAMAIS MODIFIÉ
@@ -62,7 +66,8 @@ class AutoevalLoop:
                 cwd=self.project_dir,
                 capture_output=True,
                 text=True,
-                timeout=self.timeout_seconds
+                timeout=self.timeout_seconds,
+                check=False,
             )
             output = result.stdout + result.stderr
             score = self._extract_metric(output, self.metric)
@@ -83,8 +88,8 @@ class AutoevalLoop:
         """
         # Pytest pass rate
         if metric == "pass_rate" or "passed" in output:
-            match = re.search(r'(\d+) passed', output)
-            failed = re.search(r'(\d+) failed', output)
+            match = re.search(r"(\d+) passed", output)
+            failed = re.search(r"(\d+) failed", output)
             if match:
                 passed = int(match.group(1))
                 total = passed + (int(failed.group(1)) if failed else 0)
@@ -100,13 +105,13 @@ class AutoevalLoop:
 
         # Regex générique : "metric_name: 0.85" ou "metric_name=85%"
         patterns = [
-            rf'{re.escape(metric)}[:\s=]+([0-9]+\.?[0-9]*%?)',
-            r'([0-9]+\.?[0-9]*)%?\s*(?:accuracy|score|rate|pass)',
+            rf"{re.escape(metric)}[:\s=]+([0-9]+\.?[0-9]*%?)",
+            r"([0-9]+\.?[0-9]*)%?\s*(?:accuracy|score|rate|pass)",
         ]
         for pattern in patterns:
             match = re.search(pattern, output, re.IGNORECASE)
             if match:
-                val = match.group(1).rstrip('%')
+                val = match.group(1).rstrip("%")
                 score = float(val)
                 return score / 100 if score > 1.0 else score
 
@@ -116,9 +121,7 @@ class AutoevalLoop:
         """Hash git du HEAD actuel."""
         try:
             result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=self.project_dir,
-                capture_output=True, text=True
+                ["git", "rev-parse", "HEAD"], cwd=self.project_dir, capture_output=True, text=True, check=False
             )
             return result.stdout.strip()[:8]
         except Exception:
@@ -128,9 +131,7 @@ class AutoevalLoop:
         """Reverte au hash précédent via git reset --hard."""
         try:
             subprocess.run(
-                ["git", "reset", "--hard", hash_before],
-                cwd=self.project_dir,
-                capture_output=True
+                ["git", "reset", "--hard", hash_before], cwd=self.project_dir, capture_output=True, check=False
             )
             logger.info(f"Autoeval: git reset --hard {hash_before}")
             return True
@@ -174,8 +175,11 @@ class AutoevalLoop:
         if not self.history:
             return {"runs": 0, "best_score": None}
 
-        best = max(self.history, key=lambda r: r.score_after) if self.higher_is_better \
-               else min(self.history, key=lambda r: r.score_after)
+        best = (
+            max(self.history, key=lambda r: r.score_after)
+            if self.higher_is_better
+            else min(self.history, key=lambda r: r.score_after)
+        )
 
         return {
             "runs": len(self.history),
@@ -187,10 +191,11 @@ class AutoevalLoop:
         }
 
 
-def create_from_manifest(project_dir: str) -> Optional['AutoevalLoop']:
+def create_from_manifest(project_dir: str) -> Optional["AutoevalLoop"]:
     """Crée un AutoevalLoop depuis un PROJECT.yaml."""
     try:
         from src.project_manifest import load_manifest
+
         manifest = load_manifest(project_dir)
         if manifest and manifest.eval_command:
             return AutoevalLoop(

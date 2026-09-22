@@ -3095,7 +3095,7 @@ function _showEventForm(existing, defaultDate, defaultEndDate) {
     // proper UTC instants (is_utc=True). Without this, naive "10:00" gets
     // re-interpreted as local elsewhere — the timezone-misfire bug.
     const _tz = _tzOffset();
-    
+
     if (!isAD) {
       const startVal = document.getElementById('cal-f-start').value;
       const endVal = document.getElementById('cal-f-end').value;

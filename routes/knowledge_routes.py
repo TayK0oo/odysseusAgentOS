@@ -5,11 +5,12 @@ Checkpoint : CBM (structure code) → VectorRAG natif (sémantique doc) → Obsi
 La recherche sémantique doc est déléguée au ``VectorRAG`` natif (ChromaDB) au
 lieu du service Graphify fantôme (jamais démarré) — zéro redondance.
 """
-from fastapi import APIRouter
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
-import httpx
+
 import logging
+from typing import Any
+
+import httpx
+from fastapi import APIRouter
 
 from src.rag_singleton import get_rag_manager
 
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 CBM_URL = "http://localhost:9749"
 
 
-def _native_semantic_search(query: str, limit: int = 5) -> Dict[str, Any]:
+def _native_semantic_search(query: str, limit: int = 5) -> dict[str, Any]:
     """Semantic doc search via the native VectorRAG (replaces phantom Graphify)."""
     rag = get_rag_manager()
     if rag is None:
@@ -30,7 +31,9 @@ def _native_semantic_search(query: str, limit: int = 5) -> Dict[str, Any]:
     except Exception as e:
         return {"results": [], "error": str(e)}
 
+
 # ---- CBM — Structure code ----
+
 
 @router.get("/code/search")
 async def search_code_graph(q: str, limit: int = 10):
@@ -42,6 +45,7 @@ async def search_code_graph(q: str, limit: int = 10):
     except Exception as e:
         return {"error": str(e), "hint": "Démarrer avec: docker compose --profile knowledge up -d"}
 
+
 @router.get("/code/trace")
 async def trace_code_path(fn: str, mode: str = "calls"):
     """CBM trace_path — trace les appels/dépendances d'une fonction."""
@@ -51,6 +55,7 @@ async def trace_code_path(fn: str, mode: str = "calls"):
             return resp.json()
     except Exception as e:
         return {"error": str(e)}
+
 
 @router.get("/code/snippet")
 async def get_code_snippet(qn: str):
@@ -62,6 +67,7 @@ async def get_code_snippet(qn: str):
     except Exception as e:
         return {"error": str(e)}
 
+
 @router.get("/code/architecture")
 async def get_architecture(aspects: str = "all"):
     """CBM get_architecture — vue d'ensemble du projet."""
@@ -72,12 +78,13 @@ async def get_architecture(aspects: str = "all"):
     except Exception as e:
         return {"error": str(e)}
 
+
 # ---- Sémantique — VectorRAG natif + Graphify (3ème leg Trinité) ----
+
 
 @router.get("/graph/search")
 async def search_graph_semantic(q: str, limit: int = 10):
     """Recherche sémantique — VectorRAG natif (docs) + Graphify (code) si dispo."""
-    from src.rag_singleton import get_rag_manager
     results = {"rag": None, "graphify": None, "query": q}
 
     # 1. VectorRAG natif — recherche documentaire hybride
@@ -86,11 +93,15 @@ async def search_graph_semantic(q: str, limit: int = 10):
     # 2. Graphify — sémantique code (si le serveur MCP est enregistré)
     try:
         import os
+
         if os.environ.get("ODYSSEUS_GRAPHIFY", "").strip().lower() in ("1", "true", "yes", "on"):
             async with httpx.AsyncClient(timeout=15.0) as client:
                 r = await client.post(
                     "http://localhost:9750/mcp",
-                    json={"method": "tools/call", "params": {"name": "graphify_search", "arguments": {"query": q, "limit": limit}}},
+                    json={
+                        "method": "tools/call",
+                        "params": {"name": "graphify_search", "arguments": {"query": q, "limit": limit}},
+                    },
                 )
                 if r.status_code == 200:
                     results["graphify"] = r.json()
@@ -105,7 +116,8 @@ async def graphify_status():
     """Statut du knowledge graph Graphify."""
     try:
         import os
-        if not os.environ.get("ODYSSEUS_GRAPHIFY", "").strip().lower() in ("1", "true", "yes", "on"):
+
+        if os.environ.get("ODYSSEUS_GRAPHIFY", "").strip().lower() not in ("1", "true", "yes", "on"):
             return {"available": False, "reason": "ODYSSEUS_GRAPHIFY is OFF"}
         async with httpx.AsyncClient(timeout=10.0) as client:
             r = await client.post(
@@ -124,12 +136,16 @@ async def graphify_analyze(path: str = None, max_depth: int = 5):
     """Lance une analyse Graphify du codebase (knowledge graph sémantique)."""
     try:
         import os
-        if not os.environ.get("ODYSSEUS_GRAPHIFY", "").strip().lower() in ("1", "true", "yes", "on"):
+
+        if os.environ.get("ODYSSEUS_GRAPHIFY", "").strip().lower() not in ("1", "true", "yes", "on"):
             return {"error": "ODYSSEUS_GRAPHIFY is OFF — enable it to use Graphify"}
         async with httpx.AsyncClient(timeout=120.0) as client:
             r = await client.post(
                 "http://localhost:9750/mcp",
-                json={"method": "tools/call", "params": {"name": "graphify_analyze", "arguments": {"path": path, "max_depth": max_depth}}},
+                json={
+                    "method": "tools/call",
+                    "params": {"name": "graphify_analyze", "arguments": {"path": path, "max_depth": max_depth}},
+                },
             )
             if r.status_code == 200:
                 return r.json()
@@ -137,7 +153,9 @@ async def graphify_analyze(path: str = None, max_depth: int = 5):
     except Exception as e:
         return {"error": str(e)}
 
+
 # ---- Checkpoint Trinité — utilisé avant génération ----
+
 
 @router.post("/checkpoint")
 async def trinite_checkpoint(query: str, context_type: str = "code"):
@@ -161,11 +179,14 @@ async def trinite_checkpoint(query: str, context_type: str = "code"):
 
     return results
 
+
 @router.get("/status")
 async def knowledge_status():
     """Statut de tous les composants de la Trinité."""
-    status = {"rag": "online" if get_rag_manager() is not None else "offline",
-              "obsidian": "delegated (native checkpoint_tracker + ODYSSEUS_OBSIDIAN_MCP gate)"}
+    status = {
+        "rag": "online" if get_rag_manager() is not None else "offline",
+        "obsidian": "delegated (native checkpoint_tracker + ODYSSEUS_OBSIDIAN_MCP gate)",
+    }
     async with httpx.AsyncClient(timeout=3.0) as client:
         for name, url in [("cbm", CBM_URL)]:
             try:

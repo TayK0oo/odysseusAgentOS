@@ -17,14 +17,16 @@ import logging
 import os
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # ─── Kill-switch ────────────────────────────────────────────────────────
+
 
 def durable_execution_enabled() -> bool:
     val = os.getenv("ODYSSEUS_DURABLE_EXECUTION", "off").strip().lower()
@@ -38,6 +40,7 @@ WORKFLOW_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ─── Types ──────────────────────────────────────────────────────────────
+
 
 class StepStatus(str, Enum):
     PENDING = "pending"
@@ -74,12 +77,12 @@ class RetryPolicy:
 class WorkflowStep:
     name: str
     action: str  # Callable name or function reference
-    compensation: Optional[str] = None
+    compensation: str | None = None
     retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
     status: StepStatus = StepStatus.PENDING
     attempts: int = 0
-    result: Optional[Any] = None
-    error: Optional[str] = None
+    result: Any | None = None
+    error: str | None = None
     started_at: float = 0.0
     completed_at: float = 0.0
     requires_approval: bool = False
@@ -91,22 +94,23 @@ class WorkflowState:
     id: str
     name: str
     status: WorkflowStatus = WorkflowStatus.PENDING
-    steps: List[WorkflowStep] = field(default_factory=list)
+    steps: list[WorkflowStep] = field(default_factory=list)
     current_step: int = 0
-    context: Dict[str, Any] = field(default_factory=dict)
+    context: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
 
 # ─── Workflow Engine ────────────────────────────────────────────────────
 
+
 class DurableExecutor:
     """Moteur d'exécution durable avec persistance et retry."""
 
     def __init__(self):
-        self.running: Dict[str, WorkflowState] = {}
+        self.running: dict[str, WorkflowState] = {}
 
-    def create_workflow(self, name: str, steps: List[WorkflowStep], context: Optional[Dict] = None) -> WorkflowState:
+    def create_workflow(self, name: str, steps: list[WorkflowStep], context: dict | None = None) -> WorkflowState:
         wf = WorkflowState(
             id=str(uuid.uuid4()),
             name=name,
@@ -116,7 +120,7 @@ class DurableExecutor:
         self._save(wf)
         return wf
 
-    async def execute(self, wf: WorkflowState, step_functions: Dict[str, Callable]) -> WorkflowState:
+    async def execute(self, wf: WorkflowState, step_functions: dict[str, Callable]) -> WorkflowState:
         """Exécute un workflow du début à la fin avec reprise après panne."""
         wf.status = WorkflowStatus.RUNNING
         self._save(wf)
@@ -166,8 +170,9 @@ class DurableExecutor:
                     step.error = str(e)
                     if attempt < step.retry_policy.max_attempts:
                         delay = step.retry_policy.delay_for_attempt(attempt)
-                        logger.warning("Step '%s' attempt %d failed: %s. Retrying in %.1fs",
-                                       step.name, attempt, e, delay)
+                        logger.warning(
+                            "Step '%s' attempt %d failed: %s. Retrying in %.1fs", step.name, attempt, e, delay
+                        )
                         await asyncio.sleep(delay)
 
             if not success:
@@ -214,7 +219,7 @@ class DurableExecutor:
         self._save(wf)
         return True
 
-    def resume(self, workflow_id: str) -> Optional[WorkflowState]:
+    def resume(self, workflow_id: str) -> WorkflowState | None:
         """Charge un workflow depuis le disque pour reprise après panne."""
         path = WORKFLOW_DIR / f"{workflow_id}.json"
         if not path.exists():
@@ -271,7 +276,7 @@ class DurableExecutor:
 
 # ─── Singleton ───────────────────────────────────────────────────────────
 
-_executor: Optional[DurableExecutor] = None
+_executor: DurableExecutor | None = None
 
 
 def get_durable_executor() -> DurableExecutor:

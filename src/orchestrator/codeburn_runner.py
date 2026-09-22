@@ -9,6 +9,7 @@ CodeBurn reads session logs from disk (JSONL/SQLite) and produces:
 The runner is best-effort: if codeburn is not installed or fails, it returns
 an empty report. Kill-switched via ODYSSEUS_CODEBURN (default OFF).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,7 +18,6 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ def codeburn_enabled() -> bool:
     return val in ("on", "1", "true", "yes")
 
 
-def _find_codeburn() -> Optional[str]:
+def _find_codeburn() -> str | None:
     """Locate the codeburn CLI binary. Returns None if not installed."""
     # Try npm global first
     for candidate in ("codeburn", "npx", "node"):
@@ -36,7 +36,7 @@ def _find_codeburn() -> Optional[str]:
     return None
 
 
-async def run_codeburn(session_id: str, trace_dir: Optional[str] = None) -> dict:
+async def run_codeburn(session_id: str, trace_dir: str | None = None) -> dict:
     """Run codeburn and return a report dict. Returns empty dict on failure.
 
     The report dict keys match Observer.record_codeburn_report expectations:
@@ -67,8 +67,15 @@ async def run_codeburn(session_id: str, trace_dir: Optional[str] = None) -> dict
     if codeburn_bin == "npx":
         cmd = ["npx", "codeburn", "report", "--dir", str(trace_path), "--format", "json"]
     elif codeburn_bin == "node":
-        cmd = ["node", str(shutil.which("codeburn") or "codeburn"), "report",
-               "--dir", str(trace_path), "--format", "json"]
+        cmd = [
+            "node",
+            str(shutil.which("codeburn") or "codeburn"),
+            "report",
+            "--dir",
+            str(trace_path),
+            "--format",
+            "json",
+        ]
 
     logger.info("[CodeBurn] running report for session=%s", session_id)
 
@@ -79,7 +86,7 @@ async def run_codeburn(session_id: str, trace_dir: Optional[str] = None) -> dict
             stderr=asyncio.subprocess.PIPE,
         )
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("[CodeBurn] timed out after 30s")
         return {}
     except FileNotFoundError:
@@ -128,6 +135,7 @@ def feed_observer(report: dict) -> None:
         return
     try:
         from src.observer import Observer
+
         observer = Observer()
         observer.record_codeburn_report(report)
     except Exception as exc:

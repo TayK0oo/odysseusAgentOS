@@ -6,9 +6,9 @@ research job to find better approaches, then suggests improvements.
 
 Best-effort: never blocks the loop, never raises.
 """
+
 import logging
 import os
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ async def trigger_improvement_research(
     run_id: str,
     drift_level: str,
     failure_summary: str = "",
-) -> Optional[dict]:
+) -> dict | None:
     """Launch a deep research job to find improvements after a drift HIGH event.
 
     Called after autoeval reverts a change due to drift HIGH. Uses the
@@ -43,6 +43,7 @@ async def trigger_improvement_research(
 
     try:
         from src.research_handler import DeepResearcher
+
         researcher = DeepResearcher()
 
         topic = (
@@ -59,7 +60,9 @@ async def trigger_improvement_research(
 
         logger.info(
             "Auto-evolve: launched research job %s for run %s (drift=%s)",
-            job.get("session_id", "?"), run_id, drift_level,
+            job.get("session_id", "?"),
+            run_id,
+            drift_level,
         )
 
         return {
@@ -84,7 +87,7 @@ async def maybe_autoevolve(
     drift_level: str,
     autoeval_decision: str,
     failure_summary: str = "",
-) -> Optional[dict]:
+) -> dict | None:
     """Entry point called from agent_loop after autoeval.
 
     Only triggers research when:
@@ -105,7 +108,9 @@ async def maybe_autoevolve(
 
     logger.info(
         "Auto-evolve triggered: drift=%s decision=%s run=%s",
-        drift_level, autoeval_decision, run_id,
+        drift_level,
+        autoeval_decision,
+        run_id,
     )
 
     return await trigger_improvement_research(

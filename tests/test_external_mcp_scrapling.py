@@ -12,14 +12,14 @@ decision layer that makes it live: only entries with a real MCP `transport` are
 connected, gated by their enable-flag env (kill-switch), and REST-only bundles
 (Kroki → served by the native render_diagram tool) are never MCP-connected.
 """
+
 import asyncio
 
-from src.mcp_manager import McpManager, EXTERNAL_MCP_SERVERS
+from src.mcp_manager import EXTERNAL_MCP_SERVERS, McpManager
 
 
 def _picks(m):
-    return {sid: (name, transport, url)
-            for sid, name, transport, url in m._external_servers_to_connect()}
+    return {sid: (name, transport, url) for sid, name, transport, url in m._external_servers_to_connect()}
 
 
 def test_scrapling_included_when_enabled(monkeypatch):

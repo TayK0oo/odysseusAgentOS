@@ -281,9 +281,9 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
     // Get current session
     const sessionId = sessionModule.getCurrentSessionId();
     const session = sessionModule.getSessions().find(s => s.id === sessionId);
-    
+
     const submitBtn = document.querySelector('.send-btn');
-    
+
     // If compare is active, stop all compare streams
     if (window.compareModule && window.compareModule.isActive()) {
       window.compareModule.handleCompareSubmit();
@@ -346,21 +346,21 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
       if (currentHolder && currentAccumulated) {
         // Store accumulated in a closure variable before it gets cleared
         const stoppedContent = currentAccumulated;
-        
+
         // Store raw content in dataset for consistency with other messages
         currentHolder.dataset.raw = stoppedContent;
-        
+
         currentHolder.querySelector('.body').innerHTML = markdownModule.processWithThinking(
           markdownModule.squashOutsideCode(stoppedContent)
         );
-        
+
         // Highlight code blocks
         if (window.hljs) {
           currentHolder.querySelectorAll('pre code').forEach((block) => {
             window.hljs.highlightElement(block);
           });
         }
-        
+
         // Add the stopped indicator with continue button
         const stoppedIndicator = document.createElement('div');
         stoppedIndicator.className = 'stopped-indicator';
@@ -399,14 +399,14 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
 
         uiModule.scrollHistory();
       }
-      
+
       // Reset button state
       updateSubmitButton('idle', submitBtn);
-      
+
       // Re-enable message input
       const messageInput = uiModule.el('message');
       if (messageInput) messageInput.disabled = false;
-      
+
       // Clear tracking variables
       currentAccumulated = '';
       currentHolder = null;
@@ -602,7 +602,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
     // Reset tracking variables at start
     currentAccumulated = '';
     currentHolder = null;
-    
+
     try {
       // Re-enable auto-scroll when user sends a message
       uiModule.setAutoScroll(true);
@@ -887,7 +887,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
         responseTimeoutCleared = true;
         clearTimeout(timeoutId);
       };
-      
+
       const box = el('chat-history');
       holder = document.createElement('div');
       holder.className = 'msg msg-ai streaming';
@@ -895,7 +895,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
       // Track holder globally so stop button can access it
       currentHolder = holder;
       holder._researchQuery = msg; // Store query for notification text
-      
+
       const modelName = sessionModule.getCurrentModel() || null;
 
       let loadingText = 'Initializing...';
@@ -921,14 +921,14 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
       holder._actualModel = modelName;
       _applyModelColor(holder.querySelector('.role'), modelName);
       holder.style.position = 'relative';
-      
+
       // Create spinner
       spinner = spinnerModule.create('Initializing', 'right', 'wave');
       currentSpinner = spinner;
       const bodyDiv = holder.querySelector('.body');
       bodyDiv.appendChild(spinner.createElement());
       spinner.start();
-      
+
       // Update spinner message based on mode
       if (el('web-toggle').checked && !_isAgent) {
         spinner.updateMessage('Searching web with ' + (searchModule ? searchModule.getProviderLabel() : 'SearXNG'));
@@ -940,7 +940,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
         spinner.updateMessage('Processing request');
         scheduleFirstTokenWaitMessages();
       }
-      
+
       const researchBtn = el('research-toggle-btn');
       if (el('research-toggle').checked && researchBtn) {
         researchBtn.disabled = true;
@@ -975,7 +975,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
         headers: { 'X-Tz-Offset': String(_tzOffsetMin), 'X-Tz-Name': _tzName },
         signal: abortCtrl.signal
       });
-      
+
       if (!res.ok) {
         clearResponseTimeout();
         if (res.status === 404) {

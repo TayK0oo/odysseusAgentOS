@@ -6,9 +6,9 @@ from src.embedding_lanes import (
     build_embedding_lanes,
 )
 from tests.helpers.embedding_lanes import (
+    FailingEmbedder,
     FakeChroma,
     FakeEmbedder,
-    FailingEmbedder,
     patch_chroma,
 )
 
@@ -69,7 +69,11 @@ def test_build_embedding_lanes_recreates_only_custom_when_fingerprint_changes(mo
     import src.embedding_lanes as lanes
 
     monkeypatch.setattr(lanes, "_build_custom_client", lambda: FakeEmbedder(1024, "bge-large", "http://embeddings/v1"))
-    monkeypatch.setattr(lanes, "_build_fastembed_client", lambda: FakeEmbedder(384, "sentence-transformers/all-MiniLM-L6-v2", "local://fastembed"))
+    monkeypatch.setattr(
+        lanes,
+        "_build_fastembed_client",
+        lambda: FakeEmbedder(384, "sentence-transformers/all-MiniLM-L6-v2", "local://fastembed"),
+    )
 
     built = build_embedding_lanes("odysseus_rag")
 
@@ -244,7 +248,7 @@ def test_build_embedding_lanes_uses_fastembed_when_custom_unavailable(monkeypatc
 
 def test_custom_lane_preserves_default_embedding_client_probe(monkeypatch):
     import src.embedding_lanes as lanes
-    import src.embeddings as embeddings
+    from src import embeddings
 
     embeddings.reset_http_embed_state()
     monkeypatch.setattr(lanes, "_load_custom_endpoint", lambda: {})
@@ -267,7 +271,7 @@ def test_custom_lane_preserves_default_embedding_client_probe(monkeypatch):
 
 def test_custom_lane_uses_http_down_latch(monkeypatch):
     import src.embedding_lanes as lanes
-    import src.embeddings as embeddings
+    from src import embeddings
 
     embeddings.reset_http_embed_state()
     calls = []

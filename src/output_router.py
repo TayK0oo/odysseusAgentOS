@@ -16,11 +16,11 @@ import os
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
 
 logger = logging.getLogger(__name__)
 
 # ─── Kill-switch ────────────────────────────────────────────────────────
+
 
 def output_router_enabled() -> bool:
     val = os.getenv("ODYSSEUS_OUTPUT_ROUTER", "off").strip().lower()
@@ -28,6 +28,7 @@ def output_router_enabled() -> bool:
 
 
 # ─── Types ──────────────────────────────────────────────────────────────
+
 
 class OutputMode(str, Enum):
     TEXT_ONLY = "text_only"
@@ -49,46 +50,95 @@ class DesignModule(str, Enum):
 @dataclass
 class OutputDecision:
     mode: OutputMode
-    module: Optional[DesignModule] = None
-    mcp_tool: Optional[str] = None
-    file_extension: Optional[str] = None
+    module: DesignModule | None = None
+    mcp_tool: str | None = None
+    file_extension: str | None = None
     reason: str = ""
 
 
 # ─── Triggers ───────────────────────────────────────────────────────────
 
 # Mots-clés qui déclenchent une visualisation
-VISUAL_TRIGGERS: Dict[DesignModule, List[str]] = {
+VISUAL_TRIGGERS: dict[DesignModule, list[str]] = {
     DesignModule.DIAGRAM: [
-        "diagramme", "diagram", "schéma", "schema", "flowchart",
-        "organigramme", "flux", "flow", "architecture", "séquence",
-        "sequence", "graphe", "graph",
+        "diagramme",
+        "diagram",
+        "schéma",
+        "schema",
+        "flowchart",
+        "organigramme",
+        "flux",
+        "flow",
+        "architecture",
+        "séquence",
+        "sequence",
+        "graphe",
+        "graph",
     ],
     DesignModule.CHART: [
-        "graphique", "chart", "courbe", "plot", "histogramme",
-        "pie chart", "bar chart", "camembert", "données", "data",
-        "statistiques", "statistics", "comparaison", "comparison",
+        "graphique",
+        "chart",
+        "courbe",
+        "plot",
+        "histogramme",
+        "pie chart",
+        "bar chart",
+        "camembert",
+        "données",
+        "data",
+        "statistiques",
+        "statistics",
+        "comparaison",
+        "comparison",
     ],
     DesignModule.MOCKUP: [
-        "maquette", "mockup", "wireframe", "interface", "UI",
-        "formulaire", "form", "écran", "screen", "page",
-        "landing page", "app",
+        "maquette",
+        "mockup",
+        "wireframe",
+        "interface",
+        "UI",
+        "formulaire",
+        "form",
+        "écran",
+        "screen",
+        "page",
+        "landing page",
+        "app",
     ],
     DesignModule.DATA_VIZ: [
-        "visualisation", "visualization", "carte", "map",
-        "heatmap", "treemap", "sankey", "network",
+        "visualisation",
+        "visualization",
+        "carte",
+        "map",
+        "heatmap",
+        "treemap",
+        "sankey",
+        "network",
     ],
 }
 
 # Signaux de demande de fichier
-FILE_SIGNALS: List[str] = [
-    "crée un fichier", "cree un fichier", "sauvegarde", "sauvegarder",
-    "télécharge", "telecharge", "exporte", "exporter", "download",
-    ".pdf", ".png", ".svg", ".html", ".csv", ".json", ".xlsx",
+FILE_SIGNALS: list[str] = [
+    "crée un fichier",
+    "cree un fichier",
+    "sauvegarde",
+    "sauvegarder",
+    "télécharge",
+    "telecharge",
+    "exporte",
+    "exporter",
+    "download",
+    ".pdf",
+    ".png",
+    ".svg",
+    ".html",
+    ".csv",
+    ".json",
+    ".xlsx",
 ]
 
 # Catégories → modules de design
-CATEGORY_TO_MODULE: Dict[str, DesignModule] = {
+CATEGORY_TO_MODULE: dict[str, DesignModule] = {
     "architecture": DesignModule.DIAGRAM,
     "flux": DesignModule.DIAGRAM,
     "diagramme": DesignModule.DIAGRAM,
@@ -103,11 +153,12 @@ CATEGORY_TO_MODULE: Dict[str, DesignModule] = {
 
 # ─── Router ─────────────────────────────────────────────────────────────
 
+
 @dataclass
 class OutputRouter:
     """Routeur de modalité de sortie selon l'arbre de décision SFD §5.18."""
 
-    connected_mcp_tools: Dict[str, str] = field(default_factory=dict)
+    connected_mcp_tools: dict[str, str] = field(default_factory=dict)
     # {category: mcp_tool_name}
 
     def route(self, request: str, response_text: str) -> OutputDecision:
@@ -168,7 +219,7 @@ class OutputRouter:
                 return True
         return False
 
-    def _detect_category(self, request: str) -> Optional[str]:
+    def _detect_category(self, request: str) -> str | None:
         """Détecte la catégorie de la demande."""
         for category, keywords in VISUAL_TRIGGERS.items():
             for keyword in keywords:
@@ -183,7 +234,7 @@ class OutputRouter:
                 return True
         return False
 
-    def _detect_file_extension(self, request: str) -> Optional[str]:
+    def _detect_file_extension(self, request: str) -> str | None:
         """Détecte l'extension de fichier demandée."""
         extensions = [".pdf", ".png", ".svg", ".html", ".csv", ".json", ".xlsx", ".md", ".py"]
         for ext in extensions:
@@ -191,7 +242,7 @@ class OutputRouter:
                 return ext
         return None
 
-    def _detect_design_module(self, request: str) -> Optional[DesignModule]:
+    def _detect_design_module(self, request: str) -> DesignModule | None:
         """Détecte le module de design approprié."""
         for category, triggers in VISUAL_TRIGGERS.items():
             for trigger in triggers:
@@ -219,7 +270,7 @@ class OutputRouter:
 
 # ─── Singleton ───────────────────────────────────────────────────────────
 
-_router: Optional[OutputRouter] = None
+_router: OutputRouter | None = None
 
 
 def get_output_router() -> OutputRouter:

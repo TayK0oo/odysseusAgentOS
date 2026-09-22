@@ -2,11 +2,11 @@
 Governance — Budgets granulaires, auto-pause, heartbeat, approval gates.
 Patterns inspirés de Paperclip.
 """
+
 import json
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +19,15 @@ class GovernanceManager:
 
     # ---- Budgets ----
 
-    def register_agent_run(self, agent_id: str, run_id: str, project_id: Optional[str] = None,
-                           max_tokens: int = 100000, max_cost_usd: float = 5.0,
-                           max_iterations: int = 50) -> dict:
+    def register_agent_run(
+        self,
+        agent_id: str,
+        run_id: str,
+        project_id: str | None = None,
+        max_tokens: int = 100000,
+        max_cost_usd: float = 5.0,
+        max_iterations: int = 50,
+    ) -> dict:
         """Enregistre un run agent avec ses budgets."""
         from core.database import AgentBudget
 
@@ -45,15 +51,13 @@ class GovernanceManager:
                 "max_iterations": max_iterations,
             }
 
-    def consume_budget(self, run_id: str, tokens: int = 0, cost_usd: float = 0.0,
-                       iterations: int = 0) -> dict:
+    def consume_budget(self, run_id: str, tokens: int = 0, cost_usd: float = 0.0, iterations: int = 0) -> dict:
         """
         Met à jour la consommation.
         Retourne {'ok': bool, 'status': str, 'reason': str, 'percent': float}
         Auto-pause si budget dépassé.
         """
         from core.database import AgentBudget
-        from datetime import datetime
 
         with self.get_db() as db:
             budget = db.query(AgentBudget).filter(AgentBudget.run_id == run_id).first()
@@ -61,7 +65,12 @@ class GovernanceManager:
                 return {"ok": False, "status": "not_found", "reason": "run_id not found", "percent": 0.0}
 
             if budget.status == "exhausted":
-                return {"ok": False, "status": "exhausted", "reason": budget.paused_reason or "budget exhausted", "percent": 100.0}
+                return {
+                    "ok": False,
+                    "status": "exhausted",
+                    "reason": budget.paused_reason or "budget exhausted",
+                    "percent": 100.0,
+                }
 
             budget.tokens_used = (budget.tokens_used or 0) + tokens
             budget.cost_usd = (budget.cost_usd or 0.0) + cost_usd
@@ -87,7 +96,7 @@ class GovernanceManager:
             db.commit()
             return {"ok": True, "status": budget.status, "reason": reason, "percent": percent}
 
-    def get_budget_status(self, run_id: str) -> Optional[dict]:
+    def get_budget_status(self, run_id: str) -> dict | None:
         """Statut budget d'un run."""
         from core.database import AgentBudget
 
@@ -113,20 +122,29 @@ class GovernanceManager:
         from core.database import AgentBudget
 
         with self.get_db() as db:
-            count = db.query(AgentBudget).filter(
-                AgentBudget.agent_id == agent_id,
-                AgentBudget.status.in_(["exhausted", "paused"]),
-            ).count()
+            count = (
+                db.query(AgentBudget)
+                .filter(
+                    AgentBudget.agent_id == agent_id,
+                    AgentBudget.status.in_(["exhausted", "paused"]),
+                )
+                .count()
+            )
             return count > 0
 
     # ---- Heartbeat ----
 
-    def update_heartbeat(self, agent_id: str, task_id: Optional[str],
-                         context_snapshot: dict, checklist: list,
-                         last_action: str, next_run_in_seconds: int = 300) -> None:
+    def update_heartbeat(
+        self,
+        agent_id: str,
+        task_id: str | None,
+        context_snapshot: dict,
+        checklist: list,
+        last_action: str,
+        next_run_in_seconds: int = 300,
+    ) -> None:
         """Met à jour le heartbeat d'un agent (contexte pour le prochain réveil)."""
         from core.database import AgentHeartbeat
-        from datetime import datetime
 
         now = datetime.utcnow()
         with self.get_db() as db:
@@ -144,7 +162,7 @@ class GovernanceManager:
             hb.run_count = (hb.run_count or 0) + 1
             db.commit()
 
-    def get_heartbeat_context(self, agent_id: str) -> Optional[dict]:
+    def get_heartbeat_context(self, agent_id: str) -> dict | None:
         """
         Retourne le contexte à injecter au réveil de l'agent.
         Pattern "Memento Man" : l'agent est amnésique, on lui donne sa checklist.
@@ -168,8 +186,7 @@ class GovernanceManager:
 
     # ---- Goal ancestry ----
 
-    def create_task_with_ancestry(self, project_id: str, task_name: str,
-                                  description: str, agent_id: str) -> dict:
+    def create_task_with_ancestry(self, project_id: str, task_name: str, description: str, agent_id: str) -> dict:
         """Crée une tâche avec son ancestry_path complet."""
         from core.database import GoalProject, GoalTask
 
@@ -214,8 +231,7 @@ class GovernanceManager:
 
     # ---- Approval gates ----
 
-    def request_approval(self, action_description: str, risk_level: str,
-                         agent_id: str, run_id: str) -> dict:
+    def request_approval(self, action_description: str, risk_level: str, agent_id: str, run_id: str) -> dict:
         """
         Pour les actions destructives : log l'approbation requise.
         Retourne {'approved': bool, 'gate_id': str, 'message': str}
@@ -228,7 +244,10 @@ class GovernanceManager:
         if risk_upper == "DESTRUCTIVE":
             logger.warning(
                 "[APPROVAL GATE %s] DESTRUCTIVE action requested by agent=%s run=%s: %s",
-                gate_id, agent_id, run_id, action_description,
+                gate_id,
+                agent_id,
+                run_id,
+                action_description,
             )
             return {
                 "approved": False,
@@ -238,7 +257,10 @@ class GovernanceManager:
 
         logger.info(
             "[APPROVAL GATE %s] Auto-approved risk=%s agent=%s: %s",
-            gate_id, risk_level, agent_id, action_description,
+            gate_id,
+            risk_level,
+            agent_id,
+            action_description,
         )
         return {
             "approved": True,

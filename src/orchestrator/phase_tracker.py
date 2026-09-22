@@ -11,11 +11,11 @@ When ON, phases are inferred and pushed into the phase-lock registry. The
 inference is intentionally conservative for now (BUILD, i.e. permissive, unless
 plan_mode); later M3.x waves enrich infer_phase() as each module needs its phase.
 """
+
 from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ def tracker_enabled() -> bool:
 
 
 class PhaseTracker:
-    def __init__(self, session_id: str, registry=None, enabled: Optional[bool] = None):
+    def __init__(self, session_id: str, registry=None, enabled: bool | None = None):
         self.session_id = session_id or "live"
         self._enabled = tracker_enabled() if enabled is None else bool(enabled)
         if registry is not None:
@@ -35,13 +35,13 @@ class PhaseTracker:
         elif self._enabled:
             # Lazy import so importing this module never forces the singleton.
             from src.tool_registry import ToolRegistry
+
             self._registry = ToolRegistry.get_instance()
         else:
             self._registry = None
 
     @staticmethod
-    def infer_phase(round_num: int, intent: Optional[dict] = None,
-                    plan_mode: bool = False) -> str:
+    def infer_phase(round_num: int, intent: dict | None = None, plan_mode: bool = False) -> str:
         """Return the phase-lock name for this round.
 
         Conservative live mapping (M3.0): plan_mode reinforces PLAN (writes are
@@ -53,12 +53,10 @@ class PhaseTracker:
             return "PLAN"
         return "BUILD"
 
-    def on_round_start(self, round_num: int, intent: Optional[dict] = None,
-                       plan_mode: bool = False) -> str:
+    def on_round_start(self, round_num: int, intent: dict | None = None, plan_mode: bool = False) -> str:
         """Infer the phase for this round and (if enabled) push it to the registry."""
         phase = self.infer_phase(round_num, intent=intent, plan_mode=plan_mode)
         if self._enabled and self._registry is not None:
             self._registry.set_phase(self.session_id, phase)
-            logger.info("[PhaseTracker] session=%s round=%s → %s",
-                        self.session_id, round_num, phase)
+            logger.info("[PhaseTracker] session=%s round=%s → %s", self.session_id, round_num, phase)
         return phase

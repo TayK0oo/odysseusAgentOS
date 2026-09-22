@@ -21,12 +21,13 @@ signal — a non-empty verifier verdict (from ``_run_verifier_subagent``, which
 returns a list of failure reasons; empty == SUCCESS) or ``DriftLevel.HIGH``
 (harness/protocol file touched). MEDIUM/LOW drift KEEP.
 """
+
 from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Callable, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ def autoeval_enabled() -> bool:
 
 
 def decide_keep_or_revert(
-    verifier_reasons: Optional[Sequence[str]],
+    verifier_reasons: Sequence[str] | None,
     drift_level=None,
 ) -> str:
     """Pure decision: return "keep" or "revert".
@@ -80,17 +81,18 @@ class AutoevalDecision:
     reverted — did the injected git_runner actually perform the revert
     error    — string describing why a revert failed (or None)
     """
+
     enabled: bool
     decision: str
     reverted: bool
-    error: Optional[str] = None
+    error: str | None = None
 
 
 def apply_autoeval(
-    verifier_reasons: Optional[Sequence[str]],
+    verifier_reasons: Sequence[str] | None,
     *,
     drift_level=None,
-    git_runner: Optional[Callable[[], object]] = None,
+    git_runner: Callable[[], object] | None = None,
 ) -> AutoevalDecision:
     """Decide keep/revert and, only when enabled AND decision == revert, invoke
     the INJECTED ``git_runner`` to perform the destructive revert.
@@ -116,7 +118,9 @@ def apply_autoeval(
     if git_runner is None:
         logger.warning("[autoeval] revert decided but no git_runner injected — skipping")
         return AutoevalDecision(
-            enabled=True, decision=REVERT, reverted=False,
+            enabled=True,
+            decision=REVERT,
+            reverted=False,
             error="no git_runner injected",
         )
 
@@ -124,17 +128,20 @@ def apply_autoeval(
         result = git_runner()
         reverted = result is not False  # a runner may return True/None on success
         if reverted:
-            logger.warning(
-                "[autoeval] REVERT — verifier/drift flagged failure; git reset --hard performed"
-            )
+            logger.warning("[autoeval] REVERT — verifier/drift flagged failure; git reset --hard performed")
         else:
             logger.error("[autoeval] revert requested but git_runner reported failure")
         return AutoevalDecision(
-            enabled=True, decision=REVERT, reverted=bool(reverted),
+            enabled=True,
+            decision=REVERT,
+            reverted=bool(reverted),
             error=None if reverted else "git_runner reported failure",
         )
     except Exception as e:  # best-effort: never let AUTOEVAL crash the loop
         logger.error("[autoeval] revert git_runner raised — swallowed: %s", e)
         return AutoevalDecision(
-            enabled=True, decision=REVERT, reverted=False, error=str(e),
+            enabled=True,
+            decision=REVERT,
+            reverted=False,
+            error=str(e),
         )

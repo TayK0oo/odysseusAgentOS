@@ -43,6 +43,7 @@ def load_docling_converter():
         return None
     try:
         from docling.document_converter import DocumentConverter
+
         converter = DocumentConverter()
         logger.info("Docling DocumentConverter loaded successfully")
         return converter

@@ -13,19 +13,18 @@ Utilisé par :
   - agent_loop.py via route_intent()
 """
 
-import os
 import json
-import time
 import logging
-import httpx
-import asyncio
+import os
+import time
 from pathlib import Path
-from typing import Optional
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
 _ROUTING_CONFIG_PATH = Path(__file__).parent.parent / "model-routing.json"
-_routing_config: Optional[dict] = None
+_routing_config: dict | None = None
 _routing_config_mtime: float = 0.0
 
 # Last-resort model id when a config tier omits `model_id`. Must be a CONFIRMED
@@ -45,7 +44,7 @@ def _load_routing_config() -> dict:
     try:
         mtime = _ROUTING_CONFIG_PATH.stat().st_mtime
         if _routing_config is None or mtime > _routing_config_mtime:
-            with open(_ROUTING_CONFIG_PATH, "r", encoding="utf-8") as f:
+            with open(_ROUTING_CONFIG_PATH, encoding="utf-8") as f:
                 _routing_config = json.load(f)
             _routing_config_mtime = mtime
     except Exception as e:
@@ -64,7 +63,7 @@ def _resolve_zen_endpoint_row():
     when no Zen endpoint is registered.
     """
     try:
-        from core.database import SessionLocal, ModelEndpoint
+        from core.database import ModelEndpoint, SessionLocal
         from src.endpoint_resolver import resolve_endpoint_runtime
     except Exception:
         return None
@@ -176,7 +175,7 @@ def classify_complexity(prompt: str) -> tuple[str, float]:
         return "fast", score
 
 
-def get_zen_candidate(tier: str) -> Optional[tuple[str, str, dict]]:
+def get_zen_candidate(tier: str) -> tuple[str, str, dict] | None:
     """
     Retourne (zen_url, model_id, headers) pour un tier donné.
     Respecte la blacklist temporaire.
@@ -252,12 +251,16 @@ async def call_zen(
 
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(connect=10, read=120, write=30, pool=5)) as client:
-            r = await client.post(zen_url, headers=headers, json={
-                "model": model_id,
-                "messages": messages,
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-            })
+            r = await client.post(
+                zen_url,
+                headers=headers,
+                json={
+                    "model": model_id,
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                },
+            )
             if r.status_code == 200:
                 data = r.json()
                 msg = data.get("choices", [{}])[0].get("message", {})

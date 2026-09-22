@@ -18,18 +18,21 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
+
 
 def planning_engine_enabled() -> bool:
     val = os.getenv("ODYSSEUS_PLANNING_ENGINE", "off").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
+
 PLANNING_DIR = Path("data/plans")
 PLANNING_DIR.mkdir(parents=True, exist_ok=True)
 
 # ─── Types ──────────────────────────────────────────────────────────────
+
 
 class TaskStatus(str, Enum):
     PENDING = "pending"
@@ -49,12 +52,12 @@ class TaskPriority(str, Enum):
 
 @dataclass
 class DefinitionOfDone:
-    criteria: List[str] = field(default_factory=list)
-    eval_command: Optional[str] = None
-    metric: Optional[str] = None
-    metric_min: Optional[float] = None
+    criteria: list[str] = field(default_factory=list)
+    eval_command: str | None = None
+    metric: str | None = None
+    metric_min: float | None = None
 
-    def is_satisfied(self, results: Optional[Dict] = None) -> tuple[bool, str]:
+    def is_satisfied(self, results: dict | None = None) -> tuple[bool, str]:
         if not self.criteria:
             return True, "No criteria defined"
         if results:
@@ -73,9 +76,9 @@ class Task:
     status: TaskStatus = TaskStatus.PENDING
     priority: TaskPriority = TaskPriority.MEDIUM
     dod: DefinitionOfDone = field(default_factory=DefinitionOfDone)
-    agent: Optional[str] = None
-    tools: List[str] = field(default_factory=list)
-    depends_on: List[str] = field(default_factory=list)
+    agent: str | None = None
+    tools: list[str] = field(default_factory=list)
+    depends_on: list[str] = field(default_factory=list)
     estimated_effort_hours: float = 0.0
     notes: str = ""
 
@@ -85,7 +88,7 @@ class SubProject:
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     name: str = ""
     description: str = ""
-    tasks: List[Task] = field(default_factory=list)
+    tasks: list[Task] = field(default_factory=list)
     status: TaskStatus = TaskStatus.PENDING
     context_isolation: bool = False  # §5.1.3 — découpage par contexte
 
@@ -95,7 +98,7 @@ class Goal:
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     description: str = ""
     success_metric: str = ""
-    sub_projects: List[SubProject] = field(default_factory=list)
+    sub_projects: list[SubProject] = field(default_factory=list)
     status: TaskStatus = TaskStatus.PENDING
 
 
@@ -103,7 +106,7 @@ class Goal:
 class Mission:
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     statement: str = ""
-    goals: List[Goal] = field(default_factory=list)
+    goals: list[Goal] = field(default_factory=list)
     status: TaskStatus = TaskStatus.PENDING
     created_at: str = ""
 
@@ -111,40 +114,64 @@ class Mission:
 @dataclass
 class Plan:
     """Plan complet d'un projet."""
+
     project_id: str
     mission: Mission = field(default_factory=Mission)
-    budgets: Dict[str, float] = field(default_factory=lambda: {
-        "max_iterations": 50, "max_tokens": 200000,
-        "max_cost_usd": 5.0, "max_tool_calls": 200,
-        "max_wall_seconds": 3600,
-    })
-    constraints: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, str] = field(default_factory=dict)
+    budgets: dict[str, float] = field(
+        default_factory=lambda: {
+            "max_iterations": 50,
+            "max_tokens": 200000,
+            "max_cost_usd": 5.0,
+            "max_tool_calls": 200,
+            "max_wall_seconds": 3600,
+        }
+    )
+    constraints: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, str] = field(default_factory=dict)
 
     def to_file(self) -> None:
         path = PLANNING_DIR / f"{self.project_id}.json"
         data = {
             "project_id": self.project_id,
             "mission": {
-                "id": self.mission.id, "statement": self.mission.statement,
-                "status": self.mission.status.value, "created_at": self.mission.created_at,
-                "goals": [{
-                    "id": g.id, "description": g.description,
-                    "success_metric": g.success_metric, "status": g.status.value,
-                    "sub_projects": [{
-                        "id": sp.id, "name": sp.name, "description": sp.description,
-                        "status": sp.status.value, "context_isolation": sp.context_isolation,
-                        "tasks": [{
-                            "id": t.id, "description": t.description,
-                            "status": t.status.value, "priority": t.priority.value,
-                            "dod": {"criteria": t.dod.criteria, "eval_command": t.dod.eval_command},
-                            "agent": t.agent, "tools": t.tools,
-                            "depends_on": t.depends_on,
-                            "estimated_effort_hours": t.estimated_effort_hours,
-                            "notes": t.notes,
-                        } for t in sp.tasks],
-                    } for sp in g.sub_projects],
-                } for g in self.mission.goals],
+                "id": self.mission.id,
+                "statement": self.mission.statement,
+                "status": self.mission.status.value,
+                "created_at": self.mission.created_at,
+                "goals": [
+                    {
+                        "id": g.id,
+                        "description": g.description,
+                        "success_metric": g.success_metric,
+                        "status": g.status.value,
+                        "sub_projects": [
+                            {
+                                "id": sp.id,
+                                "name": sp.name,
+                                "description": sp.description,
+                                "status": sp.status.value,
+                                "context_isolation": sp.context_isolation,
+                                "tasks": [
+                                    {
+                                        "id": t.id,
+                                        "description": t.description,
+                                        "status": t.status.value,
+                                        "priority": t.priority.value,
+                                        "dod": {"criteria": t.dod.criteria, "eval_command": t.dod.eval_command},
+                                        "agent": t.agent,
+                                        "tools": t.tools,
+                                        "depends_on": t.depends_on,
+                                        "estimated_effort_hours": t.estimated_effort_hours,
+                                        "notes": t.notes,
+                                    }
+                                    for t in sp.tasks
+                                ],
+                            }
+                            for sp in g.sub_projects
+                        ],
+                    }
+                    for g in self.mission.goals
+                ],
             },
             "budgets": self.budgets,
             "constraints": self.constraints,
@@ -153,7 +180,7 @@ class Plan:
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
 
     @classmethod
-    def from_file(cls, project_id: str) -> Optional["Plan"]:
+    def from_file(cls, project_id: str) -> Plan | None:
         path = PLANNING_DIR / f"{project_id}.json"
         if not path.exists():
             return None
@@ -161,39 +188,54 @@ class Plan:
         m = data["mission"]
         plan = cls(project_id=project_id)
         plan.mission = Mission(
-            id=m["id"], statement=m["statement"],
-            status=TaskStatus(m["status"]), created_at=m.get("created_at", ""),
-            goals=[Goal(
-                id=g["id"], description=g["description"],
-                success_metric=g.get("success_metric", ""),
-                status=TaskStatus(g["status"]),
-                sub_projects=[SubProject(
-                    id=sp["id"], name=sp.get("name", ""),
-                    description=sp.get("description", ""),
-                    status=TaskStatus(sp["status"]),
-                    context_isolation=sp.get("context_isolation", False),
-                    tasks=[Task(
-                        id=t["id"], description=t["description"],
-                        status=TaskStatus(t["status"]),
-                        priority=TaskPriority(t.get("priority", "medium")),
-                        dod=DefinitionOfDone(
-                            criteria=t.get("dod", {}).get("criteria", []),
-                            eval_command=t.get("dod", {}).get("eval_command"),
-                        ),
-                        agent=t.get("agent"), tools=t.get("tools", []),
-                        depends_on=t.get("depends_on", []),
-                        estimated_effort_hours=t.get("estimated_effort_hours", 0),
-                        notes=t.get("notes", ""),
-                    ) for t in sp["tasks"]],
-                ) for sp in g["sub_projects"]],
-            ) for g in m["goals"]],
+            id=m["id"],
+            statement=m["statement"],
+            status=TaskStatus(m["status"]),
+            created_at=m.get("created_at", ""),
+            goals=[
+                Goal(
+                    id=g["id"],
+                    description=g["description"],
+                    success_metric=g.get("success_metric", ""),
+                    status=TaskStatus(g["status"]),
+                    sub_projects=[
+                        SubProject(
+                            id=sp["id"],
+                            name=sp.get("name", ""),
+                            description=sp.get("description", ""),
+                            status=TaskStatus(sp["status"]),
+                            context_isolation=sp.get("context_isolation", False),
+                            tasks=[
+                                Task(
+                                    id=t["id"],
+                                    description=t["description"],
+                                    status=TaskStatus(t["status"]),
+                                    priority=TaskPriority(t.get("priority", "medium")),
+                                    dod=DefinitionOfDone(
+                                        criteria=t.get("dod", {}).get("criteria", []),
+                                        eval_command=t.get("dod", {}).get("eval_command"),
+                                    ),
+                                    agent=t.get("agent"),
+                                    tools=t.get("tools", []),
+                                    depends_on=t.get("depends_on", []),
+                                    estimated_effort_hours=t.get("estimated_effort_hours", 0),
+                                    notes=t.get("notes", ""),
+                                )
+                                for t in sp["tasks"]
+                            ],
+                        )
+                        for sp in g["sub_projects"]
+                    ],
+                )
+                for g in m["goals"]
+            ],
         )
         plan.budgets = data.get("budgets", plan.budgets)
         plan.constraints = data.get("constraints", {})
         plan.metadata = data.get("metadata", {})
         return plan
 
-    def progress(self) -> Dict[str, Any]:
+    def progress(self) -> dict[str, Any]:
         """Calcule le progrès du plan."""
         total_tasks = 0
         completed = 0
@@ -211,7 +253,7 @@ class Plan:
             "goals_completed": sum(1 for g in self.mission.goals if g.status == TaskStatus.COMPLETED),
         }
 
-    def next_pending_task(self) -> Optional[Task]:
+    def next_pending_task(self) -> Task | None:
         """Retourne la prochaine tâche à exécuter (respecte les dépendances)."""
         completed_ids: set[str] = set()
         for g in self.mission.goals:
@@ -236,6 +278,7 @@ class Plan:
 
 # ─── Planning Engine ────────────────────────────────────────────────────
 
+
 class PlanningEngine:
     """Moteur de planification avec décomposition arborescente."""
 
@@ -246,10 +289,10 @@ class PlanningEngine:
         logger.info("Created plan for project %s", project_id)
         return plan
 
-    def load_plan(self, project_id: str) -> Optional[Plan]:
+    def load_plan(self, project_id: str) -> Plan | None:
         return Plan.from_file(project_id)
 
-    def decompose_mission(self, plan: Plan, goals: List[str]) -> Plan:
+    def decompose_mission(self, plan: Plan, goals: list[str]) -> Plan:
         """Décompose une mission en objectifs."""
         for desc in goals:
             goal = Goal(description=desc)
@@ -257,7 +300,7 @@ class PlanningEngine:
         plan.to_file()
         return plan
 
-    def decompose_goal(self, plan: Plan, goal_id: str, sub_projects: List[Dict]) -> Plan:
+    def decompose_goal(self, plan: Plan, goal_id: str, sub_projects: list[dict]) -> Plan:
         """Décompose un objectif en sous-projets."""
         for g in plan.mission.goals:
             if g.id == goal_id:
@@ -272,7 +315,7 @@ class PlanningEngine:
         plan.to_file()
         return plan
 
-    def add_tasks(self, plan: Plan, sub_project_id: str, tasks_data: List[Dict]) -> Plan:
+    def add_tasks(self, plan: Plan, sub_project_id: str, tasks_data: list[dict]) -> Plan:
         """Ajoute des tâches à un sous-projet."""
         for g in plan.mission.goals:
             for sp in g.sub_projects:
@@ -293,7 +336,7 @@ class PlanningEngine:
         plan.to_file()
         return plan
 
-    def update_task_status(self, plan: Plan, task_id: str, status: TaskStatus, results: Optional[Dict] = None) -> Plan:
+    def update_task_status(self, plan: Plan, task_id: str, status: TaskStatus, results: dict | None = None) -> Plan:
         """Met à jour le statut d'une tâche."""
         for g in plan.mission.goals:
             for sp in g.sub_projects:
@@ -330,13 +373,14 @@ class PlanningEngine:
         plan.to_file()
         return plan
 
-    def list_plans(self) -> List[str]:
+    def list_plans(self) -> list[str]:
         return [p.stem for p in PLANNING_DIR.glob("*.json")]
 
 
 # ─── Singleton ───────────────────────────────────────────────────────────
 
-_engine: Optional[PlanningEngine] = None
+_engine: PlanningEngine | None = None
+
 
 def get_planning_engine() -> PlanningEngine:
     global _engine

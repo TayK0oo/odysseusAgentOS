@@ -50,7 +50,7 @@ Si aucun outil n'existe :
 
 - Gap: "Le projet a nécessité beaucoup de parsing JSON"
   → Solution: Créer un skill `json-tools` avec jq, gron, fx
-  
+
 - Gap: "Les tests de charge n'ont pas été faits"
   → Solution: Intégrer k6 comme service Docker + skill `perf-testing`
 

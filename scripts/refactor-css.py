@@ -9,8 +9,8 @@ Strategy:
 Phase 1 (this script): comment strip + whitespace collapse.
 Phase 2 (future): purgecss against index.html + login.html.
 """
+
 import re
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -109,7 +109,7 @@ def main():
         print("  Next: run purgecss or similar to remove unused selectors.")
         print(f"  {len(used)} selectors found in HTML — many CSS rules may be dead.")
     else:
-        print(f"\n[success] Under 200 KB target!")
+        print("\n[success] Under 200 KB target!")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 """Tests for src/orchestrator/dispatcher.py::dispatch (orchestrated run)."""
+
+from src.orchestrator.dispatcher import DispatchResult, dispatch
 from src.orchestrator.spec import AgentSpec
-from src.orchestrator.dispatcher import dispatch, DispatchResult
 
 
 class _FakeRegistry:
@@ -26,12 +27,22 @@ def test_dispatch_walks_all_seven_phases_in_order():
         return f"did {phase.name}"
 
     result = dispatch(
-        spec, "build feature X",
-        session_id="run1", registry=reg, router=_FakeRouter(), runner=runner,
+        spec,
+        "build feature X",
+        session_id="run1",
+        registry=reg,
+        router=_FakeRouter(),
+        runner=runner,
     )
     assert isinstance(result, DispatchResult)
     assert result.phases_run == [
-        "CLASSIFY", "KNOW", "PLAN", "BUILD", "QUALITY", "AUTOEVAL", "MEMORY_OBSERVE",
+        "CLASSIFY",
+        "KNOW",
+        "PLAN",
+        "BUILD",
+        "QUALITY",
+        "AUTOEVAL",
+        "MEMORY_OBSERVE",
     ]
     assert calls == result.phases_run
     assert result.completed is True
@@ -40,33 +51,45 @@ def test_dispatch_walks_all_seven_phases_in_order():
 def test_dispatch_applies_phase_to_registry_each_step():
     reg = _FakeRegistry()
     spec = AgentSpec(name="a")
-    dispatch(spec, "obj", session_id="run2", registry=reg, router=_FakeRouter(),
-             runner=lambda **kw: None)
+    dispatch(spec, "obj", session_id="run2", registry=reg, router=_FakeRouter(), runner=lambda **kw: None)
     assert [p for _, p in reg.phase_calls] == [
-        "CLASSIFY", "KNOW", "PLAN", "BUILD", "QUALITY", "AUTOEVAL", "MEMORY_OBSERVE",
+        "CLASSIFY",
+        "KNOW",
+        "PLAN",
+        "BUILD",
+        "QUALITY",
+        "AUTOEVAL",
+        "MEMORY_OBSERVE",
     ]
     assert all(sid == "run2" for sid, _ in reg.phase_calls)
 
 
 def test_dispatch_resolves_model_via_router():
     spec = AgentSpec(name="a", model=None)
-    result = dispatch(spec, "obj", session_id="r", registry=_FakeRegistry(),
-                      router=_FakeRouter(), runner=lambda **kw: None)
+    result = dispatch(
+        spec, "obj", session_id="r", registry=_FakeRegistry(), router=_FakeRouter(), runner=lambda **kw: None
+    )
     assert result.model == "openai/deepseek-v4-flash"
 
 
 def test_dispatch_uses_explicit_spec_model():
     spec = AgentSpec(name="a", model="openai/kimi-k2.7-code")
-    result = dispatch(spec, "obj", session_id="r", registry=_FakeRegistry(),
-                      router=_FakeRouter(), runner=lambda **kw: None)
+    result = dispatch(
+        spec, "obj", session_id="r", registry=_FakeRegistry(), router=_FakeRouter(), runner=lambda **kw: None
+    )
     assert result.model == "openai/kimi-k2.7-code"
 
 
 def test_dispatch_collects_runner_outputs_per_phase():
     spec = AgentSpec(name="a")
-    result = dispatch(spec, "obj", session_id="r", registry=_FakeRegistry(),
-                      router=_FakeRouter(),
-                      runner=lambda phase, **kw: f"out-{phase.name}")
+    result = dispatch(
+        spec,
+        "obj",
+        session_id="r",
+        registry=_FakeRegistry(),
+        router=_FakeRouter(),
+        runner=lambda phase, **kw: f"out-{phase.name}",
+    )
     assert result.outputs["CLASSIFY"] == "out-CLASSIFY"
     assert result.outputs["MEMORY_OBSERVE"] == "out-MEMORY_OBSERVE"
 
@@ -86,9 +109,7 @@ def test_runner_receives_resolved_model_and_objective():
     def runner(phase, spec, objective, model):
         seen["model"] = model
         seen["objective"] = objective
-        return None
 
-    dispatch(spec, "ship it", session_id="r", registry=_FakeRegistry(),
-             router=_FakeRouter(), runner=runner)
+    dispatch(spec, "ship it", session_id="r", registry=_FakeRegistry(), router=_FakeRouter(), runner=runner)
     assert seen["model"] == "openai/glm-5.2"
     assert seen["objective"] == "ship it"

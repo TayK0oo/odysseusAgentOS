@@ -13,6 +13,7 @@ MEMORY_OBSERVE — but only when the kill-switch (ODYSSEUS_CHECKPOINT) is ON.
 Default OFF means live behaviour is byte-identical. Best-effort: any backend
 fault is swallowed so it can never break the loop.
 """
+
 import json
 
 from src.orchestrator import checkpoint_tracker
@@ -53,8 +54,12 @@ def test_checkpoint_disabled_for_other_values(monkeypatch):
 def test_noop_when_disabled(monkeypatch):
     vault = _FakeVault()
     out = checkpoint_tracker.record_checkpoint(
-        session_id="s1", run_id="r1", metrics={"tokens": 10},
-        outcome="completed", enabled=False, backend=vault,
+        session_id="s1",
+        run_id="r1",
+        metrics={"tokens": 10},
+        outcome="completed",
+        enabled=False,
+        backend=vault,
     )
     assert out is None
     assert vault.calls == []
@@ -63,9 +68,12 @@ def test_noop_when_disabled(monkeypatch):
 def test_writes_one_checkpoint_when_enabled():
     vault = _FakeVault()
     out = checkpoint_tracker.record_checkpoint(
-        session_id="sess-abc", run_id="run-1234abcd",
+        session_id="sess-abc",
+        run_id="run-1234abcd",
         metrics={"total_tokens": 42, "duration_s": 1.5, "model": "m"},
-        outcome="completed", enabled=True, backend=vault,
+        outcome="completed",
+        enabled=True,
+        backend=vault,
     )
     assert out == {"path": "x", "bytes_written": 1}
     assert len(vault.calls) == 1
@@ -84,8 +92,12 @@ def test_writes_one_checkpoint_when_enabled():
 def test_content_has_parseable_json_block():
     vault = _FakeVault()
     checkpoint_tracker.record_checkpoint(
-        session_id="s", run_id="r", metrics={"a": 1, "b": "x"},
-        outcome="completed", enabled=True, backend=vault,
+        session_id="s",
+        run_id="r",
+        metrics={"a": 1, "b": "x"},
+        outcome="completed",
+        enabled=True,
+        backend=vault,
     )
     content = vault.calls[0]["content"]
     start = content.index("{")
@@ -100,8 +112,12 @@ def test_content_has_parseable_json_block():
 def test_backend_exception_is_isolated():
     vault = _FakeVault(raises=True)
     out = checkpoint_tracker.record_checkpoint(
-        session_id="s", run_id="r", metrics={}, outcome="completed",
-        enabled=True, backend=vault,
+        session_id="s",
+        run_id="r",
+        metrics={},
+        outcome="completed",
+        enabled=True,
+        backend=vault,
     )
     assert out is None
     assert len(vault.calls) == 1  # attempted, then swallowed
@@ -110,8 +126,12 @@ def test_backend_exception_is_isolated():
 def test_backend_error_dict_is_returned_not_raised():
     vault = _FakeVault(result={"error": "vault not found"})
     out = checkpoint_tracker.record_checkpoint(
-        session_id="s", run_id="r", metrics={}, outcome="completed",
-        enabled=True, backend=vault,
+        session_id="s",
+        run_id="r",
+        metrics={},
+        outcome="completed",
+        enabled=True,
+        backend=vault,
     )
     # error dict from the native primitive is passed through, never raised
     assert out == {"error": "vault not found"}
@@ -123,8 +143,12 @@ def test_metrics_summary_is_bounded():
     vault = _FakeVault()
     big = {f"k{i}": "v" * 500 for i in range(200)}
     out = checkpoint_tracker.record_checkpoint(
-        session_id="s", run_id="r", metrics=big, outcome="completed",
-        enabled=True, backend=vault,
+        session_id="s",
+        run_id="r",
+        metrics=big,
+        outcome="completed",
+        enabled=True,
+        backend=vault,
     )
     assert out is not None
     assert len(vault.calls) == 1

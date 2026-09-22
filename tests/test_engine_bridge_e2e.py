@@ -14,9 +14,10 @@ that breaks the pipeline is caught.
 Does NOT require Docker — Python in-process via fastapi.testclient.
 Does NOT require an LLM key — the engine walks the phases structurally.
 """
+
+import importlib.util
 import json
 import sys
-import importlib.util
 from pathlib import Path
 
 import pytest
@@ -72,8 +73,13 @@ def test_status(engine):
     assert "vault" in body
     assert "data" in body
     assert set(body["phases"]) == {
-        "CLASSIFY", "KNOW", "PLAN", "BUILD",
-        "QUALITY", "AUTOEVAL", "MEMORY_OBSERVE",
+        "CLASSIFY",
+        "KNOW",
+        "PLAN",
+        "BUILD",
+        "QUALITY",
+        "AUTOEVAL",
+        "MEMORY_OBSERVE",
     }
 
 
@@ -121,8 +127,7 @@ def test_run_agent_mode_7_phases(engine):
 
     # Build phase dispatches at least one agent + selects a model (SFD §5.1.4 + 5.6)
     build_event = next(
-        (e for e in phase_enters
-         if (e.get("phase") == "BUILD" or e.get("data", {}).get("phase") == "BUILD")),
+        (e for e in phase_enters if (e.get("phase") == "BUILD" or e.get("data", {}).get("phase") == "BUILD")),
         None,
     )
     assert build_event is not None

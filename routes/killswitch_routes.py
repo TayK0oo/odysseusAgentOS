@@ -1,7 +1,8 @@
 """Kill-switches dashboard route — read-only state of ODYSSEUS_* switches."""
+
 from fastapi import APIRouter
 
-from src.killswitch_registry import read_states, categories
+from src.killswitch_registry import categories, read_states
 
 router = APIRouter(prefix="/api/killswitches", tags=["killswitches"])
 

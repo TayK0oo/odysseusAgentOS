@@ -6,6 +6,7 @@ correlated. These tests pin the new per-run behaviour: a run scope can be
 opened with a fresh id, `write_trace` records the *current* id, and the
 default (no scope opened) stays backward-compatible with the process id.
 """
+
 import json
 
 import pytest
@@ -23,7 +24,7 @@ def _isolate_run_id():
 
 
 def _read_traces(path):
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
 
 
@@ -70,13 +71,19 @@ def test_two_runs_produce_distinct_run_ids_in_traces(tmp_path, monkeypatch):
 
     rid1 = trace_writer.new_run_id()
     trace_writer.write_trace(
-        tool="bash", risk_level="SAFE", args_summary="a",
-        permission_decision="auto_approved", outcome="success",
+        tool="bash",
+        risk_level="SAFE",
+        args_summary="a",
+        permission_decision="auto_approved",
+        outcome="success",
     )
     rid2 = trace_writer.new_run_id()
     trace_writer.write_trace(
-        tool="bash", risk_level="SAFE", args_summary="b",
-        permission_decision="auto_approved", outcome="success",
+        tool="bash",
+        risk_level="SAFE",
+        args_summary="b",
+        permission_decision="auto_approved",
+        outcome="success",
     )
 
     records = _read_traces(fpath)

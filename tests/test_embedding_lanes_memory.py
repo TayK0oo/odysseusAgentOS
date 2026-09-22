@@ -1,13 +1,13 @@
 from src.embedding_lanes import (
-    EmbeddingLane,
     LANE_CUSTOM,
     LANE_FASTEMBED,
+    EmbeddingLane,
 )
 from tests.helpers.embedding_lanes import (
+    FailingEmbedder,
     FakeChroma,
     FakeCollection,
     FakeEmbedder,
-    FailingEmbedder,
     patch_chroma,
 )
 
@@ -130,7 +130,9 @@ def test_memory_rebuild_does_not_reimport_legacy_collection(monkeypatch):
 def test_memory_remove_deletes_inactive_lane_collection(monkeypatch):
     fake = FakeChroma()
     custom_collection = fake.get_or_create_collection("odysseus_memories_custom", metadata={"embedding_lane": "custom"})
-    fast_collection = fake.get_or_create_collection("odysseus_memories_fastembed", metadata={"embedding_lane": "fastembed"})
+    fast_collection = fake.get_or_create_collection(
+        "odysseus_memories_fastembed", metadata={"embedding_lane": "fastembed"}
+    )
     custom_collection.add(
         ids=["mem-1"],
         embeddings=[[0.0] * 768],

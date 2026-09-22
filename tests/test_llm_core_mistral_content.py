@@ -18,6 +18,7 @@ These tests pin the contract: string passthrough, the array shape, and the
 edge cases (empty, garbage, missing fields) so a refactor doesn't silently
 drop thinking content or break non-Mistral providers.
 """
+
 from src.llm_core import _normalize_mistral_content
 
 

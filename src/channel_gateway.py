@@ -6,15 +6,18 @@ When ODYSSEUS_APPRISE=on, outbound routing is delegated to AppriseService
 (services.notifications.apprise_service).  The ChannelAdapter protocol and
 inbound path remain unchanged.
 """
+
 import asyncio
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Any, List
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
+
 
 class ChannelType(Enum):
     # Only the two real in-process channels. EMAIL/WEBHOOK were removed: they
@@ -23,31 +26,35 @@ class ChannelType(Enum):
     DISCORD = "discord"
     TELEGRAM = "telegram"
 
+
 @dataclass
 class InboundMessage:
     """Message entrant normalisé."""
+
     channel: ChannelType
-    sender_id: str           # ID utilisateur dans le canal
+    sender_id: str  # ID utilisateur dans le canal
     sender_name: str
     content: str
-    raw: dict                # Payload original
-    reply_fn: Optional[Callable] = None  # Fonction pour répondre directement
+    raw: dict  # Payload original
+    reply_fn: Callable | None = None  # Fonction pour répondre directement
+
 
 @dataclass
 class OutboundMessage:
     """Message sortant normalisé."""
+
     channel: ChannelType
     recipient_id: str
     content: str
     metadata: dict = None
+
 
 class ChannelAdapter(ABC):
     """Interface abstraite pour tous les adapters."""
 
     @property
     @abstractmethod
-    def channel_type(self) -> ChannelType:
-        ...
+    def channel_type(self) -> ChannelType: ...
 
     @abstractmethod
     async def send(self, message: OutboundMessage) -> bool:
@@ -58,6 +65,7 @@ class ChannelAdapter(ABC):
     async def start_listening(self, on_message: Callable[[InboundMessage], Any]) -> None:
         """Démarre l'écoute des messages entrants."""
         ...
+
 
 # ------------------------------------------------------------------
 # Kill-switch helper (module-level for easy import by channel_bootstrap)
@@ -77,10 +85,12 @@ def _get_apprise_service():
         return None
     try:
         from services.notifications.apprise_service import AppriseService
+
         svc = AppriseService()
         # Load channels from config if available
         try:
             from src.config import config as _cfg
+
             channels = _cfg.notification.apprise_channels
             if channels:
                 svc.add_channels(channels)
@@ -103,7 +113,7 @@ class ChannelGateway:
 
     def __init__(self):
         self._adapters: dict[ChannelType, ChannelAdapter] = {}
-        self._inbound_handler: Optional[Callable] = None
+        self._inbound_handler: Callable | None = None
         self._apprise_service = None  # lazy-init on first use
 
     @property
@@ -166,8 +176,10 @@ class ChannelGateway:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
+
 # Singleton
-_gateway_instance: Optional[ChannelGateway] = None
+_gateway_instance: ChannelGateway | None = None
+
 
 def get_gateway() -> ChannelGateway:
     global _gateway_instance

@@ -8,10 +8,11 @@ ODYSSEUS_ZEN_FROM_ENDPOINT, so the live chat path is byte-identical by default.
 Task 3: the model-routing.json provider block is now optional (DB row supplies
 url + key + enablement).
 """
+
 import src.zen_router as zr
 
-
 # ── Task 1: cached endpoint-existence check ──────────────────────────────────
+
 
 def test_registered_true_when_row_present(monkeypatch):
     monkeypatch.setattr(zr, "_resolve_zen_endpoint_row", lambda: ("https://db/zen", "k"))
@@ -41,6 +42,7 @@ def test_result_is_cached_within_ttl(monkeypatch):
 
 # ── Task 2: injection gate ───────────────────────────────────────────────────
 
+
 def test_injection_enabled_by_env_key(monkeypatch):
     monkeypatch.setenv("OPENCODE_API_KEY", "env-key")
     monkeypatch.delenv("ODYSSEUS_ZEN_FROM_ENDPOINT", raising=False)
@@ -64,7 +66,9 @@ def test_injection_enabled_by_endpoint_when_killswitch_on(monkeypatch):
 
 def test_endpoint_conn_bypasses_json_enabled_false(monkeypatch):
     cfg = {
-        "providers": {"opencode_zen": {"enabled": False, "base_url": "https://json/zen", "api_key_env": "OPENCODE_API_KEY"}},
+        "providers": {
+            "opencode_zen": {"enabled": False, "base_url": "https://json/zen", "api_key_env": "OPENCODE_API_KEY"}
+        },
         "stages": {"chat": "standard"},
         "models": {"standard": {"model_id": "m-standard", "fallback": []}},
     }
@@ -76,6 +80,7 @@ def test_endpoint_conn_bypasses_json_enabled_false(monkeypatch):
 
 
 # ── Task 3: provider block optional ──────────────────────────────────────────
+
 
 def test_candidates_work_with_no_provider_block(monkeypatch):
     cfg = {

@@ -5,15 +5,20 @@ Reads .opencode/ config, dispatches agents, emits events, routes tools.
 This is THE single engine that powers the entire system.
 """
 
-import yaml, json, logging, os, asyncio, re, time, uuid
-from typing import AsyncGenerator, Optional, Callable
-from datetime import datetime, timezone
+import json
+import logging
+import os
+import time
+import uuid
+from collections.abc import AsyncGenerator, Callable
+from datetime import UTC, datetime
 
-from src.perf_profiler import profiler as perf_profiler
+import yaml
 
 logger = logging.getLogger(__name__)
 
 PHASES = ["CLASSIFY", "KNOW", "PLAN", "BUILD", "QUALITY", "AUTOEVAL", "MEMORY_OBSERVE"]
+
 
 # ============================================================================
 # Event Bus (Python-side — mirrors the TS plugin)
@@ -32,10 +37,10 @@ class EventBus:
         self.trace_dir = trace_dir
         self._subscribers: dict[str, list[Callable]] = {}
         self._buffer: list[dict] = []
-        self._current_trace: Optional[str] = None
+        self._current_trace: str | None = None
         os.makedirs(trace_dir, exist_ok=True)
 
-    def start_trace(self, trace_id: Optional[str] = None) -> str:
+    def start_trace(self, trace_id: str | None = None) -> str:
         """Demarre une nouvelle trace pour la run courante (idempotent)."""
         self._current_trace = trace_id or str(uuid.uuid4())[:12]
         return self._current_trace
@@ -45,21 +50,23 @@ class EventBus:
         self._current_trace = None
 
     @property
-    def current_trace(self) -> Optional[str]:
+    def current_trace(self) -> str | None:
         return self._current_trace
 
     def emit(self, source: str, type: str, data: dict = None) -> dict:
         event = {
             "event_id": str(uuid.uuid4())[:8],
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "source": source,
             "type": type,
             "data": data or {},
             "trace_id": self._current_trace,
         }
         for handler in self._subscribers.get(type, []) + self._subscribers.get("*", []):
-            try: handler(event)
-            except Exception: pass
+            try:
+                handler(event)
+            except Exception:
+                pass
         self._buffer.append(event)
         if len(self._buffer) > 50:
             self._flush()
@@ -69,8 +76,9 @@ class EventBus:
         self._subscribers.setdefault(type, []).append(handler)
 
     def _flush(self):
-        if not self._buffer: return
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        if not self._buffer:
+            return
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
         filepath = os.path.join(self.trace_dir, f"events-{today}.jsonl")
         with open(filepath, "a", encoding="utf-8") as f:
             for e in self._buffer:
@@ -80,6 +88,7 @@ class EventBus:
 
 # Singleton
 _event_bus = EventBus()
+
 
 def get_event_bus() -> EventBus:
     return _event_bus
@@ -94,10 +103,38 @@ class OpenCodeEngine:
     # Tools per phase (from 02-OUTILS-TIERS analysis)
     PHASE_TOOLS = {
         "CLASSIFY": [],
-        "KNOW":     ["mcp__cbm__search_graph", "mcp__graphify__query", "web_search"],
-        "PLAN":     [],
-        "BUILD":    ["mcp__scrapling__fetch", "mcp__kroki__render", "BASH", "WRITE_FILE", "mcp__serena__references"],
-        "QUALITY":  ["pa11y__audit", "i18n__scan", "k6__load_test", "reviewer__audit", "security__audit"],
+        "KNOW": [
+            "mcp__cbm__search_graph",
+            "mcp__cbm__get_node",
+            "mcp__cbm__get_neighbors",
+            "mcp__cbm__find_path",
+            "mcp__graphify__query",
+            "mcp__graphify__search",
+            "mcp__serena__find_references",
+            "mcp__serena__get_symbols",
+            "mcp__serena__goto_definition",
+            "mcp__serena__semantic_search",
+            "web_search",
+        ],
+        "PLAN": [],
+        "BUILD": [
+            "mcp__scrapling__fetch",
+            "mcp__kroki__render",
+            "mcp__serena__find_references",
+            "mcp__serena__goto_definition",
+            "BASH",
+            "WRITE_FILE",
+        ],
+        "QUALITY": [
+            "pa11y__audit",
+            "i18n__scan",
+            "k6__load_test",
+            "reviewer__audit",
+            "security__audit",
+            "agentseal__scan_prompt",
+            "agentseal__scan_output",
+            "agentseal__audit_session",
+        ],
         "AUTOEVAL": ["gsd_verifier", "k6__run", "perf__profile"],
         "MEMORY_OBSERVE": [],
     }
@@ -105,10 +142,10 @@ class OpenCodeEngine:
     # Agents per phase (from .opencode/agents/)
     PHASE_AGENTS = {
         "CLASSIFY": ["constitution"],
-        "KNOW":     ["explore"],
-        "PLAN":     ["planner", "gsd-researcher"],
-        "BUILD":    ["executor", "gsd-executor"],
-        "QUALITY":  ["reviewer", "security-audit"],
+        "KNOW": ["explore"],
+        "PLAN": ["planner", "gsd-researcher"],
+        "BUILD": ["executor", "gsd-executor"],
+        "QUALITY": ["reviewer", "security-audit"],
         "AUTOEVAL": ["gsd-verifier"],
         "MEMORY_OBSERVE": ["gsd-roadmapper", "auto-evolve"],
     }
@@ -116,10 +153,10 @@ class OpenCodeEngine:
     # Model per phase
     PHASE_MODELS = {
         "CLASSIFY": "opencode/deepseek-v4-pro",
-        "KNOW":     "opencode/deepseek-v4-pro",
-        "PLAN":     "opencode/deepseek-v4-pro",
-        "BUILD":    "opencode/minimax-m3",
-        "QUALITY":  "opencode/deepseek-v4-pro",
+        "KNOW": "opencode/deepseek-v4-pro",
+        "PLAN": "opencode/deepseek-v4-pro",
+        "BUILD": "opencode/minimax-m3",
+        "QUALITY": "opencode/deepseek-v4-pro",
         "AUTOEVAL": "opencode/deepseek-v4-pro",
         "MEMORY_OBSERVE": "opencode/deepseek-v4-pro",
     }
@@ -156,7 +193,8 @@ class OpenCodeEngine:
     def _load_agents(self) -> dict:
         agents = {}
         for d in [".opencode/agents", "agents"]:
-            if not os.path.exists(d): continue
+            if not os.path.exists(d):
+                continue
             for f in os.listdir(d):
                 if f.endswith(".md"):
                     try:
@@ -167,13 +205,15 @@ class OpenCodeEngine:
                             if len(parts) >= 3:
                                 meta = yaml.safe_load(parts[1]) or {}
                                 agents[f.replace(".md", "")] = meta
-                    except Exception: pass
+                    except Exception:
+                        pass
         return agents
 
     def _load_skills(self) -> dict:
         skills = {}
         for base in [".opencode/skills", ".claude/skills", "skills"]:
-            if not os.path.exists(base): continue
+            if not os.path.exists(base):
+                continue
             for root, dirs, files in os.walk(base):
                 for f in files:
                     if f == "SKILL.md":
@@ -186,12 +226,27 @@ class OpenCodeEngine:
                                     meta = yaml.safe_load(parts[1]) or {}
                                     name = meta.get("name", os.path.basename(root))
                                     skills[name] = meta
-                        except Exception: pass
+                        except Exception:
+                            pass
         return skills
 
     def is_agent_mode(self) -> bool:
         msg = self.message.lower()
-        return any(w in msg for w in ["build", "create", "deploy", "fix", "refactor", "implement", "design", "test", "optimize", "debug"])
+        return any(
+            w in msg
+            for w in [
+                "build",
+                "create",
+                "deploy",
+                "fix",
+                "refactor",
+                "implement",
+                "design",
+                "test",
+                "optimize",
+                "debug",
+            ]
+        )
 
     async def walk(self, agent_stream_fn) -> AsyncGenerator[str, None]:
         """Walk phases, emitting SSE events with full event bus integration."""
@@ -215,59 +270,74 @@ class OpenCodeEngine:
 
         # Agent mode: walk 7 phases
         start_time = time.time()
-        
+
         for idx, phase in enumerate(PHASES):
             agents = self.PHASE_AGENTS.get(phase, [])
             tools = self.PHASE_TOOLS.get(phase, [])
             model = self.PHASE_MODELS.get(phase, "opencode/deepseek-v4-pro")
-            
+
             # Emit via event bus + SSE
-            phase_data = {"phase": phase, "index": idx+1, "total": 7, "agents": agents, "tools": tools, "model": model}
+            phase_data = {
+                "phase": phase,
+                "index": idx + 1,
+                "total": 7,
+                "agents": agents,
+                "tools": tools,
+                "model": model,
+            }
             self.bus.emit("phase", "phase_enter", phase_data)
-            yield f"data: {json.dumps({'type': 'phase_enter', 'phase': phase, 'index': idx+1, 'total': 7, 'agents': agents, 'tools': tools, 'model': model})}\n\n"
+            yield f"data: {json.dumps({'type': 'phase_enter', 'phase': phase, 'index': idx + 1, 'total': 7, 'agents': agents, 'tools': tools, 'model': model})}\n\n"
 
             if phase == "BUILD":
                 # Agent dispatch
                 if agents:
                     self.bus.emit("agent", "agent_dispatch", {"phase": phase, "agents": agents, "model": model})
                     yield f"data: {json.dumps({'type': 'agent_dispatch', 'phase': phase, 'agents': agents, 'model': model})}\n\n"
-                
+
                 # Model selected
-                self.bus.emit("model", "model_selected", {"model": model, "phase": phase, "tier": "code" if "minimax" in model else "standard"})
+                self.bus.emit(
+                    "model",
+                    "model_selected",
+                    {"model": model, "phase": phase, "tier": "code" if "minimax" in model else "standard"},
+                )
                 yield f"data: {json.dumps({'type': 'model_selected', 'model': model, 'phase': phase})}\n\n"
-                
+
                 yield f"data: {json.dumps({'type': 'phase_active', 'phase': phase, 'agents': agents, 'tools': tools, 'model': model, 'action': 'Executing with tools...'})}\n\n"
-                
+
                 build_start = time.time()
                 chunk_count = 0
                 async for chunk in agent_stream_fn():
                     chunk_count += 1
-                    if '"tool_start"' in str(chunk) or 'tool_start' in str(chunk):
+                    if '"tool_start"' in str(chunk) or "tool_start" in str(chunk):
                         self.bus.emit("tool", "tool_start", {"phase": phase})
                     yield chunk
-                
+
                 build_duration = int((time.time() - build_start) * 1000)
-                self.bus.emit("tool", "tool_output", {"phase": phase, "chunks": chunk_count, "duration_ms": build_duration})
+                self.bus.emit(
+                    "tool", "tool_output", {"phase": phase, "chunks": chunk_count, "duration_ms": build_duration}
+                )
             else:
                 action = f"Phase {phase} | Agents: {agents or 'none'} | Tools: {tools or 'none'} | Model: {model}"
                 self.bus.emit("agent", "agent_dispatch", {"phase": phase, "agents": agents})
                 yield f"data: {json.dumps({'type': 'phase_active', 'phase': phase, 'agents': agents, 'tools': tools, 'model': model, 'action': action})}\n\n"
 
-            self.bus.emit("phase", "phase_exit", {"phase": phase, "index": idx+1})
-            yield f"data: {json.dumps({'type': 'phase_exit', 'phase': phase, 'index': idx+1, 'total': 7})}\n\n"
+            self.bus.emit("phase", "phase_exit", {"phase": phase, "index": idx + 1})
+            yield f"data: {json.dumps({'type': 'phase_exit', 'phase': phase, 'index': idx + 1, 'total': 7})}\n\n"
 
         total_duration = int((time.time() - start_time) * 1000)
         budget = self.get_budget(self.session_id)
-        self.bus.emit("system", "health_change", {"status": "complete", "phases_walked": 7, "duration_ms": total_duration})
+        self.bus.emit(
+            "system", "health_change", {"status": "complete", "phases_walked": 7, "duration_ms": total_duration}
+        )
         self.bus.emit("budget", "budget_updated", budget)
-        
+
         # Goal-ancestry: create goal record
         try:
-            from core.database import SessionLocal, Goal
-            from datetime import datetime as dt, timezone as tz
+            from core.database import Goal, SessionLocal
+
             db = SessionLocal()
             try:
-                goal = Goal(name=self.message[:200], description=f"Agent OS — {idx+1} phases, {total_duration}ms")
+                goal = Goal(name=self.message[:200], description=f"Agent OS — {idx + 1} phases, {total_duration}ms")
                 db.add(goal)
                 db.commit()
                 self.bus.emit("governance", "goal_created", {"goal_id": goal.id})
@@ -275,7 +345,7 @@ class OpenCodeEngine:
                 db.close()
         except Exception:
             pass
-        
+
         yield f"data: {json.dumps({'type': 'thought_bus', 'status': 'complete', 'phases_walked': 7, 'budget': budget})}\n\n"
 
     @property

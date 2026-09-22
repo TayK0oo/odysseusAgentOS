@@ -8,10 +8,6 @@ from __future__ import annotations
 
 import logging
 import os
-import sys
-import time
-from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +18,9 @@ PREFECT_ENABLED = os.getenv("ODYSSEUS_PREFECT", "off").lower() in ("on", "1", "t
 def _lazy_import():
     """Import prefect decorators; raise a clear error if missing."""
     try:
-        from prefect import flow as _flow, task as _task
+        from prefect import flow as _flow
+        from prefect import task as _task
+
         return _flow, _task
     except ImportError:
         raise ImportError(
@@ -33,6 +31,7 @@ def _lazy_import():
 
 
 # ── Tasks ─────────────────────────────────────────────────────────────────
+
 
 def _check_model_updates_task():
     """Check for newer versions of local models and update the cache.
@@ -72,11 +71,13 @@ def _check_hf_model_updates_task():
                 local_rev = repo.revisions[-1].commit_hash if repo.revisions else None
                 if local_rev and remote_info.last_modified:
                     # Compare — any newer commit means an update available
-                    updates.append({
-                        "repo_id": repo.repo_id,
-                        "local_size": repo.size_on_disk,
-                        "last_modified": str(remote_info.last_modified),
-                    })
+                    updates.append(
+                        {
+                            "repo_id": repo.repo_id,
+                            "local_size": repo.size_on_disk,
+                            "last_modified": str(remote_info.last_modified),
+                        }
+                    )
             except Exception:
                 continue
 
@@ -98,15 +99,14 @@ def _check_hf_cache_size_task():
 
         cache = scan_cache_dir()
         total_bytes = cache.size_on_disk
-        total_gb = total_bytes / (1024 ** 3)
+        total_gb = total_bytes / (1024**3)
 
         logger.info("HuggingFace cache: %.1f GB across %d repos", total_gb, cache.size_on_disk)
 
         # Warn if cache exceeds 10GB
         if total_gb > 10:
             logger.warning(
-                "HuggingFace cache is %.1f GB — consider pruning with "
-                "`huggingface-cli delete-cache`", total_gb
+                "HuggingFace cache is %.1f GB — consider pruning with `huggingface-cli delete-cache`", total_gb
             )
 
         return total_bytes
@@ -124,6 +124,7 @@ def _refresh_embedding_index():
     """Refresh the embedding tool index (if fastembed is available)."""
     try:
         from src.tool_index import refresh_tool_index
+
         refresh_tool_index()
         logger.info("Embedding tool index refreshed")
     except ImportError:
@@ -133,6 +134,7 @@ def _refresh_embedding_index():
 
 
 # ── Flow (Prefect decorators) ────────────────────────────────────────────
+
 
 def _create_flow():
     flow, task = _lazy_import()
@@ -163,6 +165,7 @@ def get_model_update_flow():
 
 
 # ── CLI entry point ──────────────────────────────────────────────────────
+
 
 def main():
     """Run the model update check directly (no Prefect server needed)."""

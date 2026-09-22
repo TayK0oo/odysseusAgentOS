@@ -109,10 +109,7 @@ class DoclingProcessor:
                         try:
                             df = tbl.export_to_dataframe()
                             table_dict["headers"] = list(df.columns.astype(str))
-                            table_dict["rows"] = [
-                                [str(c) for c in row]
-                                for row in df.values.tolist()
-                            ]
+                            table_dict["rows"] = [[str(c) for c in row] for row in df.values.tolist()]
                         except Exception:
                             pass
                     tables.append(table_dict)

@@ -5,19 +5,18 @@ These pin the CURRENT observable behavior of PhaseTracker and CanonicalLoop
 fails after a change, the change altered runtime behavior — suspect the change,
 not the test.
 """
+
 from __future__ import annotations
 
-import pytest
-
-from src.orchestrator.phase_tracker import PhaseTracker, tracker_enabled
 from src.orchestrator.loop import CanonicalLoop
-from src.orchestrator.phases import (
-    Phase,
-    CANONICAL_SEQUENCE,
-    phase_lock_name,
-    forced_tools,
-)
 from src.orchestrator.phase_resolver import resolve_current_phase
+from src.orchestrator.phase_tracker import PhaseTracker, tracker_enabled
+from src.orchestrator.phases import (
+    CANONICAL_SEQUENCE,
+    Phase,
+    forced_tools,
+    phase_lock_name,
+)
 
 
 class _FakeRegistry:
@@ -31,6 +30,7 @@ class _FakeRegistry:
 
 
 # --- PhaseTracker -----------------------------------------------------------
+
 
 def test_infer_phase_defaults_to_build():
     assert PhaseTracker.infer_phase(1, plan_mode=False) == "BUILD"
@@ -67,6 +67,7 @@ def test_on_round_start_noop_when_disabled():
 
 # --- CanonicalLoop ----------------------------------------------------------
 
+
 def test_canonical_loop_starts_at_classify():
     loop = CanonicalLoop("sess")
     assert loop.current == Phase.CLASSIFY
@@ -102,9 +103,16 @@ def test_canonical_loop_apply_without_registry_is_noop():
 
 # --- phases.py data helpers -------------------------------------------------
 
+
 def test_seven_canonical_phases_in_order():
     assert [p.name for p in CANONICAL_SEQUENCE] == [
-        "CLASSIFY", "KNOW", "PLAN", "BUILD", "QUALITY", "AUTOEVAL", "MEMORY_OBSERVE",
+        "CLASSIFY",
+        "KNOW",
+        "PLAN",
+        "BUILD",
+        "QUALITY",
+        "AUTOEVAL",
+        "MEMORY_OBSERVE",
     ]
 
 

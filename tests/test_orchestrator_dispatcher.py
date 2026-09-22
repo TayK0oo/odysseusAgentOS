@@ -1,6 +1,7 @@
 """Tests for src/orchestrator/dispatcher.py::resolve_model."""
-from src.orchestrator.spec import AgentSpec
+
 from src.orchestrator.dispatcher import resolve_model
+from src.orchestrator.spec import AgentSpec
 
 
 class _FakeRouter:

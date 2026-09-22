@@ -1,9 +1,11 @@
 """Tests for the code-navigation tools (grep, glob, ls) + read_file line range."""
+
+import asyncio
 import json
 import os
 import shutil
-import asyncio
 import tempfile
+
 import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite:////tmp/test_code_nav.db")
@@ -45,6 +47,7 @@ def repo():
 
 
 # ── grep ──────────────────────────────────────────────────────────────────
+
 
 def test_grep_finds_match(repo):
     r = _run("grep", {"pattern": "needle", "path": repo})
@@ -98,6 +101,7 @@ def test_grep_python_fallback_when_no_rg(repo, monkeypatch):
 
 # ── glob ──────────────────────────────────────────────────────────────────
 
+
 def test_glob_py(repo):
     r = _run("glob", {"pattern": "*.py", "path": repo})
     assert r["exit_code"] == 0
@@ -148,6 +152,7 @@ def test_glob_double_star_matches_deep(repo):
 
 # ── ls ────────────────────────────────────────────────────────────────────
 
+
 def test_ls_lists_entries(repo):
     r = _run("ls", {"path": repo})
     assert r["exit_code"] == 0
@@ -163,6 +168,7 @@ def test_ls_path_outside_rejected(repo):
 
 
 # ── read_file line range ───────────────────────────────────────────────────
+
 
 def test_read_file_offset_limit(repo):
     p = os.path.join(repo, "lines.txt")

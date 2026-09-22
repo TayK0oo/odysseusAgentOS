@@ -1,12 +1,14 @@
 """Tests for AgentDispatcher — phase→agent mapping, kill-switch gating, explicit dispatch."""
+
 import os
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
 
 from src.orchestrator.agent_dispatcher import (
-    AgentDispatcher,
-    _PHASE_AGENTS,
     _EXPLICIT_AGENTS,
+    _PHASE_AGENTS,
+    AgentDispatcher,
     _is_enabled,
 )
 from src.orchestrator.phases import Phase
@@ -20,6 +22,7 @@ def _make_spec(name="test-agent", description="test", prompt="You are a test age
 
 class _FakeRegistry:
     """Minimal fake that mimics AgentRegistry interface."""
+
     def __init__(self, specs=None):
         self._specs = {s.name: s for s in (specs or [])}
 
@@ -113,10 +116,14 @@ class TestAgentDispatcher:
             assert dispatcher.agents_for_phase(Phase.CLASSIFY) == ["constitution"]
 
     def test_agents_for_phase_multiple_on(self):
-        with patch.dict(os.environ, {
-            "ODYSSEUS_AGENT_DEBATE": "on",
-            "ODYSSEUS_AGENT_SECURITY": "1",
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "ODYSSEUS_AGENT_DEBATE": "on",
+                "ODYSSEUS_AGENT_SECURITY": "1",
+            },
+            clear=True,
+        ):
             dispatcher = AgentDispatcher()
             agents = dispatcher.agents_for_phase(Phase.QUALITY)
             assert "debate-5-personas" in agents
@@ -127,10 +134,11 @@ class TestAgentDispatcher:
         """dispatch_for_phase is a no-op when no registry is available."""
         dispatcher = AgentDispatcher(registry=None)
         # Patch _get_registry to return None
-        with patch.object(AgentDispatcher, '_get_registry', return_value=None):
+        with patch.object(AgentDispatcher, "_get_registry", return_value=None):
             with patch.dict(os.environ, {"ODYSSEUS_AGENT_CONSTITUTION": "on"}):
                 # Should not raise
                 import asyncio
+
                 asyncio.run(dispatcher.dispatch_for_phase(Phase.CLASSIFY, "test"))
 
     def test_dispatch_with_fake_registry(self):
@@ -140,10 +148,10 @@ class TestAgentDispatcher:
         dispatcher = AgentDispatcher(registry=registry)
 
         with patch.dict(os.environ, {"ODYSSEUS_AGENT_CONSTITUTION": "on"}):
-            with patch("src.task_endpoint.task_llm_call_async",
-                       new_callable=AsyncMock) as mock_task:
+            with patch("src.task_endpoint.task_llm_call_async", new_callable=AsyncMock) as mock_task:
                 mock_task.return_value = "All invariants pass"
                 import asyncio
+
                 asyncio.run(dispatcher.dispatch_for_phase(Phase.CLASSIFY, "test", "check project"))
                 mock_task.assert_called_once()
                 # Verify messages include the agent prompt
@@ -156,9 +164,9 @@ class TestAgentDispatcher:
         dispatcher = AgentDispatcher(registry=registry)
 
         with patch.dict(os.environ, {"ODYSSEUS_AGENT_CONSTITUTION": "on"}):
-            with patch("src.task_endpoint.task_llm_call_async",
-                       new_callable=AsyncMock) as mock_task:
+            with patch("src.task_endpoint.task_llm_call_async", new_callable=AsyncMock) as mock_task:
                 import asyncio
+
                 asyncio.run(dispatcher.dispatch_for_phase(Phase.CLASSIFY, "test"))
                 mock_task.assert_not_called()
 
@@ -167,9 +175,9 @@ class TestAgentDispatcher:
         dispatcher = AgentDispatcher(registry=None)
 
         with patch.dict(os.environ, {"ODYSSEUS_AGENT_CONSTITUTION": "on"}):
-            with patch.object(AgentDispatcher, '_get_registry',
-                              side_effect=RuntimeError("boom")):
+            with patch.object(AgentDispatcher, "_get_registry", side_effect=RuntimeError("boom")):
                 import asyncio
+
                 # Should not raise — _get_registry is now try-guarded
                 asyncio.run(dispatcher.dispatch_for_phase(Phase.CLASSIFY, "test"))
 
@@ -196,10 +204,14 @@ class TestExplicitDispatch:
             assert dispatcher.list_explicit_agents() == []
 
     def test_list_explicit_agents_some_on(self):
-        with patch.dict(os.environ, {
-            "ODYSSEUS_AGENT_PLANNER": "on",
-            "ODYSSEUS_AGENT_DESIGN_EXTRACT": "1",
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "ODYSSEUS_AGENT_PLANNER": "on",
+                "ODYSSEUS_AGENT_DESIGN_EXTRACT": "1",
+            },
+            clear=True,
+        ):
             dispatcher = AgentDispatcher()
             agents = dispatcher.list_explicit_agents()
             assert "gsd-planner" in agents
@@ -209,14 +221,16 @@ class TestExplicitDispatch:
         with patch.dict(os.environ, {}, clear=True):
             dispatcher = AgentDispatcher()
             import asyncio
+
             with pytest.raises(ValueError, match="not enabled"):
                 asyncio.run(dispatcher.dispatch_explicit("design-extract", "test"))
 
     def test_dispatch_explicit_no_registry_raises(self):
         with patch.dict(os.environ, {"ODYSSEUS_AGENT_DESIGN_EXTRACT": "on"}):
             dispatcher = AgentDispatcher(registry=None)
-            with patch.object(AgentDispatcher, '_get_registry', return_value=None):
+            with patch.object(AgentDispatcher, "_get_registry", return_value=None):
                 import asyncio
+
                 with pytest.raises(RuntimeError, match="Agent catalog not loaded"):
                     asyncio.run(dispatcher.dispatch_explicit("design-extract", "test"))
 
@@ -225,6 +239,7 @@ class TestExplicitDispatch:
         dispatcher = AgentDispatcher(registry=registry)
         with patch.dict(os.environ, {"ODYSSEUS_AGENT_DESIGN_EXTRACT": "on"}):
             import asyncio
+
             with pytest.raises(ValueError, match="not found in catalog"):
                 asyncio.run(dispatcher.dispatch_explicit("design-extract", "test"))
 
@@ -234,13 +249,11 @@ class TestExplicitDispatch:
         dispatcher = AgentDispatcher(registry=registry)
 
         with patch.dict(os.environ, {"ODYSSEUS_AGENT_DESIGN_EXTRACT": "on"}):
-            with patch("src.task_endpoint.task_llm_call_async",
-                       new_callable=AsyncMock) as mock_task:
+            with patch("src.task_endpoint.task_llm_call_async", new_callable=AsyncMock) as mock_task:
                 mock_task.return_value = "Design tokens extracted"
                 import asyncio
-                result = asyncio.run(
-                    dispatcher.dispatch_explicit("design-extract", "test", "https://example.com")
-                )
+
+                result = asyncio.run(dispatcher.dispatch_explicit("design-extract", "test", "https://example.com"))
                 assert result == "Design tokens extracted"
                 mock_task.assert_called_once()
 
@@ -250,14 +263,13 @@ class TestExplicitAgentCoverage:
     def test_all_explicit_agents_have_env_vars(self):
         """Every agent in _EXPLICIT_AGENTS must have a corresponding ODYSSEUS_AGENT_* env var."""
         for name, env_var in _EXPLICIT_AGENTS.items():
-            assert env_var.startswith("ODYSSEUS_AGENT_"), \
-                f"Agent {name!r} has non-standard env var: {env_var}"
-            assert env_var.isupper(), \
-                f"Agent {name!r} env var is not uppercase: {env_var}"
+            assert env_var.startswith("ODYSSEUS_AGENT_"), f"Agent {name!r} has non-standard env var: {env_var}"
+            assert env_var.isupper(), f"Agent {name!r} env var is not uppercase: {env_var}"
 
     def test_all_phase_agents_have_env_vars(self):
         """Every phase agent entry must have a valid ODYSSEUS_AGENT_* env var."""
         for phase, entries in _PHASE_AGENTS.items():
             for name, env_var in entries:
-                assert env_var.startswith("ODYSSEUS_AGENT_"), \
+                assert env_var.startswith("ODYSSEUS_AGENT_"), (
                     f"Phase {phase.value} agent {name!r} has bad env var: {env_var}"
+                )

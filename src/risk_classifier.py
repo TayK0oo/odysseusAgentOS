@@ -9,14 +9,13 @@ from __future__ import annotations
 
 import re
 from enum import Enum
-from typing import Dict
 
 
 class RiskLevel(Enum):
-    READ = "read"              # Read-only — no restrictions
-    DRAFT = "draft"            # Draft/temp write — no gate
-    WRITE = "write"            # File/DB write — mandatory log
-    EXEC = "exec"              # Command execution — scope validation
+    READ = "read"  # Read-only — no restrictions
+    DRAFT = "draft"  # Draft/temp write — no gate
+    WRITE = "write"  # File/DB write — mandatory log
+    EXEC = "exec"  # Command execution — scope validation
     DESTRUCTIVE = "destructive"  # Deletion/drop/force — human gate
 
 
@@ -24,7 +23,7 @@ class RiskLevel(Enum):
 # Static tool → risk mapping
 # ---------------------------------------------------------------------------
 
-TOOL_RISK_MAP: Dict[str, RiskLevel] = {
+TOOL_RISK_MAP: dict[str, RiskLevel] = {
     # READ
     "read_file": RiskLevel.READ,
     "ls": RiskLevel.READ,
@@ -77,7 +76,7 @@ TOOL_RISK_MAP: Dict[str, RiskLevel] = {
 # ---------------------------------------------------------------------------
 
 DESTRUCTIVE_PATTERNS = [
-    r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f",    # rm -rf, rm -fr, etc.
+    r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f",  # rm -rf, rm -fr, etc.
     r"rm\s+-[a-zA-Z]*f[a-zA-Z]*r",
     r"\brm\s+--force",
     r"drop\s+table",
@@ -92,7 +91,7 @@ DESTRUCTIVE_PATTERNS = [
     r"dd\s+if=",
     r"shred\s+",
     r"wipefs\s+",
-    r":(){:|:&};:",           # fork bomb
+    r":(){:|:&};:",  # fork bomb
     r">\s*/dev/sd[a-z]",
     r"chmod\s+-R\s+777",
     r"chmod\s+777\s+/",

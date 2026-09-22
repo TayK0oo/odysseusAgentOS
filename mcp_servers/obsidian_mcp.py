@@ -1,9 +1,9 @@
 """Obsidian second-brain MCP server — reads/writes Markdown files in vault."""
+
 import asyncio
 import json
 import os
 from pathlib import Path
-
 
 VAULT_PATH = Path(os.environ.get("OBSIDIAN_VAULT_PATH", "/obsidian-vault"))
 
@@ -12,8 +12,7 @@ def _ensure_vault() -> Path:
     """Return vault path or raise if not configured/accessible."""
     if not VAULT_PATH.exists():
         raise FileNotFoundError(
-            f"Obsidian vault not found at {VAULT_PATH}. "
-            "Set OBSIDIAN_VAULT_PATH env var to the correct path."
+            f"Obsidian vault not found at {VAULT_PATH}. Set OBSIDIAN_VAULT_PATH env var to the correct path."
         )
     return VAULT_PATH
 
@@ -39,11 +38,13 @@ def list_notes(folder: str = "") -> list[dict]:
     notes = []
     for md_file in sorted(base.rglob("*.md")):
         relative = md_file.relative_to(vault)
-        notes.append({
-            "path": str(relative).replace("\\", "/"),
-            "name": md_file.stem,
-            "size_bytes": md_file.stat().st_size,
-        })
+        notes.append(
+            {
+                "path": str(relative).replace("\\", "/"),
+                "name": md_file.stem,
+                "size_bytes": md_file.stat().st_size,
+            }
+        )
     return notes
 
 
@@ -125,16 +126,16 @@ def search_notes(query: str, folder: str = "") -> list[dict]:
         except OSError:
             continue
 
-        matching_lines = [
-            line.strip() for line in lines if query_lower in line.lower()
-        ]
+        matching_lines = [line.strip() for line in lines if query_lower in line.lower()]
         if matching_lines:
             relative = str(md_file.relative_to(vault)).replace("\\", "/")
-            results.append({
-                "path": relative,
-                "name": md_file.stem,
-                "matches": matching_lines,
-            })
+            results.append(
+                {
+                    "path": relative,
+                    "name": md_file.stem,
+                    "matches": matching_lines,
+                }
+            )
 
     return results
 
@@ -164,7 +165,7 @@ TOOLS = {
 
 from mcp.server import Server  # noqa: E402
 from mcp.server.stdio import stdio_server  # noqa: E402
-from mcp.types import Tool, TextContent  # noqa: E402
+from mcp.types import TextContent, Tool  # noqa: E402
 
 server = Server("obsidian")
 
@@ -242,5 +243,6 @@ async def run():
 
 if __name__ == "__main__":
     import sys
+
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     asyncio.run(run())

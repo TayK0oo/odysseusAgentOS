@@ -5,8 +5,8 @@ ModelRouter was verdict REDUNDANT (phantom catalog, no dispatch call-site). The
 advisory now suggests a NATIVE role (default/utility/research/vision) that the
 native resolve_endpoint already understands — no phantom model catalog.
 """
-import pytest
-from src.orchestrator.router_advice import advise, router_enabled, intent_to_role
+
+from src.orchestrator.router_advice import advise, intent_to_role, router_enabled
 
 
 def test_router_disabled_by_default(monkeypatch):
@@ -71,6 +71,8 @@ def test_advise_never_raises():
 
 
 def test_exported_from_package():
-    from src.orchestrator import advise as a, router_enabled as re_
+    from src.orchestrator import advise as a
+    from src.orchestrator import router_enabled as re_
+
     assert a is advise
     assert re_ is router_enabled

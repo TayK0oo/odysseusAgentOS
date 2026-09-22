@@ -1,6 +1,7 @@
 """Pin buildReplyAllCc (static/js/emailLibrary/replyRecipients.js) against a
 non-string To/Cc. Driven through `node --input-type=module`; skips without node.
 """
+
 import json
 import shutil
 import subprocess
@@ -20,7 +21,13 @@ def _cc(data, mine):
     """
     proc = subprocess.run(
         ["node", "--input-type=module"],
-        input=js, capture_output=True, text=True, encoding="utf-8", cwd=str(_REPO), timeout=30,
+        input=js,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        cwd=str(_REPO),
+        timeout=30,
+        check=False,
     )
     assert proc.returncode == 0, proc.stderr
     return json.loads(proc.stdout.strip())

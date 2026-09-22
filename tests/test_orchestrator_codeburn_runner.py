@@ -1,23 +1,26 @@
 """Tests for CodeBurn runner — kill-switch gating, CLI invocation, observer feeding."""
+
 import os
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 # ── kill-switch tests ────────────────────────────────────────────────
 class TestCodeBurnEnabled:
     def test_off_by_default(self):
         from src.orchestrator.codeburn_runner import codeburn_enabled
+
         with patch.dict(os.environ, {}, clear=True):
             assert codeburn_enabled() is False
 
     def test_on(self):
         from src.orchestrator.codeburn_runner import codeburn_enabled
+
         with patch.dict(os.environ, {"ODYSSEUS_CODEBURN": "on"}):
             assert codeburn_enabled() is True
 
     def test_off_explicit(self):
         from src.orchestrator.codeburn_runner import codeburn_enabled
+
         with patch.dict(os.environ, {"ODYSSEUS_CODEBURN": "off"}):
             assert codeburn_enabled() is False
 
@@ -26,30 +29,37 @@ class TestCodeBurnEnabled:
 class TestRunCodeBurn:
     def test_disabled_returns_empty(self):
         from src.orchestrator.codeburn_runner import run_codeburn
+
         with patch.dict(os.environ, {}, clear=True):
             import asyncio
+
             result = asyncio.run(run_codeburn("test"))
             assert result == {}
 
     def test_no_cli_returns_empty(self):
-        from src.orchestrator.codeburn_runner import run_codeburn, _find_codeburn
+        from src.orchestrator.codeburn_runner import run_codeburn
+
         with patch.dict(os.environ, {"ODYSSEUS_CODEBURN": "on"}):
             with patch("src.orchestrator.codeburn_runner._find_codeburn", return_value=None):
                 import asyncio
+
                 result = asyncio.run(run_codeburn("test"))
                 assert result == {}
 
     def test_no_trace_dir_returns_empty(self):
-        from src.orchestrator.codeburn_runner import run_codeburn, _find_codeburn
+        from src.orchestrator.codeburn_runner import run_codeburn
+
         with patch.dict(os.environ, {"ODYSSEUS_CODEBURN": "on"}):
             with patch("src.orchestrator.codeburn_runner._find_codeburn", return_value="codeburn"):
                 with patch("src.orchestrator.codeburn_runner.Path.exists", return_value=False):
                     import asyncio
+
                     result = asyncio.run(run_codeburn("test"))
                     assert result == {}
 
     def test_successful_run(self):
         from src.orchestrator.codeburn_runner import run_codeburn
+
         fake_report = {
             "oneShotRate": 0.85,
             "wastePatterns": [{"name": "read_loop", "tokens": 500}],
@@ -68,6 +78,7 @@ class TestRunCodeBurn:
                 with patch("src.orchestrator.codeburn_runner.Path.exists", return_value=True):
                     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
                         import asyncio
+
                         result = asyncio.run(run_codeburn("test"))
                         assert result["one_shot_rate"] == 0.85
                         assert len(result["waste_patterns"]) == 1
@@ -85,21 +96,22 @@ class TestRunCodeBurn:
                 with patch("src.orchestrator.codeburn_runner.Path.exists", return_value=True):
                     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
                         import asyncio
+
                         result = asyncio.run(run_codeburn("test"))
                         assert result == {}
 
     def test_timeout_returns_empty(self):
         from src.orchestrator.codeburn_runner import run_codeburn
-        import asyncio as _asyncio
 
         mock_proc = MagicMock()
-        mock_proc.communicate = AsyncMock(side_effect=_asyncio.TimeoutError())
+        mock_proc.communicate = AsyncMock(side_effect=TimeoutError())
 
         with patch.dict(os.environ, {"ODYSSEUS_CODEBURN": "on"}):
             with patch("src.orchestrator.codeburn_runner._find_codeburn", return_value="codeburn"):
                 with patch("src.orchestrator.codeburn_runner.Path.exists", return_value=True):
                     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
                         import asyncio
+
                         result = asyncio.run(run_codeburn("test"))
                         assert result == {}
 
@@ -108,12 +120,13 @@ class TestRunCodeBurn:
 class TestFeedObserver:
     def test_empty_report_noop(self):
         from src.orchestrator.codeburn_runner import feed_observer
+
         # Should not raise
         feed_observer({})
 
     def test_feeds_observer(self):
-        from src.orchestrator.codeburn_runner import feed_observer
         from src.observer import Observer
+        from src.orchestrator.codeburn_runner import feed_observer
 
         report = {
             "one_shot_rate": 0.9,
@@ -127,8 +140,8 @@ class TestFeedObserver:
         assert len(observer._codeburn_reports) == initial_count + 1
 
     def test_harness_touched_detected(self):
-        from src.orchestrator.codeburn_runner import feed_observer
         from src.observer import Observer
+        from src.orchestrator.codeburn_runner import feed_observer
 
         report = {
             "one_shot_rate": 0.5,

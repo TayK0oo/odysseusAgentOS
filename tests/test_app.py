@@ -1,9 +1,11 @@
 """
 Basic tests for odysseus-ui application structure
 """
-import pytest
-import sys
+
 import os
+import sys
+
+import pytest
 
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -57,6 +59,7 @@ class TestAppBoots:
         the class of bug where a deleted route module leaves a dangling mount.
         """
         import subprocess
+
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         proc = subprocess.run(
             [sys.executable, "-c", "import app; assert app.app is not None"],
@@ -64,10 +67,9 @@ class TestAppBoots:
             capture_output=True,
             text=True,
             timeout=120,
+            check=False,
         )
-        assert proc.returncode == 0, (
-            f"`import app` failed (app cannot boot):\n{proc.stderr[-2000:]}"
-        )
+        assert proc.returncode == 0, f"`import app` failed (app cannot boot):\n{proc.stderr[-2000:]}"
 
 
 class TestImports:
@@ -75,23 +77,23 @@ class TestImports:
 
     def test_constants_importable(self):
         """Test that constants module is importable"""
-        from src.constants import BASE_DIR, STATIC_DIR, SESSIONS_FILE, MEMORY_FILE
+        from src.constants import BASE_DIR, STATIC_DIR
+
         assert BASE_DIR is not None
         assert STATIC_DIR is not None
 
     def test_app_helpers_importable(self):
         """Test that app_helpers module is importable"""
         from src.app_helpers import abs_join
+
         assert callable(abs_join)
 
     def test_exceptions_importable(self):
         """Test that exceptions module is importable"""
         from src.exceptions import (
             SessionNotFoundError,
-            InvalidFileUploadError,
-            LLMServiceError,
-            WebSearchError,
         )
+
         # These should be exception classes
         assert issubclass(SessionNotFoundError, Exception)
 

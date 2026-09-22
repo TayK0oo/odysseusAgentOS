@@ -17,9 +17,8 @@ import logging
 import os
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +33,7 @@ logger = logging.getLogger(__name__)
 # exactly like the old constant did.
 # ---------------------------------------------------------------------------
 _PROCESS_RUN_ID = str(uuid.uuid4())
-_run_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "trace_run_id", default=_PROCESS_RUN_ID
-)
+_run_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("trace_run_id", default=_PROCESS_RUN_ID)
 
 # ---------------------------------------------------------------------------
 # Thread-safe write lock (per-file)
@@ -56,10 +53,12 @@ def _get_lock(path: str) -> threading.Lock:
 # Traces directory
 # ---------------------------------------------------------------------------
 
+
 def _traces_dir() -> Path:
     """Return the traces directory, creating it if needed."""
     try:
         from src.constants import DATA_DIR
+
         base = Path(DATA_DIR)
     except Exception:
         base = Path(__file__).parent.parent / "data"
@@ -70,7 +69,7 @@ def _traces_dir() -> Path:
 
 def _today_file() -> Path:
     """Return today's JSONL trace file path."""
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
     return _traces_dir() / f"{today}.jsonl"
 
 
@@ -78,17 +77,18 @@ def _today_file() -> Path:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def write_trace(
     *,
     tool: str,
     risk_level: str,
     args_summary: str,
     permission_decision: str,  # "auto_approved" | "gate_required" | "approved" | "rejected"
-    outcome: str,              # "success" | "error" | "rejected"
-    session_id: Optional[str] = None,
+    outcome: str,  # "success" | "error" | "rejected"
+    session_id: str | None = None,
     cost_tokens: int = 0,
     duration_ms: int = 0,
-    extra: Optional[dict] = None,
+    extra: dict | None = None,
 ) -> None:
     """Write a single trace entry to today's JSONL file.
 
@@ -97,7 +97,7 @@ def write_trace(
     """
     try:
         record = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "run_id": _run_id_var.get(),
             "session_id": session_id or "",
             "tool": tool,
@@ -137,7 +137,7 @@ def write_trace(
 # recording/reading must never raise into the agent loop.
 # ---------------------------------------------------------------------------
 _RUN_TOKENS_CAP = 4096  # bound memory: forget oldest runs beyond this many
-_run_tokens: "dict[str, dict]" = {}
+_run_tokens: dict[str, dict] = {}
 _run_tokens_lock = threading.Lock()
 
 
@@ -170,7 +170,7 @@ def record_run_tokens(run_id, input_tokens=0, output_tokens=0) -> None:
         logger.warning("trace_writer: failed to record run tokens for run=%s: %s", run_id, exc)
 
 
-def get_run_tokens(run_id) -> Optional[dict]:
+def get_run_tokens(run_id) -> dict | None:
     """Return {'input_tokens', 'output_tokens'} for a run, or None if unknown.
 
     Never raises.

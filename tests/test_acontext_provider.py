@@ -6,9 +6,8 @@ and ACONTEXT_ENABLED). This wires acontext in as an observe-only memory provider
 whose only new behavior is end-of-session distillation, dispatched through the
 registry. These tests pin the contract.
 """
-import asyncio
 
-import pytest
+import asyncio
 
 
 def run(coro):
@@ -180,8 +179,8 @@ def test_acontext_on_session_end_swallows_errors(monkeypatch):
 def test_active_registry_singleton_roundtrip():
     from src.memory_provider import (
         MemoryProviderRegistry,
-        set_active_registry,
         get_active_registry,
+        set_active_registry,
     )
 
     reg = MemoryProviderRegistry([])

@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from src.memory_provider import (
     MemoryProvider,
@@ -24,7 +24,7 @@ from src.memory_provider import (
 logger = logging.getLogger(__name__)
 
 
-def _env_truthy(value: Optional[str]) -> bool:
+def _env_truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in {"on", "1", "true", "yes"}
 
 
@@ -46,19 +46,12 @@ class LettaMemoryProvider(MemoryProvider):
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
-        enabled: Optional[bool] = None,
+        base_url: str | None = None,
+        enabled: bool | None = None,
         timeout: float = 30.0,
     ):
-        self.base_url = (
-            base_url
-            or os.getenv("LETTA_URL")
-            or "http://localhost:8283"
-        ).rstrip("/")
-        self.enabled = (
-            enabled if enabled is not None
-            else _env_truthy(os.getenv("ODYSSEUS_LETTA"))
-        )
+        self.base_url = (base_url or os.getenv("LETTA_URL") or "http://localhost:8283").rstrip("/")
+        self.enabled = enabled if enabled is not None else _env_truthy(os.getenv("ODYSSEUS_LETTA"))
         self.timeout = timeout
         self._client = None
 
@@ -67,6 +60,7 @@ class LettaMemoryProvider(MemoryProvider):
         if self._client is None:
             try:
                 from letta import create_client
+
                 self._client = create_client(base_url=self.base_url)
             except ImportError:
                 logger.warning("letta-client not installed — pip install letta-client")
@@ -79,11 +73,11 @@ class LettaMemoryProvider(MemoryProvider):
         self,
         text: str,
         *,
-        owner: Optional[str] = None,
-        session_id: Optional[str] = None,
+        owner: str | None = None,
+        session_id: str | None = None,
         category: str = "fact",
         source: str = "user",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> MemoryRecord:
         """Store a memory in Letta archival memory."""
         import httpx
@@ -135,9 +129,9 @@ class LettaMemoryProvider(MemoryProvider):
         self,
         query: str,
         *,
-        owner: Optional[str] = None,
+        owner: str | None = None,
         top_k: int = 5,
-    ) -> List[MemorySearchHit]:
+    ) -> list[MemorySearchHit]:
         """Search Letta archival memory."""
         import httpx
 
@@ -153,7 +147,7 @@ class LettaMemoryProvider(MemoryProvider):
             logger.debug("letta recall failed: %s", exc)
             return []
 
-        hits: List[MemorySearchHit] = []
+        hits: list[MemorySearchHit] = []
         for item in (data.get("results") or data.get("archival_memory") or [])[:top_k]:
             content = item.get("content") or item.get("text") or ""
             meta = item.get("metadata") or {}
@@ -179,9 +173,9 @@ class LettaMemoryProvider(MemoryProvider):
     async def list_memories(
         self,
         *,
-        owner: Optional[str] = None,
+        owner: str | None = None,
         limit: int = 100,
-    ) -> List[MemoryRecord]:
+    ) -> list[MemoryRecord]:
         """List archival memories from Letta."""
         import httpx
 
@@ -197,7 +191,7 @@ class LettaMemoryProvider(MemoryProvider):
             logger.debug("letta list_memories failed: %s", exc)
             return []
 
-        records: List[MemoryRecord] = []
+        records: list[MemoryRecord] = []
         for item in (data.get("results") or data.get("archival_memory") or [])[:limit]:
             meta = item.get("metadata") or {}
             if owner and meta.get("owner") and meta["owner"] != owner:
@@ -215,7 +209,7 @@ class LettaMemoryProvider(MemoryProvider):
             )
         return records
 
-    async def delete(self, memory_id: str, *, owner: Optional[str] = None) -> bool:
+    async def delete(self, memory_id: str, *, owner: str | None = None) -> bool:
         """Delete a Letta archival memory entry."""
         import httpx
 
@@ -237,9 +231,9 @@ class LettaMemoryProvider(MemoryProvider):
         name: str,
         system_prompt: str,
         model: str = "gpt-4o-mini",
-        tools: Optional[List[str]] = None,
-        context_window_limit: Optional[int] = None,
-    ) -> Optional[Dict[str, Any]]:
+        tools: list[str] | None = None,
+        context_window_limit: int | None = None,
+    ) -> dict[str, Any] | None:
         """Create a Letta agent with virtual context management.
 
         The agent automatically pages data in/out of context to stay within
@@ -247,7 +241,7 @@ class LettaMemoryProvider(MemoryProvider):
         """
         import httpx
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "name": name,
             "system_prompt": system_prompt,
             "model": model,
@@ -275,7 +269,7 @@ class LettaMemoryProvider(MemoryProvider):
         self,
         agent_id: str,
         message: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Send a message to a Letta agent.
 
         Letta handles context paging automatically — older messages get
@@ -298,7 +292,7 @@ class LettaMemoryProvider(MemoryProvider):
 
     # ── Tool schemas (Letta-specific tools) ─────────────────────────────
 
-    def get_tool_schemas(self) -> List[Dict[str, Any]]:
+    def get_tool_schemas(self) -> list[dict[str, Any]]:
         """Expose Letta-specific memory tools."""
         return [
             {
@@ -320,9 +314,7 @@ class LettaMemoryProvider(MemoryProvider):
             },
         ]
 
-    async def handle_tool_call(
-        self, name: str, arguments: Dict[str, Any]
-    ) -> Any:
+    async def handle_tool_call(self, name: str, arguments: dict[str, Any]) -> Any:
         """Handle Letta-specific tool calls."""
         if name == "letta_archival_search":
             hits = await self.recall(

@@ -33,7 +33,7 @@ import core.database as cdb
 import routes.document_routes as droutes
 from core.database import Document
 from core.database import Session as DbSession
-from routes.document_helpers import _verify_doc_owner, _owner_session_filter
+from routes.document_helpers import _owner_session_filter, _verify_doc_owner
 
 _TMPDB = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 _ENGINE = create_engine(
@@ -74,20 +74,27 @@ def _seed(owner="alice"):
     doc_id = str(uuid.uuid4())
     db = _TS()
     try:
-        db.add(DbSession(
-            id=session_id, owner=owner, name=owner,
-            model="m", endpoint_url="http://x",
-        ))
-        db.add(Document(
-            id=doc_id,
-            session_id=session_id,
-            title=f"{owner} doc",
-            language="markdown",
-            current_content=f"{owner} body",
-            version_count=1,
-            is_active=True,
-            owner=owner,
-        ))
+        db.add(
+            DbSession(
+                id=session_id,
+                owner=owner,
+                name=owner,
+                model="m",
+                endpoint_url="http://x",
+            )
+        )
+        db.add(
+            Document(
+                id=doc_id,
+                session_id=session_id,
+                title=f"{owner} doc",
+                language="markdown",
+                current_content=f"{owner} body",
+                version_count=1,
+                is_active=True,
+                owner=owner,
+            )
+        )
         db.commit()
         return session_id, doc_id
     finally:
@@ -263,11 +270,18 @@ async def test_list_documents_hides_wrong_owner_docs(monkeypatch):
         db = _TS()
         try:
             db.add(DbSession(id=bob_session, owner="bob", name="bob", model="m", endpoint_url="http://x"))
-            db.add(Document(
-                id=bob_doc, session_id=alice_session,  # same session!
-                title="bob doc", language="markdown", current_content="bob body",
-                version_count=1, is_active=True, owner="bob",
-            ))
+            db.add(
+                Document(
+                    id=bob_doc,
+                    session_id=alice_session,  # same session!
+                    title="bob doc",
+                    language="markdown",
+                    current_content="bob body",
+                    version_count=1,
+                    is_active=True,
+                    owner="bob",
+                )
+            )
             db.commit()
         finally:
             db.close()

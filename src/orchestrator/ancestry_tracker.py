@@ -12,11 +12,11 @@ behaviour is unchanged. When ON and a project_id is present, one GoalTask with
 its ancestry_path is created via the native manager. Best-effort: any fault is
 swallowed so it can never break the loop.
 """
+
 from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +29,13 @@ def ancestry_enabled() -> bool:
 
 def record_run_ancestry(
     *,
-    project_id: Optional[str],
+    project_id: str | None,
     task_name: str,
     description: str,
     agent_id: str,
-    enabled: Optional[bool] = None,
+    enabled: bool | None = None,
     manager=None,
-) -> Optional[dict]:
+) -> dict | None:
     """Record this run's ancestry via the native GovernanceManager.
 
     No-op (returns None) when the kill-switch is OFF or when there is no
@@ -53,6 +53,7 @@ def record_run_ancestry(
         if mgr is None:
             from core.database import SessionLocal
             from src.governance import GovernanceManager
+
             mgr = GovernanceManager(db_session_factory=SessionLocal)
         result = mgr.create_task_with_ancestry(
             project_id=project_id,
@@ -63,7 +64,9 @@ def record_run_ancestry(
         if isinstance(result, dict) and result.get("ok"):
             logger.info(
                 "[ancestry] recorded project=%s agent=%s path=%s",
-                project_id, agent_id, result.get("ancestry_path", ""),
+                project_id,
+                agent_id,
+                result.get("ancestry_path", ""),
             )
         return result
     except Exception as exc:

@@ -8,11 +8,11 @@ An agent file is either:
 
 This module has no side effects and no network calls.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
 
 import yaml
 
@@ -24,9 +24,9 @@ class AgentSpec:
     name: str
     description: str = ""
     prompt: str = ""
-    tools: List[str] = field(default_factory=list)
-    model: Optional[str] = None
-    mode: Optional[str] = None
+    tools: list[str] = field(default_factory=list)
+    model: str | None = None
+    mode: str | None = None
     source_path: str = ""
 
 
@@ -45,7 +45,7 @@ def _split_frontmatter(text: str) -> tuple[dict, str]:
     for idx in range(1, len(parts)):
         if parts[idx].strip() == "---":
             fm_raw = "\n".join(parts[1:idx])
-            body = "\n".join(parts[idx + 1:])
+            body = "\n".join(parts[idx + 1 :])
             try:
                 fm = yaml.safe_load(fm_raw) or {}
             except yaml.YAMLError:

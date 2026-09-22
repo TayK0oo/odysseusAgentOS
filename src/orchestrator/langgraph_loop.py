@@ -20,6 +20,7 @@ Usage from agent_loop.py::
         async for event in stream_agent_loop(...):
             yield event
 """
+
 from __future__ import annotations
 
 import json
@@ -27,12 +28,14 @@ import logging
 import os
 import time
 import uuid
+from collections.abc import AsyncGenerator
 from enum import Enum
-from typing import Any, AsyncGenerator, Dict, List, Optional, TypedDict
+from typing import Any, TypedDict
 
 logger = logging.getLogger(__name__)
 
 # ─── Kill-switch ────────────────────────────────────────────────────────────
+
 
 def langgraph_enabled() -> bool:
     """OFF unless ODYSSEUS_LANGGRAPH is set to a truthy value."""
@@ -41,6 +44,7 @@ def langgraph_enabled() -> bool:
 
 
 # ─── Risk level (mirrors src/risk_classifier.py) ────────────────────────────
+
 
 class RiskLevel(str, Enum):
     READ = "read"
@@ -52,50 +56,52 @@ class RiskLevel(str, Enum):
 
 # ─── State schema ───────────────────────────────────────────────────────────
 
+
 class AgentState(TypedDict, total=False):
     """Shared mutable state passed through every node."""
+
     # Input — set by the caller before graph invocation
-    messages: List[Dict[str, Any]]
+    messages: list[dict[str, Any]]
     endpoint_url: str
     model: str
-    headers: Optional[Dict[str, str]]
+    headers: dict[str, str] | None
     temperature: float
     max_tokens: int
-    prompt_type: Optional[str]
+    prompt_type: str | None
     max_rounds: int
-    session_id: Optional[str]
-    owner: Optional[str]
-    workspace: Optional[str]
+    session_id: str | None
+    owner: str | None
+    workspace: str | None
     active_document: Any
-    active_email: Optional[Dict[str, str]]
-    disabled_tools: Optional[set]
-    relevant_tools: Optional[set]
+    active_email: dict[str, str] | None
+    disabled_tools: set | None
+    relevant_tools: set | None
     tool_policy: Any
-    fallbacks: Optional[List[tuple]]
+    fallbacks: list[tuple] | None
     plan_mode: bool
-    approved_plan: Optional[str]
-    forced_tools: Optional[set]
-    project_id: Optional[str]
-    agent_id: Optional[str]
+    approved_plan: str | None
+    forced_tools: set | None
+    project_id: str | None
+    agent_id: str | None
 
     # Mutable — written by nodes
     phase: str
     risk_level: str
-    context: Dict[str, Any]
-    plan: Dict[str, Any]
-    tool_calls: List[Dict[str, Any]]
-    budgets: Dict[str, Any]
+    context: dict[str, Any]
+    plan: dict[str, Any]
+    tool_calls: list[dict[str, Any]]
+    budgets: dict[str, Any]
     passed: bool
     full_response: str
-    metrics: Dict[str, Any]
-    tool_events: List[Dict[str, Any]]
+    metrics: dict[str, Any]
+    tool_events: list[dict[str, Any]]
     run_id: str
-    verifier_reasons: List[str]
-    drift_level: Optional[str]
+    verifier_reasons: list[str]
+    drift_level: str | None
     last_user: str
 
     # SSE event buffer — nodes append SSE strings here, caller drains
-    sse_events: List[str]
+    sse_events: list[str]
 
 
 # Default state factory
@@ -145,6 +151,7 @@ def _default_state(**overrides) -> AgentState:
 
 # ─── Node functions ─────────────────────────────────────────────────────────
 
+
 def classify_node(state: AgentState) -> dict:
     """CLASSIFY phase — risk assessment and intent classification.
 
@@ -178,6 +185,7 @@ def classify_node(state: AgentState) -> dict:
     context = dict(state.get("context", {}))
     try:
         from src.agent_loop import _classify_agent_request, _extract_last_user_message
+
         _msg_last = _extract_last_user_message(messages) if messages else ""
         if _msg_last:
             last_user = _msg_last
@@ -193,7 +201,9 @@ def classify_node(state: AgentState) -> dict:
 
     logger.info(
         "[langgraph/classify] risk=%s domains=%s low_signal=%s",
-        risk_level, context.get("domains"), context.get("low_signal"),
+        risk_level,
+        context.get("domains"),
+        context.get("low_signal"),
     )
 
     return {
@@ -220,12 +230,11 @@ def know_node(state: AgentState) -> dict:
     relevant_tools = set(state.get("relevant_tools") or set())
     if not relevant_tools and retrieval_query:
         try:
-            from src.tool_index import get_tool_index, ALWAYS_AVAILABLE
+            from src.tool_index import ALWAYS_AVAILABLE, get_tool_index
+
             tool_idx = get_tool_index()
             if tool_idx:
-                relevant_tools = set(
-                    tool_idx.get_tools_for_query(retrieval_query, 8) or ALWAYS_AVAILABLE
-                )
+                relevant_tools = set(tool_idx.get_tools_for_query(retrieval_query, 8) or ALWAYS_AVAILABLE)
                 context["tool_rag"] = True
         except Exception as exc:
             logger.debug("[langgraph/know] tool RAG failed: %s", exc)
@@ -234,6 +243,7 @@ def know_node(state: AgentState) -> dict:
     if not relevant_tools and retrieval_query:
         try:
             from src.tool_index import ALWAYS_AVAILABLE, ToolIndex
+
             relevant_tools = set(ALWAYS_AVAILABLE)
             ql = retrieval_query.lower()
             for keywords, tools in ToolIndex._KEYWORD_HINTS.items():
@@ -245,6 +255,7 @@ def know_node(state: AgentState) -> dict:
     # Memory retrieval
     try:
         from src.memory_provider import get_active_registry
+
         mem_reg = get_active_registry()
         if mem_reg is not None:
             context["memory_available"] = True
@@ -311,18 +322,15 @@ async def build_node(state: AgentState) -> dict:
     #
     # The full implementation calls stream_llm + execute_tool_block in a loop,
     # mirroring the inner loop of stream_agent_loop.
+
     from src.agent_tools import (
-        parse_tool_blocks,
-        strip_tool_blocks,
+        FUNCTION_TOOL_SCHEMAS,
         execute_tool_block,
         format_tool_result,
-        FUNCTION_TOOL_SCHEMAS,
-        MAX_AGENT_ROUNDS,
+        parse_tool_blocks,
     )
     from src.llm_core import stream_llm_with_fallback
-    from src.model_context import estimate_tokens
     from src.settings import get_setting
-    import asyncio
 
     messages = list(state.get("messages", []))
     endpoint_url = state.get("endpoint_url", "")
@@ -347,8 +355,13 @@ async def build_node(state: AgentState) -> dict:
     # Build system prompt (reuse existing)
     try:
         from src.agent_loop import _build_system_prompt
+
         messages, mcp_schemas = _build_system_prompt(
-            messages, model, state.get("active_document"), None, disabled_tools,
+            messages,
+            model,
+            state.get("active_document"),
+            None,
+            disabled_tools,
         )
     except Exception as exc:
         logger.warning("[langgraph/build] prompt build fallback: %s", exc)
@@ -356,17 +369,44 @@ async def build_node(state: AgentState) -> dict:
 
     # Detect API model (simplified heuristic — mirrors agent_loop.py inline logic)
     _model_lc = (model or "").lower()
-    _is_api_model = any(kw in _model_lc for kw in (
-        "gpt-4", "gpt-5", "gpt-o", "claude", "gemini", "gemma",
-        "qwen3", "qwen2.5", "mixtral", "mistral", "llama-3.1", "llama-3.2",
-        "llama-3.3", "llama-4", "llama3.1", "llama3.2", "llama3.3", "llama4",
-        "minimax", "kimi", "yi-", "phi-3", "phi-4", "command-r",
-        "glm-4", "internlm", "hermes",
-        "deepseek-v", "deepseek-chat",
-    ))
+    _is_api_model = any(
+        kw in _model_lc
+        for kw in (
+            "gpt-4",
+            "gpt-5",
+            "gpt-o",
+            "claude",
+            "gemini",
+            "gemma",
+            "qwen3",
+            "qwen2.5",
+            "mixtral",
+            "mistral",
+            "llama-3.1",
+            "llama-3.2",
+            "llama-3.3",
+            "llama-4",
+            "llama3.1",
+            "llama3.2",
+            "llama3.3",
+            "llama4",
+            "minimax",
+            "kimi",
+            "yi-",
+            "phi-3",
+            "phi-4",
+            "command-r",
+            "glm-4",
+            "internlm",
+            "hermes",
+            "deepseek-v",
+            "deepseek-chat",
+        )
+    )
     if not _is_api_model:
         try:
             from src.agent_loop import _API_HOSTS
+
             _is_api_model = any(h in endpoint_url for h in _API_HOSTS)
         except Exception:
             pass
@@ -381,13 +421,9 @@ async def build_node(state: AgentState) -> dict:
 
         # Merge tool schemas
         if _is_api_model and relevant_tools:
-            base_schemas = [
-                s for s in FUNCTION_TOOL_SCHEMAS
-                if s.get("function", {}).get("name") in relevant_tools
-            ]
+            base_schemas = [s for s in FUNCTION_TOOL_SCHEMAS if s.get("function", {}).get("name") in relevant_tools]
             all_tool_schemas = base_schemas + [
-                s for s in mcp_schemas
-                if s.get("function", {}).get("name") in relevant_tools
+                s for s in mcp_schemas if s.get("function", {}).get("name") in relevant_tools
             ]
         elif _is_api_model:
             all_tool_schemas = FUNCTION_TOOL_SCHEMAS + mcp_schemas
@@ -396,9 +432,9 @@ async def build_node(state: AgentState) -> dict:
 
         if disabled_tools:
             all_tool_schemas = [
-                t for t in all_tool_schemas
-                if t.get("function", {}).get("name") not in disabled_tools
-                and t.get("name") not in disabled_tools
+                t
+                for t in all_tool_schemas
+                if t.get("function", {}).get("name") not in disabled_tools and t.get("name") not in disabled_tools
             ]
 
         _candidates = [(endpoint_url, model, headers)] + list(fallbacks or [])
@@ -406,8 +442,10 @@ async def build_node(state: AgentState) -> dict:
         # Stream LLM
         try:
             _stream = stream_llm_with_fallback(
-                _candidates, messages,
-                temperature=temperature, max_tokens=max_tokens,
+                _candidates,
+                messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
                 tools=all_tool_schemas if all_tool_schemas else None,
                 timeout=agent_stream_timeout,
                 session_id=session_id,
@@ -443,6 +481,7 @@ async def build_node(state: AgentState) -> dict:
         elif not tool_blocks:
             # native tool calls → convert to ToolBlock
             from src.agent_tools import ToolBlock
+
             for tc in native_tool_calls:
                 if tc.get("function", {}).get("arguments"):
                     tool_blocks.append(ToolBlock(tc["function"]["name"], tc["function"]["arguments"]))
@@ -458,8 +497,11 @@ async def build_node(state: AgentState) -> dict:
             else:
                 try:
                     _desc, result = await execute_tool_block(
-                        block, session_id=session_id, disabled_tools=disabled_tools,
-                        tool_policy=tool_policy, owner=state.get("owner"),
+                        block,
+                        session_id=session_id,
+                        disabled_tools=disabled_tools,
+                        tool_policy=tool_policy,
+                        owner=state.get("owner"),
                     )
                 except Exception as exc:
                     result = {"error": str(exc), "exit_code": 1}
@@ -468,18 +510,20 @@ async def build_node(state: AgentState) -> dict:
             formatted = format_tool_result(block.content[:80], result)
             tool_results.append(formatted)
 
-            tool_events.append({
-                "round": round_num,
-                "tool": block.tool_type,
-                "command": block.content[:120],
-                "output": str(result.get("output", result.get("error", "")))[:500],
-                "exit_code": result.get("exit_code"),
-            })
+            tool_events.append(
+                {
+                    "round": round_num,
+                    "tool": block.tool_type,
+                    "command": block.content[:120],
+                    "output": str(result.get("output", result.get("error", "")))[:500],
+                    "exit_code": result.get("exit_code"),
+                }
+            )
 
         # Feed tool results back to messages
         messages.append({"role": "assistant", "content": round_response})
         messages.append({"role": "user", "content": "\n\n".join(tool_results)})
-        sse_events.append(f'data: {json.dumps({"type": "agent_step", "round": round_num + 1})}\n\n')
+        sse_events.append(f"data: {json.dumps({'type': 'agent_step', 'round': round_num + 1})}\n\n")
 
     total_duration = time.time() - total_start
     metrics = {
@@ -512,14 +556,13 @@ def quality_node(state: AgentState) -> dict:
     # Run the completion verifier if there were effectful tool calls
     tool_events = state.get("tool_events", [])
     has_effectful = any(
-        te.get("tool") in ("bash", "write_file", "edit_file", "create_document", "edit_document")
-        for te in tool_events
+        te.get("tool") in ("bash", "write_file", "edit_file", "create_document", "edit_document") for te in tool_events
     )
 
     if has_effectful:
         try:
-            from src.agent_loop import _run_verifier_subagent, _build_actions_snapshot
-            import asyncio
+            from src.agent_loop import _build_actions_snapshot
+
             # Best-effort verifier — never blocks the quality node
             # Note: _run_verifier_subagent is sync, but we're in an async context
             # so we run it in a thread
@@ -558,11 +601,15 @@ def autoeval_node(state: AgentState) -> dict:
 
     # Run autoeval (kill-switched internally — when OFF, always returns "keep")
     try:
+
         def _git_reset():
             import subprocess
+
             cp = subprocess.run(
                 ["git", "reset", "--hard", "HEAD"],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             return cp.returncode == 0
 
@@ -603,9 +650,11 @@ def memory_node(state: AgentState) -> dict:
     # Memory distillation (best-effort)
     try:
         from src.memory_provider import get_active_registry
+
         mem_reg = get_active_registry()
         if mem_reg is not None:
             import asyncio
+
             # Fire-and-forget memory distillation
             asyncio.create_task(
                 mem_reg.dispatch_session_end(
@@ -620,6 +669,7 @@ def memory_node(state: AgentState) -> dict:
     # Checkpoint (best-effort)
     try:
         from src.orchestrator.checkpoint_tracker import record_checkpoint
+
         record_checkpoint(
             session_id=state.get("session_id"),
             run_id=state.get("run_id"),
@@ -633,6 +683,7 @@ def memory_node(state: AgentState) -> dict:
     if state.get("project_id"):
         try:
             from src.orchestrator.ancestry_tracker import record_run_ancestry
+
             record_run_ancestry(
                 project_id=state["project_id"],
                 task_name=f"run {state.get('run_id', '?')[:8]}",
@@ -656,6 +707,7 @@ def memory_node(state: AgentState) -> dict:
 
 # ─── Graph builder ──────────────────────────────────────────────────────────
 
+
 def build_langgraph(
     checkpointer=None,
 ):
@@ -667,12 +719,11 @@ def build_langgraph(
     default one pointing at ``checkpoints.db`` in the CWD is created.
     """
     try:
-        from langgraph.graph import StateGraph, END
         from langgraph.checkpoint.sqlite import SqliteSaver
+        from langgraph.graph import END, StateGraph
     except ImportError:
         raise ImportError(
-            "langgraph is not installed.  Install it with: "
-            "pip install langgraph langgraph-checkpoint-sqlite"
+            "langgraph is not installed.  Install it with: pip install langgraph langgraph-checkpoint-sqlite"
         )
 
     graph = StateGraph(AgentState)
@@ -700,10 +751,14 @@ def build_langgraph(
             return "memory_observe"
         return "build"
 
-    graph.add_conditional_edges("autoeval", _autoeval_router, {
-        "memory_observe": "memory_observe",
-        "build": "build",
-    })
+    graph.add_conditional_edges(
+        "autoeval",
+        _autoeval_router,
+        {
+            "memory_observe": "memory_observe",
+            "build": "build",
+        },
+    )
     graph.add_edge("memory_observe", END)
 
     # Compile with checkpointer
@@ -717,10 +772,11 @@ def build_langgraph(
 
 # ─── Async streaming wrapper ────────────────────────────────────────────────
 
+
 async def langgraph_stream(
     state: AgentState,
     *,
-    thread_id: Optional[str] = None,
+    thread_id: str | None = None,
     checkpointer=None,
 ) -> AsyncGenerator[str, None]:
     """Run the LangGraph and yield SSE events.
@@ -737,22 +793,25 @@ async def langgraph_stream(
 
     # Human-in-the-loop: interrupt before BUILD if risk_level == DESTRUCTIVE
     if state.get("risk_level") == RiskLevel.DESTRUCTIVE.value:
-        logger.warning(
-            "[langgraph] DESTRUCTIVE risk detected — "
-            "set ODYSSEUS_LANGGRAPH_INTERRUPT=off to bypass"
-        )
-        interrupt_enabled = os.getenv(
-            "ODYSSEUS_LANGGRAPH_INTERRUPT", "on"
-        ).strip().lower() not in {"off", "0", "false", "no"}
+        logger.warning("[langgraph] DESTRUCTIVE risk detected — set ODYSSEUS_LANGGRAPH_INTERRUPT=off to bypass")
+        interrupt_enabled = os.getenv("ODYSSEUS_LANGGRAPH_INTERRUPT", "on").strip().lower() not in {
+            "off",
+            "0",
+            "false",
+            "no",
+        }
         if interrupt_enabled:
             try:
                 from langgraph.types import interrupt
+
                 # This will pause execution until human approval
-                approval = interrupt({
-                    "message": "Destructive operation detected. Approve?",
-                    "risk_level": state["risk_level"],
-                    "context": state.get("context", {}),
-                })
+                approval = interrupt(
+                    {
+                        "message": "Destructive operation detected. Approve?",
+                        "risk_level": state["risk_level"],
+                        "context": state.get("context", {}),
+                    }
+                )
                 if not approval.get("approved", False):
                     state["sse_events"] = state.get("sse_events", [])
                     state["sse_events"].append(
@@ -779,38 +838,37 @@ async def langgraph_stream(
         yield evt
 
     # Ensure [DONE] is always emitted
-    if not result.get("sse_events") or not any(
-        "DONE" in e for e in result.get("sse_events", [])
-    ):
+    if not result.get("sse_events") or not any("DONE" in e for e in result.get("sse_events", [])):
         yield "data: [DONE]\n\n"
 
 
 # ─── Convenience: build input state from stream_agent_loop params ───────────
 
+
 def build_input_state(
     *,
     endpoint_url: str,
     model: str,
-    messages: List[Dict],
-    headers: Optional[Dict] = None,
+    messages: list[dict],
+    headers: dict | None = None,
     temperature: float = 0.3,
     max_tokens: int = 4096,
-    prompt_type: Optional[str] = None,
+    prompt_type: str | None = None,
     max_rounds: int = 20,
-    session_id: Optional[str] = None,
-    disabled_tools: Optional[set] = None,
-    owner: Optional[str] = None,
-    relevant_tools: Optional[set] = None,
-    fallbacks: Optional[List[tuple]] = None,
+    session_id: str | None = None,
+    disabled_tools: set | None = None,
+    owner: str | None = None,
+    relevant_tools: set | None = None,
+    fallbacks: list[tuple] | None = None,
     plan_mode: bool = False,
-    approved_plan: Optional[str] = None,
+    approved_plan: str | None = None,
     tool_policy=None,
-    workspace: Optional[str] = None,
-    forced_tools: Optional[set] = None,
-    project_id: Optional[str] = None,
-    agent_id: Optional[str] = None,
+    workspace: str | None = None,
+    forced_tools: set | None = None,
+    project_id: str | None = None,
+    agent_id: str | None = None,
     active_document=None,
-    active_email: Optional[Dict[str, str]] = None,
+    active_email: dict[str, str] | None = None,
 ) -> AgentState:
     """Build an AgentState from the same parameters as stream_agent_loop.
 

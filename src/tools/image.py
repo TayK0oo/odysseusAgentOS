@@ -6,15 +6,16 @@ Holds the edit_image (gallery) tool.
 ``_INTERNAL_BASE`` still lives in tool_implementations.py and is pulled back
 function-locally here.
 """
-from typing import Dict, Optional
 
 from src.tools._common import _parse_tool_args
 
 
-async def do_edit_image(content: str, owner: Optional[str] = None) -> Dict:
+async def do_edit_image(content: str, owner: str | None = None) -> dict:
     """Edit a gallery image (upscale, rembg, inpaint, harmonize)."""
     import httpx
+
     from src.tool_implementations import _INTERNAL_BASE  # shared constant, still lives in the facade
+
     try:
         args = _parse_tool_args(content)
     except ValueError:

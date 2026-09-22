@@ -10,12 +10,12 @@ src/memory_provider.py POSTs session-end payloads here. The service:
 Gated by ACONTEXT_ENABLED (env, default false). Without it, the provider
 never calls this service → startup byte-identical.
 """
+
 import json
 import os
 import pathlib
 import re
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import httpx
 import uvicorn
@@ -38,6 +38,7 @@ _SESSION_STORE: dict[str, dict] = {}  # session_id → accumulated data
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _sanitize_filename(name: str) -> str:
     """Convert title to safe filename."""
@@ -92,7 +93,7 @@ Write a SKILL.md with this structure:
 Be concise. Focus on REUSABLE patterns, not the specific task. Write in English. Output ONLY the SKILL.md content."""
 
 
-async def _call_llm(prompt: str) -> Optional[str]:
+async def _call_llm(prompt: str) -> str | None:
     """Call the configured LLM for distillation. Best-effort: returns None on failure."""
     headers = {"Content-Type": "application/json"}
     if LLM_API_KEY:
@@ -123,6 +124,7 @@ async def _call_llm(prompt: str) -> Optional[str]:
 # API Endpoints
 # ---------------------------------------------------------------------------
 
+
 @app.post("/api/sessions/end")
 async def session_end(payload: dict = None):
     """Store session-end data. Accumulates per session_id."""
@@ -131,7 +133,7 @@ async def session_end(payload: dict = None):
 
     session_id = payload.get("session_id", "")
     if not session_id:
-        session_id = f"anon_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        session_id = f"anon_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
 
     # Merge with existing data for this session
     if session_id not in _SESSION_STORE:
@@ -144,7 +146,7 @@ async def session_end(payload: dict = None):
             existing["summary"] = payload["summary"]
 
     # Also persist to disk
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     (DATA / f"session_{session_id}_{ts}.json").write_text(json.dumps(payload, indent=2))
 
     return {"status": "stored", "session_id": session_id, "ts": ts}

@@ -4,6 +4,7 @@ Kill-switched behind ODYSSEUS_N8N (default OFF). When off, the trigger
 endpoint returns 503 Service Unavailable. When on, it proxies workflow
 trigger requests to the local n8n instance via its webhook API.
 """
+
 from __future__ import annotations
 
 import logging
@@ -11,7 +12,7 @@ import os
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ def _n8n_enabled() -> bool:
 
 class WorkflowTriggerRequest(BaseModel):
     """Optional payload forwarded to the n8n webhook node."""
+
     data: dict[str, Any] | None = None
 
 

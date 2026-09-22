@@ -1,22 +1,23 @@
-import subprocess
 import json
-import time
-import httpx
 import logging
 import os
+import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any, Optional
+from typing import Any
 from urllib.parse import urlparse
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
 # Cache for discovered hosts
-_hosts_cache: List[str] = []
+_hosts_cache: list[str] = []
 _hosts_cache_time: float = 0
 _HOSTS_CACHE_TTL = 60  # seconds
 
 
-def _parse_tailscale_status(raw: str) -> Dict[str, Any]:
+def _parse_tailscale_status(raw: str) -> dict[str, Any]:
     try:
         data = json.loads(raw)
     except (TypeError, json.JSONDecodeError):
@@ -24,7 +25,7 @@ def _parse_tailscale_status(raw: str) -> Dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def _first_tailscale_ipv4(value: Any) -> Optional[str]:
+def _first_tailscale_ipv4(value: Any) -> str | None:
     if not isinstance(value, list):
         return None
     for ip in value:
@@ -33,7 +34,7 @@ def _first_tailscale_ipv4(value: Any) -> Optional[str]:
     return None
 
 
-def discover_tailscale_hosts() -> List[str]:
+def discover_tailscale_hosts() -> list[str]:
     """Discover online Tailscale peers, returning their IPv4 addresses."""
     global _hosts_cache, _hosts_cache_time
 
@@ -44,7 +45,7 @@ def discover_tailscale_hosts() -> List[str]:
     hosts = []
     try:
         result = subprocess.run(
-            ["tailscale", "status", "--json"], capture_output=True, text=True, timeout=5
+            ["tailscale", "status", "--json"], capture_output=True, text=True, timeout=5, check=False
         )
         if result.returncode != 0:
             return hosts
@@ -88,24 +89,24 @@ def discover_tailscale_hosts() -> List[str]:
 
 
 class ModelDiscovery:
-    def __init__(self, default_host: str, openai_api_key: Optional[str] = None):
+    def __init__(self, default_host: str, openai_api_key: str | None = None):
         self.default_host = default_host
         self.openai_api_key = openai_api_key
         self.openai_compat_path = "/v1/chat/completions"
         # Custom ports from env vars, merged into the scan list by discover_models.
         self._extra_ports: set = set()
 
-    def _get_hosts(self) -> List[str]:
+    def _get_hosts(self) -> list[str]:
         """Get all hosts to scan, using env override, Tailscale, or default."""
         self._extra_ports = set()
 
-        def _append_host(out: List[str], host: str) -> None:
+        def _append_host(out: list[str], host: str) -> None:
             host = (host or "").strip()
             if not host or host in out:
                 return
             out.append(host)
 
-        def _append_env_hosts(out: List[str]) -> None:
+        def _append_env_hosts(out: list[str]) -> None:
             """Add hosts (and any custom ports) from provider-specific env vars."""
             for env_name in ("OLLAMA_BASE_URL", "OLLAMA_URL", "LM_STUDIO_URL"):
                 raw = os.getenv(env_name, "").strip()
@@ -147,7 +148,7 @@ class ModelDiscovery:
         _append_env_hosts(hosts)
         return hosts
 
-    def _fingerprint_provider(self, host: str, port: int) -> Optional[str]:
+    def _fingerprint_provider(self, host: str, port: int) -> str | None:
         """Identify the server software via its native API, independent of port."""
         try:
             r = httpx.get(f"http://{host}:{port}/api/v1/models", timeout=1.5)
@@ -171,16 +172,14 @@ class ModelDiscovery:
             if r.is_success:
                 props = r.json() or {}
                 if isinstance(props, dict) and (
-                    "default_generation_settings" in props
-                    or "total_slots" in props
-                    or "chat_template" in props
+                    "default_generation_settings" in props or "total_slots" in props or "chat_template" in props
                 ):
                     return "llamacpp"
         except Exception:
             pass
         return None
 
-    def _check_port(self, host: str, port: int) -> Optional[Dict[str, Any]]:
+    def _check_port(self, host: str, port: int) -> dict[str, Any] | None:
         """Check a single host:port for models."""
         base = f"http://{host}:{port}/v1"
         try:
@@ -202,7 +201,7 @@ class ModelDiscovery:
             pass
         return None
 
-    def discover_models(self) -> Dict[str, List[Dict[str, Any]]]:
+    def discover_models(self) -> dict[str, list[dict[str, Any]]]:
         """Discover available models from all reachable hosts."""
         hosts = self._get_hosts()
         items = []
@@ -217,9 +216,7 @@ class ModelDiscovery:
         ports += [p for p in sorted(self._extra_ports) if p not in ports]
         targets = [(h, p) for h in hosts for p in ports]
 
-        seen_models = (
-            set()
-        )  # dedupe by (port, model_ids) to avoid same machine via different IPs
+        seen_models = set()  # dedupe by (port, model_ids) to avoid same machine via different IPs
 
         with ThreadPoolExecutor(max_workers=50) as pool:
             futures = {pool.submit(self._check_port, h, p): (h, p) for h, p in targets}
@@ -234,12 +231,10 @@ class ModelDiscovery:
         # Sort by host then port for consistent ordering
         items.sort(key=lambda x: (x["host"], x["port"]))
 
-        logger.info(
-            f"Discovered {len(items)} model endpoints across {len(hosts)} hosts"
-        )
+        logger.info(f"Discovered {len(items)} model endpoints across {len(hosts)} hosts")
         return {"hosts": hosts, "items": items}
 
-    def warmup_ping_urls(self, limit: int = 5) -> List[str]:
+    def warmup_ping_urls(self, limit: int = 5) -> list[str]:
         """The ``/models`` URLs of up to ``limit`` discovered endpoints.
 
         Used by the startup warmup / keepalive loop to prime connections. Each
@@ -251,14 +246,14 @@ class ModelDiscovery:
             items = (self.discover_models() or {}).get("items", [])
         except Exception:
             return []
-        urls: List[str] = []
+        urls: list[str] = []
         for ep in items[:limit]:
             url = (ep.get("url") or "").replace("/chat/completions", "/models")
             if url:
                 urls.append(url)
         return urls
 
-    def get_providers(self) -> Dict[str, Any]:
+    def get_providers(self) -> dict[str, Any]:
         """Get all available providers"""
         discovery = self.discover_models()
         items = discovery["items"]

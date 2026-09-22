@@ -8,6 +8,7 @@ guard against a close button shipping without an accessible label again.
 Plain text/regex assertions (no bs4 dependency), matching the lightweight style
 of the other tests in this suite.
 """
+
 import re
 from pathlib import Path
 
@@ -63,4 +64,3 @@ def test_toast_has_dismiss_button():
     assert "aria-label" in ui
     assert "Dismiss" in ui
     assert ui.count("toast-close-btn") >= 2
-

@@ -1,12 +1,12 @@
 from src.embedding_lanes import (
-    EmbeddingLane,
     LANE_FASTEMBED,
+    EmbeddingLane,
 )
 from tests.helpers.embedding_lanes import (
+    FailingEmbedder,
     FakeChroma,
     FakeCollection,
     FakeEmbedder,
-    FailingEmbedder,
     patch_chroma,
 )
 
@@ -44,9 +44,11 @@ def test_vector_rag_batch_index_continues_when_custom_lane_fails(monkeypatch, tm
     from src.rag_vector import VectorRAG
 
     rag = VectorRAG(persist_directory=str(tmp_path))
-    result = rag.add_documents_batch([
-        ("batch fallback document", {"source": "/tmp/a.md", "owner": "alice"}),
-    ])
+    result = rag.add_documents_batch(
+        [
+            ("batch fallback document", {"source": "/tmp/a.md", "owner": "alice"}),
+        ]
+    )
 
     assert result["success"]
     assert result["added_count"] == 1
@@ -66,9 +68,11 @@ def test_vector_rag_batch_index_reports_failure_when_all_lanes_fail(monkeypatch,
     from src.rag_vector import VectorRAG
 
     rag = VectorRAG(persist_directory=str(tmp_path))
-    result = rag.add_documents_batch([
-        ("batch outage document", {"source": "/tmp/a.md", "owner": "alice"}),
-    ])
+    result = rag.add_documents_batch(
+        [
+            ("batch outage document", {"source": "/tmp/a.md", "owner": "alice"}),
+        ]
+    )
 
     assert not result["success"]
     assert fake.collections["odysseus_rag_custom"].count() == 0

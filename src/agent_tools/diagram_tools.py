@@ -14,13 +14,13 @@ Kill-switch: gated by KROKI_ENABLED (default on, matching .env.example). When
 off, the tool refuses cleanly — the base product is unchanged and no network
 call is made.
 """
+
 import asyncio
 import base64
 import json
 import os
 import uuid
 import zlib
-from typing import Optional
 
 import httpx
 
@@ -50,8 +50,7 @@ def kroki_encode(content: str) -> str:
     return base64.urlsafe_b64encode(compressed).decode("ascii")
 
 
-def kroki_url(diagram_type: str, output_format: str, encoded: str,
-              base_url: Optional[str] = None) -> str:
+def kroki_url(diagram_type: str, output_format: str, encoded: str, base_url: str | None = None) -> str:
     """Build the Kroki request URL: {base}/{type}/{format}/{encoded}."""
     base = (base_url or _kroki_base_url()).rstrip("/")
     return f"{base}/{diagram_type}/{output_format}/{encoded}"
@@ -79,12 +78,7 @@ class RenderDiagramTool:
             try:
                 parsed = json.loads(raw)
                 if isinstance(parsed, dict):
-                    source = str(
-                        parsed.get("content")
-                        or parsed.get("source")
-                        or parsed.get("diagram")
-                        or ""
-                    ).strip()
+                    source = str(parsed.get("content") or parsed.get("source") or parsed.get("diagram") or "").strip()
                     dt = parsed.get("diagram_type") or parsed.get("type")
                     if isinstance(dt, str) and dt.strip():
                         diagram_type = dt.strip().lower()
@@ -109,13 +103,12 @@ class RenderDiagramTool:
                 loop.run_in_executor(None, lambda: httpx.get(url, timeout=15.0)),
                 timeout=20,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return {"error": "render_diagram: Kroki timed out after 20s.", "exit_code": 1}
         except Exception as e:
             return {
                 "error": (
-                    f"render_diagram: could not reach Kroki ({type(e).__name__}: {e}). "
-                    "Is the kroki service running?"
+                    f"render_diagram: could not reach Kroki ({type(e).__name__}: {e}). Is the kroki service running?"
                 ),
                 "exit_code": 1,
             }
@@ -142,6 +135,7 @@ class RenderDiagramTool:
         pub_base = ""
         try:
             from src.settings import get_setting
+
             pub_base = (get_setting("app_public_url", "") or "").rstrip("/")
         except Exception:
             pub_base = ""

@@ -1,4 +1,5 @@
 """Tests for the Obsidian read/search stdio MCP scaffold + its default-OFF gate."""
+
 import json
 
 import pytest
@@ -11,9 +12,7 @@ def vault(tmp_path, monkeypatch):
     """A tmp Obsidian vault with two notes; points the module at it."""
     (tmp_path / "agentos").mkdir()
     (tmp_path / "root.md").write_text("root note\nalpha line", encoding="utf-8")
-    (tmp_path / "agentos" / "learning.md").write_text(
-        "second brain\nalpha appears here too", encoding="utf-8"
-    )
+    (tmp_path / "agentos" / "learning.md").write_text("second brain\nalpha appears here too", encoding="utf-8")
     monkeypatch.setattr(obsidian_mcp, "VAULT_PATH", tmp_path)
     return tmp_path
 
@@ -61,6 +60,7 @@ async def test_call_unknown_tool_returns_error(vault):
 def test_obsidian_mcp_disabled_by_default(monkeypatch):
     monkeypatch.delenv("ODYSSEUS_OBSIDIAN_MCP", raising=False)
     from src import builtin_mcp
+
     assert builtin_mcp._obsidian_mcp_enabled() is False
     assert builtin_mcp._optional_python_servers() == {}
 
@@ -68,6 +68,7 @@ def test_obsidian_mcp_disabled_by_default(monkeypatch):
 def test_obsidian_mcp_registered_when_gate_on(monkeypatch):
     monkeypatch.setenv("ODYSSEUS_OBSIDIAN_MCP", "1")
     from src import builtin_mcp
+
     assert builtin_mcp._obsidian_mcp_enabled() is True
     optional = builtin_mcp._optional_python_servers()
     assert "obsidian" in optional

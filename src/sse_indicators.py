@@ -5,14 +5,15 @@ shaped for the frontend cockpit/badge handlers. A field is None when its
 source module is inactive/unknown; the frontend renders None as a muted
 "—" chip (never fabricates a value).
 """
+
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 _DRIFT_LEVELS = {"low", "med", "high"}
 
 
-def normalize_drift(drift: Any) -> Optional[str]:
+def normalize_drift(drift: Any) -> str | None:
     """Coerce a DriftLevel enum / string into 'low'|'med'|'high' or None."""
     if drift is None:
         return None
@@ -23,12 +24,12 @@ def normalize_drift(drift: Any) -> Optional[str]:
 
 def run_status_event(
     *,
-    phase: Optional[str],
+    phase: str | None,
     drift: Any,
     used: int,
     max_rounds: int,
-    budget_pct: Optional[int],
-    budget_tokens: Optional[int],
+    budget_pct: int | None,
+    budget_tokens: int | None,
     phase_active: bool = False,
 ) -> dict:
     """Consolidated per-round status for the persistent cockpit strip.

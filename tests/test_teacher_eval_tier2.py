@@ -1,8 +1,6 @@
-import asyncio
-from types import SimpleNamespace
 import pytest
 
-import src.teacher_escalation as teacher_escalation
+from src import teacher_escalation
 
 
 @pytest.mark.asyncio
@@ -42,7 +40,7 @@ async def test_evaluate_turn_llm_failure(monkeypatch):
         return "http://endpoint.local/v1", "utility-model", {}
 
     async def fake_llm_call_async(url, model, messages, **kwargs):
-        return "  \"Failure\"  "
+        return '  "Failure"  '
 
     monkeypatch.setattr("src.endpoint_resolver.resolve_endpoint", fake_resolve_endpoint)
     monkeypatch.setattr("src.llm_core.llm_call_async", fake_llm_call_async)
@@ -109,12 +107,20 @@ async def test_evaluate_turn_llm_exception_handling(monkeypatch):
 @pytest.mark.asyncio
 async def test_maybe_escalate_triggers_tier2_background_task(monkeypatch):
     # Enable teacher settings
-    monkeypatch.setattr("src.settings.get_setting", lambda key, default=None: {"teacher_enabled": True, "teacher_model": "teacher-model", "teacher_tier2_enabled": True}.get(key, default))
+    monkeypatch.setattr(
+        "src.settings.get_setting",
+        lambda key, default=None: {
+            "teacher_enabled": True,
+            "teacher_model": "teacher-model",
+            "teacher_tier2_enabled": True,
+        }.get(key, default),
+    )
 
     # Regex check says OK
     monkeypatch.setattr("src.teacher_escalation.evaluate_turn_regex", lambda *args: ("ok", None))
 
     llm_eval_called = []
+
     async def fake_evaluate_turn_llm(*args, **kwargs):
         llm_eval_called.append(True)
         return "failure", "LLM flagged failure"
@@ -122,6 +128,7 @@ async def test_maybe_escalate_triggers_tier2_background_task(monkeypatch):
     monkeypatch.setattr("src.teacher_escalation.evaluate_turn_llm", fake_evaluate_turn_llm)
 
     escalate_called = []
+
     async def fake_escalate_and_learn(user_request, tool_results, agent_reply, failure_reason, owner):
         escalate_called.append(failure_reason)
         return "skill-slug"
@@ -151,7 +158,14 @@ async def test_maybe_escalate_triggers_tier2_background_task(monkeypatch):
 @pytest.mark.asyncio
 async def test_maybe_escalate_tier2_disabled_by_default(monkeypatch):
     # Enable teacher settings, but keep tier2 disabled
-    monkeypatch.setattr("src.settings.get_setting", lambda key, default=None: {"teacher_enabled": True, "teacher_model": "teacher-model", "teacher_tier2_enabled": False}.get(key, default))
+    monkeypatch.setattr(
+        "src.settings.get_setting",
+        lambda key, default=None: {
+            "teacher_enabled": True,
+            "teacher_model": "teacher-model",
+            "teacher_tier2_enabled": False,
+        }.get(key, default),
+    )
 
     # Regex check says OK
     monkeypatch.setattr("src.teacher_escalation.evaluate_turn_regex", lambda *args: ("ok", None))
@@ -173,8 +187,17 @@ async def test_maybe_escalate_tier2_disabled_by_default(monkeypatch):
 @pytest.mark.asyncio
 async def test_run_teacher_inline_triggers_tier2_escalation(monkeypatch):
     # Settings and gates
-    monkeypatch.setattr("src.settings.get_setting", lambda key, default=None: {"teacher_enabled": True, "teacher_model": "teacher-model", "teacher_tier2_enabled": True}.get(key, default))
-    monkeypatch.setattr("src.ai_interaction._resolve_model", lambda spec, owner=None: ("http://teacher.local/v1", "teacher-model", {}))
+    monkeypatch.setattr(
+        "src.settings.get_setting",
+        lambda key, default=None: {
+            "teacher_enabled": True,
+            "teacher_model": "teacher-model",
+            "teacher_tier2_enabled": True,
+        }.get(key, default),
+    )
+    monkeypatch.setattr(
+        "src.ai_interaction._resolve_model", lambda spec, owner=None: ("http://teacher.local/v1", "teacher-model", {})
+    )
 
     # Regex evaluation says "ok"
     monkeypatch.setattr("src.teacher_escalation.evaluate_turn_regex", lambda *args: ("ok", None))
@@ -182,23 +205,27 @@ async def test_run_teacher_inline_triggers_tier2_escalation(monkeypatch):
     # LLM evaluation flags "failure"
     async def fake_evaluate_turn_llm(*args, **kwargs):
         return "failure", "LLM flagged failure"
+
     monkeypatch.setattr("src.teacher_escalation.evaluate_turn_llm", fake_evaluate_turn_llm)
 
     # Mock stream_agent_loop recursively called by run_teacher_inline
     async def fake_stream_agent_loop(*args, **kwargs):
-        yield "data: {\"type\": \"tool_output\", \"tool\": \"bash\"}\n\n"
-        yield "data: {\"type\": \"text\", \"delta\": \"Teacher reply\"}\n\n"
+        yield 'data: {"type": "tool_output", "tool": "bash"}\n\n'
+        yield 'data: {"type": "text", "delta": "Teacher reply"}\n\n'
         yield "data: [DONE]\n\n"
+
     monkeypatch.setattr("src.agent_loop.stream_agent_loop", fake_stream_agent_loop)
 
     # Mock _call_teacher returning a skill definition
     async def fake_call_teacher(spec, prompt, owner=None):
         return '```json\n{"action": "add", "name": "test-skill"}\n```'
+
     monkeypatch.setattr("src.teacher_escalation._call_teacher", fake_call_teacher)
 
     # Mock do_manage_skills
     async def fake_do_manage_skills(skill_json, owner=None):
         return {"success": True}
+
     monkeypatch.setattr("src.tool_implementations.do_manage_skills", fake_do_manage_skills)
 
     events = []
@@ -220,7 +247,14 @@ async def test_run_teacher_inline_triggers_tier2_escalation(monkeypatch):
 @pytest.mark.asyncio
 async def test_run_teacher_inline_tier2_disabled_by_default(monkeypatch):
     # Settings and gates (Tier 2 disabled)
-    monkeypatch.setattr("src.settings.get_setting", lambda key, default=None: {"teacher_enabled": True, "teacher_model": "teacher-model", "teacher_tier2_enabled": False}.get(key, default))
+    monkeypatch.setattr(
+        "src.settings.get_setting",
+        lambda key, default=None: {
+            "teacher_enabled": True,
+            "teacher_model": "teacher-model",
+            "teacher_tier2_enabled": False,
+        }.get(key, default),
+    )
 
     # Regex evaluation says "ok"
     monkeypatch.setattr("src.teacher_escalation.evaluate_turn_regex", lambda *args: ("ok", None))

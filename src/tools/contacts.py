@@ -6,15 +6,16 @@ Holds the resolve_contact and manage_contact (CardDAV CRUD) tools.
 ``_INTERNAL_BASE`` still lives in tool_implementations.py and is pulled
 back function-locally where needed.
 """
-from typing import Dict, Optional
 
 from src.tools._common import _parse_tool_args
 
 
-async def do_resolve_contact(content: str, owner: Optional[str] = None) -> Dict:
+async def do_resolve_contact(content: str, owner: str | None = None) -> dict:
     """Look up a contact by name. Searches: CardDAV -> email history -> memory."""
     import httpx
+
     from src.tool_implementations import _INTERNAL_BASE  # shared constant, still lives in the facade
+
     try:
         args = _parse_tool_args(content)
     except ValueError:
@@ -30,23 +31,25 @@ async def do_resolve_contact(content: str, owner: Optional[str] = None) -> Dict:
     # cookie and would 401 under require_user.
     try:
         import asyncio
+
         from routes import contacts_routes as cc
+
         all_contacts = await asyncio.to_thread(cc._fetch_contacts)
         q = name.lower()
-        for c in (all_contacts or []):
+        for c in all_contacts or []:
             hay_name = (c.get("name") or "").lower()
             match = q in hay_name or any(q in (e or "").lower() for e in c.get("emails", []))
             if not match:
                 continue
             has_email = False
-            for email in (c.get("emails") or []):
+            for email in c.get("emails") or []:
                 email = (email or "").strip().lower()
                 if email and "@" in email:
                     contacts[email] = {"name": c.get("name") or email, "source": "contacts"}
                     has_email = True
             # Fall back to phone numbers when the contact has no email address
             if not has_email:
-                for phone in (c.get("phones") or []):
+                for phone in c.get("phones") or []:
                     phone = (phone or "").strip()
                     if phone:
                         contacts[phone] = {"name": c.get("name") or phone, "source": "contacts", "phone": phone}
@@ -58,7 +61,7 @@ async def do_resolve_contact(content: str, owner: Optional[str] = None) -> Dict:
         try:
             resp = await client.get(f"{_INTERNAL_BASE}/api/email/resolve-contact", params={"name": name})
             if resp.status_code == 200:
-                for c in (resp.json().get("contacts") or []):
+                for c in resp.json().get("contacts") or []:
                     email = (c.get("email") or "").strip().lower()
                     if email and email not in contacts:
                         contacts[email] = {"name": c.get("name") or email, "source": "email history"}
@@ -77,7 +80,7 @@ async def do_resolve_contact(content: str, owner: Optional[str] = None) -> Dict:
     return {"output": "\n".join(lines), "exit_code": 0}
 
 
-async def do_manage_contact(content: str, owner: Optional[str] = None) -> Dict:
+async def do_manage_contact(content: str, owner: str | None = None) -> dict:
     """Add / update / delete / list CardDAV contacts. Calls the contacts
     helpers IN-PROCESS rather than over HTTP — a server-side httpx call to
     /api/contacts/* carries no session cookie and would be rejected by
@@ -95,6 +98,7 @@ async def do_manage_contact(content: str, owner: Optional[str] = None) -> Dict:
     # The contacts helpers are sync (httpx blocking calls to CardDAV) — run
     # them in a thread so we don't block the event loop.
     import asyncio
+
     try:
         if action == "list":
             rows = await asyncio.to_thread(cc._fetch_contacts, True)
@@ -103,7 +107,7 @@ async def do_manage_contact(content: str, owner: Optional[str] = None) -> Dict:
             lines = [f"{len(rows)} contacts:"]
             for c in rows:
                 em = ", ".join(c.get("emails") or [])
-                lines.append(f"- {c.get('name') or '(no name)'} <{em}>  [uid={c.get('uid','')}]")
+                lines.append(f"- {c.get('name') or '(no name)'} <{em}>  [uid={c.get('uid', '')}]")
             return {"output": "\n".join(lines), "exit_code": 0}
 
         if action == "add":
@@ -115,7 +119,7 @@ async def do_manage_contact(content: str, owner: Optional[str] = None) -> Dict:
             existing = await asyncio.to_thread(cc._fetch_contacts)
             for c in existing:
                 if email.lower() in [e.lower() for e in c.get("emails", [])]:
-                    return {"output": f"{email} is already a contact ({c.get('name','')}).", "exit_code": 0}
+                    return {"output": f"{email} is already a contact ({c.get('name', '')}).", "exit_code": 0}
             ok = await asyncio.to_thread(cc._create_contact, name, email)
             return {"output": f"{'Added' if ok else 'Failed to add'} {name} <{email}>.", "exit_code": 0 if ok else 1}
 

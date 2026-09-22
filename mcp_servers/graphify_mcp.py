@@ -6,12 +6,12 @@ layer of the Trinité (CBM structure + Graphify semantics + Obsidian memory).
 Registered only when ODYSSEUS_GRAPHIFY=on (default OFF), byte-identical
 startup otherwise.
 """
+
 import asyncio
 import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 # ---------------------------------------------------------------------------
 # Graphify client — wraps the graphifyy Python package
@@ -20,6 +20,7 @@ from typing import Optional
 _GRAPHIFY_AVAILABLE = False
 try:
     from graphify import Graphify
+
     _GRAPHIFY_AVAILABLE = True
 except ImportError:
     pass
@@ -36,16 +37,15 @@ def _get_graphify():
 def _ensure_available():
     """Raise if graphify is not installed."""
     if not _GRAPHIFY_AVAILABLE:
-        raise RuntimeError(
-            "graphifyy package not installed. Run: pip install graphifyy"
-        )
+        raise RuntimeError("graphifyy package not installed. Run: pip install graphifyy")
 
 
 # ---------------------------------------------------------------------------
 # Tool implementations
 # ---------------------------------------------------------------------------
 
-def analyze_codebase(path: Optional[str] = None, max_depth: int = 5) -> dict:
+
+def analyze_codebase(path: str | None = None, max_depth: int = 5) -> dict:
     """Build a semantic knowledge graph from a codebase.
 
     Args:
@@ -94,8 +94,12 @@ def search_knowledge(query: str, limit: int = 10) -> dict:
         return {
             "query": query,
             "results": [
-                {"name": r.get("name", ""), "type": r.get("type", ""),
-                 "file": r.get("file", ""), "score": r.get("score", 0)}
+                {
+                    "name": r.get("name", ""),
+                    "type": r.get("type", ""),
+                    "file": r.get("file", ""),
+                    "score": r.get("score", 0),
+                }
                 for r in (results or [])
             ],
         }
@@ -170,7 +174,7 @@ TOOLS = {
 
 from mcp.server import Server  # noqa: E402
 from mcp.server.stdio import stdio_server  # noqa: E402
-from mcp.types import Tool, TextContent  # noqa: E402
+from mcp.types import TextContent, Tool  # noqa: E402
 
 server = Server("graphify")
 
@@ -277,7 +281,47 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     return _text_result(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+# ---------------------------------------------------------------------------
+# HTTP health endpoint (port 9750)
+# ---------------------------------------------------------------------------
+
+HEALTH_PORT = int(os.environ.get("GRAPHIFY_HEALTH_PORT", "9750"))
+
+
+def _start_health_endpoint():
+    """Minimal HTTP health server in a daemon thread.
+
+    Listens on HEATH_PORT (default 9750) and returns {"status":"ok"}
+    for GET /health. Runs in a separate thread so it never blocks stdio.
+    """
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class HealthHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/health":
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"status":"ok"}')
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+        def log_message(self, fmt, *args):
+            pass
+
+    try:
+        httpd = HTTPServer(("0.0.0.0", HEALTH_PORT), HealthHandler)
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+        sys.stderr.write(f"[graphify] health endpoint on port {HEALTH_PORT}\n")
+    except Exception as exc:
+        sys.stderr.write(f"[graphify] health endpoint failed: {exc}\n")
+
+
 async def run():
+    _start_health_endpoint()
     async with stdio_server() as (read_stream, write_stream):
         await server.run(read_stream, write_stream, server.create_initialization_options())
 

@@ -11,6 +11,7 @@ cookbook.js pulls in browser globals so it can't run under node; guard the fix
 at the source level: a `_cpuOnly` gate exists and is applied to flash-attn and
 the CUDA unified-memory env.
 """
+
 import re
 from pathlib import Path
 
@@ -19,17 +20,17 @@ SERVE_SRC = Path(__file__).resolve().parent.parent / "static/js/cookbookServe.js
 ROOT = SRC.parent.parent.parent
 ROUTES_SRC = ROOT / "routes/cookbook_routes.py"
 
+
 def test_cpu_only_drops_gpu_only_flags():
     text = SRC.read_text(encoding="utf-8")
     # A CPU-only flag derived from ngl == 0.
-    assert re.search(r"_cpuOnly\s*=\s*String\(f\.ngl\)\.trim\(\)\s*===\s*'0'", text), \
+    assert re.search(r"_cpuOnly\s*=\s*String\(f\.ngl\)\.trim\(\)\s*===\s*'0'", text), (
         "expected a _cpuOnly gate derived from ngl==0"
+    )
     # flash-attn must be suppressed for CPU-only.
-    assert re.search(r"if\s*\(\s*f\.flash_attn\s*&&\s*!_cpuOnly\s*\)", text), \
-        "flash-attn must be gated on !_cpuOnly"
+    assert re.search(r"if\s*\(\s*f\.flash_attn\s*&&\s*!_cpuOnly\s*\)", text), "flash-attn must be gated on !_cpuOnly"
     # The CUDA unified-memory env must be suppressed for CPU-only too.
-    assert "f.unified_mem && !_cpuOnly" in text, \
-        "GGML_CUDA_ENABLE_UNIFIED_MEMORY must be gated on !_cpuOnly"
+    assert "f.unified_mem && !_cpuOnly" in text, "GGML_CUDA_ENABLE_UNIFIED_MEMORY must be gated on !_cpuOnly"
 
 
 def test_diffusers_is_not_blocked_on_windows_dependencies_panel():
@@ -62,7 +63,9 @@ def test_vllm_blank_swap_omits_swap_space_flag():
 
     assert "const _swapRaw = (f.swap ?? '').toString().trim().toLowerCase();" in text
     assert "['0', 'off', 'none', 'false'].includes(_swapRaw)" in text
-    assert "if (_swapRaw && !['0', 'off', 'none', 'false'].includes(_swapRaw)) cmd += ` --swap-space ${_swapRaw}`;" in text
+    assert (
+        "if (_swapRaw && !['0', 'off', 'none', 'false'].includes(_swapRaw)) cmd += ` --swap-space ${_swapRaw}`;" in text
+    )
 
 
 def test_serve_preflight_uses_selected_server_not_stale_env_host():
@@ -81,9 +84,9 @@ def test_vllm_route_strips_swap_space_when_runtime_rejects_it():
     assert "Setting vLLM --swap-space 0 so the runtime does not reserve CPU swap per GPU." in text
     assert "vLLM serve does not expose --swap-space; removing the flag and patching the runtime default to 0." in text
     assert "ODYSSEUS_VLLM_HELP_CMD" in text
-    assert "print(shlex.join(parts[:serve_i + 1] + [\"--help\"]))" in text
-    assert "eval \"$ODYSSEUS_VLLM_HELP_CMD\" 2>&1 | grep -q -- \"--swap-space\"" in text
-    assert "eval \"$ODYSSEUS_SERVE_CMD\"" in text
+    assert 'print(shlex.join(parts[:serve_i + 1] + ["--help"]))' in text
+    assert 'eval "$ODYSSEUS_VLLM_HELP_CMD" 2>&1 | grep -q -- "--swap-space"' in text
+    assert 'eval "$ODYSSEUS_SERVE_CMD"' in text
 
 
 def test_local_windows_platform_comes_from_backend_host_state():
@@ -133,7 +136,6 @@ def test_local_windows_llamacpp_prefers_native_llama_server():
     assert '"llama-server.exe"' in helpers
 
 
-
 def test_serve_command_preview_uses_selected_target_host():
     text = SERVE_SRC.read_text(encoding="utf-8")
 
@@ -154,10 +156,10 @@ def test_local_windows_llama_server_skips_source_bootstrap():
 def test_local_windows_llama_server_path_includes_user_wrapper_and_cuda_builds():
     routes = (ROOT / "routes/cookbook_routes.py").read_text(encoding="utf-8")
 
-    assert 'if local_windows:' in routes
+    assert "if local_windows:" in routes
     assert (
         'export PATH="$HOME/bin:$HOME/llama.cpp/build-cuda/bin/Release:'
-        '$HOME/llama.cpp/build/bin/Release:$HOME/llama.cpp/build/bin/Debug:'
+        "$HOME/llama.cpp/build/bin/Release:$HOME/llama.cpp/build/bin/Debug:"
         '$HOME/llama.cpp/build/bin:$PATH"'
     ) in routes
 
@@ -165,7 +167,7 @@ def test_local_windows_llama_server_path_includes_user_wrapper_and_cuda_builds()
 def test_serve_panel_keeps_row_markup_and_launch_cmd_assignment_executable():
     text = SERVE_SRC.read_text(encoding="utf-8").replace("\r\n", "\n")
 
-    assert '// Row 1: Engine + Server + Env      panelHtml +=' not in text
+    assert "// Row 1: Engine + Server + Env      panelHtml +=" not in text
     assert "px';        panel._cmd = cmd;" not in text
     assert '// Row 1: Engine + Server + Env\n      panelHtml += `<div class="hwfit-serve-row">`;' in text
     assert "px';\n        panel._cmd = cmd;" in text

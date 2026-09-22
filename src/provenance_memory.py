@@ -29,11 +29,12 @@ import secrets
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Literal
 
 logger = logging.getLogger(__name__)
 
 # ─── Kill-switch ────────────────────────────────────────────────────────
+
 
 def provenance_memory_enabled() -> bool:
     val = os.getenv("ODYSSEUS_PROVENANCE_MEMORY", "off").strip().lower()
@@ -47,38 +48,57 @@ ProvenanceTag = Literal["stated", "observed", "inferred"]
 
 # Catégories protégées — jamais stockées
 PROTECTED_CATEGORIES: list[str] = [
-    "origine", "ethnique", "nationalité", "caste", "religion",
-    "âge", "sexe", "orientation sexuelle", "identité de genre",
-    "immigration", "handicap", "maladie grave", "syndicale",
+    "origine",
+    "ethnique",
+    "nationalité",
+    "caste",
+    "religion",
+    "âge",
+    "sexe",
+    "orientation sexuelle",
+    "identité de genre",
+    "immigration",
+    "handicap",
+    "maladie grave",
+    "syndicale",
 ]
 
 SENSITIVE_CATEGORIES: list[str] = [
-    "croyances politiques", "historique d'abus", "données financières",
-    "diagnostics", "thérapie", "addictions", "casier judiciaire",
+    "croyances politiques",
+    "historique d'abus",
+    "données financières",
+    "diagnostics",
+    "thérapie",
+    "addictions",
+    "casier judiciaire",
 ]
 
 IDENTIFIABLE_CATEGORIES: list[str] = [
-    "numéro sécurité sociale", "données bancaires", "adresse personnelle",
-    "téléphone personnel", "enfants", "noms des enfants",
+    "numéro sécurité sociale",
+    "données bancaires",
+    "adresse personnelle",
+    "téléphone personnel",
+    "enfants",
+    "noms des enfants",
 ]
 
 # Mots déclencheurs pour l'omission automatique
-OMISSION_TRIGGERS: list[str] = (
-    PROTECTED_CATEGORIES + SENSITIVE_CATEGORIES + IDENTIFIABLE_CATEGORIES
-)
+OMISSION_TRIGGERS: list[str] = PROTECTED_CATEGORIES + SENSITIVE_CATEGORIES + IDENTIFIABLE_CATEGORIES
 
 
 # ─── Data model ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class MemoryFile:
     """Un fichier mémoire avec frontmatter et contenu."""
+
     path: Path
     name: str
     description: str = ""
-    sources: List[str] = field(default_factory=lambda: ["chat"])
-    aliases: List[str] = field(default_factory=list)
-    entries: List["MemoryEntry"] = field(default_factory=list)
+    sources: list[str] = field(default_factory=lambda: ["chat"])
+    aliases: list[str] = field(default_factory=list)
+    entries: list[MemoryEntry] = field(default_factory=list)
     version: str = ""
 
     def generate_version(self) -> str:
@@ -103,7 +123,7 @@ class MemoryFile:
         return "\n".join(lines)
 
     @classmethod
-    def from_content(cls, path: Path, content: str) -> "MemoryFile":
+    def from_content(cls, path: Path, content: str) -> MemoryFile:
         """Parse un fichier mémoire existant."""
         mf = cls(path=path, name=path.stem)
         frontmatter = {}
@@ -141,9 +161,10 @@ class MemoryFile:
 @dataclass
 class MemoryEntry:
     """Une entrée de mémoire avec provenance."""
+
     tag: ProvenanceTag
     text: str
-    confidence: Optional[float] = None
+    confidence: float | None = None
     timestamp: float = field(default_factory=time.time)
 
     def __str__(self) -> str:
@@ -152,7 +173,7 @@ class MemoryEntry:
         return f"- [{self.tag}] {self.text}"
 
     @classmethod
-    def from_line(cls, line: str) -> Optional["MemoryEntry"]:
+    def from_line(cls, line: str) -> MemoryEntry | None:
         """Parse une ligne de type '- [stated] texte'."""
         match = re.match(r"-\s*\[(\w+)\]\s+(.+)", line)
         if match:
@@ -170,16 +191,17 @@ class MemoryEntry:
 
 # ─── Memory filesystem ──────────────────────────────────────────────────
 
+
 class MemoryFS:
     """Système de fichiers mémoire avec provenance et versionnage."""
 
-    def __init__(self, root: Optional[Path] = None):
+    def __init__(self, root: Path | None = None):
         self.root = root or MEMORY_ROOT
         self.root.mkdir(parents=True, exist_ok=True)
 
     # ── Opérations de base ──────────────────────────────────────────
 
-    def memory_read(self, path: str) -> Tuple[Optional[str], str]:
+    def memory_read(self, path: str) -> tuple[str | None, str]:
         """Lit un fichier mémoire. Retourne (contenu, jeton_version)."""
         full_path = self.root / path
         if not full_path.exists():
@@ -188,20 +210,19 @@ class MemoryFS:
         version = hashlib.sha256(content.encode()).hexdigest()[:12]
         return content, version
 
-    def memory_write(self, path: str, content: str, if_version: str) -> Tuple[bool, str]:
+    def memory_write(self, path: str, content: str, if_version: str) -> tuple[bool, str]:
         """Crée ou remplace un fichier mémoire avec contrôle de version."""
         full_path = self.root / path
 
         if if_version == "new":
             if full_path.exists():
                 return False, "File already exists — use existing version token"
+        elif full_path.exists():
+            current, current_version = self.memory_read(path)
+            if current_version != if_version:
+                return False, f"Version mismatch: expected {if_version}, got {current_version}. Re-read first."
         else:
-            if full_path.exists():
-                current, current_version = self.memory_read(path)
-                if current_version != if_version:
-                    return False, f"Version mismatch: expected {if_version}, got {current_version}. Re-read first."
-            else:
-                return False, "File does not exist — use 'new' to create"
+            return False, "File does not exist — use 'new' to create"
 
         # Vérifier les règles d'omission
         content = self._sanitize_content(content)
@@ -211,14 +232,14 @@ class MemoryFS:
         new_version = hashlib.sha256(content.encode()).hexdigest()[:12]
         return True, new_version
 
-    def memory_append(self, path: str, entry: str, if_version: str) -> Tuple[bool, str]:
+    def memory_append(self, path: str, entry: str, if_version: str) -> tuple[bool, str]:
         """Ajoute une ligne à un fichier existant."""
         content, current_version = self.memory_read(path)
         if content is None:
             return False, "File does not exist"
 
         if current_version != if_version:
-            return False, f"Version mismatch"
+            return False, "Version mismatch"
 
         # Vérifier les règles d'omission
         if self._should_omit(entry):
@@ -231,14 +252,14 @@ class MemoryFS:
         new_content = content.rstrip() + "\n" + entry + "\n"
         return self.memory_write(path, new_content, current_version)
 
-    def memory_str_replace(self, path: str, old_str: str, new_str: str, if_version: str) -> Tuple[bool, str]:
+    def memory_str_replace(self, path: str, old_str: str, new_str: str, if_version: str) -> tuple[bool, str]:
         """Remplacement chirurgical dans un fichier."""
         content, current_version = self.memory_read(path)
         if content is None:
             return False, "File does not exist"
 
         if current_version != if_version:
-            return False, f"Version mismatch"
+            return False, "Version mismatch"
 
         count = content.count(old_str)
         if count == 0:
@@ -249,7 +270,7 @@ class MemoryFS:
         new_content = content.replace(old_str, new_str, 1)
         return self.memory_write(path, new_content, current_version)
 
-    def memory_delete(self, path: str, if_version: str) -> Tuple[bool, str]:
+    def memory_delete(self, path: str, if_version: str) -> tuple[bool, str]:
         """Supprime un fichier mémoire."""
         full_path = self.root / path
         if not full_path.exists():
@@ -258,12 +279,12 @@ class MemoryFS:
         if if_version != "force":
             _, current_version = self.memory_read(path)
             if current_version != if_version:
-                return False, f"Version mismatch"
+                return False, "Version mismatch"
 
         full_path.unlink()
         return True, ""
 
-    def memory_list(self, prefix: str = "") -> List[str]:
+    def memory_list(self, prefix: str = "") -> list[str]:
         """Liste les fichiers sous un préfixe."""
         search_path = self.root / prefix if prefix else self.root
         if not search_path.exists():
@@ -297,7 +318,7 @@ class MemoryFS:
 
     # ── Helpers de haut niveau ────────────────────────────────────────
 
-    def add_stated(self, domain: str, fact: str) -> Tuple[bool, str]:
+    def add_stated(self, domain: str, fact: str) -> tuple[bool, str]:
         """Ajoute un fait [stated] dans le domaine approprié."""
         path = f"topics/{domain}.md"
         entry = f"- [stated] {fact}"
@@ -315,7 +336,7 @@ class MemoryFS:
 
         return self.memory_append(path, entry, version)
 
-    def add_observed(self, domain: str, fact: str) -> Tuple[bool, str]:
+    def add_observed(self, domain: str, fact: str) -> tuple[bool, str]:
         """Ajoute un fait [observed]."""
         path = f"topics/{domain}.md"
         entry = f"- [observed] {fact}"
@@ -326,7 +347,7 @@ class MemoryFS:
 
         return self.memory_append(path, entry, version)
 
-    def add_inferred(self, domain: str, fact: str, confidence: float) -> Tuple[bool, str]:
+    def add_inferred(self, domain: str, fact: str, confidence: float) -> tuple[bool, str]:
         """Ajoute un fait [inferred] avec niveau de confiance."""
         path = f"topics/{domain}.md"
         entry = f"- [inferred] {fact} (confiance: {confidence})"
@@ -337,12 +358,12 @@ class MemoryFS:
 
         return self.memory_append(path, entry, version)
 
-    def get_profile(self) -> Optional[str]:
+    def get_profile(self) -> str | None:
         """Lit le profil utilisateur."""
         content, _ = self.memory_read("profile.md")
         return content
 
-    def update_profile(self, fact: str, tag: ProvenanceTag = "stated") -> Tuple[bool, str]:
+    def update_profile(self, fact: str, tag: ProvenanceTag = "stated") -> tuple[bool, str]:
         """Met à jour le profil."""
         path = "profile.md"
         entry = f"- [{tag}] {fact}"
@@ -362,7 +383,7 @@ class MemoryFS:
 
 # ─── Singleton ───────────────────────────────────────────────────────────
 
-_fs: Optional[MemoryFS] = None
+_fs: MemoryFS | None = None
 
 
 def get_memory_fs() -> MemoryFS:

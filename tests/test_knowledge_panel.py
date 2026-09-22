@@ -1,4 +1,5 @@
 """Contract test for the Trinité status endpoint consumed by the knowledge panel."""
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 

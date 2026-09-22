@@ -5,7 +5,9 @@ so the admin System panel can render it. Read-only: no mutation, no
 kill-switch activation. The Observer keeps persistent inter-run state at
 module level, so a fresh instance here reflects the real accumulated drift.
 """
+
 import logging
+
 from fastapi import APIRouter
 
 logger = logging.getLogger(__name__)

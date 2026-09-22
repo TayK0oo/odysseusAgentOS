@@ -1,10 +1,9 @@
-import os
-import pytest
 from src.orchestrator.phase_tracker import PhaseTracker, tracker_enabled
 
 
 class _FakeRegistry:
     """Records set_phase calls without touching the real singleton."""
+
     def __init__(self):
         self.calls = []
 
@@ -65,6 +64,8 @@ def test_enabled_tracker_plan_mode_sets_plan():
 
 
 def test_exported_from_package():
-    from src.orchestrator import PhaseTracker as PT, tracker_enabled as te
+    from src.orchestrator import PhaseTracker as PT
+    from src.orchestrator import tracker_enabled as te
+
     assert PT is PhaseTracker
     assert te is tracker_enabled

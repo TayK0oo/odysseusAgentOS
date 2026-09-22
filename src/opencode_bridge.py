@@ -3,8 +3,12 @@
 Routes: if AGENTOS_ENGINE_HOST is set, delegates to the isolated engine.
 Otherwise, uses the internal agent stream (legacy mode for dev).
 """
-import asyncio, json, logging, os
-from typing import AsyncGenerator, Optional
+
+import json
+import logging
+import os
+from collections.abc import AsyncGenerator
+
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -13,17 +17,18 @@ ENGINE_HOST = os.environ.get("AGENTOS_ENGINE_HOST", "")
 ENGINE_PORT = int(os.environ.get("AGENTOS_ENGINE_PORT", "7001"))
 ENGINE_URL = f"http://{ENGINE_HOST}:{ENGINE_PORT}" if ENGINE_HOST else ""
 
+
 class OpenCodeBridge:
     """Bridge to AgentOS Engine (isolated) or internal agent stream."""
 
-    def __init__(self, session_id: str, message: str, worktree: Optional[str] = None):
+    def __init__(self, session_id: str, message: str, worktree: str | None = None):
         self.session_id = session_id
         self.message = message
         self.worktree = worktree
 
     async def stream(self, agent_stream=None) -> AsyncGenerator[str, None]:
         """Stream agent response — from engine if available, else internal."""
-        
+
         if ENGINE_URL:
             # Route to isolated engine
             async for chunk in self._stream_from_engine():
@@ -40,9 +45,7 @@ class OpenCodeBridge:
         try:
             async with httpx.AsyncClient(timeout=600.0) as client:
                 async with client.stream(
-                    "POST",
-                    f"{ENGINE_URL}/run",
-                    json={"message": self.message, "session": self.session_id}
+                    "POST", f"{ENGINE_URL}/run", json={"message": self.message, "session": self.session_id}
                 ) as response:
                     async for line in response.aiter_lines():
                         if line:

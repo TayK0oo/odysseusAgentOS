@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import logging
 import os
-import sys
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -34,6 +33,7 @@ logger = logging.getLogger(__name__)
 # Kill-switch
 # ---------------------------------------------------------------------------
 
+
 def _otel_enabled() -> bool:
     """Return True if OTel tracing is NOT disabled by the kill-switch."""
     return os.getenv("ODYSSEUS_OTEL", "on").strip().lower() != "off"
@@ -43,7 +43,8 @@ def _otel_enabled() -> bool:
 # Public API
 # ---------------------------------------------------------------------------
 
-def setup_otel(app: "FastAPI", engine: "Engine") -> None:
+
+def setup_otel(app: FastAPI, engine: Engine) -> None:
     """
     Initialise OpenTelemetry and auto-instrument FastAPI + SQLAlchemy + httpx.
 
@@ -63,7 +64,7 @@ def setup_otel(app: "FastAPI", engine: "Engine") -> None:
 
     # Lazy import so the rest of the app never pays import cost when off.
     from opentelemetry import trace
-    from opentelemetry.sdk.resources import Resource, SERVICE_NAME
+    from opentelemetry.sdk.resources import SERVICE_NAME, Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
@@ -84,9 +85,7 @@ def setup_otel(app: "FastAPI", engine: "Engine") -> None:
             OTLPSpanExporter,
         )
 
-        endpoint = os.getenv(
-            "OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318"
-        )
+        endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318")
         exporter = OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces")
         provider.add_span_processor(BatchSpanProcessor(exporter))
         logger.info("[otel] OTLP exporter → %s", endpoint)
@@ -95,9 +94,7 @@ def setup_otel(app: "FastAPI", engine: "Engine") -> None:
         from opentelemetry.sdk.trace.export import ConsoleSpanExporter
 
         provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
-        logger.warning(
-            "[otel] OTLP export failed (%s) — falling back to console spans", exc
-        )
+        logger.warning("[otel] OTLP export failed (%s) — falling back to console spans", exc)
 
     # --- Auto-instrument FastAPI -------------------------------------------
     try:
@@ -134,6 +131,7 @@ def setup_otel(app: "FastAPI", engine: "Engine") -> None:
 # ---------------------------------------------------------------------------
 # Tracer helper for manual spans
 # ---------------------------------------------------------------------------
+
 
 def get_tracer(name: str = "odysseus"):
     """
