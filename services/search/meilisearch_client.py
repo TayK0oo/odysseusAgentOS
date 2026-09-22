@@ -10,10 +10,10 @@ Indices:
   - documents: uploaded documents (title, content, filename, timestamp)
 """
 
-import os
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+import os
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ def _get_client():
         return _client
     try:
         import meilisearch
+
         _client = meilisearch.Client(_URL, _MASTER_KEY)
         # Verify connectivity
         _client.get_version()
@@ -57,7 +58,7 @@ def is_enabled() -> bool:
 
 # ── Index setup ──────────────────────────────────────────────────
 
-_INDEX_SETTINGS: Dict[str, Dict] = {
+_INDEX_SETTINGS: dict[str, dict] = {
     "messages": {
         "primaryKey": "id",
         "searchableAttributes": ["content", "role"],
@@ -98,18 +99,19 @@ def ensure_indices():
 
 # ── Indexing methods ─────────────────────────────────────────────
 
+
 def index_message(
     message_id: str,
     content: str,
     role: str = "user",
     session_id: str = "",
-    timestamp: Optional[str] = None,
+    timestamp: str | None = None,
 ):
     """Index a chat message into Meilisearch."""
     client = _get_client()
     if client is None:
         return
-    ts = timestamp or datetime.now(timezone.utc).isoformat()
+    ts = timestamp or datetime.now(UTC).isoformat()
     doc = {
         "id": message_id,
         "content": content,
@@ -127,14 +129,14 @@ def index_note(
     note_id: str,
     title: str,
     content: str,
-    tags: Optional[List[str]] = None,
-    timestamp: Optional[str] = None,
+    tags: list[str] | None = None,
+    timestamp: str | None = None,
 ):
     """Index a note into Meilisearch."""
     client = _get_client()
     if client is None:
         return
-    ts = timestamp or datetime.now(timezone.utc).isoformat()
+    ts = timestamp or datetime.now(UTC).isoformat()
     doc = {
         "id": note_id,
         "title": title,
@@ -153,13 +155,13 @@ def index_document(
     title: str,
     content: str,
     filename: str = "",
-    timestamp: Optional[str] = None,
+    timestamp: str | None = None,
 ):
     """Index an uploaded document into Meilisearch."""
     client = _get_client()
     if client is None:
         return
-    ts = timestamp or datetime.now(timezone.utc).isoformat()
+    ts = timestamp or datetime.now(UTC).isoformat()
     doc = {
         "id": doc_id,
         "title": title,
@@ -208,12 +210,13 @@ def delete_document(doc_id: str):
 
 # ── Search ───────────────────────────────────────────────────────
 
+
 def search_all(
     query: str,
-    type_filter: Optional[str] = None,
+    type_filter: str | None = None,
     limit: int = 20,
     offset: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Full-text search across all indices with typo tolerance.
 
     Args:

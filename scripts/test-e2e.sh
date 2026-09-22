@@ -59,7 +59,7 @@ section "1. INFRASTRUCTURE"
 if [ "$SKIP_DOCKER" = false ]; then
   echo "Starting Docker Compose (profile: default)..."
   docker compose --profile default up -d 2>&1 | tail -5 || true
-  
+
   echo "Waiting for services to be healthy..."
   for i in $(seq 1 30); do
     if curl -sf "$BASE_URL/api/health" > /dev/null 2>&1; then

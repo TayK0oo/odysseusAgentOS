@@ -9,8 +9,7 @@ import asyncio
 import json
 from pathlib import Path
 
-import src.agent_loop as agent_loop
-
+from src import agent_loop
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -46,7 +45,7 @@ def test_ask_user_is_emitted_last_and_persisted(monkeypatch):
 
     async def fake_stream(_candidates, messages, **kwargs):
         call = {"name": "ask_user", "arguments": json.dumps(payload, ensure_ascii=False)}
-        yield f'data: {json.dumps({"type": "tool_calls", "calls": [call]})}\n\n'
+        yield f"data: {json.dumps({'type': 'tool_calls', 'calls': [call]})}\n\n"
         yield "data: [DONE]\n\n"
 
     async def fake_execute(block, *args, **kwargs):

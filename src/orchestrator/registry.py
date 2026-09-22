@@ -2,11 +2,11 @@
 
 Discovery is defensive: a single malformed file must never abort the scan.
 """
+
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from src.orchestrator.spec import AgentSpec, parse_agent_spec
 
@@ -22,11 +22,11 @@ class AgentRegistry:
 
     def __init__(self, agents_dir=None):
         self._dir = Path(agents_dir) if agents_dir is not None else _DEFAULT_AGENTS_DIR
-        self._specs: Dict[str, AgentSpec] = {}
+        self._specs: dict[str, AgentSpec] = {}
 
-    def discover(self) -> "AgentRegistry":
+    def discover(self) -> AgentRegistry:
         """(Re)scan the agents directory. Idempotent — replaces the index."""
-        specs: Dict[str, AgentSpec] = {}
+        specs: dict[str, AgentSpec] = {}
         if not self._dir.is_dir():
             logger.warning("[AgentRegistry] agents dir not found: %s", self._dir)
             self._specs = specs
@@ -44,11 +44,11 @@ class AgentRegistry:
         logger.info("[AgentRegistry] discovered %d agents from %s", len(specs), self._dir)
         return self
 
-    def get(self, name: str) -> Optional[AgentSpec]:
+    def get(self, name: str) -> AgentSpec | None:
         return self._specs.get(name)
 
-    def list_names(self) -> List[str]:
+    def list_names(self) -> list[str]:
         return sorted(self._specs.keys())
 
-    def all(self) -> List[AgentSpec]:
+    def all(self) -> list[AgentSpec]:
         return [self._specs[n] for n in self.list_names()]

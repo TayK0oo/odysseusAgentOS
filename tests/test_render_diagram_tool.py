@@ -13,13 +13,11 @@ native image bubble (result["image_url"] forwarding in agent_loop).
 Kill-switch: gated by KROKI_ENABLED so the base product is byte-identical when
 the service is off.
 """
+
 import asyncio
 import base64
 import json
-import os
 import zlib
-
-import pytest
 
 from src.agent_tools.diagram_tools import (
     RenderDiagramTool,
@@ -55,6 +53,7 @@ def test_execute_png_saves_and_returns_image_url(monkeypatch, tmp_path):
     monkeypatch.setenv("KROKI_ENABLED", "true")
     # Redirect the on-disk image dir into tmp
     import src.agent_tools.diagram_tools as dt
+
     monkeypatch.setattr(dt, "GENERATED_IMAGES_DIR", str(tmp_path))
 
     png_bytes = b"\x89PNG\r\n\x1a\nFAKEPNGDATA"
@@ -72,11 +71,13 @@ def test_execute_png_saves_and_returns_image_url(monkeypatch, tmp_path):
 
     monkeypatch.setattr(dt.httpx, "get", _fake_get)
 
-    payload = json.dumps({
-        "content": "graph TD; A-->B",
-        "diagram_type": "mermaid",
-        "output_format": "png",
-    })
+    payload = json.dumps(
+        {
+            "content": "graph TD; A-->B",
+            "diagram_type": "mermaid",
+            "output_format": "png",
+        }
+    )
     out = asyncio.run(RenderDiagramTool().execute(payload, {}))
 
     assert out["exit_code"] == 0

@@ -42,7 +42,7 @@ def test_bracket_in_string_value_still_extracts():
 
 
 def test_adversarial_input_is_fast():
-    evil = '[{"action"},{' + '}},{{' * 100_000  # exploded the old exponential pattern
+    evil = '[{"action"},{' + "}},{{" * 100_000  # exploded the old exponential pattern
     start = time.perf_counter()
     _CAL_ACTION_ARRAY_RE.search(evil)
     dt = time.perf_counter() - start

@@ -6,6 +6,7 @@ doc search to the native VectorRAG instead of Graphify. These tests pin that
 the semantic legs (``/graph/search`` and the checkpoint) use the native RAG and
 that the dead Graphify references are gone.
 """
+
 import asyncio
 
 

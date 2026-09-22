@@ -11,19 +11,20 @@ Contrat bridge (master-ref 03-OBJECTIFS-SYSTEME):
   → traces JSONL persistés dans /home/agentos/data/traces/
   → memory [observed] dans /home/agentos/obsidian-vault/topics/
 """
+
 import asyncio
 import json
-import sys
+import logging
 import os
+import sys
 import time
 import uuid
-import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse, JSONResponse
 import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
 
 # Add the engine source to path (we COPY src/ + core/ into /home/agentos/)
 sys.path.insert(0, "/home/agentos")
@@ -49,7 +50,8 @@ os.environ.setdefault("OBSIDIAN_VAULT_PATH", str(VAULT_DIR))
 # Import the REAL pipeline
 # ====================================================================
 try:
-    from src.opencode_engine import OpenCodeEngine, get_event_bus, PHASES
+    from src.opencode_engine import PHASES, OpenCodeEngine
+
     ENGINE_AVAILABLE = True
     logger.info("OpenCodeEngine loaded — real pipeline active")
 except Exception as e:
@@ -71,17 +73,23 @@ runs = 0
 # ====================================================================
 def _write_trace(session_id: str, message: str, phase_events: list, duration_ms: int):
     """Persist run trace as JSONL for auditability (UC-12)."""
-    trace_file = TRACE_DIR / f"events-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.jsonl"
+    trace_file = TRACE_DIR / f"events-{datetime.now(UTC).strftime('%Y-%m-%d')}.jsonl"
     with open(trace_file, "a", encoding="utf-8") as f:
-        f.write(json.dumps({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "session": session_id,
-            "message": message[:200],
-            "phases": PHASES,
-            "duration_ms": duration_ms,
-            "runs_total": runs,
-            "events_count": len(phase_events),
-        }, ensure_ascii=False) + "\n")
+        f.write(
+            json.dumps(
+                {
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "session": session_id,
+                    "message": message[:200],
+                    "phases": PHASES,
+                    "duration_ms": duration_ms,
+                    "runs_total": runs,
+                    "events_count": len(phase_events),
+                },
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
 
 
 def _write_observed_fact(domain: str, fact: str):
@@ -91,7 +99,7 @@ def _write_observed_fact(domain: str, fact: str):
     fp = topics_dir / f"{domain}.md"
     entry = f"- [observed] {fact}"
     if fp.exists():
-        with open(fp, "r", encoding="utf-8") as f:
+        with open(fp, encoding="utf-8") as f:
             content = f.read()
         if entry in content:
             return
@@ -137,7 +145,7 @@ async def run_pipeline_real(message: str, session_id: str):
 
     # Final markers expected by the SSE client
     elapsed_ms = int((time.time() - start_time) * 1000)
-    yield f"data: {json.dumps({'type': 'metrics', 'data': {'total_tokens': 0, 'response_time': round(elapsed_ms/1000, 2), 'engine': 'real'}})}\n\n"
+    yield f"data: {json.dumps({'type': 'metrics', 'data': {'total_tokens': 0, 'response_time': round(elapsed_ms / 1000, 2), 'engine': 'real'}})}\n\n"
     yield f"data: {json.dumps({'type': 'run_status', 'phase': None, 'phase_active': False, 'drift': 'low'})}\n\n"
     yield "data: [DONE]\n\n"
 
@@ -156,11 +164,11 @@ async def run_pipeline_stub(message: str, session_id: str):
     start_time = time.time()
     yield f"data: {json.dumps({'type': 'mode_detected', 'mode': 'agent', 'note': 'stub fallback'})}\n\n"
     for idx, phase in enumerate(PHASES):
-        yield f"data: {json.dumps({'type': 'phase_enter', 'phase': phase, 'index': idx+1, 'total': 7})}\n\n"
+        yield f"data: {json.dumps({'type': 'phase_enter', 'phase': phase, 'index': idx + 1, 'total': 7})}\n\n"
         await asyncio.sleep(0.05)
         yield f"data: {json.dumps({'type': 'phase_exit', 'phase': phase})}\n\n"
     elapsed_ms = int((time.time() - start_time) * 1000)
-    yield f"data: {json.dumps({'type': 'metrics', 'data': {'response_time': round(elapsed_ms/1000, 2), 'engine': 'stub'}})}\n\n"
+    yield f"data: {json.dumps({'type': 'metrics', 'data': {'response_time': round(elapsed_ms / 1000, 2), 'engine': 'stub'}})}\n\n"
     yield "data: [DONE]\n\n"
     _write_trace(session_id, message, [], elapsed_ms)
 

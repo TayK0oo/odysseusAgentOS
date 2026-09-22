@@ -1,5 +1,5 @@
 # PROJECT.yaml — Project Manifest (AgentOS Odysseus)
-# 
+#
 # One file per project. Defines objectives, constraints, budgets,
 # and auto-evaluation criteria. The budget_enforcer and autoeval
 # loop read this file at session start.

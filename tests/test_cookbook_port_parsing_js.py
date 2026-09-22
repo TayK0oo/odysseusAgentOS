@@ -3,6 +3,7 @@
 Driven through `node --input-type=module` (same approach as the other
 *_js.py tests); skips when `node` is not installed.
 """
+
 import json
 import shutil
 import subprocess
@@ -16,13 +17,16 @@ _HAS_NODE = shutil.which("node") is not None
 
 
 def _run(expr):
-    js = (
-        f"import {{ portOf, nextFreePort }} from '{_HELPER.as_uri()}';"
-        f"console.log(JSON.stringify({expr}));"
-    )
+    js = f"import {{ portOf, nextFreePort }} from '{_HELPER.as_uri()}';console.log(JSON.stringify({expr}));"
     proc = subprocess.run(
         ["node", "--input-type=module"],
-        input=js, capture_output=True, text=True, encoding="utf-8", cwd=str(_REPO), timeout=30,
+        input=js,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        cwd=str(_REPO),
+        timeout=30,
+        check=False,
     )
     assert proc.returncode == 0, proc.stderr
     return json.loads(proc.stdout.strip())

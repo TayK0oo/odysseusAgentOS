@@ -6,7 +6,7 @@ OpenCode Integration Test — Verifies:
 4. SFD pipeline via native OpenCode agents
 """
 
-import json, os, sys
+import os
 
 print("=" * 60)
 print("OP ENCODE INTEGRATION TEST")
@@ -16,13 +16,14 @@ print("=" * 60)
 agents = {}
 for f in os.listdir(".opencode/agents"):
     if f.endswith(".md"):
-        with open(f".opencode/agents/{f}", "r") as fh:
+        with open(f".opencode/agents/{f}") as fh:
             content = fh.read()
             # Parse frontmatter
             if content.startswith("---"):
                 parts = content.split("---", 2)
                 if len(parts) >= 3:
                     import yaml
+
                     try:
                         meta = yaml.safe_load(parts[1])
                         agents[f.replace(".md", "")] = meta
@@ -60,18 +61,20 @@ print(f"Executor:     {'YES' if executor else 'MISSING'} (model: {executor.get('
 print(f"Reviewer:     {'YES' if reviewer else 'MISSING'} (model: {reviewer.get('model', '?')})")
 
 # 4. Parallel spawning potential
-print(f"\nParallel spawning: orchestrator can spawn planner+executor+reviewer simultaneously")
-print(f"Model diversity: orchestrator={orchestrator.get('model','?')}, executor={executor.get('model','?')}, reviewer={reviewer.get('model','?')}")
-all_different = len({orchestrator.get('model'), executor.get('model'), reviewer.get('model')}) >= 2
+print("\nParallel spawning: orchestrator can spawn planner+executor+reviewer simultaneously")
+print(
+    f"Model diversity: orchestrator={orchestrator.get('model', '?')}, executor={executor.get('model', '?')}, reviewer={reviewer.get('model', '?')}"
+)
+all_different = len({orchestrator.get("model"), executor.get("model"), reviewer.get("model")}) >= 2
 print(f"Different models per agent: {'YES' if all_different else 'NO'}")
 
 # 5. Check nesting capability
-print(f"\nAgent nesting:")
-print(f"  Level 0: @sfd-orchestrator (primary)")
-print(f"  Level 1: @planner, @executor, @reviewer (sub-agents)")
-print(f"  Level 2: each sub-agent CAN spawn further sub-agents via Task tool")
-print(f"  Max depth: configured by OpenCode (typically 2-3 levels)")
+print("\nAgent nesting:")
+print("  Level 0: @sfd-orchestrator (primary)")
+print("  Level 1: @planner, @executor, @reviewer (sub-agents)")
+print("  Level 2: each sub-agent CAN spawn further sub-agents via Task tool")
+print("  Max depth: configured by OpenCode (typically 2-3 levels)")
 
-print(f"\n{'='*60}")
+print(f"\n{'=' * 60}")
 print(f"RESULT: {len(agents)} agents, {len(models_used)} models, parallel-ready")
-print(f"{'='*60}")
+print(f"{'=' * 60}")

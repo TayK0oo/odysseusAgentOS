@@ -4,26 +4,28 @@ These tests avoid a live CalDAV server. They pin the local invariants that keep
 Odysseus-created CalDAV events from being pruned before they can be pushed.
 """
 
-from datetime import datetime
 import importlib.util
-from pathlib import Path
 import sys
+from datetime import datetime
+from pathlib import Path
 
 from src.caldav_writeback import build_event_ical
 
 
 def test_event_to_ical_serializes_core_fields_and_rrule():
-    ical = build_event_ical({
-        "uid": "evt-123",
-        "summary": "Planning",
-        "description": "Bring notes",
-        "location": "HQ",
-        "dtstart": datetime(2026, 6, 5, 9, 0),
-        "dtend": datetime(2026, 6, 5, 10, 0),
-        "all_day": False,
-        "is_utc": False,
-        "rrule": "FREQ=WEEKLY;COUNT=2",
-    })
+    ical = build_event_ical(
+        {
+            "uid": "evt-123",
+            "summary": "Planning",
+            "description": "Bring notes",
+            "location": "HQ",
+            "dtstart": datetime(2026, 6, 5, 9, 0),
+            "dtend": datetime(2026, 6, 5, 10, 0),
+            "all_day": False,
+            "is_utc": False,
+            "rrule": "FREQ=WEEKLY;COUNT=2",
+        }
+    )
 
     assert "UID:evt-123" in ical
     assert "SUMMARY:Planning" in ical

@@ -311,13 +311,13 @@ GUIDE (10 phases)              PIPELINE SFD (7 phases)
 ```mermaid
 graph TD
     START["Message utilisateur"]
-    
+
     START --> MD{Mode Detector}
-    
+
     MD -->|"chat simple"| CHAT["1 phase: CHAT\nLLM + memories + web search"]
     MD -->|"agent (projet)"| AGENT["7 phases"]
     MD -->|"visualisation"| VISUAL["Kroki render"]
-    
+
     AGENT --> C["PHASE 1: CLASSIFY\n≡ Guide §1 Avant-projet\n├─ Analyse du besoin\n├─ Risk level\n└─ Constitution check"]
     C --> K["PHASE 2: KNOW\n≡ Guide §1 Faisabilité\n├─ Web search (SearXNG)\n├─ CBM code search\n└─ Contexte utilisateur"]
     K --> P["PHASE 3: PLAN\n≡ Guide §2 Conception\n├─ User stories + critères\n├─ Architecture (ADR)\n├─ Roadmap + backlog\n└─ Modèle de données"]
@@ -325,12 +325,12 @@ graph TD
     B --> Q["PHASE 5: QUALITY\n≡ Guide §6 Qualité & Tests\n├─ Revue de code (reviewer)\n├─ Audit sécurité (OWASP)\n├─ Tests E2E\n└─ UAT (ASK_USER)"]
     Q --> A["PHASE 6: AUTOEVAL\n≡ Guide §6 Évaluation\n├─ Score de succès\n├─ Métriques (tokens, temps)\n├─ Dérive (drift)\n└─ Bug tracking"]
     A --> M["PHASE 7: MEMORY_OBSERVE\n≡ Guide §8-9 Maintenance+Évolution\n├─ Mémoire [observed] → Obsidian\n├─ Goal ancestry\n├─ Auto-evolve agent\n└─ Event traces JSONL"]
-    
+
     M --> DONE["✅ PROJET TERMINÉ\n├─ Code + tests\n├─ Documentation\n├─ Changelog\n├─ Mémoire persistée\n└─ Leçons apprises"]
-    
+
     CHAT --> DONE
     VISUAL --> DONE
-    
+
     style C fill:#933,stroke:#f00,color:#fff
     style K fill:#339,stroke:#66f,color:#fff
     style P fill:#393,stroke:#0f0,color:#fff

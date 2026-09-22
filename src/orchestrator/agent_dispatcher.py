@@ -22,12 +22,12 @@ Architecture:
   Tool (explicit only)  → design-extract       (ODYSSEUS_AGENT_DESIGN_EXTRACT)
                         → open-design          (ODYSSEUS_AGENT_OPEN_DESIGN)
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import os
-from typing import Dict, List, Optional
 
 from src.orchestrator.phases import Phase
 
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 # Agents fire in parallel within a phase via asyncio.gather.
 # Each agent is isolated — a failure in one never affects the others.
 
-_PHASE_AGENTS: Dict[Phase, List[tuple[str, str]]] = {
+_PHASE_AGENTS: dict[Phase, list[tuple[str, str]]] = {
     Phase.CLASSIFY: [
         ("constitution", "ODYSSEUS_AGENT_CONSTITUTION"),
     ],
@@ -66,7 +66,7 @@ _PHASE_AGENTS: Dict[Phase, List[tuple[str, str]]] = {
 }
 
 # Explicit-invocation-only agents (not phase-tied).
-_EXPLICIT_AGENTS: Dict[str, str] = {
+_EXPLICIT_AGENTS: dict[str, str] = {
     "design-extract": "ODYSSEUS_AGENT_DESIGN_EXTRACT",
     "open-design": "ODYSSEUS_AGENT_OPEN_DESIGN",
     # Orchestrators re-exposed for explicit /agent invocation:
@@ -89,7 +89,7 @@ class AgentDispatcher:
 
     def __init__(self, registry=None):
         self._registry = registry  # AgentRegistry instance (lazy)
-        self._running: Dict[str, asyncio.Task] = {}
+        self._running: dict[str, asyncio.Task] = {}
 
     # ── lazy registry ──────────────────────────────────────────────────
     def _get_registry(self):
@@ -98,6 +98,7 @@ class AgentDispatcher:
         # Try to get the app.state catalog if available
         try:
             from app import app as _app  # noqa: F401 — avoid circular
+
             catalog = getattr(_app.state, "agent_catalog", None)
             if catalog is not None:
                 self._registry = catalog
@@ -107,20 +108,21 @@ class AgentDispatcher:
         # Fallback: discover directly (slower, but works)
         try:
             from src.orchestrator.registry import AgentRegistry
+
             self._registry = AgentRegistry().discover()
             return self._registry
         except Exception:
             return None
 
     # ── phase dispatch ─────────────────────────────────────────────────
-    def agents_for_phase(self, phase: Phase) -> List[str]:
+    def agents_for_phase(self, phase: Phase) -> list[str]:
         """Return enabled agent names for the given phase."""
         entries = _PHASE_AGENTS.get(phase, [])
         return [name for name, env_var in entries if _is_enabled(env_var)]
 
-    async def dispatch_for_phase(self, phase: Phase, session_id: str,
-                                 context: Optional[str] = None,
-                                 on_event: Optional[callable] = None):
+    async def dispatch_for_phase(
+        self, phase: Phase, session_id: str, context: str | None = None, on_event: callable | None = None
+    ):
         """Fire all enabled agents for this phase IN PARALLEL (best-effort).
 
         Each agent runs concurrently via asyncio.gather. Failures are isolated —
@@ -143,35 +145,44 @@ class AgentDispatcher:
             return
 
         async def _run_one(name: str):
-            spec = registry.get(name) if hasattr(registry, 'get') else None
+            spec = registry.get(name) if hasattr(registry, "get") else None
             if spec is None:
                 logger.warning("[AgentDispatcher] agent %r not found in registry", name)
                 return None
             try:
                 result = await self._run_agent(spec, phase.value, session_id, context)
                 if on_event:
-                    on_event({
-                        "type": "agent_dispatch", "agent": name,
-                        "phase": phase.value, "status": "completed",
-                        "result_len": len(str(result)) if result else 0,
-                    })
+                    on_event(
+                        {
+                            "type": "agent_dispatch",
+                            "agent": name,
+                            "phase": phase.value,
+                            "status": "completed",
+                            "result_len": len(str(result)) if result else 0,
+                        }
+                    )
                 return result
             except Exception as exc:
                 logger.warning(
                     "[AgentDispatcher] agent %r failed for phase %s: %s",
-                    name, phase.value, exc,
+                    name,
+                    phase.value,
+                    exc,
                 )
                 if on_event:
-                    on_event({
-                        "type": "agent_dispatch", "agent": name,
-                        "phase": phase.value, "status": "failed",
-                        "error": str(exc)[:200],
-                    })
+                    on_event(
+                        {
+                            "type": "agent_dispatch",
+                            "agent": name,
+                            "phase": phase.value,
+                            "status": "failed",
+                            "error": str(exc)[:200],
+                        }
+                    )
                 return None
 
         # Launch all agents in parallel — each isolated from the others
-        await asyncio.gather(*(_run_one(name) for name in agent_names),
-                             return_exceptions=True)
+        await asyncio.gather(*(_run_one(name) for name in agent_names), return_exceptions=True)
 
     # ── explicit dispatch ──────────────────────────────────────────────
     def explicit_enabled(self, agent_name: str) -> bool:
@@ -181,32 +192,29 @@ class AgentDispatcher:
             return False
         return _is_enabled(env_var)
 
-    def list_explicit_agents(self) -> List[str]:
+    def list_explicit_agents(self) -> list[str]:
         """List all currently enabled explicit-invocation agents."""
         return [name for name in _EXPLICIT_AGENTS if self.explicit_enabled(name)]
 
-    async def dispatch_explicit(self, agent_name: str, session_id: str,
-                                context: Optional[str] = None):
+    async def dispatch_explicit(self, agent_name: str, session_id: str, context: str | None = None):
         """Fire an agent explicitly (user command /agent or /design)."""
         if not self.explicit_enabled(agent_name):
             raise ValueError(
-                f"Agent {agent_name!r} is not enabled. "
-                f"Set {_EXPLICIT_AGENTS.get(agent_name, 'the kill-switch')}=on"
+                f"Agent {agent_name!r} is not enabled. Set {_EXPLICIT_AGENTS.get(agent_name, 'the kill-switch')}=on"
             )
 
         registry = self._get_registry()
         if registry is None:
             raise RuntimeError("Agent catalog not loaded — set ODYSSEUS_AGENT_CATALOG=on")
 
-        spec = registry.get(agent_name) if hasattr(registry, 'get') else None
+        spec = registry.get(agent_name) if hasattr(registry, "get") else None
         if spec is None:
             raise ValueError(f"Agent {agent_name!r} not found in catalog")
 
         return await self._run_agent(spec, "explicit", session_id, context)
 
     # ── internal: run one agent ────────────────────────────────────────
-    async def _run_agent(self, spec, trigger: str, session_id: str,
-                         context: Optional[str] = None):
+    async def _run_agent(self, spec, trigger: str, session_id: str, context: str | None = None):
         """Run a single agent as a background LLM call. Never raises."""
         try:
             from src.task_endpoint import task_llm_call_async
@@ -224,19 +232,26 @@ class AgentDispatcher:
 
         logger.info(
             "[AgentDispatcher] spawning %s | trigger=%s | session=%s",
-            spec.name, trigger, session_id,
+            spec.name,
+            trigger,
+            session_id,
         )
 
         try:
             result = await task_llm_call_async(messages, owner=session_id)
             logger.info(
                 "[AgentDispatcher] %s completed | trigger=%s | result_len=%d",
-                spec.name, trigger, len(str(result)) if result else 0,
+                spec.name,
+                trigger,
+                len(str(result)) if result else 0,
             )
             return result
         except Exception as exc:
             logger.warning(
                 "[AgentDispatcher] %s call failed | trigger=%s | %s: %s",
-                spec.name, trigger, type(exc).__name__, exc,
+                spec.name,
+                trigger,
+                type(exc).__name__,
+                exc,
             )
             return None

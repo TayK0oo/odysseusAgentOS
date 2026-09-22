@@ -8,21 +8,28 @@ real tools (get/fetch/stealthy_fetch/...) surface to the agent as
 mcp__scrapling__*. Kroki stays here as a REST render (also fronted by the
 native render_diagram agent tool).
 """
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/tools", tags=["mcp-tools"])
+
 
 class DiagramRequest(BaseModel):
     content: str
     diagram_type: str = "mermaid"  # mermaid, plantuml, graphviz, etc.
     output_format: str = "svg"
 
+
 @router.post("/diagram")
 async def render_diagram(req: DiagramRequest):
     """Kroki — render un diagramme texte en SVG/PNG."""
     try:
-        import httpx, base64, zlib
+        import base64
+        import zlib
+
+        import httpx
+
         # Encodage Kroki : deflate + base64url
         compressed = zlib.compress(req.content.encode(), level=9)
         encoded = base64.urlsafe_b64encode(compressed).decode()
@@ -37,10 +44,12 @@ async def render_diagram(req: DiagramRequest):
     except Exception as e:
         return {"error": str(e), "hint": "Kroki démarre automatiquement avec docker compose up"}
 
+
 @router.get("/available")
 async def list_available_tools():
     """Liste les MCP tools disponibles et leur statut."""
     import httpx
+
     tools_status = {}
     # Any HTTP response (incl. 4xx) means the service is listening → "online".
     # Scrapling's MCP endpoint is /mcp (a GET without a session yields 4xx, which

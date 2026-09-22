@@ -5,9 +5,9 @@ Singleton ChromaDB HTTP client.
 Connects to a ChromaDB instance running as a standalone service.
 """
 
+import logging
 import os
 import socket
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +42,7 @@ def get_chroma_client():
         import chromadb
     except ImportError as e:
         raise RuntimeError(
-            "ChromaDB integration is not installed. Install the optional "
-            "dependency with: pip install chromadb-client"
+            "ChromaDB integration is not installed. Install the optional dependency with: pip install chromadb-client"
         ) from e
 
     host = os.getenv("CHROMADB_HOST", "localhost")

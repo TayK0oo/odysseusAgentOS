@@ -1,41 +1,53 @@
 """End-to-End System Test — 4 projects, user simulation, local deployment verification."""
-import requests, json, time, sys, os, subprocess, shutil, signal
-from pathlib import Path
+
+import json
+import shutil
+import subprocess
+import sys
+import time
 from datetime import datetime
+from pathlib import Path
+
+import requests
 
 BASE = "http://127.0.0.1:7000"
 PROJECTS_DIR = Path("data/e2e-projects")
 RESULTS = []
 
+
 def create_session(name):
-    r = requests.post(f"{BASE}/api/session", data={
-        "name": name, "model": "minimax-m3",
-        "endpoint_url": "https://opencode.ai/zen/go/v1/chat/completions"
-    })
+    r = requests.post(
+        f"{BASE}/api/session",
+        data={"name": name, "model": "minimax-m3", "endpoint_url": "https://opencode.ai/zen/go/v1/chat/completions"},
+    )
     if r.status_code != 200:
         return None
     return r.json()["id"]
 
+
 def run_agent(session_id, message, timeout=600):
     """Run an agent project and capture all events."""
-    r = requests.post(f"{BASE}/api/chat_stream",
+    r = requests.post(
+        f"{BASE}/api/chat_stream",
         data={"message": message, "session": session_id, "mode": "agent", "use_web": "false"},
-        stream=True, timeout=timeout)
-    
+        stream=True,
+        timeout=timeout,
+    )
+
     phases = []
     mode = "unknown"
     model = "unknown"
     tokens = 0
     errors = []
     memories = 0
-    
+
     for line in r.iter_lines():
         if not line or not line.startswith(b"data: "):
             continue
         try:
             data = json.loads(line[6:])
             t = data.get("type", "")
-            
+
             if t == "phase_enter":
                 phases.append(data.get("phase", ""))
             elif t == "mode_detected":
@@ -50,20 +62,18 @@ def run_agent(session_id, message, timeout=600):
                 errors.append(str(data)[:100])
         except:
             pass
-    
-    return {
-        "mode": mode, "model": model, "phases": phases,
-        "tokens": tokens, "memories": memories, "errors": errors
-    }
+
+    return {"mode": mode, "model": model, "phases": phases, "tokens": tokens, "memories": memories, "errors": errors}
+
 
 def verify_project(project_dir, expected_files, start_cmd=None, test_url=None):
     """Verify a project was created and can be deployed."""
     result = {"files_found": [], "files_missing": [], "deploy_ok": False, "deploy_error": ""}
-    
+
     if not project_dir.exists():
         result["files_missing"] = [str(f) for f in expected_files]
         return result
-    
+
     for f in expected_files:
         full_path = project_dir / f
         if full_path.exists():
@@ -71,15 +81,20 @@ def verify_project(project_dir, expected_files, start_cmd=None, test_url=None):
             result["files_found"].append(f"{f} ({size}B)")
         else:
             result["files_missing"].append(f)
-    
+
     # Try to start the app
     if start_cmd:
         try:
-            proc = subprocess.Popen(start_cmd, shell=True, cwd=str(project_dir),
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                   stdin=subprocess.DEVNULL)
+            proc = subprocess.Popen(
+                start_cmd,
+                shell=True,
+                cwd=str(project_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.DEVNULL,
+            )
             time.sleep(3)  # Wait for startup
-            
+
             if test_url:
                 try:
                     r = requests.get(test_url, timeout=5)
@@ -95,24 +110,27 @@ def verify_project(project_dir, expected_files, start_cmd=None, test_url=None):
                     result["deploy_error"] = f"Process exited with code {poll}: {stderr}"
                 else:
                     result["deploy_ok"] = True  # Still running = probably working
-            
+
             proc.terminate()
             time.sleep(1)
         except Exception as e:
             result["deploy_error"] = str(e)[:200]
-    
+
     return result
 
+
 def print_section(title):
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"  {title}")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
+
 
 def print_phase_flow(phases, mode):
     flow = " -> ".join(phases) if phases else "no phases"
     print(f"  MODE: {mode}")
     print(f"  FLOW: {flow}")
     print(f"  PHASES: {len(phases)} phases")
+
 
 def print_verify(result):
     ok = "[OK]" if not result["files_missing"] else "[FAIL]"
@@ -129,6 +147,7 @@ def print_verify(result):
         print(f"    Error: {result['deploy_error'][:100]}")
     if result.get("deploy_response"):
         print(f"    Response: {result['deploy_response'][:100]}")
+
 
 # ===================================================================
 # TEST SUITE
@@ -154,7 +173,10 @@ if not sid:
     print("  [FAIL] Session creation failed")
     sys.exit(1)
 
-result1 = run_agent(sid, "build a complete flask todo app with SQLite database, HTML template with Bootstrap, routes for list/add/delete tasks. Create requirements.txt. Make it ready to run with 'python app.py'")
+result1 = run_agent(
+    sid,
+    "build a complete flask todo app with SQLite database, HTML template with Bootstrap, routes for list/add/delete tasks. Create requirements.txt. Make it ready to run with 'python app.py'",
+)
 print_phase_flow(result1["phases"], result1["mode"])
 print(f"  TOKENS: {result1['tokens']} | MEMORIES: {result1['memories']} | ERRORS: {len(result1['errors'])}")
 
@@ -167,8 +189,7 @@ for d in possible_dirs:
         shutil.copytree(d, p1_dir, dirs_exist_ok=True)
         break
 
-v1 = verify_project(p1_dir, ["app.py", "requirements.txt"], 
-                    start_cmd="python app.py", test_url="http://127.0.0.1:5000")
+v1 = verify_project(p1_dir, ["app.py", "requirements.txt"], start_cmd="python app.py", test_url="http://127.0.0.1:5000")
 print_verify(v1)
 RESULTS.append({"project": "Flask Todo App", **result1, "verify": v1})
 
@@ -181,7 +202,10 @@ sid = create_session("E2E-P2-FastAPI-Books")
 if not sid:
     print("  [FAIL] Session creation failed")
 else:
-    result2 = run_agent(sid, "create a FastAPI REST API for a book library with CRUD endpoints: POST /books, GET /books, GET /books/{id}, PUT /books/{id}, DELETE /books/{id}. Use Pydantic models. Store in memory (Python dict). Include main.py and requirements.txt. Make it ready to run with 'uvicorn main:app --reload'")
+    result2 = run_agent(
+        sid,
+        "create a FastAPI REST API for a book library with CRUD endpoints: POST /books, GET /books, GET /books/{id}, PUT /books/{id}, DELETE /books/{id}. Use Pydantic models. Store in memory (Python dict). Include main.py and requirements.txt. Make it ready to run with 'uvicorn main:app --reload'",
+    )
     print_phase_flow(result2["phases"], result2["mode"])
     print(f"  TOKENS: {result2['tokens']} | MEMORIES: {result2['memories']} | ERRORS: {len(result2['errors'])}")
 
@@ -190,9 +214,13 @@ else:
         if (d / "main.py").exists():
             shutil.copytree(d, p2_dir, dirs_exist_ok=True)
             break
-    
-    v2 = verify_project(p2_dir, ["main.py", "requirements.txt"],
-                        start_cmd="uvicorn main:app --port 8001", test_url="http://127.0.0.1:8001/docs")
+
+    v2 = verify_project(
+        p2_dir,
+        ["main.py", "requirements.txt"],
+        start_cmd="uvicorn main:app --port 8001",
+        test_url="http://127.0.0.1:8001/docs",
+    )
     print_verify(v2)
     RESULTS.append({"project": "FastAPI Books API", **result2, "verify": v2})
 
@@ -205,7 +233,10 @@ sid = create_session("E2E-P3-Data-Analysis")
 if not sid:
     print("  [FAIL] Session creation failed")
 else:
-    result3 = run_agent(sid, "write a python data analysis script that generates a sample sales CSV with columns date,product,quantity,price, then reads it, calculates total revenue per product, and prints a summary report with matplotlib bar chart saved as chart.png")
+    result3 = run_agent(
+        sid,
+        "write a python data analysis script that generates a sample sales CSV with columns date,product,quantity,price, then reads it, calculates total revenue per product, and prints a summary report with matplotlib bar chart saved as chart.png",
+    )
     print_phase_flow(result3["phases"], result3["mode"])
     print(f"  TOKENS: {result3['tokens']} | MEMORIES: {result3['memories']} | ERRORS: {len(result3['errors'])}")
 
@@ -214,10 +245,13 @@ else:
         if (d / "analysis.py").exists() or (d / "main.py").exists():
             shutil.copytree(d, p3_dir, dirs_exist_ok=True)
             break
-    
+
     script_file = "analysis.py" if (p3_dir / "analysis.py").exists() else "main.py"
-    v3 = verify_project(p3_dir, [script_file, "chart.png"] if (p3_dir / script_file).exists() else [script_file],
-                        start_cmd=f"python {script_file}" if (p3_dir / script_file).exists() else None)
+    v3 = verify_project(
+        p3_dir,
+        [script_file, "chart.png"] if (p3_dir / script_file).exists() else [script_file],
+        start_cmd=f"python {script_file}" if (p3_dir / script_file).exists() else None,
+    )
     print_verify(v3)
     RESULTS.append({"project": "Data Analysis Script", **result3, "verify": v3})
 
@@ -230,7 +264,10 @@ sid = create_session("E2E-P4-Landing-Page")
 if not sid:
     print("  [FAIL] Session creation failed")
 else:
-    result4 = run_agent(sid, "build a modern responsive HTML/CSS landing page for a startup called 'CloudBoard'. Include: hero section with CTA button, features grid (3 features), pricing table (3 tiers), contact form. Use embedded CSS (no framework), dark theme, smooth scroll. Single index.html file.")
+    result4 = run_agent(
+        sid,
+        "build a modern responsive HTML/CSS landing page for a startup called 'CloudBoard'. Include: hero section with CTA button, features grid (3 features), pricing table (3 tiers), contact form. Use embedded CSS (no framework), dark theme, smooth scroll. Single index.html file.",
+    )
     print_phase_flow(result4["phases"], result4["mode"])
     print(f"  TOKENS: {result4['tokens']} | MEMORIES: {result4['memories']} | ERRORS: {len(result4['errors'])}")
 
@@ -239,9 +276,10 @@ else:
         if (d / "index.html").exists():
             shutil.copytree(d, p4_dir, dirs_exist_ok=True)
             break
-    
-    v4 = verify_project(p4_dir, ["index.html"],
-                        start_cmd="python -m http.server 8002", test_url="http://127.0.0.1:8002")
+
+    v4 = verify_project(
+        p4_dir, ["index.html"], start_cmd="python -m http.server 8002", test_url="http://127.0.0.1:8002"
+    )
     print_verify(v4)
     RESULTS.append({"project": "Landing Page", **result4, "verify": v4})
 
@@ -280,6 +318,6 @@ if trace_files:
     latest = trace_files[-1]
     print(f"  EVENT TRACES: {latest.name} ({latest.stat().st_size} bytes)")
 
-print(f"\n{'='*70}")
-print(f"  SCORE: {files_ok + deploy_ok}/{total*2} checks passes")
-print(f"{'='*70}")
+print(f"\n{'=' * 70}")
+print(f"  SCORE: {files_ok + deploy_ok}/{total * 2} checks passes")
+print(f"{'=' * 70}")

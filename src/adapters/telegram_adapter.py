@@ -2,11 +2,15 @@
 Telegram adapter pour Channel Gateway.
 Utilise python-telegram-bot (pip install python-telegram-bot).
 """
+
 import logging
-from typing import Callable, Any, Optional
+from collections.abc import Callable
+from typing import Any
+
 from src.channel_gateway import ChannelAdapter, ChannelType, InboundMessage, OutboundMessage
 
 logger = logging.getLogger(__name__)
+
 
 class TelegramAdapter(ChannelAdapter):
     """
@@ -14,7 +18,7 @@ class TelegramAdapter(ChannelAdapter):
     Configure : TELEGRAM_BOT_TOKEN dans .env
     """
 
-    def __init__(self, bot_token: Optional[str] = None, default_chat_id: Optional[int] = None):
+    def __init__(self, bot_token: str | None = None, default_chat_id: int | None = None):
         self.bot_token = bot_token
         self.default_chat_id = default_chat_id
         self._app = None
@@ -26,11 +30,11 @@ class TelegramAdapter(ChannelAdapter):
     async def send(self, message: OutboundMessage) -> bool:
         try:
             from telegram import Bot
+
             if not self.bot_token:
                 return False
 
-            chat_id = int(message.recipient_id) if message.recipient_id != "broadcast" \
-                      else self.default_chat_id
+            chat_id = int(message.recipient_id) if message.recipient_id != "broadcast" else self.default_chat_id
             if not chat_id:
                 return False
 
@@ -61,7 +65,7 @@ class TelegramAdapter(ChannelAdapter):
                     sender_name=msg.from_user.first_name or "",
                     content=msg.text or "",
                     raw={"chat_id": str(msg.chat_id), "message_id": str(msg.message_id)},
-                    reply_fn=lambda text: msg.reply_text(text[:4096])
+                    reply_fn=lambda text: msg.reply_text(text[:4096]),
                 )
                 await on_message(inbound)
 

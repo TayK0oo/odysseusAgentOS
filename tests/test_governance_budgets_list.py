@@ -7,16 +7,16 @@ A StaticPool in-memory engine is used so the schema created here survives
 across connections (plain ``sqlite:///:memory:`` gives each connection its
 own empty database). The route's ``SessionLocal`` is patched onto it.
 """
+
 import pytest
-from fastapi.testclient import TestClient
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from core.database import Base, AgentBudget
 import routes.governance_routes as gov
-
+from core.database import AgentBudget, Base
 
 _EXPECTED_KEYS = {
     "agent_id",

@@ -12,6 +12,7 @@ close-button handler includes the reset.  They cover:
   • error toast                  – showError
   • action toast                 – showToast with action opts
 """
+
 import re
 from pathlib import Path
 
@@ -27,12 +28,11 @@ def _read_ui():
 # Helpers – extract the close-button event-handler bodies from each function.
 # ---------------------------------------------------------------------------
 
+
 def _extract_function(src: str, func_name: str) -> str:
     """Return the full body of *func_name* (exported or not)."""
     # Match   export function showToast(…  or  function showToast(…
-    pat = re.compile(
-        rf"(?:export\s+)?function\s+{re.escape(func_name)}\s*\(", re.DOTALL
-    )
+    pat = re.compile(rf"(?:export\s+)?function\s+{re.escape(func_name)}\s*\(", re.DOTALL)
     m = pat.search(src)
     assert m, f"could not find function {func_name!r} in ui.js"
     start = m.start()
@@ -80,6 +80,7 @@ def _extract_close_handler(func_body: str) -> str:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_showToast_close_handler_resets_pointer_events():
     """showToast's × handler must clear pointer-events so an action-toast
@@ -129,9 +130,7 @@ def test_showToast_timer_resets_pointer_events():
             if depth == 0:
                 timer_body = body[brace : i + 1]
                 break
-    assert "pointerEvents" in timer_body, (
-        "showToast auto-hide timer no longer resets pointerEvents"
-    )
+    assert "pointerEvents" in timer_body, "showToast auto-hide timer no longer resets pointerEvents"
 
 
 def test_action_toast_sets_pointer_events_auto():

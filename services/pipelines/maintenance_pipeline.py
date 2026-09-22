@@ -10,11 +10,8 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-import sys
-import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +22,9 @@ PREFECT_ENABLED = os.getenv("ODYSSEUS_PREFECT", "off").lower() in ("on", "1", "t
 def _lazy_import():
     """Import prefect decorators; raise a clear error if missing."""
     try:
-        from prefect import flow as _flow, task as _task
+        from prefect import flow as _flow
+        from prefect import task as _task
+
         return _flow, _task
     except ImportError:
         raise ImportError(
@@ -36,6 +35,7 @@ def _lazy_import():
 
 
 # ── Memory cleanup ───────────────────────────────────────────────────────
+
 
 def _memory_cleanup_task():
     """Remove stale memories and consolidate duplicates.
@@ -70,17 +70,15 @@ def _memory_cleanup_task():
 def _remove_orphaned_memories() -> int:
     """Remove memories whose owner no longer exists in the user store."""
     try:
-        from core.database import db
         from core.auth import AuthManager
+        from core.database import db
 
         auth = AuthManager()
         existing_users = set(auth.users.keys())
         existing_users.add("")  # ownerless memories are valid
 
         conn = db._conn()
-        cursor = conn.execute(
-            "SELECT DISTINCT owner FROM memories WHERE owner != ''"
-        )
+        cursor = conn.execute("SELECT DISTINCT owner FROM memories WHERE owner != ''")
         owners_in_db = {row[0] for row in cursor.fetchall()}
         orphans = owners_in_db - existing_users
 
@@ -89,9 +87,7 @@ def _remove_orphaned_memories() -> int:
 
         count = 0
         for orphan in orphans:
-            cursor = conn.execute(
-                "SELECT COUNT(*) FROM memories WHERE owner = ?", (orphan,)
-            )
+            cursor = conn.execute("SELECT COUNT(*) FROM memories WHERE owner = ?", (orphan,))
             n = cursor.fetchone()[0]
             conn.execute("DELETE FROM memories WHERE owner = ?", (orphan,))
             count += n
@@ -107,14 +103,12 @@ def _remove_orphaned_memories() -> int:
 def _consolidate_duplicates() -> int:
     """Consolidate near-duplicate memories via builtin action."""
     try:
-        from src.builtin_actions import action_consolidate_memory
-
         # Run for each owner that has memories
         from core.database import db
+        from src.builtin_actions import action_consolidate_memory
+
         conn = db._conn()
-        cursor = conn.execute(
-            "SELECT DISTINCT owner FROM memories"
-        )
+        cursor = conn.execute("SELECT DISTINCT owner FROM memories")
         owners = [row[0] for row in cursor.fetchall()]
 
         total = 0
@@ -124,6 +118,7 @@ def _consolidate_duplicates() -> int:
                 if ok:
                     # Parse "consolidated N memories" from the message
                     import re
+
                     m = re.search(r"(\d+)", msg or "")
                     if m:
                         total += int(m.group(1))
@@ -142,8 +137,9 @@ def _prune_old_memories() -> int:
         from core.database import db
 
         conn = db._conn()
-        cutoff = datetime.now(timezone.utc).replace(tzinfo=None)
+        cutoff = datetime.now(UTC).replace(tzinfo=None)
         from datetime import timedelta
+
         cutoff = cutoff - timedelta(days=90)
 
         cursor = conn.execute(
@@ -162,6 +158,7 @@ def _prune_old_memories() -> int:
 
 
 # ── Backup ────────────────────────────────────────────────────────────────
+
 
 def _backup_task():
     """Backup data directory to a timestamped archive.
@@ -233,6 +230,7 @@ def _prune_old_backups(backup_dir: Path, keep: int = 7):
 
 # ── Flows (Prefect decorators) ──────────────────────────────────────────
 
+
 def _create_flows():
     flow, task = _lazy_import()
 
@@ -281,6 +279,7 @@ def get_backup_flow():
 
 
 # ── CLI entry point ──────────────────────────────────────────────────────
+
 
 def main():
     """Run both maintenance tasks directly (no Prefect server needed)."""

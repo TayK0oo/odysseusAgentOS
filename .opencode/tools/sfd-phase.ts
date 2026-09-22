@@ -1,14 +1,14 @@
 /**
  * SFD Phase System — Custom tool for OpenCode
- * 
+ *
  * Implements 7-phase decision tree: CLASSIFY→KNOW→PLAN→BUILD→QUALITY→AUTOEVAL→MEMORY
  * Each agent must call this tool to advance phases.
  * The tool enforces: you can't skip phases, you can't go backwards.
- * 
+ *
  * Usage by the agent:
  *   sfd-phase({ action: "advance", current: "PLAN" })
  *   → returns: { allowed: true, new_phase: "BUILD", required_agents: ["executor"] }
- * 
+ *
  *   sfd-phase({ action: "advance", current: "CLASSIFY" })
  *   → returns: { allowed: false, reason: "Complete risk assessment before KNOW" }
  */
@@ -38,13 +38,13 @@ export default tool({
   },
   async execute(args, context) {
     const sid = args.session_id || context.sessionID || "default";
-    
+
     if (!sessionPhases.has(sid)) {
       sessionPhases.set(sid, { phase: "CLASSIFY", completed: [], requirements: {} });
     }
-    
+
     const state = sessionPhases.get(sid);
-    
+
     if (args.action === "status") {
       const reqs = PHASE_REQUIREMENTS[state.phase];
       return JSON.stringify({
@@ -57,7 +57,7 @@ export default tool({
         recommended_model: reqs.model,
       });
     }
-    
+
     if (args.action === "complete") {
       state.completed.push(state.phase);
       state.phase = "DONE";
@@ -68,13 +68,13 @@ export default tool({
         message: `All phases completed: ${state.completed.join(" -> ")}`,
       });
     }
-    
+
     if (args.action === "advance") {
       const currentIdx = PHASES.indexOf(state.phase);
       if (currentIdx === -1) {
         return JSON.stringify({ allowed: false, reason: `Unknown phase: ${state.phase}` });
       }
-      
+
       // Check requirements
       const reqs = PHASE_REQUIREMENTS[state.phase];
       const missing = reqs.required.filter(r => !state.requirements[r]);
@@ -86,7 +86,7 @@ export default tool({
           what_to_do: `Complete these checks before advancing`,
         });
       }
-      
+
       // Advance
       state.completed.push(state.phase);
       const newIdx = currentIdx + 1;
@@ -94,11 +94,11 @@ export default tool({
         state.phase = "DONE";
         return JSON.stringify({ allowed: true, status: "all_complete", phases: state.completed });
       }
-      
+
       state.phase = PHASES[newIdx];
       const newReqs = PHASE_REQUIREMENTS[state.phase];
       sessionPhases.set(sid, state);
-      
+
       return JSON.stringify({
         allowed: true,
         new_phase: state.phase,
@@ -115,7 +115,7 @@ export default tool({
 
 /**
  * PLUGIN HOOK — Enforces phase discipline
- * 
+ *
  * Hooks into tool.execute.before to prevent tools from running
  * in wrong phases. For example: no file writes during PLAN phase.
  */
@@ -125,15 +125,15 @@ export const SFDPhasePlugin = async (ctx) => {
       const sid = input.sessionID || "default";
       const state = sessionPhases.get(sid);
       if (!state) return; // No phase tracking
-      
+
       const phase = state.phase;
       const tool = input.tool;
-      
+
       // Enforce: no writes during PLAN phase
       if (phase === "PLAN" && ["write", "edit", "apply_patch"].includes(tool)) {
         throw new Error(`SFD Phase lock: Cannot ${tool} during PLAN phase. Advance to BUILD first.`);
       }
-      
+
       // Enforce: no bash during CLASSIFY
       if (phase === "CLASSIFY" && tool === "bash") {
         throw new Error("SFD Phase lock: Cannot execute commands during CLASSIFY. Complete risk assessment first.");

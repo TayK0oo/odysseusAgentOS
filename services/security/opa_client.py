@@ -10,10 +10,9 @@ Supports:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 import aiohttp
 
@@ -45,7 +44,7 @@ class OPAClient:
 
     def __init__(self, base_url: str | None = None):
         self._base_url = (base_url or OPA_BASE_URL).rstrip("/")
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
 
     async def _ensure_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -61,7 +60,7 @@ class OPAClient:
             await self._session.close()
             self._session = None
 
-    async def __aenter__(self) -> "OPAClient":
+    async def __aenter__(self) -> OPAClient:
         return self
 
     async def __aexit__(self, *exc) -> None:
@@ -69,7 +68,7 @@ class OPAClient:
 
     # ── Low-level query ──────────────────────────────────────
 
-    async def _query(self, path: str, data: Dict[str, Any]) -> Any:
+    async def _query(self, path: str, data: dict[str, Any]) -> Any:
         """POST a data payload to OPA and return the result."""
         session = await self._ensure_session()
         url = f"{self._base_url}/v1/data/{path}"
@@ -81,7 +80,7 @@ class OPAClient:
                     return {"result": False, "error": f"HTTP {resp.status}: {body}"}
                 payload = await resp.json()
                 return payload.get("result", False)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("OPA timeout for %s — falling back to deny", path)
             return {"result": False, "error": "timeout"}
         except aiohttp.ClientError as exc:
@@ -99,7 +98,7 @@ class OPAClient:
         command: str = "",
         write_path: str = "",
         approved: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Check whether a tool is allowed in the given phase via OPA.
 
         Returns::
@@ -146,9 +145,7 @@ class OPAClient:
 
     # ── Phase transition check ────────────────────────────────
 
-    async def check_phase_transition(
-        self, from_phase: str, to_phase: str
-    ) -> Dict[str, Any]:
+    async def check_phase_transition(self, from_phase: str, to_phase: str) -> dict[str, Any]:
         """Check whether a phase transition is valid via OPA.
 
         Returns::
@@ -206,7 +203,7 @@ class OPAClient:
 
 # ── Module-level convenience ─────────────────────────────────
 
-_global_client: Optional[OPAClient] = None
+_global_client: OPAClient | None = None
 
 
 def get_opa_client() -> OPAClient:

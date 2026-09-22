@@ -6,19 +6,21 @@ Features: persistent storage, hybrid search (vector + keyword), sentence-aware c
 configurable embedding endpoint via EMBEDDING_URL env var.
 """
 
-import os
 import hashlib
-import re
 import logging
+import os
+import re
+from pathlib import Path
+from typing import Any
+
 import numpy as np
-from typing import List, Dict, Any, Optional, Set
 
 from src.constants import CHROMA_DIR
-from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Vector backend routing (ChromaDB vs Qdrant)
 # ---------------------------------------------------------------------------
+
 
 def _qdrant_enabled() -> bool:
     """Kill-switch: ODYSSEUS_QDRANT env var.  Truthy → use Qdrant."""
@@ -32,6 +34,7 @@ def _qdrant_store():
         return None
     try:
         from services.vector.qdrant_store import QdrantVectorStore
+
         store = QdrantVectorStore()
         return store if store.healthy else None
     except Exception as e:
@@ -52,9 +55,18 @@ from src.embedding_lanes import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_FILE_EXTENSIONS: Set[str] = {
-    '.txt', '.md', '.py', '.json', '.yaml', '.yml',
-    '.csv', '.html', '.css', '.js', '.pdf'
+DEFAULT_FILE_EXTENSIONS: set[str] = {
+    ".txt",
+    ".md",
+    ".py",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".csv",
+    ".html",
+    ".css",
+    ".js",
+    ".pdf",
 }
 
 VECTOR_WEIGHT = 0.7
@@ -70,6 +82,7 @@ def _rrf_fusion_enabled() -> bool:
     unless explicitly turned on (M3.2).
     """
     import os
+
     val = os.getenv("ODYSSEUS_RRF_FUSION", "off").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
@@ -106,7 +119,7 @@ def _generate_doc_id(text: str, owner: str = "") -> str:
     return f"doc_{hashlib.sha256(key.encode('utf-8')).hexdigest()[:16]}"
 
 
-def _rewrite_owner_path(value: str, path_map: Dict[str, str], path_prefixes: List[tuple]) -> str:
+def _rewrite_owner_path(value: str, path_map: dict[str, str], path_prefixes: list[tuple]) -> str:
     if not isinstance(value, str) or not value:
         return value
     abs_value = os.path.abspath(value)
@@ -119,7 +132,7 @@ def _rewrite_owner_path(value: str, path_map: Dict[str, str], path_prefixes: Lis
         if abs_value == old_abs:
             return new_abs
         if abs_value.startswith(old_abs + os.sep):
-            return new_abs + abs_value[len(old_abs):]
+            return new_abs + abs_value[len(old_abs) :]
     return value
 
 
@@ -172,7 +185,7 @@ class VectorRAG:
             self._healthy = False
             return False
 
-    def _embed(self, texts: List[str]) -> List[List[float]]:
+    def _embed(self, texts: list[str]) -> list[list[float]]:
         if not self._lanes:
             return []
         return np.array(self._lanes[0].encode(texts), dtype=np.float32).tolist()
@@ -240,7 +253,7 @@ class VectorRAG:
     # Document operations
     # ------------------------------------------------------------------
 
-    def add_document(self, text: str, metadata: Dict[str, Any]) -> bool:
+    def add_document(self, text: str, metadata: dict[str, Any]) -> bool:
         if not self.healthy:
             logger.error("Collection not initialized")
             return False
@@ -286,16 +299,13 @@ class VectorRAG:
                 logger.warning("add_document failed in %s lane: %s", lane.name, e)
         return wrote
 
-    def add_documents_batch(self, docs: List[tuple]) -> Dict[str, Any]:
+    def add_documents_batch(self, docs: list[tuple]) -> dict[str, Any]:
         if not self.healthy:
             return {"success": False, "message": "Collection not initialized"}
         if not docs:
             return {"success": False, "message": "Empty document list"}
 
-        valid = [
-            (t, m) for t, m in docs
-            if t and isinstance(t, str) and m and isinstance(m, dict)
-        ]
+        valid = [(t, m) for t, m in docs if t and isinstance(t, str) and m and isinstance(m, dict)]
         if not valid:
             return {"success": False, "message": "No valid documents"}
 
@@ -313,7 +323,7 @@ class VectorRAG:
             new_texts = []
             new_metas = []
             new_ids = []
-            for (text, meta), doc_id in zip(valid, all_ids):
+            for (text, meta), doc_id in zip(valid, all_ids, strict=False):
                 if doc_id not in existing_ids:
                     new_texts.append(text)
                     new_metas.append(meta)
@@ -323,9 +333,9 @@ class VectorRAG:
                 attempted_new = True
                 lane_failed = False
                 for i in range(0, len(new_texts), 100):
-                    batch_texts = new_texts[i:i + 100]
-                    batch_ids = new_ids[i:i + 100]
-                    batch_metas = new_metas[i:i + 100]
+                    batch_texts = new_texts[i : i + 100]
+                    batch_ids = new_ids[i : i + 100]
+                    batch_metas = new_metas[i : i + 100]
                     try:
                         lane.collection.add(
                             ids=batch_ids,
@@ -356,9 +366,9 @@ class VectorRAG:
         old_owner: str,
         new_owner: str,
         *,
-        path_map: Optional[Dict[str, str]] = None,
-        path_prefixes: Optional[List[tuple]] = None,
-    ) -> Dict[str, Any]:
+        path_map: dict[str, str] | None = None,
+        path_prefixes: list[tuple] | None = None,
+    ) -> dict[str, Any]:
         """Rewrite existing RAG metadata after an auth username rename."""
         if not self.healthy:
             return {"success": False, "updated_count": 0, "message": "Collection not initialized"}
@@ -391,7 +401,7 @@ class VectorRAG:
 
             new_metas = []
             selected_ids = []
-            for doc_id, meta in zip(ids, metadatas):
+            for doc_id, meta in zip(ids, metadatas, strict=False):
                 if not isinstance(meta, dict):
                     continue
                 next_meta = dict(meta)
@@ -424,7 +434,7 @@ class VectorRAG:
     # Search — hybrid: vector similarity + keyword overlap
     # ------------------------------------------------------------------
 
-    def _qdrant_embed(self, texts: List[str]) -> List[List[float]]:
+    def _qdrant_embed(self, texts: list[str]) -> list[list[float]]:
         """Embed via the first ChromaDB lane encoder (reuses fastembed/custom).
         When Qdrant is the backend we still need embeddings — fall back to
         fastembed directly if no lanes exist."""
@@ -432,13 +442,14 @@ class VectorRAG:
             return np.array(self._lanes[0].encode(texts), dtype=np.float32).tolist()
         try:
             from fastembed import TextEmbedding
+
             model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
             return [list(v) for v in model.embed(texts)]
         except Exception:
             logger.error("No embedding model available for Qdrant")
             return []
 
-    def search(self, query: str, k: int = 5, owner: Optional[str] = None) -> List[Dict[str, Any]]:
+    def search(self, query: str, k: int = 5, owner: str | None = None) -> list[dict[str, Any]]:
         if not self.healthy:
             return []
         if not query or not isinstance(query, str):
@@ -452,7 +463,8 @@ class VectorRAG:
                     return []
                 where_filter = {"owner": owner} if owner else None
                 results = self._qdrant.search(
-                    COLLECTION_NAME, query_vector=emb[0],
+                    COLLECTION_NAME,
+                    query_vector=emb[0],
                     limit=k * 3 if owner else k,
                     where=where_filter,
                 )
@@ -465,16 +477,18 @@ class VectorRAG:
                     keyword_score = overlap / len(query_words) if query_words else 0.0
                     vector_sim = r["similarity"]
                     hybrid_score = (VECTOR_WEIGHT * vector_sim) + (KEYWORD_WEIGHT * keyword_score)
-                    candidates.append({
-                        "id": r["id"],
-                        "document": doc_text,
-                        "metadata": r["metadata"],
-                        "distance": r["distance"],
-                        "similarity": round(hybrid_score, 4),
-                        "vector_similarity": vector_sim,
-                        "keyword_score": round(keyword_score, 4),
-                        "embedding_lane": "qdrant",
-                    })
+                    candidates.append(
+                        {
+                            "id": r["id"],
+                            "document": doc_text,
+                            "metadata": r["metadata"],
+                            "distance": r["distance"],
+                            "similarity": round(hybrid_score, 4),
+                            "vector_similarity": vector_sim,
+                            "keyword_score": round(keyword_score, 4),
+                            "embedding_lane": "qdrant",
+                        }
+                    )
                 return candidates[:k]
             except Exception as e:
                 logger.error("Qdrant search failed: %s", e)
@@ -513,16 +527,18 @@ class VectorRAG:
                     keyword_score = overlap / len(query_words) if query_words else 0.0
                     hybrid_score = (VECTOR_WEIGHT * vector_sim) + (KEYWORD_WEIGHT * keyword_score)
 
-                    candidates.append({
-                        "id": doc_id,
-                        "document": doc_text,
-                        "metadata": meta,
-                        "distance": round(distance, 4),
-                        "similarity": round(hybrid_score, 4),
-                        "vector_similarity": round(vector_sim, 4),
-                        "keyword_score": round(keyword_score, 4),
-                        "embedding_lane": lane.name,
-                    })
+                    candidates.append(
+                        {
+                            "id": doc_id,
+                            "document": doc_text,
+                            "metadata": meta,
+                            "distance": round(distance, 4),
+                            "similarity": round(hybrid_score, 4),
+                            "vector_similarity": round(vector_sim, 4),
+                            "keyword_score": round(keyword_score, 4),
+                            "embedding_lane": lane.name,
+                        }
+                    )
 
             candidates = _rank_candidates(query, candidates, k)
             top = dedupe_results(candidates, limit=k)
@@ -533,7 +549,7 @@ class VectorRAG:
             logger.error(f"search failed: {e}")
             return self._keyword_search_fallback(query, k, owner=owner)
 
-    def _keyword_search_fallback(self, query: str, k: int = 5, owner: Optional[str] = None) -> List[Dict[str, Any]]:
+    def _keyword_search_fallback(self, query: str, k: int = 5, owner: str | None = None) -> list[dict[str, Any]]:
         try:
             if not self._active_collections():
                 return []
@@ -553,15 +569,17 @@ class VectorRAG:
                     doc_lower = doc.lower()
                     score = sum(1 for w in query_words if w in doc_lower)
                     if score > 0:
-                        scored.append({
-                            "id": all_docs["ids"][i],
-                            "document": doc,
-                            "metadata": meta,
-                            "distance": 0,
-                            "similarity": score,
-                            "search_type": "keyword_fallback",
-                            "embedding_lane": lane_name,
-                        })
+                        scored.append(
+                            {
+                                "id": all_docs["ids"][i],
+                                "document": doc,
+                                "metadata": meta,
+                                "distance": 0,
+                                "similarity": score,
+                                "search_type": "keyword_fallback",
+                                "embedding_lane": lane_name,
+                            }
+                        )
 
             scored.sort(key=lambda x: x["similarity"], reverse=True)
             return dedupe_results(scored, limit=k)
@@ -576,6 +594,7 @@ class VectorRAG:
     def rebuild_index(self) -> bool:
         try:
             from src.chroma_client import get_chroma_client
+
             client = get_chroma_client()
             try:
                 client.delete_collection(COLLECTION_NAME)
@@ -603,7 +622,7 @@ class VectorRAG:
             self._healthy = False
             return False
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         if not self.healthy:
             return {"error": "Collection not initialized"}
         try:
@@ -633,8 +652,8 @@ class VectorRAG:
     # ------------------------------------------------------------------
 
     def index_personal_documents(
-        self, directory: str, file_extensions: Optional[set] = None, owner: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, directory: str, file_extensions: set | None = None, owner: str | None = None
+    ) -> dict[str, Any]:
         if file_extensions is None:
             file_extensions = DEFAULT_FILE_EXTENSIONS
 
@@ -650,27 +669,28 @@ class VectorRAG:
                         continue
 
                     try:
-                        if ext == '.pdf':
+                        if ext == ".pdf":
                             from src.personal_docs import extract_pdf_text
+
                             content = extract_pdf_text(fpath)
                         else:
-                            with open(fpath, 'r', encoding='utf-8') as f:
+                            with open(fpath, encoding="utf-8") as f:
                                 content = f.read()
 
                         if not content or not content.strip():
                             continue
 
                         meta = {
-                            'source': fpath,
-                            'filename': fname,
-                            'directory': root,
-                            'type': ext,
+                            "source": fpath,
+                            "filename": fname,
+                            "directory": root,
+                            "type": ext,
                         }
                         if owner:
-                            meta['owner'] = owner
+                            meta["owner"] = owner
 
                         for i, chunk in enumerate(self._split_into_chunks(content)):
-                            if self.add_document(chunk, {**meta, 'chunk_id': i}):
+                            if self.add_document(chunk, {**meta, "chunk_id": i}):
                                 indexed += 1
                             else:
                                 failed += 1
@@ -679,16 +699,16 @@ class VectorRAG:
                         failed += 1
 
             return {
-                'success': True,
-                'indexed_count': indexed,
-                'failed_count': failed,
-                'message': f'Indexed {indexed} chunks from {directory}',
+                "success": True,
+                "indexed_count": indexed,
+                "failed_count": failed,
+                "message": f"Indexed {indexed} chunks from {directory}",
             }
         except Exception as e:
             logger.error(f"index_personal_documents {directory}: {e}")
-            return {'success': False, 'indexed_count': indexed, 'failed_count': failed, 'message': str(e)}
+            return {"success": False, "indexed_count": indexed, "failed_count": failed, "message": str(e)}
 
-    def remove_directory(self, directory: str) -> Dict[str, Any]:
+    def remove_directory(self, directory: str) -> dict[str, Any]:
         """Remove all chunks under ``directory`` (recursively), and nothing else.
 
         Selection is a Python-side path-boundary match on each chunk's stored
@@ -729,9 +749,7 @@ class VectorRAG:
             logger.error(f"remove_directory {directory}: {e}")
             return {"success": False, "message": str(e)}
 
-    def reindex_directory(
-        self, directory: str, file_extensions: Optional[set] = None
-    ) -> Dict[str, Any]:
+    def reindex_directory(self, directory: str, file_extensions: set | None = None) -> dict[str, Any]:
         remove_result = self.remove_directory(directory)
         if not remove_result.get("success"):
             return remove_result
@@ -751,20 +769,18 @@ class VectorRAG:
     # Sentence-boundary-aware chunking
     # ------------------------------------------------------------------
 
-    def _split_into_chunks(
-        self, text: str, chunk_size: int = 1000, overlap: int = 200
-    ) -> List[str]:
+    def _split_into_chunks(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> list[str]:
         if not text:
             return []
         if len(text) <= chunk_size:
             return [text]
 
         # Split into sentences first
-        sentences = re.split(r'(?<=[.!?])\s+|\n{2,}', text)
+        sentences = re.split(r"(?<=[.!?])\s+|\n{2,}", text)
         sentences = [s.strip() for s in sentences if s.strip()]
 
-        chunks: List[str] = []
-        current_chunk: List[str] = []
+        chunks: list[str] = []
+        current_chunk: list[str] = []
         current_len = 0
 
         for sentence in sentences:
@@ -774,19 +790,19 @@ class VectorRAG:
             if sent_len > chunk_size:
                 # Flush current chunk first
                 if current_chunk:
-                    chunks.append(' '.join(current_chunk))
+                    chunks.append(" ".join(current_chunk))
                     current_chunk = []
                     current_len = 0
 
                 # Hard-split the long sentence
                 for start in range(0, sent_len, chunk_size - overlap):
-                    chunks.append(sentence[start:start + chunk_size])
+                    chunks.append(sentence[start : start + chunk_size])
                 continue
 
             if current_len + sent_len + 1 > chunk_size and current_chunk:
-                chunks.append(' '.join(current_chunk))
+                chunks.append(" ".join(current_chunk))
                 # Keep last few sentences for overlap
-                overlap_sentences: List[str] = []
+                overlap_sentences: list[str] = []
                 overlap_len = 0
                 for s in reversed(current_chunk):
                     if overlap_len + len(s) > overlap:
@@ -800,7 +816,7 @@ class VectorRAG:
             current_len += sent_len + (1 if current_len > 0 else 0)
 
         if current_chunk:
-            chunks.append(' '.join(current_chunk))
+            chunks.append(" ".join(current_chunk))
 
         return chunks if chunks else [text]
 
@@ -834,14 +850,15 @@ class VectorRAG:
     # Convenience
     # ------------------------------------------------------------------
 
-    def retrieve(self, query: str, k: int = 5) -> List[str]:
-        return [r['document'] for r in self.search(query, k)]
+    def retrieve(self, query: str, k: int = 5) -> list[str]:
+        return [r["document"] for r in self.search(query, k)]
 
 
 # ============================================================
 # RRF HYBRID SEARCH — Phase 15
 # Reciprocal Rank Fusion : fusionne vecteur + BM25 full-text
 # ============================================================
+
 
 def _doc_content(doc) -> str:
     """Extract the searchable text from a result dict.
@@ -860,10 +877,11 @@ def _bm25_search(query: str, documents: list, top_k: int = 10) -> list:
     Retourne [(doc, score)] triés par score décroissant.
     """
     try:
-        from rank_bm25 import BM25Okapi
         import re
 
-        tokenize = lambda text: re.findall(r'\w+', text.lower())
+        from rank_bm25 import BM25Okapi
+
+        tokenize = lambda text: re.findall(r"\w+", text.lower())
         tokenized_docs = [tokenize(_doc_content(doc)) for doc in documents]
 
         bm25 = BM25Okapi(tokenized_docs)
@@ -890,8 +908,7 @@ def _doc_key(doc):
     return ("obj", id(doc))
 
 
-def hybrid_search(query: str, vector_results: list, top_k: int = 10,
-                  alpha: float = 0.5) -> list:
+def hybrid_search(query: str, vector_results: list, top_k: int = 10, alpha: float = 0.5) -> list:
     """Fuse pre-ranked vector results with BM25 over the same docs, via RRF.
 
     ``vector_results`` is the ranked candidate list the caller already produced
@@ -911,9 +928,7 @@ def hybrid_search(query: str, vector_results: list, top_k: int = 10,
         if not vector_results:
             return []
 
-        bm25_results = _bm25_search(
-            query, vector_results, top_k=max(top_k * 2, len(vector_results))
-        )
+        bm25_results = _bm25_search(query, vector_results, top_k=max(top_k * 2, len(vector_results)))
 
         rrf_scores: dict = {}
         docs_by_key: dict = {}

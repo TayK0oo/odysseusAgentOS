@@ -16,11 +16,11 @@ this service instead.
 
 Best-effort: every public method swallows exceptions and logs, never raising.
 """
+
 from __future__ import annotations
 
 import logging
 import os
-from typing import List, Optional
 
 import apprise
 
@@ -74,7 +74,7 @@ class AppriseService:
             logger.exception("Apprise: exception adding channel (%s…)", url[:40])
             return False
 
-    def add_channels(self, urls: List[str]) -> int:
+    def add_channels(self, urls: list[str]) -> int:
         """Register multiple channel URLs.  Returns count of successful adds."""
         ok = 0
         for url in urls:
@@ -94,8 +94,8 @@ class AppriseService:
     async def notify(
         self,
         message: str,
-        title: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        title: str | None = None,
+        tags: list[str] | None = None,
     ) -> bool:
         """Send a notification to all registered channels.
 

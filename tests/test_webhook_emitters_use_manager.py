@@ -8,6 +8,7 @@ delivery task and the GC can collect it before it sends — silently dropping
 the webhook. Catching this with a scan stops a regression from sneaking
 back in via a copy-paste.
 """
+
 import ast
 from pathlib import Path
 

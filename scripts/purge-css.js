@@ -27,7 +27,7 @@ async function main() {
         const newSize = Buffer.byteLength(result.css);
         const reduction = ((1 - newSize / origSize) * 100).toFixed(1);
         console.log(`Purged: ${(origSize/1024).toFixed(0)} KB → ${(newSize/1024).toFixed(0)} KB (${reduction}% reduction)`);
-        
+
         if (result.rejected && result.rejected.length > 0) {
             const rejectedPath = path.join(BASE, 'static/css/style.rejected.json');
             fs.writeFileSync(rejectedPath, JSON.stringify(result.rejected, null, 2));

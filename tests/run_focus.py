@@ -17,6 +17,7 @@ Examples:
 This script imports no production code and changes no test behavior. It only
 constructs and (optionally) executes a pytest invocation.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -59,9 +60,7 @@ def normalize_sub_area(value: str) -> str:
     if token.startswith("sub_"):
         token = token.removeprefix("sub_")
     if not token:
-        raise argparse.ArgumentTypeError(
-            f"invalid sub-area {value!r}: must contain at least one letter or digit"
-        )
+        raise argparse.ArgumentTypeError(f"invalid sub-area {value!r}: must contain at least one letter or digit")
     return token
 
 
@@ -70,11 +69,7 @@ def discover_sub_areas(tests_dir: Path = TESTS_DIR) -> frozenset[str]:
     paths = list(tests_dir.rglob("test_*.py"))
     paths += list(tests_dir.rglob("*_test.py"))
     markers = discover_markers(paths)
-    return frozenset(
-        marker.removeprefix("sub_")
-        for marker in markers
-        if marker.startswith("sub_")
-    )
+    return frozenset(marker.removeprefix("sub_") for marker in markers if marker.startswith("sub_"))
 
 
 def non_negative_int(value: str) -> int:
@@ -99,9 +94,7 @@ def sub_area_type(valid_sub_areas: frozenset[str]) -> Callable[[str], str]:
     def validate(value: str) -> str:
         sub_area = normalize_sub_area(value)
         if sub_area not in valid_sub_areas:
-            raise argparse.ArgumentTypeError(
-                f"unknown sub-area {value!r}; choose a discovered taxonomy sub-area"
-            )
+            raise argparse.ArgumentTypeError(f"unknown sub-area {value!r}; choose a discovered taxonomy sub-area")
         return sub_area
 
     return validate
@@ -134,18 +127,10 @@ class FocusSelection:
         Duration visibility (``durations`` / ``durations_min``) is reporting
         only, not a selector, so it does not count as focus on its own.
         """
-        return bool(
-            self.area
-            or self.sub_area
-            or self.keyword
-            or self.last_failed
-            or self.fast
-        )
+        return bool(self.area or self.sub_area or self.keyword or self.last_failed or self.fast)
 
 
-def build_marker_expression(
-    area: str | None, sub_area: str | None, fast: bool = False
-) -> str | None:
+def build_marker_expression(area: str | None, sub_area: str | None, fast: bool = False) -> str | None:
     """Build the ``-m`` marker expression from area, sub-area, and the fast lane.
 
     The fast lane adds ``not slow`` and composes with any area/sub-area with
@@ -166,9 +151,7 @@ def build_marker_expression(
     return " and ".join(parts)
 
 
-def build_pytest_command(
-    selection: FocusSelection, python: str | None = None
-) -> list[str]:
+def build_pytest_command(selection: FocusSelection, python: str | None = None) -> list[str]:
     """Build the pytest argv list for ``selection``.
 
     No shell is involved; the result is a plain argv list for subprocess. The
@@ -176,9 +159,7 @@ def build_pytest_command(
     invoked as ``.venv/bin/python tests/run_focus.py``).
     """
     command = [python or sys.executable, "-m", "pytest"]
-    marker_expression = build_marker_expression(
-        selection.area, selection.sub_area, selection.fast
-    )
+    marker_expression = build_marker_expression(selection.area, selection.sub_area, selection.fast)
     if marker_expression:
         command += ["-m", marker_expression]
     if selection.keyword:
@@ -312,10 +293,7 @@ def run(
             "--keyword, --last-failed, or --fast (--durations is reporting only)"
         )
     if selection.durations_min is not None and selection.durations is None:
-        parser.error(
-            "--durations-min has no effect without --durations; pass "
-            "--durations N as well"
-        )
+        parser.error("--durations-min has no effect without --durations; pass --durations N as well")
     command = build_pytest_command(selection)
     if namespace.dry_run:
         print(_join_command_line(command))

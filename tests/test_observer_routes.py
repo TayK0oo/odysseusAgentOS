@@ -3,9 +3,11 @@
 GET /api/observer/drift must return the honest Observer.get_summary()
 projection: real drift level, never a fabricated value.
 """
-from fastapi.testclient import TestClient
-from routes.observer_routes import router
+
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from routes.observer_routes import router
 
 
 def _client():

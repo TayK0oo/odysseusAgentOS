@@ -1,6 +1,7 @@
 """Tests for src/orchestrator/loop.py — CanonicalLoop state machine."""
-from src.orchestrator.phases import Phase
+
 from src.orchestrator.loop import CanonicalLoop
+from src.orchestrator.phases import Phase
 
 
 class _FakeRegistry:
@@ -22,7 +23,13 @@ def test_advance_walks_the_sequence():
     while loop.advance():
         seen.append(loop.current)
     assert [p.name for p in seen] == [
-        "CLASSIFY", "KNOW", "PLAN", "BUILD", "QUALITY", "AUTOEVAL", "MEMORY_OBSERVE",
+        "CLASSIFY",
+        "KNOW",
+        "PLAN",
+        "BUILD",
+        "QUALITY",
+        "AUTOEVAL",
+        "MEMORY_OBSERVE",
     ]
 
 

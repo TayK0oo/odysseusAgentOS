@@ -8,19 +8,17 @@ Gated behind ODYSSEUS_CONTENT_SECURITY + ODYSSEUS_TOOL_DISCOVERY kill-switches.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import re
-import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # §5.20 — SÉCURITÉ DES CONTENUS
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def content_security_enabled() -> bool:
     return os.getenv("ODYSSEUS_CONTENT_SECURITY", "off").strip().lower() in {"on", "1", "true", "yes"}
@@ -79,7 +77,7 @@ class ContentSecurityGuard:
                 return False, f"Blocked by output safety pattern: {pattern}"
         return True, ""
 
-    def maybe_remind(self) -> Optional[str]:
+    def maybe_remind(self) -> str | None:
         """Émet un rappel de sécurité si nécessaire (conversation longue)."""
         self.message_count += 1
         if self.message_count % 20 == 0:
@@ -98,6 +96,7 @@ class ContentSecurityGuard:
 # §5.13 — DÉCOUVERTE D'OUTILS
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def tool_discovery_enabled() -> bool:
     return os.getenv("ODYSSEUS_TOOL_DISCOVERY", "off").strip().lower() in {"on", "1", "true", "yes"}
 
@@ -105,23 +104,25 @@ def tool_discovery_enabled() -> bool:
 @dataclass
 class ToolDescriptor:
     """Descripteur d'un outil MCP."""
+
     name: str
     description: str
     category: str
-    keywords: List[str] = field(default_factory=list)
+    keywords: list[str] = field(default_factory=list)
     is_first_party: bool = True
     requires_approval: bool = False
-    schema: Optional[Dict] = None
+    schema: dict | None = None
 
 
 @dataclass
 class ConnectorSuggestion:
     """Suggestion de connecteur externe."""
+
     name: str
     description: str
     category: str
-    install_command: Optional[str] = None
-    mcp_registry_url: Optional[str] = None
+    install_command: str | None = None
+    mcp_registry_url: str | None = None
     is_third_party: bool = False
     confidence: float = 1.0
 
@@ -135,40 +136,39 @@ class ToolDiscovery:
     """
 
     def __init__(self):
-        self.local_tools: Dict[str, ToolDescriptor] = {}
-        self.registry_cache: Dict[str, list] = {}
+        self.local_tools: dict[str, ToolDescriptor] = {}
+        self.registry_cache: dict[str, list] = {}
         self._load_builtin_tools()
 
     def _load_builtin_tools(self) -> None:
         """Charge les outils built-in connus."""
         builtins: list[ToolDescriptor] = [
-            ToolDescriptor("bash", "Exécute des commandes shell", "system",
-                          ["shell", "terminal", "command", "execute", "run"]),
-            ToolDescriptor("python", "Exécute du code Python", "code",
-                          ["python", "script", "code", "run"]),
-            ToolDescriptor("web_search", "Recherche sur le web", "search",
-                          ["search", "web", "google", "internet", "recherche"]),
-            ToolDescriptor("web_fetch", "Récupère le contenu d'une URL", "search",
-                          ["fetch", "url", "http", "page", "site"]),
-            ToolDescriptor("read_file", "Lit un fichier", "filesystem",
-                          ["read", "file", "open", "cat"]),
-            ToolDescriptor("write_file", "Écrit un fichier", "filesystem",
-                          ["write", "create", "save", "new file"]),
-            ToolDescriptor("edit_file", "Modifie un fichier", "filesystem",
-                          ["edit", "modify", "change", "update"]),
-            ToolDescriptor("manage_memory", "Gère la mémoire", "memory",
-                          ["memory", "remember", "forget", "fact"]),
-            ToolDescriptor("manage_calendar", "Gère le calendrier", "calendar",
-                          ["calendar", "event", "schedule", "rdv"]),
-            ToolDescriptor("send_email", "Envoie un email", "email",
-                          ["email", "mail", "send", "message"]),
-            ToolDescriptor("render_diagram", "Génère un diagramme", "design",
-                          ["diagram", "mermaid", "graph", "chart", "visualize"]),
+            ToolDescriptor(
+                "bash", "Exécute des commandes shell", "system", ["shell", "terminal", "command", "execute", "run"]
+            ),
+            ToolDescriptor("python", "Exécute du code Python", "code", ["python", "script", "code", "run"]),
+            ToolDescriptor(
+                "web_search", "Recherche sur le web", "search", ["search", "web", "google", "internet", "recherche"]
+            ),
+            ToolDescriptor(
+                "web_fetch", "Récupère le contenu d'une URL", "search", ["fetch", "url", "http", "page", "site"]
+            ),
+            ToolDescriptor("read_file", "Lit un fichier", "filesystem", ["read", "file", "open", "cat"]),
+            ToolDescriptor("write_file", "Écrit un fichier", "filesystem", ["write", "create", "save", "new file"]),
+            ToolDescriptor("edit_file", "Modifie un fichier", "filesystem", ["edit", "modify", "change", "update"]),
+            ToolDescriptor("manage_memory", "Gère la mémoire", "memory", ["memory", "remember", "forget", "fact"]),
+            ToolDescriptor(
+                "manage_calendar", "Gère le calendrier", "calendar", ["calendar", "event", "schedule", "rdv"]
+            ),
+            ToolDescriptor("send_email", "Envoie un email", "email", ["email", "mail", "send", "message"]),
+            ToolDescriptor(
+                "render_diagram", "Génère un diagramme", "design", ["diagram", "mermaid", "graph", "chart", "visualize"]
+            ),
         ]
         for tool in builtins:
             self.local_tools[tool.name] = tool
 
-    def tool_search(self, query: str, limit: int = 5) -> List[ToolDescriptor]:
+    def tool_search(self, query: str, limit: int = 5) -> list[ToolDescriptor]:
         """Recherche différée d'outils par mot-clé (§5.13.4)."""
         query_lower = query.lower()
         results: list[tuple[float, ToolDescriptor]] = []
@@ -192,32 +192,45 @@ class ToolDiscovery:
         results.sort(key=lambda x: x[0], reverse=True)
         return [r[1] for r in results[:limit]]
 
-    def search_mcp_registry(self, query: str) -> List[ConnectorSuggestion]:
+    def search_mcp_registry(self, query: str) -> list[ConnectorSuggestion]:
         """Recherche dans le registre MCP externe (§5.13.4)."""
         # Simulé — en production, interrogerait un registre MCP réel
         known_services: dict[str, ConnectorSuggestion] = {
             "database": ConnectorSuggestion(
-                "PostgreSQL MCP", "Connecteur PostgreSQL", "database",
+                "PostgreSQL MCP",
+                "Connecteur PostgreSQL",
+                "database",
                 install_command="pip install mcp-postgres",
                 mcp_registry_url="https://registry.modelcontextprotocol.io/servers/postgres",
                 is_third_party=False,
             ),
             "github": ConnectorSuggestion(
-                "GitHub MCP", "Connecteur GitHub API", "devtools",
+                "GitHub MCP",
+                "Connecteur GitHub API",
+                "devtools",
                 install_command="pip install mcp-github",
                 is_third_party=False,
             ),
             "slack": ConnectorSuggestion(
-                "Slack MCP", "Connecteur Slack (partenaire)", "messaging",
-                is_third_party=True, confidence=0.9,
+                "Slack MCP",
+                "Connecteur Slack (partenaire)",
+                "messaging",
+                is_third_party=True,
+                confidence=0.9,
             ),
             "jira": ConnectorSuggestion(
-                "Jira MCP", "Connecteur Jira (partenaire)", "project",
-                is_third_party=True, confidence=0.85,
+                "Jira MCP",
+                "Connecteur Jira (partenaire)",
+                "project",
+                is_third_party=True,
+                confidence=0.85,
             ),
             "notion": ConnectorSuggestion(
-                "Notion MCP", "Connecteur Notion (partenaire)", "docs",
-                is_third_party=True, confidence=0.8,
+                "Notion MCP",
+                "Connecteur Notion (partenaire)",
+                "docs",
+                is_third_party=True,
+                confidence=0.8,
             ),
         }
 
@@ -229,7 +242,7 @@ class ToolDiscovery:
 
         return results
 
-    def suggest_connectors(self, task_description: str) -> List[ConnectorSuggestion]:
+    def suggest_connectors(self, task_description: str) -> list[ConnectorSuggestion]:
         """Suggère des connecteurs pertinents pour une tâche (§5.13.4)."""
         suggestions: list[ConnectorSuggestion] = []
 
@@ -263,8 +276,8 @@ class ToolDiscovery:
 # SINGLETONS
 # ═══════════════════════════════════════════════════════════════════════════
 
-_guard: Optional[ContentSecurityGuard] = None
-_discovery: Optional[ToolDiscovery] = None
+_guard: ContentSecurityGuard | None = None
+_discovery: ToolDiscovery | None = None
 
 
 def get_content_security() -> ContentSecurityGuard:

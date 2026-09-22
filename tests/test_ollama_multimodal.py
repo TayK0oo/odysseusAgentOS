@@ -14,6 +14,7 @@ this conversion the image block silently never reaches the vision model —
 the model reports "I can't see the image" even though it is vision-capable
 and the request succeeded.
 """
+
 from src import llm_core
 
 
@@ -30,7 +31,10 @@ def _multimodal_msg():
 
 def test_ollama_payload_converts_openai_image_blocks_to_native_images_array():
     payload = llm_core._build_ollama_payload(
-        "gemma4:e4b", [_multimodal_msg()], temperature=0.0, max_tokens=0,
+        "gemma4:e4b",
+        [_multimodal_msg()],
+        temperature=0.0,
+        max_tokens=0,
     )
     msg = payload["messages"][0]
     # Content must be a string, not a list — native Ollama rejects lists.

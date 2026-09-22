@@ -120,9 +120,7 @@ def main():
         print("ERROR: psycopg2 is required.  pip install psycopg2-binary")
         sys.exit(1)
 
-    pg_conn = psycopg2.connect(
-        host=host, port=port, dbname=dbname, user=user, password=password
-    )
+    pg_conn = psycopg2.connect(host=host, port=port, dbname=dbname, user=user, password=password)
     pg_conn.autocommit = False
 
     # ------------------------------------------------------------------
@@ -138,7 +136,8 @@ def main():
     # ------------------------------------------------------------------
     # Point DATABASE_URL to the PG target so engine binds correctly
     os.environ["DATABASE_URL"] = pg_url
-    from core.database import Base, engine as sa_engine, DATABASE_URL  # noqa: E402
+    from core.database import Base  # noqa: E402
+    from core.database import engine as sa_engine
 
     # We'll use raw psycopg2 for bulk inserts (faster than ORM).
     # But we need the DDL from SQLAlchemy, so create_all on the PG engine.
@@ -153,14 +152,13 @@ def main():
     # 6. Enumerate tables present in both databases
     # ------------------------------------------------------------------
     sqlite_cursor = sqlite_conn.cursor()
-    sqlite_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'chat_messages_fts%'")
+    sqlite_cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'chat_messages_fts%'"
+    )
     sqlite_tables = [row[0] for row in sqlite_cursor.fetchall()]
 
     with pg_conn.cursor() as cur:
-        cur.execute(
-            "SELECT table_name FROM information_schema.tables "
-            "WHERE table_schema = 'public'"
-        )
+        cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
         pg_tables = {row[0] for row in cur.fetchall()}
 
     tables_to_migrate = [t for t in sqlite_tables if t in pg_tables]

@@ -14,11 +14,11 @@ suggests a native ROLE, never a phantom model id.
 SAFETY / SCOPE: advisory only. OFF by default (`ODYSSEUS_MODEL_ROUTER`); when ON
 it only logs the suggested role. It NEVER overrides the user's chosen model.
 """
+
 from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
 
 from src.intent_gate import classify_intent
 
@@ -48,7 +48,7 @@ def intent_to_role(intent: str) -> str:
     return _INTENT_ROLE_MAP.get(intent, _DEFAULT_ROLE)
 
 
-def advise(user_text: str, stage: Optional[str] = None) -> dict:
+def advise(user_text: str, stage: str | None = None) -> dict:
     """Classify intent and suggest a native role (advisory).
 
     Returns {"intent": str, "stage": str|None, "suggested_role": str}.

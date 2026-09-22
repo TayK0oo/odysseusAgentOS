@@ -1,14 +1,21 @@
 """Trace the exact decision path the system takes."""
-import requests, json, sys
+
+import json
+import sys
+
+import requests
 
 BASE = "http://127.0.0.1:7000"
 
 print("Creating session...")
-r = requests.post(f"{BASE}/api/session", data={
-    "name": "Trace Test",
-    "model": "minimax-m3",
-    "endpoint_url": "https://opencode.ai/zen/go/v1/chat/completions"
-})
+r = requests.post(
+    f"{BASE}/api/session",
+    data={
+        "name": "Trace Test",
+        "model": "minimax-m3",
+        "endpoint_url": "https://opencode.ai/zen/go/v1/chat/completions",
+    },
+)
 if r.status_code != 200:
     print(f"ERROR: {r.status_code} {r.text[:200]}")
     sys.exit(1)
@@ -16,9 +23,11 @@ sid = r.json()["id"]
 print(f"Session: {sid[:8]}...\n")
 
 print("Sending agent message...")
-r = requests.post(f"{BASE}/api/chat_stream",
+r = requests.post(
+    f"{BASE}/api/chat_stream",
     data={"message": "write a python hello.py", "session": sid, "mode": "agent"},
-    stream=True, timeout=120
+    stream=True,
+    timeout=120,
 )
 
 events = []
@@ -27,9 +36,19 @@ for line in r.iter_lines():
         try:
             data = json.loads(line[6:])
             t = data.get("type", "")
-            if t in ["mode_detected", "phase_enter", "phase_exit", "model_info",
-                     "run_status", "metrics", "memories_used", "web_sources",
-                     "budget", "tool_call", "agent_prep"]:
+            if t in [
+                "mode_detected",
+                "phase_enter",
+                "phase_exit",
+                "model_info",
+                "run_status",
+                "metrics",
+                "memories_used",
+                "web_sources",
+                "budget",
+                "tool_call",
+                "agent_prep",
+            ]:
                 events.append(data)
         except:
             pass
@@ -40,19 +59,19 @@ print("=" * 70)
 
 for i, e in enumerate(events):
     t = e.get("type", "")
-    
+
     if t == "model_info":
         print(f"\n[{i}] MODEL SELECTIONNE: {e.get('model')}")
     elif t == "mode_detected":
         mode = e.get("mode")
         print(f"\n[{i}] MODE DETECTE: {mode}")
-        print(f"    -> Decision: {'PIPELINE 7 PHASES' if mode=='agent' else 'CHAT SIMPLE'}")
+        print(f"    -> Decision: {'PIPELINE 7 PHASES' if mode == 'agent' else 'CHAT SIMPLE'}")
     elif t == "phase_enter":
         phase = e.get("phase")
         agents = e.get("agents", [])
         model = e.get("model", "")
         tools = e.get("tools", [])
-        print(f"\n[{i}] PHASE ENTER: {phase} (etape {e.get('index',1)}/{e.get('total',7)})")
+        print(f"\n[{i}] PHASE ENTER: {phase} (etape {e.get('index', 1)}/{e.get('total', 7)})")
         if agents:
             print(f"    -> Agents spawnes: {agents}")
         if model:

@@ -15,11 +15,12 @@ bootstrap_channels() registers nothing and starts nothing, so startup behaviour
 is byte-identical to today. Everything here is best-effort: a broken adapter,
 bus, or bot can never crash the app.
 """
+
 from __future__ import annotations
 
 import logging
 import os
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from src.channel_gateway import (
     ChannelGateway,
@@ -67,9 +68,9 @@ _CHANNEL_SYSTEM_PROMPT = (
 
 async def run_agent_reply(
     message: InboundMessage,
-    agent_call: Optional[Callable] = None,
-    gateway: Optional[ChannelGateway] = None,
-) -> Optional[str]:
+    agent_call: Callable | None = None,
+    gateway: ChannelGateway | None = None,
+) -> str | None:
     """Run the native one-shot agent on ``message.content`` and reply to origin.
 
     The agent call routes through ``task_endpoint.task_llm_call_async``, the shared
@@ -87,6 +88,7 @@ async def run_agent_reply(
 
     if agent_call is None:
         from src.task_endpoint import task_llm_call_async
+
         agent_call = task_llm_call_async
 
     try:
@@ -127,9 +129,9 @@ async def run_agent_reply(
 
 
 def make_inbound_handler(
-    fire_event: Optional[Callable] = None,
-    agent_call: Optional[Callable] = None,
-    gateway: Optional[ChannelGateway] = None,
+    fire_event: Callable | None = None,
+    agent_call: Callable | None = None,
+    gateway: ChannelGateway | None = None,
 ) -> Callable:
     """Build the inbound handler: channel message -> event_bus.fire_event(...).
 
@@ -143,6 +145,7 @@ def make_inbound_handler(
     """
     if fire_event is None:
         from src.event_bus import fire_event as _fire_event
+
         fire_event = _fire_event
 
     async def _handler(message: InboundMessage) -> None:
@@ -158,9 +161,7 @@ def make_inbound_handler(
     return _handler
 
 
-async def deliver_outbound(
-    message: OutboundMessage, gateway: Optional[ChannelGateway] = None
-) -> bool:
+async def deliver_outbound(message: OutboundMessage, gateway: ChannelGateway | None = None) -> bool:
     """Deliver an OutboundMessage via native gateway delivery. Best-effort.
 
     Routes through ChannelGateway.send(), which dispatches to the registered
@@ -183,6 +184,7 @@ def _default_adapter_factory(channel: ChannelType):
     """
     if channel is ChannelType.DISCORD:
         from src.adapters.discord_adapter import DiscordAdapter
+
         chan_id = os.getenv("DISCORD_DEFAULT_CHANNEL_ID")
         return DiscordAdapter(
             bot_token=os.getenv("DISCORD_BOT_TOKEN"),
@@ -190,6 +192,7 @@ def _default_adapter_factory(channel: ChannelType):
         )
     if channel is ChannelType.TELEGRAM:
         from src.adapters.telegram_adapter import TelegramAdapter
+
         chat_id = os.getenv("TELEGRAM_DEFAULT_CHAT_ID")
         return TelegramAdapter(
             bot_token=os.getenv("TELEGRAM_BOT_TOKEN"),
@@ -199,9 +202,9 @@ def _default_adapter_factory(channel: ChannelType):
 
 
 async def bootstrap_channels(
-    gateway: Optional[ChannelGateway] = None,
-    adapter_factory: Optional[Callable[[ChannelType], object]] = None,
-    fire_event: Optional[Callable] = None,
+    gateway: ChannelGateway | None = None,
+    adapter_factory: Callable[[ChannelType], object] | None = None,
+    fire_event: Callable | None = None,
 ) -> list[ChannelType]:
     """Wake the gated in-process channel adapters. Returns the list started.
 

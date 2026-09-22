@@ -5,8 +5,9 @@ Does NOT require a running Meilisearch instance (tests the kill-switch path).
 """
 
 import os
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
 
@@ -24,7 +25,8 @@ def _reset_meili_env():
 
 def test_meilisearch_client_import():
     """Client module imports cleanly regardless of SDK availability."""
-    from services.search.meilisearch_client import is_enabled, search_all
+    from services.search.meilisearch_client import is_enabled
+
     # With kill-switch off, is_enabled should return False
     assert is_enabled() is False
 
@@ -32,6 +34,7 @@ def test_meilisearch_client_import():
 def test_meilisearch_client_disabled_returns_empty():
     """search_all returns empty when kill-switch is off."""
     from services.search.meilisearch_client import search_all
+
     result = search_all("test query")
     assert result["hits"] == []
     assert result["total"] == 0
@@ -43,10 +46,12 @@ def test_fulltext_endpoint_disabled():
     os.environ["ODYSSEUS_MEILISEARCH"] = "off"
     # Force re-evaluation of the module-level _ENABLED
     import services.search.meilisearch_client as mc
+
     mc._ENABLED = False
     mc._client = None
 
     from app import app
+
     client = TestClient(app)
     response = client.get("/api/search/fulltext?q=restaurant")
     assert response.status_code == 200
@@ -60,10 +65,12 @@ def test_fulltext_endpoint_empty_query():
     """GET /api/search/fulltext with no q param returns error."""
     os.environ["ODYSSEUS_MEILISEARCH"] = "off"
     import services.search.meilisearch_client as mc
+
     mc._ENABLED = False
     mc._client = None
 
     from app import app
+
     client = TestClient(app)
     response = client.get("/api/search/fulltext")
     assert response.status_code == 200
@@ -76,6 +83,7 @@ def test_meilisearch_enabled_with_mock():
     """When kill-switch is on and Meilisearch is available, search_all uses it."""
     os.environ["ODYSSEUS_MEILISEARCH"] = "on"
     import services.search.meilisearch_client as mc
+
     mc._ENABLED = True
 
     mock_client = MagicMock()
@@ -101,6 +109,7 @@ def test_index_message_calls_meilisearch():
     """index_message delegates to Meilisearch when enabled."""
     os.environ["ODYSSEUS_MEILISEARCH"] = "on"
     import services.search.meilisearch_client as mc
+
     mc._ENABLED = True
 
     mock_client = MagicMock()

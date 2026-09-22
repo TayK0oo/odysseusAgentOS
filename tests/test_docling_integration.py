@@ -9,15 +9,12 @@ Covers:
 """
 
 import os
-import sys
-from unittest.mock import patch, MagicMock
-
-import pytest
-
+from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------
 # 1. Kill-switch gating
 # ---------------------------------------------------------------------------
+
 
 class TestDoclingKillSwitch:
     """is_docling_enabled() respects ODYSSEUS_DOCLING env var."""
@@ -27,11 +24,13 @@ class TestDoclingKillSwitch:
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("ODYSSEUS_DOCLING", None)
             from src.docling_runtime import is_docling_enabled
+
             assert is_docling_enabled() is False
 
     def test_on_values(self):
         """'on', '1', 'true', 'yes' → enabled."""
         from src.docling_runtime import is_docling_enabled
+
         for val in ("on", "1", "true", "yes", "ON", "True"):
             with patch.dict(os.environ, {"ODYSSEUS_DOCLING": val}):
                 assert is_docling_enabled() is True, f"Expected True for {val!r}"
@@ -39,6 +38,7 @@ class TestDoclingKillSwitch:
     def test_off_values(self):
         """'off', '0', 'false', '', random → disabled."""
         from src.docling_runtime import is_docling_enabled
+
         for val in ("off", "0", "false", "", "no", "garbage"):
             with patch.dict(os.environ, {"ODYSSEUS_DOCLING": val}):
                 assert is_docling_enabled() is False, f"Expected False for {val!r}"
@@ -48,12 +48,14 @@ class TestDoclingKillSwitch:
 # 2. DoclingProcessor availability
 # ---------------------------------------------------------------------------
 
+
 class TestDoclingProcessor:
     """DoclingProcessor graceful degradation."""
 
     def test_unavailable_when_docling_not_installed(self):
         """If docling import fails → available=False, no crash."""
         import services.documents.docling_processor as mod
+
         # Reset singleton
         mod._default_processor = None
         with patch.dict(os.environ, {"ODYSSEUS_DOCLING": "on"}):
@@ -66,6 +68,7 @@ class TestDoclingProcessor:
     def test_available_when_converter_loads(self):
         """If converter loads → available=True."""
         import services.documents.docling_processor as mod
+
         mod._default_processor = None
         fake_converter = MagicMock()
         with patch("src.docling_runtime.load_docling_converter", return_value=fake_converter):
@@ -75,6 +78,7 @@ class TestDoclingProcessor:
     def test_singleton_getter(self):
         """get_docling_processor() caches."""
         import services.documents.docling_processor as mod
+
         mod._default_processor = None
         fake_converter = MagicMock()
         with patch("src.docling_runtime.load_docling_converter", return_value=fake_converter):
@@ -87,12 +91,14 @@ class TestDoclingProcessor:
 # 3. _process_pdf Docling fast-path vs pypdf fallback
 # ---------------------------------------------------------------------------
 
+
 class TestProcessPdfDocling:
     """_process_pdf tries docling first, falls back to pypdf."""
 
     def test_fallback_when_killswitch_off(self):
         """Kill-switch off → pypdf path used (no docling attempt)."""
         from src.document_processor import _process_pdf
+
         # When ODYSSEUS_DOCLING is not set, docling_md stays None
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("ODYSSEUS_DOCLING", None)
@@ -112,6 +118,7 @@ class TestProcessPdfDocling:
     def test_docling_path_used_when_enabled(self):
         """When kill-switch on and docling returns markdown → Docling Markdown marker."""
         from src.document_processor import _process_pdf
+
         with patch.dict(os.environ, {"ODYSSEUS_DOCLING": "on"}):
             with patch("src.docling_runtime.is_docling_enabled", return_value=True):
                 with patch("services.documents.docling_processor.get_docling_processor") as mock_get:
@@ -127,6 +134,7 @@ class TestProcessPdfDocling:
     def test_docling_fallback_on_failure(self):
         """When docling returns None → pypdf path."""
         from src.document_processor import _process_pdf
+
         with patch.dict(os.environ, {"ODYSSEUS_DOCLING": "on"}):
             with patch("src.docling_runtime.is_docling_enabled", return_value=True):
                 with patch("services.documents.docling_processor.get_docling_processor") as mock_get:
@@ -151,17 +159,20 @@ class TestProcessPdfDocling:
 # 4. _CATEGORY_ORDER includes Document Processing
 # ---------------------------------------------------------------------------
 
+
 class TestKillswitchRegistry:
     """Kill-switch registry has the Docling entry."""
 
     def test_docling_switch_registered(self):
         from src.killswitch_registry import read_states
+
         states = read_states()
         env_vars = {s["env_var"] for s in states}
         assert "ODYSSEUS_DOCLING" in env_vars
 
     def test_category_order_includes_doc_processing(self):
         from src.killswitch_registry import categories
+
         cats = categories()
         assert "Document Processing" in cats
 
@@ -169,6 +180,7 @@ class TestKillswitchRegistry:
 # ---------------------------------------------------------------------------
 # 5. services/documents package structure
 # ---------------------------------------------------------------------------
+
 
 class TestPackageStructure:
     """Verify required files exist."""
@@ -192,19 +204,23 @@ class TestPackageStructure:
 # 6. strip_pdf_content_marker unchanged
 # ---------------------------------------------------------------------------
 
+
 class TestStripPdfContentMarker:
     """Existing strip_pdf_content_marker behavior preserved."""
 
     def test_removes_marker(self):
         from src.document_processor import strip_pdf_content_marker
+
         text = "\n\n[PDF content]:\n\n[Page 1 text]:\nHello world"
         result = strip_pdf_content_marker(text)
         assert result == "[Page 1 text]:\nHello world"
 
     def test_none_safe(self):
         from src.document_processor import strip_pdf_content_marker
+
         assert strip_pdf_content_marker(None) == ""
 
     def test_empty_safe(self):
         from src.document_processor import strip_pdf_content_marker
+
         assert strip_pdf_content_marker("") == ""

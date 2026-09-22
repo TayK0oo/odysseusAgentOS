@@ -1026,17 +1026,17 @@ preferences:
 fonction router_sortie(demande):
     si demande_purement_textuelle(demande):
         retourner reponse_texte()
-    
+
     outil_mcp = trouver_outil_mcp_pertinent(demande)
     si outil_mcp:
         retourner utiliser_outil_mcp(outil_mcp)
-    
+
     si demande_fichier_explicite(demande):
         retourner creer_fichier(demande)
-    
+
     si contenu_merite_visualisation(demande):
         retourner visualiser_inline(demande)
-    
+
     retourner reponse_texte()
 ```
 

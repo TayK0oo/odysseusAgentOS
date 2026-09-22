@@ -2,34 +2,35 @@
 Project Manifest — Charge et valide un PROJECT.yaml par projet.
 Définit les budgets, l'objectif, et l'eval_command.
 """
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+
 import yaml
 
 
 @dataclass
 class ProjectBudget:
-    max_tokens: int = 100_000          # tokens totaux pour ce projet
-    max_iterations: int = 50           # rounds d'agent max
-    max_cost_usd: float = 5.0          # coût max en dollars
-    max_tool_calls: int = 200          # tool calls max
-    alert_at_percent: int = 80         # alerte à 80% du budget
+    max_tokens: int = 100_000  # tokens totaux pour ce projet
+    max_iterations: int = 50  # rounds d'agent max
+    max_cost_usd: float = 5.0  # coût max en dollars
+    max_tool_calls: int = 200  # tool calls max
+    alert_at_percent: int = 80  # alerte à 80% du budget
 
 
 @dataclass
 class ProjectManifest:
     name: str
-    objective: str                      # Ce qu'on veut atteindre
-    done_definition: str               # Définition mesurable de "terminé"
+    objective: str  # Ce qu'on veut atteindre
+    done_definition: str  # Définition mesurable de "terminé"
     constraints: list[str] = field(default_factory=list)
     budgets: ProjectBudget = field(default_factory=ProjectBudget)
-    eval_command: Optional[str] = None  # Commande figée (jamais modifiée par l'agent)
-    metric: Optional[str] = None        # Métrique unique (ex: "pytest_pass_rate")
+    eval_command: str | None = None  # Commande figée (jamais modifiée par l'agent)
+    metric: str | None = None  # Métrique unique (ex: "pytest_pass_rate")
     eval_higher_is_better: bool = True
 
 
-def load_manifest(project_dir: str) -> Optional[ProjectManifest]:
+def load_manifest(project_dir: str) -> ProjectManifest | None:
     """Charge PROJECT.yaml depuis un répertoire projet."""
     path = Path(project_dir) / "PROJECT.yaml"
     if not path.exists():

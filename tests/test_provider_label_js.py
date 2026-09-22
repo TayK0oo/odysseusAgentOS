@@ -8,8 +8,8 @@ identified by probing /props during discovery and stored as the endpoint's name.
 The rule here: loopback → "Local"; private-LAN IPs → "Local"; known remote
 provider hosts → their provider name.
 """
+
 import json
-import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -29,26 +29,34 @@ def _provider_label(url: str) -> str | None:
     js = src_runnable + f"\nconsole.log(JSON.stringify(providerLabel({json.dumps(url)})));"
     proc = subprocess.run(
         ["node", "--input-type=module"],
-        input=js, capture_output=True, text=True, encoding="utf-8",
-        cwd=str(_REPO), timeout=30,
+        input=js,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        cwd=str(_REPO),
+        timeout=30,
+        check=False,
     )
     assert proc.returncode == 0, proc.stderr
     return json.loads(proc.stdout.strip())
 
 
 @pytest.mark.skipif(not _HAS_NODE, reason="node binary not on PATH")
-@pytest.mark.parametrize("url,expected", [
-    # Loopback never names the tool from the port — it isn't authoritative.
-    ("http://localhost:8080/v1",      "Local"),
-    ("http://127.0.0.1:8080/v1",      "Local"),
-    ("http://localhost:8000/v1",      "Local"),
-    ("http://localhost:1234/v1",      "Local"),
-    ("http://localhost:11434/api",    "Local"),
-    ("http://localhost:9999/v1",      "Local"),
-    # Known remote provider hosts are still labeled by host suffix.
-    ("https://api.openai.com/v1",     "OpenAI"),
-    ("https://api.groq.com/openai/v1","Groq"),
-    ("http://192.168.1.50:8080",      "Local"),      # private LAN: no port branding
-])
+@pytest.mark.parametrize(
+    "url,expected",
+    [
+        # Loopback never names the tool from the port — it isn't authoritative.
+        ("http://localhost:8080/v1", "Local"),
+        ("http://127.0.0.1:8080/v1", "Local"),
+        ("http://localhost:8000/v1", "Local"),
+        ("http://localhost:1234/v1", "Local"),
+        ("http://localhost:11434/api", "Local"),
+        ("http://localhost:9999/v1", "Local"),
+        # Known remote provider hosts are still labeled by host suffix.
+        ("https://api.openai.com/v1", "OpenAI"),
+        ("https://api.groq.com/openai/v1", "Groq"),
+        ("http://192.168.1.50:8080", "Local"),  # private LAN: no port branding
+    ],
+)
 def test_provider_label_neutral_for_loopback(url, expected):
     assert _provider_label(url) == expected

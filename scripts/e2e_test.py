@@ -1,15 +1,21 @@
 """E2E test v2: real agent pipeline."""
-import requests, json, sys
+
+import sys
+
+import requests
 
 BASE = "http://127.0.0.1:7000"
 
 # 1. Create session (uses Form data, not JSON!)
-print("Creating session...")  
-r = requests.post(f"{BASE}/api/session", data={
-    "name": "E2E Agent Test",
-    "model": "minimax-m3",
-    "endpoint_url": "https://opencode.ai/zen/go/v1/chat/completions"
-})
+print("Creating session...")
+r = requests.post(
+    f"{BASE}/api/session",
+    data={
+        "name": "E2E Agent Test",
+        "model": "minimax-m3",
+        "endpoint_url": "https://opencode.ai/zen/go/v1/chat/completions",
+    },
+)
 print(f"POST /session -> {r.status_code}")
 if r.status_code != 200:
     print(f"ERROR: {r.text[:300]}")
@@ -26,7 +32,8 @@ print(f"\nSENDING agent: {msg}\n")
 r = requests.post(
     f"{BASE}/api/chat_stream",
     data={"message": msg, "session": sid, "mode": "agent", "use_web": "false"},
-    stream=True, timeout=300
+    stream=True,
+    timeout=300,
 )
 
 lc = 0

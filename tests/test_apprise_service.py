@@ -1,6 +1,6 @@
 """Unit tests for services.notifications.apprise_service."""
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+
+from unittest.mock import AsyncMock, patch
 
 import apprise
 import pytest
@@ -72,9 +72,7 @@ async def test_notify_success():
     # Apprise() has __len__ == 0 (falsy) so notify() short-circuits before
     # async_notify — patch __len__ on the class so the guard passes.
     with patch.object(apprise.Apprise, "__len__", return_value=1):
-        with patch.object(
-            svc._apobj, "async_notify", new_callable=AsyncMock, return_value=True
-        ) as mock_notify:
+        with patch.object(svc._apobj, "async_notify", new_callable=AsyncMock, return_value=True) as mock_notify:
             result = await svc.notify("Hello", title="Test", tags=["info"])
     assert result is True
     mock_notify.assert_called_once_with(body="Hello", title="Test", tag=["info"])
@@ -84,9 +82,7 @@ async def test_notify_success():
 async def test_notify_failure():
     svc = AppriseService()
     with patch.object(apprise.Apprise, "__len__", return_value=1):
-        with patch.object(
-            svc._apobj, "async_notify", new_callable=AsyncMock, return_value=False
-        ):
+        with patch.object(svc._apobj, "async_notify", new_callable=AsyncMock, return_value=False):
             result = await svc.notify("fail")
     assert result is False
 
@@ -95,9 +91,7 @@ async def test_notify_failure():
 async def test_notify_exception():
     svc = AppriseService()
     with patch.object(apprise.Apprise, "__len__", return_value=1):
-        with patch.object(
-            svc._apobj, "async_notify", new_callable=AsyncMock, side_effect=RuntimeError("down")
-        ):
+        with patch.object(svc._apobj, "async_notify", new_callable=AsyncMock, side_effect=RuntimeError("down")):
             result = await svc.notify("boom")
     assert result is False
 

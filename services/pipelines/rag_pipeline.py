@@ -9,8 +9,6 @@ from __future__ import annotations
 import logging
 import os
 import sys
-import time
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +19,9 @@ PREFECT_ENABLED = os.getenv("ODYSSEUS_PREFECT", "off").lower() in ("on", "1", "t
 def _lazy_import():
     """Import prefect decorators; raise a clear error if missing."""
     try:
-        from prefect import flow as _flow, task as _task
+        from prefect import flow as _flow
+        from prefect import task as _task
+
         return _flow, _task
     except ImportError:
         raise ImportError(
@@ -97,6 +97,7 @@ def _reindex_collection(client, name: str) -> int:
 
     # Re-embed stale documents using the embedding lane
     from src.embedding_lanes import get_embedding_lanes
+
     lanes = get_embedding_lanes()
     if not lanes:
         logger.warning("No embedding lanes available — skipping reindex for %s", name)
@@ -122,6 +123,7 @@ def _reindex_collection(client, name: str) -> int:
 
 
 # ── Flow (Prefect decorators) ────────────────────────────────────────────
+
 
 def _create_flow():
     flow, task = _lazy_import()
@@ -154,6 +156,7 @@ def get_rag_reindex_flow():
 
 
 # ── CLI entry point ──────────────────────────────────────────────────────
+
 
 def main():
     """Run the reindex directly (no Prefect server needed)."""

@@ -1,5 +1,7 @@
 """Tests for src/orchestrator/registry.py — discovery of agent specs."""
+
 import textwrap
+
 from src.orchestrator.registry import AgentRegistry
 
 

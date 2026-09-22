@@ -7,15 +7,13 @@ run silently reported "The model returned an empty response".
 
 The fix routes every resolved task endpoint through ``_normalize_chat_endpoint``.
 """
+
 from src.task_scheduler import _normalize_chat_endpoint
 
 
 def test_bare_v1_base_gets_chat_completions_suffix():
     # The exact failure case: a bare /v1 base must become a full chat URL.
-    assert (
-        _normalize_chat_endpoint("http://localhost:11434/v1")
-        == "http://localhost:11434/v1/chat/completions"
-    )
+    assert _normalize_chat_endpoint("http://localhost:11434/v1") == "http://localhost:11434/v1/chat/completions"
 
 
 def test_full_chat_url_is_unchanged_idempotent():
@@ -37,7 +35,4 @@ def test_empty_and_none_are_passthrough():
 
 
 def test_trailing_slash_base_normalized():
-    assert (
-        _normalize_chat_endpoint("http://localhost:11434/v1/")
-        == "http://localhost:11434/v1/chat/completions"
-    )
+    assert _normalize_chat_endpoint("http://localhost:11434/v1/") == "http://localhost:11434/v1/chat/completions"

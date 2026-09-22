@@ -1,5 +1,7 @@
 """Tests for src/orchestrator/spec.py — parsing .opencode agent Markdown."""
+
 import textwrap
+
 from src.orchestrator.spec import AgentSpec, parse_agent_spec
 
 
@@ -10,7 +12,10 @@ def _write(tmp_path, name, content):
 
 
 def test_parses_frontmatter_name_and_description(tmp_path):
-    p = _write(tmp_path, "gsd-planner.md", """\
+    p = _write(
+        tmp_path,
+        "gsd-planner.md",
+        """\
         ---
         name: gsd-planner
         description: Creates phase plans from goals.
@@ -18,7 +23,8 @@ def test_parses_frontmatter_name_and_description(tmp_path):
         # Role
 
         The planner does X.
-        """)
+        """,
+    )
     spec = parse_agent_spec(p)
     assert isinstance(spec, AgentSpec)
     assert spec.name == "gsd-planner"
@@ -31,7 +37,10 @@ def test_parses_frontmatter_name_and_description(tmp_path):
 
 
 def test_parses_tools_list(tmp_path):
-    p = _write(tmp_path, "security-audit.md", """\
+    p = _write(
+        tmp_path,
+        "security-audit.md",
+        """\
         ---
         name: security-audit
         description: STRIDE audit.
@@ -41,13 +50,17 @@ def test_parses_tools_list(tmp_path):
         ---
         # Role
         Audit stuff.
-        """)
+        """,
+    )
     spec = parse_agent_spec(p)
     assert spec.tools == ["read_file", "grep"]
 
 
 def test_multiline_folded_description(tmp_path):
-    p = _write(tmp_path, "constitution.md", """\
+    p = _write(
+        tmp_path,
+        "constitution.md",
+        """\
         ---
         name: constitution
         description: >
@@ -55,18 +68,23 @@ def test_multiline_folded_description(tmp_path):
           Run before any agentic workflow.
         ---
         # Body
-        """)
+        """,
+    )
     spec = parse_agent_spec(p)
     assert spec.description.startswith("Constitution agent")
     assert "Run before any agentic workflow." in spec.description
 
 
 def test_no_frontmatter_derives_name_from_filename(tmp_path):
-    p = _write(tmp_path, "open-design.md", """\
+    p = _write(
+        tmp_path,
+        "open-design.md",
+        """\
         # Open Design Agent
 
         Génère des artefacts de design depuis un brief.
-        """)
+        """,
+    )
     spec = parse_agent_spec(p)
     assert spec.name == "open-design"
     assert spec.description == ""
@@ -75,14 +93,18 @@ def test_no_frontmatter_derives_name_from_filename(tmp_path):
 
 
 def test_explicit_model_key_is_read(tmp_path):
-    p = _write(tmp_path, "x.md", """\
+    p = _write(
+        tmp_path,
+        "x.md",
+        """\
         ---
         name: x
         description: d
         model: openai/kimi-k2.7-code
         ---
         body
-        """)
+        """,
+    )
     spec = parse_agent_spec(p)
     assert spec.model == "openai/kimi-k2.7-code"
 

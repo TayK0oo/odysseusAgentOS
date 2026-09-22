@@ -1,15 +1,15 @@
 import pytest
 
 from src.embedding_lanes import (
-    EmbeddingLane,
     LANE_CUSTOM,
     LANE_FASTEMBED,
+    EmbeddingLane,
 )
 from tests.helpers.embedding_lanes import (
+    FailingEmbedder,
     FakeChroma,
     FakeCollection,
     FakeEmbedder,
-    FailingEmbedder,
     patch_chroma,
 )
 
@@ -137,10 +137,12 @@ def test_tool_index_merges_fallback_tool_results_before_limit():
 
     custom_collection.query = lambda **_kwargs: {
         "ids": [["builtin_one", "builtin_two"]],
-        "metadatas": [[
-            {"tool_name": "one", "tool_type": "builtin"},
-            {"tool_name": "two", "tool_type": "builtin"},
-        ]],
+        "metadatas": [
+            [
+                {"tool_name": "one", "tool_type": "builtin"},
+                {"tool_name": "two", "tool_type": "builtin"},
+            ]
+        ],
         "distances": [[0.20, 0.21]],
     }
     fast_collection.query = lambda **_kwargs: {

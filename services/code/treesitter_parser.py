@@ -10,12 +10,13 @@ When OFF, all methods return ``None`` so callers fall back gracefully.
 Languages supported: Python (initial).  Adding JS/Go/Rust/Bash is a
 matter of wiring another ``tree-sitter-<lang>`` grammar.
 """
+
 from __future__ import annotations
 
-import os
 import logging
+import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 _TRUTHY = ("1", "true", "yes", "on")
 _logger = logging.getLogger(__name__)
@@ -32,6 +33,7 @@ def _try_import():
     try:
         import tree_sitter_python as tspython
         from tree_sitter import Language, Parser
+
         return Parser, Language, tspython
     except ImportError:
         return None, None, None
@@ -86,7 +88,7 @@ class TreeSitterService:
     # ── public API ──────────────────────────────────────────────────
 
     @staticmethod
-    def parse_file(filepath: str) -> Optional[dict[str, Any]]:
+    def parse_file(filepath: str) -> dict[str, Any] | None:
         """Parse a source file and return its AST as a nested dict.
 
         Returns ``None`` when the kill-switch is OFF or the file cannot
@@ -111,7 +113,7 @@ class TreeSitterService:
         return _node_to_dict(tree.root_node, source, depth=0, max_depth=4)
 
     @staticmethod
-    def find_functions(filepath: str) -> Optional[list[dict[str, Any]]]:
+    def find_functions(filepath: str) -> list[dict[str, Any]] | None:
         """Extract all function/method definitions with signatures.
 
         Returns a list of dicts: ``{name, line, end_line, params, kind}``.
@@ -131,44 +133,44 @@ class TreeSitterService:
             tree = parser.parse(source)
         except Exception:
             return None
-        query = parser.language.query(
-            "(function_definition name: (identifier) @fn)"
-            if ext == ".py" else ""
-        )
+        query = parser.language.query("(function_definition name: (identifier) @fn)" if ext == ".py" else "")
         if not query:
             # Fallback: walk the tree manually
             return _walk_functions_manual(tree.root_node, source)
         from tree_sitter import QueryCursor
+
         capture_groups = QueryCursor(query).captures(tree.root_node)
         results = []
         text = source.decode("utf-8", errors="replace")
         lines = text.split("\n")
         for node in capture_groups.get("fn", []):
-                # Walk up to find the full function_definition node
+            # Walk up to find the full function_definition node
+            func_node = node
+            while func_node and func_node.type != "function_definition":
+                func_node = func_node.parent
+            if func_node is None:
                 func_node = node
-                while func_node and func_node.type != "function_definition":
-                    func_node = func_node.parent
-                if func_node is None:
-                    func_node = node
-                name = _node_text(node, source)
-                start_line = func_node.start_point[0] + 1
-                end_line = func_node.end_point[0] + 1
-                # Extract parameters
-                params_node = _find_child(func_node, "parameters")
-                params = _node_text(params_node, source).strip("()") if params_node else ""
-                # Check if it's a method (parent is class_definition)
-                kind = "method" if func_node.parent and func_node.parent.type == "class_definition" else "function"
-                results.append({
+            name = _node_text(node, source)
+            start_line = func_node.start_point[0] + 1
+            end_line = func_node.end_point[0] + 1
+            # Extract parameters
+            params_node = _find_child(func_node, "parameters")
+            params = _node_text(params_node, source).strip("()") if params_node else ""
+            # Check if it's a method (parent is class_definition)
+            kind = "method" if func_node.parent and func_node.parent.type == "class_definition" else "function"
+            results.append(
+                {
                     "name": name,
                     "line": start_line,
                     "end_line": end_line,
                     "params": params,
                     "kind": kind,
-                })
+                }
+            )
         return results
 
     @staticmethod
-    def find_callers(filepath: str, function_name: str) -> Optional[list[dict[str, Any]]]:
+    def find_callers(filepath: str, function_name: str) -> list[dict[str, Any]] | None:
         """Find all call sites of ``function_name`` in a file.
 
         Returns a list of dicts: ``{line, column, context}``.
@@ -192,24 +194,25 @@ class TreeSitterService:
         lines = text.split("\n")
         results = []
         if ext == ".py":
-            query = parser.language.query(
-                f"(call function: (identifier) @caller (#eq? @caller {function_name}))"
-            )
+            query = parser.language.query(f"(call function: (identifier) @caller (#eq? @caller {function_name}))")
             from tree_sitter import QueryCursor
+
             capture_groups = QueryCursor(query).captures(tree.root_node)
             for node in capture_groups.get("caller", []):
-                    line_num = node.start_point[0] + 1
-                    col = node.start_point[1]
-                    context = lines[line_num - 1].strip() if line_num <= len(lines) else ""
-                    results.append({
+                line_num = node.start_point[0] + 1
+                col = node.start_point[1]
+                context = lines[line_num - 1].strip() if line_num <= len(lines) else ""
+                results.append(
+                    {
                         "line": line_num,
                         "column": col,
                         "context": context,
-                    })
+                    }
+                )
         return results
 
     @staticmethod
-    def syntax_diff(old_code: str, new_code: str) -> Optional[dict[str, Any]]:
+    def syntax_diff(old_code: str, new_code: str) -> dict[str, Any] | None:
         """Structural diff: identify which functions/classes changed.
 
         Returns ``{changed: [...], added: [...], removed: [...]}`` where
@@ -236,15 +239,14 @@ class TreeSitterService:
             "changed": [
                 {**old_map[n], "new_line": new_map[n]["line"]}
                 for n in old_names & new_names
-                if old_map[n]["line"] != new_map[n]["line"]
-                   or _body_changed(old_map[n], new_map[n], old_code, new_code)
+                if old_map[n]["line"] != new_map[n]["line"] or _body_changed(old_map[n], new_map[n], old_code, new_code)
             ],
             "added": [new_map[n] for n in new_names - old_names],
             "removed": [old_map[n] for n in old_names - new_names],
         }
 
     @staticmethod
-    def extract_symbols(filepath: str) -> Optional[list[dict[str, Any]]]:
+    def extract_symbols(filepath: str) -> list[dict[str, Any]] | None:
         """Extract all top-level symbols (functions, classes, variables).
 
         Returns a list of dicts: ``{name, kind, line, end_line}``.
@@ -294,13 +296,15 @@ def _walk_functions_manual(node, source: bytes, depth: int = 0) -> list[dict[str
         params_node = _find_child(node, "parameters")
         params = _node_text(params_node, source).strip("()") if params_node else ""
         kind = "method" if node.parent and node.parent.type == "class_definition" else "function"
-        results.append({
-            "name": name,
-            "line": node.start_point[0] + 1,
-            "end_line": node.end_point[0] + 1,
-            "params": params,
-            "kind": kind,
-        })
+        results.append(
+            {
+                "name": name,
+                "line": node.start_point[0] + 1,
+                "end_line": node.end_point[0] + 1,
+                "params": params,
+                "kind": kind,
+            }
+        )
     for child in node.children:
         results.extend(_walk_functions_manual(child, source, depth + 1))
     return results
@@ -336,32 +340,38 @@ def _extract_top_symbols(tree, source: bytes, ext: str, parser) -> list[dict[str
             params_node = _find_child(child, "parameters")
             params = _node_text(params_node, source).strip("()") if params_node else ""
             kind = "method" if child.parent and child.parent.type == "class_definition" else "function"
-            results.append({
-                "name": name,
-                "kind": kind,
-                "line": child.start_point[0] + 1,
-                "end_line": child.end_point[0] + 1,
-                "params": params,
-            })
+            results.append(
+                {
+                    "name": name,
+                    "kind": kind,
+                    "line": child.start_point[0] + 1,
+                    "end_line": child.end_point[0] + 1,
+                    "params": params,
+                }
+            )
         elif child.type == "class_definition":
             name_node = _find_child(child, "identifier")
             name = _node_text(name_node, source) if name_node else "<anon>"
-            results.append({
-                "name": name,
-                "kind": "class",
-                "line": child.start_point[0] + 1,
-                "end_line": child.end_point[0] + 1,
-            })
+            results.append(
+                {
+                    "name": name,
+                    "kind": "class",
+                    "line": child.start_point[0] + 1,
+                    "end_line": child.end_point[0] + 1,
+                }
+            )
         elif child.type == "assignment":
             targets = child.children
             if targets:
                 var_name = _node_text(targets[0], source)
-                results.append({
-                    "name": var_name,
-                    "kind": "variable",
-                    "line": child.start_point[0] + 1,
-                    "end_line": child.end_point[0] + 1,
-                })
+                results.append(
+                    {
+                        "name": var_name,
+                        "kind": "variable",
+                        "line": child.start_point[0] + 1,
+                        "end_line": child.end_point[0] + 1,
+                    }
+                )
     return results
 
 

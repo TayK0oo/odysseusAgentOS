@@ -9,16 +9,16 @@ Le workflow émet des événements SSE que le frontend affiche en temps réel :
   - workflow_start / phase_start / agent_result / phase_complete / workflow_complete
   - run_status (cockpit) à chaque transition
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
-import os
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
-from typing import AsyncGenerator, Dict, List, Optional
 
-from src.orchestrator.phases import Phase, CANONICAL_SEQUENCE
+from src.orchestrator.phases import CANONICAL_SEQUENCE, Phase
 
 logger = logging.getLogger(__name__)
 
@@ -31,47 +31,57 @@ logger = logging.getLogger(__name__)
 # "strong"  → deep/reasoning (planner, researcher)
 # "standard"→ default/utility (executor)
 # "fast"    → quick/cheap (verifier, debate, security, constitution)
-MODEL_TIER_BY_ROLE: Dict[str, str] = {
+MODEL_TIER_BY_ROLE: dict[str, str] = {
     "constitution": "fast",
-    "planner":      "strong",
-    "researcher":   "strong",
-    "executor":     "standard",
-    "debugger":     "standard",
-    "debate":       "fast",
-    "security":     "fast",
-    "verifier":     "fast",
-    "edgecase":     "fast",
-    "roadmapper":   "standard",
+    "planner": "strong",
+    "researcher": "strong",
+    "executor": "standard",
+    "debugger": "standard",
+    "debate": "fast",
+    "security": "fast",
+    "verifier": "fast",
+    "edgecase": "fast",
+    "roadmapper": "standard",
 }
 
 # ── Tool sets par rôle ─────────────────────────────────────────────────
-TOOLS_BY_ROLE: Dict[str, List[str]] = {
+TOOLS_BY_ROLE: dict[str, list[str]] = {
     "constitution": ["read_file", "grep", "glob", "ls", "web_search", "web_fetch"],
-    "planner":      ["read_file", "grep", "glob", "ls", "write_file", "web_search", "web_fetch"],
-    "researcher":   ["web_search", "web_fetch", "read_file", "grep", "glob", "ls"],
-    "executor":     ["bash", "python", "write_file", "edit_file", "read_file",
-                      "grep", "glob", "ls", "web_search", "web_fetch"],
-    "debugger":     ["bash", "python", "read_file", "grep", "glob", "ls"],
-    "debate":       ["read_file", "grep", "glob", "ls", "web_search"],
-    "security":     ["read_file", "grep", "glob", "ls", "bash", "web_search"],
-    "verifier":     ["bash", "python", "read_file", "grep", "glob", "ls"],
-    "edgecase":     ["read_file", "grep", "glob", "web_search"],
-    "roadmapper":   ["write_file", "read_file", "grep", "glob", "manage_memory", "update_plan"],
+    "planner": ["read_file", "grep", "glob", "ls", "write_file", "web_search", "web_fetch"],
+    "researcher": ["web_search", "web_fetch", "read_file", "grep", "glob", "ls"],
+    "executor": [
+        "bash",
+        "python",
+        "write_file",
+        "edit_file",
+        "read_file",
+        "grep",
+        "glob",
+        "ls",
+        "web_search",
+        "web_fetch",
+    ],
+    "debugger": ["bash", "python", "read_file", "grep", "glob", "ls"],
+    "debate": ["read_file", "grep", "glob", "ls", "web_search"],
+    "security": ["read_file", "grep", "glob", "ls", "bash", "web_search"],
+    "verifier": ["bash", "python", "read_file", "grep", "glob", "ls"],
+    "edgecase": ["read_file", "grep", "glob", "web_search"],
+    "roadmapper": ["write_file", "read_file", "grep", "glob", "manage_memory", "update_plan"],
 }
 
 # ── Phase → agent(s) ───────────────────────────────────────────────────
-PHASE_AGENTS: Dict[Phase, List[str]] = {
-    Phase.CLASSIFY:        ["constitution"],
-    Phase.KNOW:            [],
-    Phase.PLAN:            ["planner", "researcher"],
-    Phase.BUILD:           ["executor"],
-    Phase.QUALITY:         ["debate", "security"],
-    Phase.AUTOEVAL:        ["verifier", "edgecase"],
-    Phase.MEMORY_OBSERVE:  ["roadmapper"],
+PHASE_AGENTS: dict[Phase, list[str]] = {
+    Phase.CLASSIFY: ["constitution"],
+    Phase.KNOW: [],
+    Phase.PLAN: ["planner", "researcher"],
+    Phase.BUILD: ["executor"],
+    Phase.QUALITY: ["debate", "security"],
+    Phase.AUTOEVAL: ["verifier", "edgecase"],
+    Phase.MEMORY_OBSERVE: ["roadmapper"],
 }
 
 # ── System prompts par rôle ────────────────────────────────────────────
-ROLE_PROMPTS: Dict[str, str] = {
+ROLE_PROMPTS: dict[str, str] = {
     "constitution": (
         "Tu es l'agent Constitution. Ta mission : classifier le risque de "
         "l'objectif utilisateur selon les 10 invariants AgentOS. "
@@ -131,16 +141,17 @@ ROLE_PROMPTS: Dict[str, str] = {
 
 # ── Tier → endpoint prefix ─────────────────────────────────────────────
 # Mapping des tiers de modèle vers les préfixes de resolve_endpoint
-TIER_TO_PREFIX: Dict[str, str] = {
-    "strong":   "utility",   # modèle fort
-    "standard": "default",   # modèle standard
-    "fast":     "utility",   # fallback → utility (moins cher)
+TIER_TO_PREFIX: dict[str, str] = {
+    "strong": "utility",  # modèle fort
+    "standard": "default",  # modèle standard
+    "fast": "utility",  # fallback → utility (moins cher)
 }
 
 
 # ══════════════════════════════════════════════════════════════════════════
 # DATA CLASSES
 # ══════════════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class AgentResult:
@@ -156,14 +167,14 @@ class AgentResult:
 @dataclass
 class PhaseReport:
     phase: str
-    agents: List[AgentResult] = field(default_factory=list)
+    agents: list[AgentResult] = field(default_factory=list)
     summary: str = ""
 
 
 @dataclass
 class WorkflowReport:
     objective: str
-    phases: List[PhaseReport] = field(default_factory=list)
+    phases: list[PhaseReport] = field(default_factory=list)
     final_output: str = ""
     success: bool = False
 
@@ -172,17 +183,17 @@ class WorkflowReport:
 # WORKFLOW
 # ══════════════════════════════════════════════════════════════════════════
 
+
 class MultiAgentWorkflow:
     """Pipeline multi-agent 7 phases avec modèles par rôle et cockpit live."""
 
-    def __init__(self, session_id: str, objective: str,
-                 model: Optional[str] = None, registry=None):
+    def __init__(self, session_id: str, objective: str, model: str | None = None, registry=None):
         self.session_id = session_id
         self.objective = objective
         self.model = model
         self._registry = registry
-        self._context: List[dict] = []
-        self._phase_results: Dict[str, PhaseReport] = {}
+        self._context: list[dict] = []
+        self._phase_results: dict[str, PhaseReport] = {}
         self._phase_count = len([p for p in CANONICAL_SEQUENCE if PHASE_AGENTS.get(p)])
 
     # ── API publique ───────────────────────────────────────────────────
@@ -221,15 +232,16 @@ class MultiAgentWorkflow:
 
             # Lancer tous les agents de cette phase EN PARALLÈLE
             tasks = [self._run_agent(name, phase) for name in agent_names]
-            results: List[AgentResult] = await asyncio.gather(
-                *tasks, return_exceptions=True
-            )
+            results: list[AgentResult] = await asyncio.gather(*tasks, return_exceptions=True)
 
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
                     result = AgentResult(
-                        agent=agent_names[i], role=agent_names[i],
-                        phase=phase.value, success=False, error=str(result),
+                        agent=agent_names[i],
+                        role=agent_names[i],
+                        phase=phase.value,
+                        success=False,
+                        error=str(result),
                     )
                 phase_report.agents.append(result)
 
@@ -241,8 +253,7 @@ class MultiAgentWorkflow:
                     "model": result.model,
                     "success": result.success,
                     "message": (
-                        f"{'✅' if result.success else '❌'} {result.agent} "
-                        f"({result.model}) — {result.output[:150]}"
+                        f"{'✅' if result.success else '❌'} {result.agent} ({result.model}) — {result.output[:150]}"
                     ),
                     "output_preview": result.output[:300] if result.output else "",
                     "error": result.error,
@@ -252,10 +263,12 @@ class MultiAgentWorkflow:
             phase_summary = self._summarize_phase(phase_report)
             phase_report.summary = phase_summary
             self._phase_results[phase.value] = phase_report
-            self._context.append({
-                "role": "system",
-                "content": f"[PHASE {phase.value} COMPLÉTÉE]\n{phase_summary}",
-            })
+            self._context.append(
+                {
+                    "role": "system",
+                    "content": f"[PHASE {phase.value} COMPLÉTÉE]\n{phase_summary}",
+                }
+            )
 
             yield {
                 "type": "phase_complete",
@@ -285,7 +298,7 @@ class MultiAgentWorkflow:
 
     # ── Interne ────────────────────────────────────────────────────────
 
-    def _cockpit_event(self, phase: Optional[Phase], status: str) -> dict:
+    def _cockpit_event(self, phase: Phase | None, status: str) -> dict:
         """Construit un événement cockpit (run_status)."""
         return {
             "type": "run_status",
@@ -313,52 +326,68 @@ class MultiAgentWorkflow:
             messages = [
                 {"role": "system", "content": system_prompt},
                 *self._context[-6:],
-                {"role": "user", "content": (
-                    f"OBJECTIF : {self.objective}\n\n"
-                    f"Phase : {phase.value} | Rôle : {role} | Modèle : {resolved_model}\n"
-                    f"Outils : {', '.join(tools)}\n"
-                    f"Exécute ta mission. Sois concis et actionnable."
-                )},
+                {
+                    "role": "user",
+                    "content": (
+                        f"OBJECTIF : {self.objective}\n\n"
+                        f"Phase : {phase.value} | Rôle : {role} | Modèle : {resolved_model}\n"
+                        f"Outils : {', '.join(tools)}\n"
+                        f"Exécute ta mission. Sois concis et actionnable."
+                    ),
+                },
             ]
 
             logger.info(
                 "[MultiAgent] %s | tier=%s model=%s tools=%d",
-                agent_name, model_tier, resolved_model, len(tools),
+                agent_name,
+                model_tier,
+                resolved_model,
+                len(tools),
             )
 
             result_text = await self._call_llm_with_tools(
-                messages, tools, resolved_model,
+                messages,
+                tools,
+                resolved_model,
             )
 
             return AgentResult(
-                agent=agent_name, role=role, phase=phase.value,
-                model=resolved_model, output=result_text, success=True,
+                agent=agent_name,
+                role=role,
+                phase=phase.value,
+                model=resolved_model,
+                output=result_text,
+                success=True,
             )
 
         except Exception as exc:
             logger.warning("[MultiAgent] %s failed: %s", agent_name, exc)
             return AgentResult(
-                agent=agent_name, role=role, phase=phase.value,
-                model=resolved_model, success=False, error=str(exc),
+                agent=agent_name,
+                role=role,
+                phase=phase.value,
+                model=resolved_model,
+                success=False,
+                error=str(exc),
             )
 
     def _resolve_model_for_tier(self, tier: str) -> str:
         """Résout un modèle pour un tier donné (strong/standard/fast)."""
         try:
             from src.endpoint_resolver import resolve_endpoint
+
             prefix = TIER_TO_PREFIX.get(tier, "default")
             url, model, _ = resolve_endpoint(prefix, owner=self.session_id)
             return model or "unknown"
         except Exception:
             return "unknown"
 
-    async def _call_llm_with_tools(self, messages: list, tool_names: list,
-                                    preferred_model: str = "") -> str:
+    async def _call_llm_with_tools(self, messages: list, tool_names: list, preferred_model: str = "") -> str:
         """Appel LLM multi-turn avec exécution réelle d'outils (jusqu'à 5 tours)."""
-        from src.tool_schemas import FUNCTION_TOOL_SCHEMAS
+        from src.agent_tools import ToolBlock
         from src.task_endpoint import resolve_task_candidates
         from src.tool_execution import execute_tool_block
-        from src.agent_tools import ToolBlock
+        from src.tool_schemas import FUNCTION_TOOL_SCHEMAS
 
         candidates = resolve_task_candidates(owner=self.session_id)
         if not candidates:
@@ -372,7 +401,8 @@ class MultiAgentWorkflow:
         # Filtrer les schémas d'outils
         allowed_tools = set(tool_names)
         tool_schemas = [
-            s for s in FUNCTION_TOOL_SCHEMAS
+            s
+            for s in FUNCTION_TOOL_SCHEMAS
             if (s.get("function", {}).get("name") or s.get("name", "")) in allowed_tools
         ]
 
@@ -428,7 +458,9 @@ class MultiAgentWorkflow:
                 try:
                     block = ToolBlock(tool_type=tool_name, content=tool_content)
                     desc, result = await execute_tool_block(
-                        block, session_id=self.session_id, owner=self.session_id,
+                        block,
+                        session_id=self.session_id,
+                        owner=self.session_id,
                     )
                     tool_output = json.dumps(result) if isinstance(result, dict) else str(result)
                     accumulated_output.append(f"[{tool_name}] {desc}")
@@ -438,11 +470,13 @@ class MultiAgentWorkflow:
                     accumulated_output.append(f"[{tool_name}] ERREUR")
                     logger.warning("[MultiAgent] tool fail: %s → %s", tool_name, tool_exc)
 
-                turn_messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.get("id", f"call_{turn}_{tool_name}"),
-                    "content": tool_output,
-                })
+                turn_messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.get("id", f"call_{turn}_{tool_name}"),
+                        "content": tool_output,
+                    }
+                )
 
         return "\n".join(accumulated_output) if accumulated_output else "[Aucune réponse]"
 
@@ -461,13 +495,15 @@ class MultiAgentWorkflow:
             return args.get("path") or args.get("pattern") or args.get("query") or ""
         return json.dumps(args)
 
-    async def _call_llm_raw(self, url: str, model: str, headers: dict,
-                            messages: list, tools: list) -> Optional[dict]:
+    async def _call_llm_raw(self, url: str, model: str, headers: dict, messages: list, tools: list) -> dict | None:
         """Appel LLM brut avec outils."""
         import httpx
+
         payload = {
-            "model": model, "messages": messages,
-            "temperature": 0.3, "max_tokens": 4096,
+            "model": model,
+            "messages": messages,
+            "temperature": 0.3,
+            "max_tokens": 4096,
         }
         if tools:
             payload["tools"] = tools
@@ -475,7 +511,8 @@ class MultiAgentWorkflow:
 
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
-                url, json=payload,
+                url,
+                json=payload,
                 headers={**headers, "Content-Type": "application/json"},
             )
             if resp.status_code != 200:
@@ -483,13 +520,15 @@ class MultiAgentWorkflow:
                 return None
             return resp.json()
 
-    def _load_agent_prompt(self, agent_name: str) -> Optional[str]:
+    def _load_agent_prompt(self, agent_name: str) -> str | None:
         try:
             from pathlib import Path
+
             agents_dir = Path(__file__).parent.parent.parent / ".opencode" / "agents"
             md_file = agents_dir / f"{agent_name}.md"
             if md_file.exists():
                 from src.orchestrator.spec import parse_agent_spec
+
                 spec = parse_agent_spec(md_file)
                 return spec.prompt or spec.description
         except Exception:

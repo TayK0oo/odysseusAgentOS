@@ -5,10 +5,10 @@ config/phase-lock.yaml) and a set of "forced" tools the loop should encourage
 in that phase. The enforcement itself lives in src/tool_registry.py; this module
 is pure data + helpers.
 """
+
 from __future__ import annotations
 
 from enum import Enum
-from typing import Dict, List
 
 
 class Phase(Enum):
@@ -22,7 +22,7 @@ class Phase(Enum):
 
 
 # Ordered sequence the loop walks through.
-CANONICAL_SEQUENCE: List[Phase] = [
+CANONICAL_SEQUENCE: list[Phase] = [
     Phase.CLASSIFY,
     Phase.KNOW,
     Phase.PLAN,
@@ -35,7 +35,7 @@ CANONICAL_SEQUENCE: List[Phase] = [
 # Map each canonical phase to the phase-lock.yaml enforcement key.
 # Identity mapping today, kept explicit so a future rename of an enforcement
 # profile does not silently break the loop.
-_PHASE_LOCK_NAME: Dict[Phase, str] = {
+_PHASE_LOCK_NAME: dict[Phase, str] = {
     Phase.CLASSIFY: "CLASSIFY",
     Phase.KNOW: "KNOW",
     Phase.PLAN: "PLAN",
@@ -47,7 +47,7 @@ _PHASE_LOCK_NAME: Dict[Phase, str] = {
 
 # Tools the loop should force/encourage per phase (advisory; enforcement of
 # BLOCKED tools is done by the phase-lock config).
-_FORCED_TOOLS: Dict[Phase, List[str]] = {
+_FORCED_TOOLS: dict[Phase, list[str]] = {
     Phase.CLASSIFY: ["risk_classifier"],
     Phase.KNOW: ["memory_search"],
     Phase.PLAN: [],
@@ -62,5 +62,5 @@ def phase_lock_name(phase: Phase) -> str:
     return _PHASE_LOCK_NAME[phase]
 
 
-def forced_tools(phase: Phase) -> List[str]:
+def forced_tools(phase: Phase) -> list[str]:
     return list(_FORCED_TOOLS.get(phase, []))

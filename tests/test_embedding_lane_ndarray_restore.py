@@ -10,6 +10,7 @@ restore and wiping the collection the reset was meant to preserve.
 This mirrors test_lane_reset_restores_existing_collection_when_rewrite_fails
 in test_embedding_lanes.py, but the preserved embeddings come back as ndarray.
 """
+
 import numpy as np
 
 from src.embedding_lanes import build_embedding_lanes

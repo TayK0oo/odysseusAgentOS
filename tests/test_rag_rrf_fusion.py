@@ -7,9 +7,10 @@ never found it, always fell to vector_results=[], and returned [] every time
 ranked vector results in, and hybrid_search fuses them with BM25 (over the same
 docs) via Reciprocal Rank Fusion. These tests pin the new contract.
 """
+
 import pytest
 
-from src.rag_vector import hybrid_search, _rrf_score
+from src.rag_vector import _rrf_score, hybrid_search
 
 
 def _docs():
@@ -58,26 +59,26 @@ def test_rrf_score_monotonic_decreasing():
 
 # ─── Step 2: live-search wiring behind the ODYSSEUS_RRF_FUSION kill-switch ──────
 
+
 def test_rrf_fusion_disabled_by_default(monkeypatch):
     monkeypatch.delenv("ODYSSEUS_RRF_FUSION", raising=False)
     from src.rag_vector import _rrf_fusion_enabled
+
     assert _rrf_fusion_enabled() is False
 
 
 def test_rrf_fusion_enabled_by_env(monkeypatch):
     monkeypatch.setenv("ODYSSEUS_RRF_FUSION", "on")
     from src.rag_vector import _rrf_fusion_enabled
+
     assert _rrf_fusion_enabled() is True
 
 
 def _candidates():
     return [
-        {"id": "a", "similarity": 0.9, "vector_similarity": 0.9,
-         "content": "python programming language guide"},
-        {"id": "b", "similarity": 0.8, "vector_similarity": 0.8,
-         "content": "docker container orchestration platform"},
-        {"id": "c", "similarity": 0.7, "vector_similarity": 0.7,
-         "content": "python web framework tutorial"},
+        {"id": "a", "similarity": 0.9, "vector_similarity": 0.9, "content": "python programming language guide"},
+        {"id": "b", "similarity": 0.8, "vector_similarity": 0.8, "content": "docker container orchestration platform"},
+        {"id": "c", "similarity": 0.7, "vector_similarity": 0.7, "content": "python web framework tutorial"},
     ]
 
 
@@ -85,6 +86,7 @@ def test_rank_candidates_default_is_naive_similarity_order(monkeypatch):
     # Kill-switch OFF → identical to the shipped 0.7/0.3 blend order.
     monkeypatch.delenv("ODYSSEUS_RRF_FUSION", raising=False)
     from src.rag_vector import _rank_candidates
+
     out = _rank_candidates("python framework", _candidates(), k=3)
     assert [c["id"] for c in out] == ["a", "b", "c"]
 
@@ -93,6 +95,7 @@ def test_rank_candidates_rrf_reorders_when_enabled(monkeypatch):
     pytest.importorskip("rank_bm25")
     monkeypatch.setenv("ODYSSEUS_RRF_FUSION", "on")
     from src.rag_vector import _rank_candidates
+
     out = _rank_candidates("python framework", _candidates(), k=3)
     ids = [c["id"] for c in out]
     assert set(ids) == {"a", "b", "c"}

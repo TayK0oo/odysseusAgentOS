@@ -11,20 +11,21 @@ Requires both chromadb-client and qdrant-client.
 
 import argparse
 import os
+import random
 import sys
 import time
-import random
 
 # Ensure project root is on the path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.constants import CHROMA_DIR
 from services.vector.qdrant_store import QdrantVectorStore
+from src.constants import CHROMA_DIR
 
 
 def get_chroma_collections():
     """Return dict of {collection_name: collection} from ChromaDB."""
     from src.chroma_client import get_chroma_client
+
     client = get_chroma_client()
     collections = {}
     for col in client.list_collections():
@@ -86,6 +87,7 @@ def migrate_collection(chroma_col, qdrant: QdrantVectorStore, col_name: str, bat
 def verify_migration(chroma_col, qdrant: QdrantVectorStore, col_name: str, samples: int = 5):
     """Random-sample verification: search both backends, compare results."""
     from src.chroma_client import get_chroma_client
+
     chroma = get_chroma_client()
     col = chroma.get_collection(col_name)
     count = col.count()

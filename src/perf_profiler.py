@@ -1,12 +1,12 @@
 """Performance Profiler — hooks into SSE metrics for live performance tracking."""
-import json, time, os
-from datetime import datetime, timezone
-from pathlib import Path
+
+import os
 from threading import Lock
+
 
 class PerfProfiler:
     """Collects performance metrics from SSE events and Docker stats."""
-    
+
     def __init__(self, baseline_path: str = "obsidian-vault/topics/performance.md"):
         self.baseline_path = baseline_path
         self._lock = Lock()
@@ -23,7 +23,7 @@ class PerfProfiler:
             "baseline": {},
         }
         self._load_baseline()
-    
+
     def _load_baseline(self):
         """Load stored baseline from Obsidian vault."""
         try:
@@ -41,7 +41,7 @@ class PerfProfiler:
             "tps": 54.88,
             "model": "minimax-m3",
         }
-    
+
     def record_llm_metrics(self, data: dict):
         """Record metrics from an SSE metrics event."""
         with self._lock:
@@ -50,20 +50,20 @@ class PerfProfiler:
             model = data.get("model", "unknown")
             latency = data.get("response_time", 0)
             ctx_pct = data.get("context_percent", 0)
-            
+
             if ttft > 0:
                 n = self._metrics["ttft_samples"]
                 self._metrics["ttft_avg"] = (self._metrics["ttft_avg"] * n + ttft) / (n + 1)
                 self._metrics["ttft_samples"] = n + 1
-            
+
             if tps > 0:
                 n = self._metrics["tps_samples"]
                 self._metrics["tps_avg"] = (self._metrics["tps_avg"] * n + tps) / (n + 1)
                 self._metrics["tps_samples"] = n + 1
-            
+
             if ctx_pct > 0:
                 self._metrics["context_percent_avg"] = ctx_pct
-            
+
             if latency > 0:
                 self._metrics["latency_samples"].append(latency)
                 # Keep last 100 samples
@@ -73,16 +73,20 @@ class PerfProfiler:
                 n = len(sorted_lat)
                 self._metrics["latency_p50"] = sorted_lat[n // 2]
                 self._metrics["latency_p95"] = sorted_lat[int(n * 0.95)]
-            
+
             # Check degradation
             baseline_ttft = self._metrics["baseline"].get("ttft", 1.5)
             if ttft > baseline_ttft * 2:
-                return {"alert": "degradation", "metric": "TTFT",
-                        "current": ttft, "baseline": baseline_ttft,
-                        "severity": "warning" if ttft < baseline_ttft * 3 else "error"}
-            
+                return {
+                    "alert": "degradation",
+                    "metric": "TTFT",
+                    "current": ttft,
+                    "baseline": baseline_ttft,
+                    "severity": "warning" if ttft < baseline_ttft * 3 else "error",
+                }
+
             return None
-    
+
     def get_status(self) -> dict:
         """Get current performance status for cockpit."""
         with self._lock:
@@ -97,7 +101,7 @@ class PerfProfiler:
                 "baseline_ttft": self._metrics["baseline"].get("ttft", 1.5),
                 "degradation": self._check_degradation(),
             }
-    
+
     def _check_degradation(self) -> str:
         m = self._metrics
         baseline = m["baseline"].get("ttft", 1.5)

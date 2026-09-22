@@ -7,6 +7,7 @@ Regression: the old split filtered out every empty cell, so an intentionally
 empty interior cell ("| a |  | c |") collapsed the row to 2 columns and
 misaligned it with the header.
 """
+
 import json
 import shutil
 import subprocess
@@ -26,7 +27,13 @@ def _split(row: str):
     """
     proc = subprocess.run(
         ["node", "--input-type=module"],
-        input=js, capture_output=True, text=True, encoding="utf-8", cwd=str(_REPO), timeout=30,
+        input=js,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        cwd=str(_REPO),
+        timeout=30,
+        check=False,
     )
     assert proc.returncode == 0, proc.stderr
     return json.loads(proc.stdout.strip())
@@ -58,7 +65,13 @@ def test_non_string_row_falls_back_to_empty_cell():
     """
     proc = subprocess.run(
         ["node", "--input-type=module"],
-        input=js, capture_output=True, text=True, encoding="utf-8", cwd=str(_REPO), timeout=30,
+        input=js,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        cwd=str(_REPO),
+        timeout=30,
+        check=False,
     )
     assert proc.returncode == 0, proc.stderr
     assert json.loads(proc.stdout.strip()) == [[""], [""]]

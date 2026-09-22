@@ -2,9 +2,9 @@
 Observer — Agrège les signaux d'observabilité et calcule le drift score.
 Sources : BudgetEnforcer (budgets), CodeBurn (one-shot rate, waste), traces JSONL.
 """
+
 import logging
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +36,9 @@ _HARNESS_WRITE_TOOLS = {
 
 
 class DriftLevel(Enum):
-    LOW = "low"       # Légère dérive — continuer
-    MEDIUM = "medium" # Dérive significative — alerte
-    HIGH = "high"     # Harness/protocole touché — re-loop ou escalade
+    LOW = "low"  # Légère dérive — continuer
+    MEDIUM = "medium"  # Dérive significative — alerte
+    HIGH = "high"  # Harness/protocole touché — re-loop ou escalade
 
 
 # Persistent inter-run state — shared across Observer instances so drift
@@ -57,7 +57,7 @@ def reset_observer_state() -> None:
 
 class Observer:
     """Agrège les signaux et calcule le drift score global.
-    
+
     Uses module-level persistent state (_persistent_reports, _persistent_harness_touched)
     so that drift accumulates across runs — a harness touch in run N is visible in run N+1.
     """
@@ -104,7 +104,7 @@ class Observer:
             return
         self._budget_statuses[run_id] = usage_report
 
-    def ingest_metrics(self, metrics: dict, tool_events: Optional[list] = None) -> None:
+    def ingest_metrics(self, metrics: dict, tool_events: list | None = None) -> None:
         """Derive a CodeBurn-style report from existing turn signals (no recompute).
 
         Consumes the ``tool_events`` already assembled for the SSE stream (falling
@@ -127,21 +127,21 @@ class Observer:
             if exit_code is not None and exit_code != 0:
                 failures.append({"tool": ev.get("tool"), "command": ev.get("command")})
             if ev.get("tool") in _HARNESS_WRITE_TOOLS:
-                path_blob = " ".join(
-                    str(ev.get(k, "")) for k in ("command", "diff", "doc_title")
-                ).strip()
+                path_blob = " ".join(str(ev.get(k, "")) for k in ("command", "diff", "doc_title")).strip()
                 if path_blob:
                     touched.append(path_blob)
 
         if total == 0:
             return
 
-        self.record_codeburn_report({
-            "one_shot_rate": (total - len(failures)) / total,
-            "waste_patterns": failures,
-            "touched_files": touched,
-            "source": "agent_metrics",
-        })
+        self.record_codeburn_report(
+            {
+                "one_shot_rate": (total - len(failures)) / total,
+                "waste_patterns": failures,
+                "touched_files": touched,
+                "source": "agent_metrics",
+            }
+        )
 
     def compute_drift_score(self) -> DriftLevel:
         """Calcule le drift score global. HIGH si fichiers harness/protocole touchés."""
@@ -186,9 +186,7 @@ class Observer:
             if max_pct >= status.get("budget", {}).get("alert_at_percent", 80):
                 runs_over_alert.append(run_id)
 
-        latest_codeburn: Optional[dict] = (
-            self._codeburn_reports[-1] if self._codeburn_reports else None
-        )
+        latest_codeburn: dict | None = self._codeburn_reports[-1] if self._codeburn_reports else None
 
         return {
             "drift_level": drift.value,
@@ -196,9 +194,7 @@ class Observer:
             "runs_tracked": len(self._budget_statuses),
             "runs_over_alert_threshold": runs_over_alert,
             "codeburn_reports_count": len(self._codeburn_reports),
-            "latest_codeburn_one_shot_rate": (
-                latest_codeburn.get("one_shot_rate") if latest_codeburn else None
-            ),
+            "latest_codeburn_one_shot_rate": (latest_codeburn.get("one_shot_rate") if latest_codeburn else None),
             "recommendation": _drift_recommendation(drift),
         }
 

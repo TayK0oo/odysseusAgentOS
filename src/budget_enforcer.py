@@ -1,10 +1,12 @@
 """
 Budget Enforcer — Track les tokens/itérations/coûts et coupe la loop si dépassement.
 """
-import threading
+
 import logging
-from dataclasses import dataclass, field
+import threading
+from dataclasses import dataclass
 from typing import Optional
+
 from src.project_manifest import ProjectBudget
 
 logger = logging.getLogger(__name__)
@@ -34,15 +36,11 @@ class BudgetEnforcer:
             self.usage.tokens_used += count
             self.usage.cost_usd += cost_usd
             if self.usage.tokens_used > self.budget.max_tokens:
-                reason = (
-                    f"Token budget exceeded: {self.usage.tokens_used} / {self.budget.max_tokens}"
-                )
+                reason = f"Token budget exceeded: {self.usage.tokens_used} / {self.budget.max_tokens}"
                 logger.warning("[%s] %s", self.run_id, reason)
                 return {"ok": False, "reason": reason}
             if self.usage.cost_usd > self.budget.max_cost_usd:
-                reason = (
-                    f"Cost budget exceeded: ${self.usage.cost_usd:.4f} / ${self.budget.max_cost_usd:.4f}"
-                )
+                reason = f"Cost budget exceeded: ${self.usage.cost_usd:.4f} / ${self.budget.max_cost_usd:.4f}"
                 logger.warning("[%s] %s", self.run_id, reason)
                 return {"ok": False, "reason": reason}
             return {"ok": True, "reason": ""}
@@ -52,9 +50,7 @@ class BudgetEnforcer:
         with self._lock:
             self.usage.iterations += 1
             if self.usage.iterations > self.budget.max_iterations:
-                reason = (
-                    f"Iteration budget exceeded: {self.usage.iterations} / {self.budget.max_iterations}"
-                )
+                reason = f"Iteration budget exceeded: {self.usage.iterations} / {self.budget.max_iterations}"
                 logger.warning("[%s] %s", self.run_id, reason)
                 return {"ok": False, "reason": reason}
             return {"ok": True, "reason": ""}
@@ -64,9 +60,7 @@ class BudgetEnforcer:
         with self._lock:
             self.usage.tool_calls += 1
             if self.usage.tool_calls > self.budget.max_tool_calls:
-                reason = (
-                    f"Tool call budget exceeded: {self.usage.tool_calls} / {self.budget.max_tool_calls}"
-                )
+                reason = f"Tool call budget exceeded: {self.usage.tool_calls} / {self.budget.max_tool_calls}"
                 logger.warning("[%s] %s", self.run_id, reason)
                 return {"ok": False, "reason": reason}
             return {"ok": True, "reason": ""}
@@ -94,8 +88,7 @@ class BudgetEnforcer:
                 if limit <= 0:
                     continue
                 pct = (used / limit) * 100
-                if pct > max_pct:
-                    max_pct = pct
+                max_pct = max(max_pct, pct)
                 if pct > 100:
                     return {
                         "ok": False,
@@ -124,9 +117,7 @@ class BudgetEnforcer:
                 },
                 "percent": {
                     "tokens": round(
-                        (self.usage.tokens_used / self.budget.max_tokens * 100)
-                        if self.budget.max_tokens > 0
-                        else 0,
+                        (self.usage.tokens_used / self.budget.max_tokens * 100) if self.budget.max_tokens > 0 else 0,
                         1,
                     ),
                     "iterations": round(
@@ -136,9 +127,7 @@ class BudgetEnforcer:
                         1,
                     ),
                     "cost_usd": round(
-                        (self.usage.cost_usd / self.budget.max_cost_usd * 100)
-                        if self.budget.max_cost_usd > 0
-                        else 0,
+                        (self.usage.cost_usd / self.budget.max_cost_usd * 100) if self.budget.max_cost_usd > 0 else 0,
                         1,
                     ),
                     "tool_calls": round(
@@ -186,7 +175,7 @@ class BudgetRegistry:
             self._enforcers[run_id] = enforcer
             logger.debug("BudgetRegistry: registered run %s", run_id)
 
-    def get(self, run_id: str) -> Optional[BudgetEnforcer]:
+    def get(self, run_id: str) -> BudgetEnforcer | None:
         with self._lock:
             return self._enforcers.get(run_id)
 
@@ -204,8 +193,6 @@ class BudgetRegistry:
         if not status["ok"]:
             with enforcer._lock:
                 enforcer._paused = True
-            logger.warning(
-                "BudgetRegistry: auto-paused run %s — %s", run_id, status["reason"]
-            )
+            logger.warning("BudgetRegistry: auto-paused run %s — %s", run_id, status["reason"])
             return True
         return False

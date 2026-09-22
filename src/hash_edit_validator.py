@@ -16,14 +16,14 @@ Usage :
     if not result["success"]:
         print("Conflit :", result["error"])
 """
+
 from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import Union
 
 
-def compute_file_hash(path: Union[str, Path]) -> str:
+def compute_file_hash(path: str | Path) -> str:
     """
     Calcule le hash SHA256 du contenu d'un fichier.
 
@@ -54,7 +54,7 @@ def compute_file_hash(path: Union[str, Path]) -> str:
 
 
 def validate_and_edit(
-    path: Union[str, Path],
+    path: str | Path,
     original_hash: str,
     new_content: str,
     encoding: str = "utf-8",
@@ -126,7 +126,7 @@ def validate_and_edit(
 
 
 def safe_edit_workflow(
-    path: Union[str, Path],
+    path: str | Path,
     transform,
     encoding: str = "utf-8",
 ) -> dict:

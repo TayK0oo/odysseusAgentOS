@@ -11,14 +11,15 @@ Everything is behind a default-OFF kill-switch `ODYSSEUS_UNIFIED_TOKENS`
 (mirrors phase_tracker.tracker_enabled). When OFF, behaviour is byte-identical
 to today. Best-effort: token accounting must never raise into the agent loop.
 """
+
 import pytest
 
 from src import trace_writer
 
-
 # ---------------------------------------------------------------------------
 # Kill-switch
 # ---------------------------------------------------------------------------
+
 
 def test_unified_tokens_disabled_by_default(monkeypatch):
     monkeypatch.delenv("ODYSSEUS_UNIFIED_TOKENS", raising=False)
@@ -41,6 +42,7 @@ def test_unified_tokens_disabled_for_falsy_values(monkeypatch, val):
 # Authoritative per-run token registry (writer of truth publishes here)
 # ---------------------------------------------------------------------------
 
+
 def test_record_and_get_run_tokens_roundtrip():
     trace_writer.record_run_tokens("run-x", input_tokens=100, output_tokens=42)
     got = trace_writer.get_run_tokens("run-x")
@@ -58,7 +60,8 @@ def test_record_run_tokens_last_write_wins_for_same_run():
     trace_writer.record_run_tokens("run-y", input_tokens=10, output_tokens=5)
     trace_writer.record_run_tokens("run-y", input_tokens=30, output_tokens=9)
     assert trace_writer.get_run_tokens("run-y") == {
-        "input_tokens": 30, "output_tokens": 9,
+        "input_tokens": 30,
+        "output_tokens": 9,
     }
 
 
@@ -72,8 +75,10 @@ def test_record_run_tokens_never_raises_on_bad_input():
 # accumulate_token_usage reconciliation (secondary writer)
 # ---------------------------------------------------------------------------
 
+
 class _FakeSession:
     """Minimal DBSession row stand-in."""
+
     def __init__(self, sid):
         self.id = sid
         self.total_input_tokens = 0
@@ -112,6 +117,7 @@ class _FakeDB:
 @pytest.fixture
 def patched_helpers(monkeypatch):
     from routes import chat_helpers
+
     row = _FakeSession("sess-1")
     fake_db = _FakeDB(row)
     monkeypatch.setattr(chat_helpers, "SessionLocal", lambda: fake_db)
@@ -127,9 +133,7 @@ def test_accumulate_off_uses_metrics_dict_as_today(monkeypatch, patched_helpers)
     # Poison the registry with different numbers; OFF path must ignore it.
     trace_writer.record_run_tokens("run-off", input_tokens=999, output_tokens=999)
 
-    chat_helpers.accumulate_token_usage(
-        "sess-1", {"input_tokens": 7, "output_tokens": 3, "run_id": "run-off"}
-    )
+    chat_helpers.accumulate_token_usage("sess-1", {"input_tokens": 7, "output_tokens": 3, "run_id": "run-off"})
     assert row.total_input_tokens == 7
     assert row.total_output_tokens == 3
 
@@ -143,9 +147,7 @@ def test_accumulate_on_reconciles_against_authoritative_totals(monkeypatch, patc
     # Writer of truth published these; the dict carries stale/divergent values.
     trace_writer.record_run_tokens("run-on", input_tokens=120, output_tokens=40)
 
-    chat_helpers.accumulate_token_usage(
-        "sess-1", {"input_tokens": 5, "output_tokens": 1, "run_id": "run-on"}
-    )
+    chat_helpers.accumulate_token_usage("sess-1", {"input_tokens": 5, "output_tokens": 1, "run_id": "run-on"})
     assert row.total_input_tokens == 120
     assert row.total_output_tokens == 40
 
@@ -156,9 +158,7 @@ def test_accumulate_on_without_run_id_falls_back_to_dict(monkeypatch, patched_he
     chat_helpers, row, _ = patched_helpers
     monkeypatch.setenv("ODYSSEUS_UNIFIED_TOKENS", "on")
 
-    chat_helpers.accumulate_token_usage(
-        "sess-1", {"input_tokens": 8, "output_tokens": 2}
-    )
+    chat_helpers.accumulate_token_usage("sess-1", {"input_tokens": 8, "output_tokens": 2})
     assert row.total_input_tokens == 8
     assert row.total_output_tokens == 2
 
@@ -168,8 +168,6 @@ def test_accumulate_on_unknown_run_id_falls_back_to_dict(monkeypatch, patched_he
     chat_helpers, row, _ = patched_helpers
     monkeypatch.setenv("ODYSSEUS_UNIFIED_TOKENS", "on")
 
-    chat_helpers.accumulate_token_usage(
-        "sess-1", {"input_tokens": 6, "output_tokens": 4, "run_id": "never-seen"}
-    )
+    chat_helpers.accumulate_token_usage("sess-1", {"input_tokens": 6, "output_tokens": 4, "run_id": "never-seen"})
     assert row.total_input_tokens == 6
     assert row.total_output_tokens == 4

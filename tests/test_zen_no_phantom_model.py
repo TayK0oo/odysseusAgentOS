@@ -7,14 +7,13 @@ if the config lookup ever falls through the router would POST a non-existent
 model to the Zen API. These tests pin a single confirmed default constant and
 prove neither candidate builder can emit a `-free` phantom.
 """
+
 import json
 from pathlib import Path
 
 import src.zen_router as zr
 
-_CATALOG = json.loads(
-    (Path(zr.__file__).parent.parent / "model-routing.json").read_text(encoding="utf-8")
-)
+_CATALOG = json.loads((Path(zr.__file__).parent.parent / "model-routing.json").read_text(encoding="utf-8"))
 _CONFIRMED_IDS = {m["model_id"] for m in _CATALOG["models"].values()}
 
 
@@ -27,8 +26,9 @@ def test_default_model_constant_is_confirmed_and_not_free():
 def test_get_zen_candidate_falls_back_to_confirmed_id_when_model_missing(monkeypatch):
     # Tier dict with NO model_id → the innermost .get default kicks in.
     cfg = {
-        "providers": {"opencode_zen": {"enabled": True, "base_url": "https://json/zen",
-                                       "api_key_env": "OPENCODE_API_KEY"}},
+        "providers": {
+            "opencode_zen": {"enabled": True, "base_url": "https://json/zen", "api_key_env": "OPENCODE_API_KEY"}
+        },
         "models": {"fast": {"fallback": []}},
     }
     monkeypatch.setattr(zr, "_load_routing_config", lambda: cfg)
@@ -45,8 +45,9 @@ def test_get_zen_candidate_falls_back_to_confirmed_id_when_model_missing(monkeyp
 
 def test_build_zen_candidates_never_emits_free_phantom(monkeypatch):
     cfg = {
-        "providers": {"opencode_zen": {"enabled": True, "base_url": "https://json/zen",
-                                       "api_key_env": "OPENCODE_API_KEY"}},
+        "providers": {
+            "opencode_zen": {"enabled": True, "base_url": "https://json/zen", "api_key_env": "OPENCODE_API_KEY"}
+        },
         "stages": {"chat": "standard"},
         # standard has no model_id; a fallback tier also lacks one.
         "models": {"standard": {"fallback": ["fast"]}, "fast": {"fallback": []}},

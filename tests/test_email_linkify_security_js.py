@@ -18,9 +18,11 @@ def _run(js: str) -> str:
         ["node", "--input-type=module"],
         input=js,
         capture_output=True,
-        text=True, encoding="utf-8",
+        text=True,
+        encoding="utf-8",
         cwd=str(_REPO),
         timeout=30,
+        check=False,
     )
     assert proc.returncode == 0, proc.stderr
     return proc.stdout.strip()

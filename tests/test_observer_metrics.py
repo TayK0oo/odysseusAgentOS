@@ -8,7 +8,8 @@ CodeBurn-style report (one_shot_rate, waste_patterns, touched_files) from the
 tool events and reuses the existing drift machinery — writes to harness files
 still escalate to HIGH; reads (e.g. ``cat`` via bash) do not.
 """
-from src.observer import Observer, DriftLevel, reset_observer_state
+
+from src.observer import DriftLevel, Observer, reset_observer_state
 
 
 def test_clean_run_is_low_drift():
@@ -76,9 +77,7 @@ def test_no_tool_events_is_low_drift():
 def test_pulls_tool_events_from_metrics_when_arg_omitted():
     reset_observer_state()
     obs = Observer()
-    obs.ingest_metrics(
-        {"tool_events": [{"tool": "bash", "command": "x", "exit_code": 1}]}
-    )
+    obs.ingest_metrics({"tool_events": [{"tool": "bash", "command": "x", "exit_code": 1}]})
     summary = obs.get_summary()
     assert summary["codeburn_reports_count"] == 1
 

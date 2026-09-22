@@ -11,7 +11,7 @@ memory_vector.py so integration is a thin adapter.
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     from qdrant_client import QdrantClient
@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _qdrant_enabled() -> bool:
     """Kill-switch check: ODYSSEUS_QDRANT env var."""
     val = os.getenv("ODYSSEUS_QDRANT", "off").strip().lower()
@@ -49,6 +50,7 @@ def _collection_suffix(name: str, suffix: str) -> str:
 # Core store
 # ---------------------------------------------------------------------------
 
+
 class QdrantVectorStore:
     """Async-compatible Qdrant vector store.
 
@@ -56,12 +58,9 @@ class QdrantVectorStore:
     create / upsert / query / search / delete / count / list_collections.
     """
 
-    def __init__(self, url: Optional[str] = None):
+    def __init__(self, url: str | None = None):
         if not QDRANT_AVAILABLE:
-            raise ImportError(
-                "qdrant-client is not installed. "
-                "Install with: pip install qdrant-client"
-            )
+            raise ImportError("qdrant-client is not installed. Install with: pip install qdrant-client")
         if url is None:
             url = os.getenv("VECTOR_QDRANT_URL", "http://localhost:6333")
         self.url = url
@@ -113,7 +112,7 @@ class QdrantVectorStore:
         except Exception:
             return False
 
-    def list_collections(self) -> List[str]:
+    def list_collections(self) -> list[str]:
         try:
             return [c.name for c in self.client.get_collections().collections]
         except Exception:
@@ -133,10 +132,10 @@ class QdrantVectorStore:
     def upsert(
         self,
         collection: str,
-        ids: List[str],
-        vectors: List[List[float]],
-        documents: List[str],
-        metadatas: Optional[List[Dict[str, Any]]] = None,
+        ids: list[str],
+        vectors: list[list[float]],
+        documents: list[str],
+        metadatas: list[dict[str, Any]] | None = None,
     ) -> bool:
         """Upsert points into a collection.
 
@@ -149,15 +148,13 @@ class QdrantVectorStore:
         """
         try:
             points = []
-            for i, (pid, vec, doc) in enumerate(zip(ids, vectors, documents)):
+            for i, (pid, vec, doc) in enumerate(zip(ids, vectors, documents, strict=False)):
                 payload = {"document": doc}
                 if metadatas and i < len(metadatas):
                     payload.update(metadatas[i])
                 # Qdrant point IDs must be int or UUID — hash string IDs.
                 int_id = abs(hash(pid)) % (2**63)
-                points.append(
-                    PointStruct(id=int_id, vector=vec, payload=payload)
-                )
+                points.append(PointStruct(id=int_id, vector=vec, payload=payload))
 
             # Batch in chunks of 100
             for start in range(0, len(points), 100):
@@ -177,10 +174,10 @@ class QdrantVectorStore:
     def search(
         self,
         collection: str,
-        query_vector: List[float],
+        query_vector: list[float],
         limit: int = 10,
-        where: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        where: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         """Search for nearest neighbours.
 
         Returns list of dicts matching the ChromaDB result shape:
@@ -191,9 +188,7 @@ class QdrantVectorStore:
             if where:
                 conditions = []
                 for key, value in where.items():
-                    conditions.append(
-                        FieldCondition(key=key, match=MatchValue(value=value))
-                    )
+                    conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
                 query_filter = Filter(must=conditions)
 
             results = self.client.search(
@@ -206,13 +201,15 @@ class QdrantVectorStore:
             for hit in results:
                 doc = hit.payload.get("document", "")
                 meta = {k: v for k, v in hit.payload.items() if k != "document"}
-                out.append({
-                    "id": str(hit.id),
-                    "document": doc,
-                    "metadata": meta,
-                    "distance": round(1.0 - hit.score, 4),  # convert similarity→distance
-                    "similarity": round(hit.score, 4),
-                })
+                out.append(
+                    {
+                        "id": str(hit.id),
+                        "document": doc,
+                        "metadata": meta,
+                        "distance": round(1.0 - hit.score, 4),  # convert similarity→distance
+                        "similarity": round(hit.score, 4),
+                    }
+                )
             return out
         except Exception as e:
             logger.error("qdrant search failed: %s", e)
@@ -222,40 +219,29 @@ class QdrantVectorStore:
     # Get / delete by ID
     # ------------------------------------------------------------------
 
-    def get_by_ids(
-        self, collection: str, ids: List[str]
-    ) -> Dict[str, List]:
+    def get_by_ids(self, collection: str, ids: list[str]) -> dict[str, list]:
         """Retrieve points by ID.  Returns {"ids": [...], "documents": [...], "metadatas": [...]}."""
         try:
             int_ids = [abs(hash(i)) % (2**63) for i in ids]
-            points = self.client.retrieve(
-                collection_name=collection, ids=int_ids, with_payload=True
-            )
+            points = self.client.retrieve(collection_name=collection, ids=int_ids, with_payload=True)
             id_list = []
             doc_list = []
             meta_list = []
             for pt in points:
                 id_list.append(str(ids[int_ids.index(pt.id)]))
                 doc_list.append(pt.payload.get("document", ""))
-                meta_list.append(
-                    {k: v for k, v in pt.payload.items() if k != "document"}
-                )
+                meta_list.append({k: v for k, v in pt.payload.items() if k != "document"})
             return {"ids": id_list, "documents": doc_list, "metadatas": meta_list}
         except Exception as e:
             logger.error("qdrant get_by_ids failed: %s", e)
             return {"ids": [], "documents": [], "metadatas": []}
 
-    def get_all(
-        self, collection: str, where: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, List]:
+    def get_all(self, collection: str, where: dict[str, Any] | None = None) -> dict[str, list]:
         """Get all points (optionally filtered).  Used for keyword fallback."""
         try:
             scroll_filter = None
             if where:
-                conditions = [
-                    FieldCondition(key=k, match=MatchValue(value=v))
-                    for k, v in where.items()
-                ]
+                conditions = [FieldCondition(key=k, match=MatchValue(value=v)) for k, v in where.items()]
                 scroll_filter = Filter(must=conditions)
 
             points, _ = self.client.scroll(
@@ -270,15 +256,13 @@ class QdrantVectorStore:
             for pt in points:
                 ids.append(str(pt.id))
                 docs.append(pt.payload.get("document", ""))
-                metas.append(
-                    {k: v for k, v in pt.payload.items() if k != "document"}
-                )
+                metas.append({k: v for k, v in pt.payload.items() if k != "document"})
             return {"ids": ids, "documents": docs, "metadatas": metas}
         except Exception as e:
             logger.error("qdrant get_all failed: %s", e)
             return {"ids": [], "documents": [], "metadatas": []}
 
-    def delete_by_ids(self, collection: str, ids: List[str]) -> bool:
+    def delete_by_ids(self, collection: str, ids: list[str]) -> bool:
         try:
             int_ids = [abs(hash(i)) % (2**63) for i in ids]
             self.client.delete(
@@ -290,13 +274,11 @@ class QdrantVectorStore:
             logger.error("qdrant delete failed: %s", e)
             return False
 
-    def update_metadata(
-        self, collection: str, ids: List[str], metadatas: List[Dict[str, Any]]
-    ) -> bool:
+    def update_metadata(self, collection: str, ids: list[str], metadatas: list[dict[str, Any]]) -> bool:
         """Update payload (metadata) for existing points."""
         try:
             int_ids = [abs(hash(i)) % (2**63) for i in ids]
-            for int_id, meta in zip(int_ids, metadatas):
+            for int_id, meta in zip(int_ids, metadatas, strict=False):
                 self.client.set_payload(
                     collection_name=collection,
                     payload=meta,

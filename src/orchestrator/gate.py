@@ -9,12 +9,12 @@ It intentionally does NOT block the explicit destructive TOOLS (delete_file,
 remove_dir, stop_served_model, ...) — those are user-facing operations with
 their own semantics; blocking them would break the product.
 """
+
 from __future__ import annotations
 
 import os
-from typing import Optional
 
-from src.risk_classifier import classify_bash, RiskLevel
+from src.risk_classifier import RiskLevel, classify_bash
 
 # Live shell tools (tool_schemas.py). `run_command` was a phantom alias — no
 # such tool is ever defined or dispatched — so it's dropped from the guard (M3.4).
@@ -35,7 +35,7 @@ def _extract_command(tool_args) -> str:
     return ""
 
 
-def should_block_destructive(tool_name: str, tool_args) -> Optional[str]:
+def should_block_destructive(tool_name: str, tool_args) -> str | None:
     """Return a block reason for catastrophic shell commands, else None.
 
     Pure function: does not read env. Enforcement callers should also check

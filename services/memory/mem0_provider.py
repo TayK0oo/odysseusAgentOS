@@ -9,10 +9,10 @@ Kill-switch: ``ODYSSEUS_MEM0=off`` disables this provider entirely.
 
 from __future__ import annotations
 
-import os
 import logging
+import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 from src.memory_provider import (
@@ -24,11 +24,11 @@ from src.memory_provider import (
 logger = logging.getLogger(__name__)
 
 
-def _env_truthy(value: Optional[str]) -> bool:
+def _env_truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in {"on", "1", "true", "yes"}
 
 
-def _env_falsy(value: Optional[str]) -> bool:
+def _env_falsy(value: str | None) -> bool:
     return (value or "").strip().lower() in {"off", "0", "false", "no"}
 
 
@@ -45,19 +45,15 @@ class Mem0Provider(MemoryProvider):
 
     def __init__(
         self,
-        native_provider: Optional[MemoryProvider] = None,
-        enabled: Optional[bool] = None,
+        native_provider: MemoryProvider | None = None,
+        enabled: bool | None = None,
     ):
         import os as _os
 
         self._native = native_provider
-        self.enabled = (
-            enabled
-            if enabled is not None
-            else not _env_falsy(_os.getenv("ODYSSEUS_MEM0"))
-        )
+        self.enabled = enabled if enabled is not None else not _env_falsy(_os.getenv("ODYSSEUS_MEM0"))
         self._memory: Any = None  # lazily initialised Memory instance
-        self._facts: List[Dict[str, Any]] = []  # in-memory extracted facts
+        self._facts: list[dict[str, Any]] = []  # in-memory extracted facts
 
     # ── Lifecycle ────────────────────────────────────────────────────────
 
@@ -71,7 +67,7 @@ class Mem0Provider(MemoryProvider):
             # The config dict is passed directly to mem0ai; if the user
             # has MEM0_API_KEY set, mem0ai will use the hosted service
             # instead.
-            config: Dict[str, Any] = {}
+            config: dict[str, Any] = {}
             api_key = os.getenv("MEM0_API_KEY")
             if api_key:
                 config["api_key"] = api_key
@@ -107,10 +103,10 @@ class Mem0Provider(MemoryProvider):
     async def on_session_end(
         self,
         *,
-        session_id: Optional[str] = None,
-        messages: Optional[List[Any]] = None,
+        session_id: str | None = None,
+        messages: list[Any] | None = None,
         outcome: str = "completed",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Auto-extract facts from a completed session's messages."""
         if not self.enabled or not self._memory or not messages:
@@ -122,15 +118,19 @@ class Mem0Provider(MemoryProvider):
             mem0_messages = []
             for msg in messages:
                 if isinstance(msg, dict):
-                    mem0_messages.append({
-                        "role": msg.get("role", "user"),
-                        "content": msg.get("content", ""),
-                    })
+                    mem0_messages.append(
+                        {
+                            "role": msg.get("role", "user"),
+                            "content": msg.get("content", ""),
+                        }
+                    )
                 elif hasattr(msg, "role") and hasattr(msg, "content"):
-                    mem0_messages.append({
-                        "role": getattr(msg, "role", "user"),
-                        "content": getattr(msg, "content", ""),
-                    })
+                    mem0_messages.append(
+                        {
+                            "role": getattr(msg, "role", "user"),
+                            "content": getattr(msg, "content", ""),
+                        }
+                    )
 
             if not mem0_messages:
                 return
@@ -144,15 +144,17 @@ class Mem0Provider(MemoryProvider):
             # Store extracted facts locally for fast retrieval
             if isinstance(result, dict) and "results" in result:
                 for fact in result["results"]:
-                    self._facts.append({
-                        "id": fact.get("id", str(uuid4())),
-                        "text": fact.get("memory", ""),
-                        "event": fact.get("event", "ADD"),
-                        "user_id": user_id,
-                        "session_id": session_id,
-                        "timestamp": int(time.time()),
-                        "score": fact.get("score", 1.0),
-                    })
+                    self._facts.append(
+                        {
+                            "id": fact.get("id", str(uuid4())),
+                            "text": fact.get("memory", ""),
+                            "event": fact.get("event", "ADD"),
+                            "user_id": user_id,
+                            "session_id": session_id,
+                            "timestamp": int(time.time()),
+                            "score": fact.get("score", 1.0),
+                        }
+                    )
 
             logger.debug(
                 "Mem0 extracted facts from session %s (user=%s): %d results",
@@ -165,7 +167,7 @@ class Mem0Provider(MemoryProvider):
 
     # ── Fact search ──────────────────────────────────────────────────────
 
-    async def search_facts(self, query: str, user_id: str = "default") -> List[Dict[str, Any]]:
+    async def search_facts(self, query: str, user_id: str = "default") -> list[dict[str, Any]]:
         """Semantic search across extracted facts."""
         if not self.enabled or not self._memory:
             return []
@@ -187,7 +189,7 @@ class Mem0Provider(MemoryProvider):
             logger.debug("Mem0 search_facts failed: %s", exc)
             return []
 
-    async def get_user_profile(self, user_id: str = "default") -> Dict[str, Any]:
+    async def get_user_profile(self, user_id: str = "default") -> dict[str, Any]:
         """Return consolidated user preferences and facts from Mem0."""
         if not self.enabled or not self._memory:
             return {"user_id": user_id, "facts": [], "count": 0}
@@ -197,12 +199,14 @@ class Mem0Provider(MemoryProvider):
             facts = []
             if isinstance(all_memories, dict) and "results" in all_memories:
                 for r in all_memories["results"]:
-                    facts.append({
-                        "id": r.get("id", ""),
-                        "text": r.get("memory", ""),
-                        "event": r.get("event", "ADD"),
-                        "score": r.get("score", 1.0),
-                    })
+                    facts.append(
+                        {
+                            "id": r.get("id", ""),
+                            "text": r.get("memory", ""),
+                            "event": r.get("event", "ADD"),
+                            "score": r.get("score", 1.0),
+                        }
+                    )
             return {
                 "user_id": user_id,
                 "facts": facts,
@@ -218,11 +222,11 @@ class Mem0Provider(MemoryProvider):
         self,
         text: str,
         *,
-        owner: Optional[str] = None,
-        session_id: Optional[str] = None,
+        owner: str | None = None,
+        session_id: str | None = None,
         category: str = "fact",
         source: str = "user",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> MemoryRecord:
         """Store a fact via Mem0 and also delegate to native provider."""
         user_id = owner or "default"
@@ -263,14 +267,14 @@ class Mem0Provider(MemoryProvider):
         self,
         query: str,
         *,
-        owner: Optional[str] = None,
+        owner: str | None = None,
         top_k: int = 5,
-    ) -> List[MemorySearchHit]:
+    ) -> list[MemorySearchHit]:
         """Search Mem0 facts, fallback to native if available."""
         user_id = owner or "default"
         facts = await self.search_facts(query, user_id)
 
-        hits: List[MemorySearchHit] = []
+        hits: list[MemorySearchHit] = []
         for fact in facts[:top_k]:
             hits.append(
                 MemorySearchHit(
@@ -296,13 +300,13 @@ class Mem0Provider(MemoryProvider):
     async def list_memories(
         self,
         *,
-        owner: Optional[str] = None,
+        owner: str | None = None,
         limit: int = 100,
-    ) -> List[MemoryRecord]:
+    ) -> list[MemoryRecord]:
         """List facts from Mem0 plus native memories."""
         user_id = owner or "default"
         profile = await self.get_user_profile(user_id)
-        records: List[MemoryRecord] = []
+        records: list[MemoryRecord] = []
 
         for fact in profile.get("facts", [])[:limit]:
             records.append(
@@ -322,7 +326,7 @@ class Mem0Provider(MemoryProvider):
 
         return records
 
-    async def delete(self, memory_id: str, *, owner: Optional[str] = None) -> bool:
+    async def delete(self, memory_id: str, *, owner: str | None = None) -> bool:
         """Delete a fact from Mem0 and optionally from native."""
         if self._memory:
             try:
@@ -338,7 +342,7 @@ class Mem0Provider(MemoryProvider):
 
     # ── Tool schemas for agent integration ───────────────────────────────
 
-    def get_tool_schemas(self) -> List[Dict[str, Any]]:
+    def get_tool_schemas(self) -> list[dict[str, Any]]:
         return [
             {
                 "type": "function",
@@ -369,8 +373,7 @@ class Mem0Provider(MemoryProvider):
                 "function": {
                     "name": "mem0_get_profile",
                     "description": (
-                        "Get the consolidated user profile with all extracted facts, "
-                        "preferences, and personal details."
+                        "Get the consolidated user profile with all extracted facts, preferences, and personal details."
                     ),
                     "parameters": {
                         "type": "object",
@@ -386,7 +389,7 @@ class Mem0Provider(MemoryProvider):
             },
         ]
 
-    async def handle_tool_call(self, name: str, arguments: Dict[str, Any]) -> Any:
+    async def handle_tool_call(self, name: str, arguments: dict[str, Any]) -> Any:
         if name == "mem0_search_facts":
             return await self.search_facts(
                 arguments["query"],

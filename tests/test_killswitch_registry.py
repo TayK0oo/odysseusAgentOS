@@ -1,4 +1,3 @@
-import pytest
 from src import killswitch_registry as ksr
 
 

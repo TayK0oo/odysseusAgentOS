@@ -25,9 +25,10 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # Kill-switch: ODYSSEUS_LANGFUSE=off by default
@@ -44,7 +45,7 @@ _LANGFUSE_ENABLED = _check_langfuse_enabled()
 # ---------------------------------------------------------------------------
 # Lazy LangFuse singleton
 # ---------------------------------------------------------------------------
-_client: Any = None   # langfuse.Langfuse instance, or None
+_client: Any = None  # langfuse.Langfuse instance, or None
 
 
 def _get_client():
@@ -54,6 +55,7 @@ def _get_client():
         return _client
     try:
         from langfuse import Langfuse
+
         public_key = os.getenv("LANGFUSE_PUBLIC_KEY", "")
         secret_key = os.getenv("LANGFUSE_SECRET_KEY", "")
         host = os.getenv("LANGFUSE_HOST", "http://localhost:3000")
@@ -80,7 +82,7 @@ def _get_client():
 # When enabled: wraps the function with LangFuse tracing.
 # When disabled: returns the original function unchanged (zero overhead).
 # ---------------------------------------------------------------------------
-def observe(name: Optional[str] = None, **kwargs):
+def observe(name: str | None = None, **kwargs):
     """Decorator that traces an async/sync function via LangFuse.
 
     Handles regular functions, coroutines, and async generators.
@@ -88,16 +90,21 @@ def observe(name: Optional[str] = None, **kwargs):
     the decorator is a transparent pass-through.
     """
     if not _LANGFUSE_ENABLED:
+
         def _passthrough(fn):
             return fn
+
         return _passthrough
 
     try:
         from langfuse.decorators import observe as _lf_observe
+
         return _lf_observe(name=name, **kwargs)
     except ImportError:
+
         def _passthrough(fn):
             return fn
+
         return _passthrough
 
 
@@ -109,10 +116,10 @@ def observe(name: Optional[str] = None, **kwargs):
 async def trace_langfuse(
     name: str,
     *,
-    session_id: Optional[str] = None,
-    user_id: Optional[str] = None,
-    tags: Optional[list] = None,
-    metadata: Optional[dict] = None,
+    session_id: str | None = None,
+    user_id: str | None = None,
+    tags: list | None = None,
+    metadata: dict | None = None,
 ):
     """Async context manager for a LangFuse trace.
 
@@ -150,13 +157,18 @@ async def trace_langfuse(
 
 class _NoOpSpan:
     """Placeholder returned when LangFuse is disabled."""
+
     def update(self, **kwargs):
         pass
+
     def generation(self, **kwargs):
         return self
+
     def span(self, **kwargs):
         return self
+
     def score(self, **kwargs):
         pass
+
     def end(self, **kwargs):
         pass

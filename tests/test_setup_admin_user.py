@@ -67,6 +67,6 @@ def test_main_loads_admin_password_from_env_file(tmp_path, monkeypatch):
 
     data = json.loads(auth_path.read_text(encoding="utf-8"))
     assert "presetuser" in data["users"], data
-    assert bcrypt.checkpw(
-        b"fromenvfile12345", data["users"]["presetuser"]["password_hash"].encode()
-    ), "admin password from .env was ignored; a random one was generated"
+    assert bcrypt.checkpw(b"fromenvfile12345", data["users"]["presetuser"]["password_hash"].encode()), (
+        "admin password from .env was ignored; a random one was generated"
+    )

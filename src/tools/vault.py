@@ -5,16 +5,17 @@ Holds the Bitwarden CLI wrappers (vault_search / vault_get / vault_unlock)
 and their helpers (_load_vault_config, _run_bw).
 ``src.tool_implementations`` re-exports these for backward compatibility.
 """
+
 import json
-from typing import Dict, Optional
 
 from src.constants import VAULT_FILE
 from src.tools._common import _parse_tool_args
 
 
-def _load_vault_config() -> Dict:
+def _load_vault_config() -> dict:
     """Load Vaultwarden config from data/vault.json."""
     from pathlib import Path
+
     p = Path(VAULT_FILE)
     if p.exists():
         try:
@@ -24,17 +25,20 @@ def _load_vault_config() -> Dict:
     return {}
 
 
-async def _run_bw(args: list, session: Optional[str] = None, input_text: Optional[str] = None) -> tuple:
+async def _run_bw(args: list, session: str | None = None, input_text: str | None = None) -> tuple:
     """Run a bw CLI command with optional session + stdin. Returns (stdout, stderr, returncode)."""
     import asyncio
+
     env = {}
     import os as _os
+
     env.update(_os.environ)
     if session:
         env["BW_SESSION"] = session
 
     proc = await asyncio.create_subprocess_exec(
-        "bw", *args,
+        "bw",
+        *args,
         stdin=asyncio.subprocess.PIPE if input_text else None,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -44,7 +48,7 @@ async def _run_bw(args: list, session: Optional[str] = None, input_text: Optiona
     return stdout.decode(errors="replace").strip(), stderr.decode(errors="replace").strip(), proc.returncode
 
 
-async def do_vault_search(content: str, owner: Optional[str] = None) -> Dict:
+async def do_vault_search(content: str, owner: str | None = None) -> dict:
     """Search the vault by keyword. Returns matching item names + URLs, NO passwords."""
     try:
         args = _parse_tool_args(content)
@@ -89,7 +93,7 @@ async def do_vault_search(content: str, owner: Optional[str] = None) -> Dict:
     return {"output": "\n".join(lines), "exit_code": 0}
 
 
-async def do_vault_get(content: str, owner: Optional[str] = None) -> Dict:
+async def do_vault_get(content: str, owner: str | None = None) -> dict:
     """Retrieve a full vault entry (including password) by item ID. Logs access to assistant chat."""
     try:
         args = _parse_tool_args(content)
@@ -122,6 +126,7 @@ async def do_vault_get(content: str, owner: Optional[str] = None) -> Dict:
     # Audit log to assistant chat
     try:
         from src.assistant_log import log_to_assistant
+
         if owner:
             log_to_assistant(
                 owner,
@@ -147,7 +152,7 @@ async def do_vault_get(content: str, owner: Optional[str] = None) -> Dict:
     return {"output": "\n".join(output), "exit_code": 0}
 
 
-async def do_vault_unlock(content: str, owner: Optional[str] = None) -> Dict:
+async def do_vault_unlock(content: str, owner: str | None = None) -> dict:
     """Unlock the vault using a master password. Stores the resulting session key."""
     try:
         args = _parse_tool_args(content)
@@ -169,6 +174,7 @@ async def do_vault_unlock(content: str, owner: Optional[str] = None) -> Dict:
 
     # Save session to vault.json
     from pathlib import Path
+
     p = Path(VAULT_FILE)
     cfg = {}
     if p.exists():
@@ -178,10 +184,12 @@ async def do_vault_unlock(content: str, owner: Optional[str] = None) -> Dict:
             pass
     cfg["session"] = session
     from datetime import datetime as _dt
+
     cfg["unlocked_at"] = _dt.utcnow().isoformat()
     p.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
     try:
         import os as _os
+
         _os.chmod(str(p), 0o600)
     except Exception:
         pass

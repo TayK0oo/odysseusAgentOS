@@ -5,19 +5,21 @@ duck-typed `router` (`.route(intent_category, stage)`) — it does not import an
 concrete router. The redundant ModelRouter was removed (M3.1); callers pass the
 native resolver or leave `router=None` to fall back to the session default.
 """
+
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
-from src.orchestrator.spec import AgentSpec
 from src.orchestrator.loop import CanonicalLoop
+from src.orchestrator.spec import AgentSpec
 
 logger = logging.getLogger(__name__)
 
 
-def resolve_model(spec: AgentSpec, router=None, stage: Optional[str] = None) -> Optional[str]:
+def resolve_model(spec: AgentSpec, router=None, stage: str | None = None) -> str | None:
     """Resolve the LiteLLM model string for an agent.
 
     Priority:
@@ -41,9 +43,9 @@ def resolve_model(spec: AgentSpec, router=None, stage: Optional[str] = None) -> 
 @dataclass
 class DispatchResult:
     agent: str
-    model: Optional[str]
-    phases_run: List[str] = field(default_factory=list)
-    outputs: Dict[str, Any] = field(default_factory=dict)
+    model: str | None
+    phases_run: list[str] = field(default_factory=list)
+    outputs: dict[str, Any] = field(default_factory=dict)
     completed: bool = False
 
 
@@ -54,8 +56,8 @@ def dispatch(
     session_id: str,
     registry=None,
     router=None,
-    stage: Optional[str] = None,
-    runner: Optional[Callable] = None,
+    stage: str | None = None,
+    runner: Callable | None = None,
 ) -> DispatchResult:
     """Run `objective` for `spec` through the canonical 7-phase loop.
 
@@ -74,9 +76,7 @@ def dispatch(
         phase = loop.current
         result.phases_run.append(phase.name)
         if runner is not None:
-            result.outputs[phase.name] = runner(
-                phase=phase, spec=spec, objective=objective, model=model
-            )
+            result.outputs[phase.name] = runner(phase=phase, spec=spec, objective=objective, model=model)
         if not loop.advance():
             break
 

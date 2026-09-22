@@ -1,6 +1,5 @@
 import asyncio
 import os
-from pathlib import Path
 
 from routes import personal_routes
 from tests.helpers.symlink import skip_if_no_symlink

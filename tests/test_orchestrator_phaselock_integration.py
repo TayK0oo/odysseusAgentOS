@@ -1,7 +1,8 @@
 """Integration: CanonicalLoop + real ToolRegistry gates tools per phase."""
-from src.tool_registry import ToolRegistry
-from src.orchestrator.phases import Phase
+
 from src.orchestrator.loop import CanonicalLoop
+from src.orchestrator.phases import Phase
+from src.tool_registry import ToolRegistry
 
 
 def _registry():
@@ -48,5 +49,11 @@ def test_full_walk_sets_phase_each_step():
         loop.apply()
         phases_seen.append(reg.get_phase("itest3"))
     assert phases_seen == [
-        "CLASSIFY", "KNOW", "PLAN", "BUILD", "QUALITY", "AUTOEVAL", "MEMORY_OBSERVE",
+        "CLASSIFY",
+        "KNOW",
+        "PLAN",
+        "BUILD",
+        "QUALITY",
+        "AUTOEVAL",
+        "MEMORY_OBSERVE",
     ]

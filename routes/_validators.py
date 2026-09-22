@@ -2,10 +2,7 @@ import re
 
 from fastapi import HTTPException
 
-
-_REMOTE_HOST_RE = re.compile(
-    r"^(?:[A-Za-z0-9][A-Za-z0-9._-]*@)?[A-Za-z0-9][A-Za-z0-9._-]*$"
-)
+_REMOTE_HOST_RE = re.compile(r"^(?:[A-Za-z0-9][A-Za-z0-9._-]*@)?[A-Za-z0-9][A-Za-z0-9._-]*$")
 _SSH_PORT_RE = re.compile(r"^\d{1,5}$")
 
 

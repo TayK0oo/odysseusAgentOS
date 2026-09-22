@@ -2,12 +2,13 @@
 Governance routes — budgets, heartbeats, goal-ancestry.
 Phase 9 : AgentOS governance layer.
 """
+
 import logging
-from typing import Optional
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from core.database import SessionLocal, Mission, Goal, GoalProject, AgentBudget
+from core.database import AgentBudget, Mission, SessionLocal
 from src.governance import GovernanceManager
 
 logger = logging.getLogger(__name__)
@@ -19,8 +20,9 @@ _manager = GovernanceManager(db_session_factory=SessionLocal)
 
 # ---- Pydantic models ----
 
+
 class HeartbeatUpdate(BaseModel):
-    task_id: Optional[str] = None
+    task_id: str | None = None
     context_snapshot: dict = {}
     checklist: list = []
     last_action: str = ""
@@ -35,6 +37,7 @@ class CreateTaskRequest(BaseModel):
 
 
 # ---- Routes ----
+
 
 @router.get("/budgets")
 async def list_budgets():
@@ -65,7 +68,7 @@ async def list_budgets():
 
 
 @router.get("/budgets/{agent_id}")
-async def get_budget_status(agent_id: str, run_id: Optional[str] = None):
+async def get_budget_status(agent_id: str, run_id: str | None = None):
     """Statut budget d'un agent. Passe ?run_id=... pour un run spécifique."""
     if run_id:
         status = _manager.get_budget_status(run_id)

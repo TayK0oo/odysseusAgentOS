@@ -1,12 +1,12 @@
 /**
  * SFD Central Event Bus — Plugin OpenCode
- * 
+ *
  * 15 families, 62 event types. Covers all master reference files:
  * - 01-SFD: 22 principes, 20 modules
  * - 02-OUTILS: 60 outils, 5 couches
  * - 03-OBJECTIFS: architecture plugins
  * - 04-COUVERTURE: 8 axes
- * 
+ *
  * Every action, decision, error emits a structured event.
  * Consumers: Cockpit UI, Chat UI, Traces JSONL, LangFuse, Alerts, Plugins.
  */
@@ -69,23 +69,23 @@ class EventBus {
       trace_id: data.trace_id || "",
       data,
     };
-    
+
     // Notify subscribers
     const handlers = subscribers.get(type) || [];
     for (const handler of handlers) {
       try { handler(event); } catch (e) { /* never crash on subscriber error */ }
     }
-    
+
     // Also notify wildcard subscribers
     const wildcard = subscribers.get("*") || [];
     for (const handler of wildcard) {
       try { handler(event); } catch (e) {}
     }
-    
+
     // Buffer for JSONL
     this.buffer.push(event);
     if (this.buffer.length > 100) this.flush();
-    
+
     return event;
   }
 
@@ -107,7 +107,7 @@ class EventBus {
 
   /** Get event family info */
   getFamilies() { return EVENT_FAMILIES; }
-  
+
   /** Count total event types */
   getTypeCount() {
     return Object.values(EVENT_FAMILIES).reduce((sum, types) => sum + types.length, 0);
@@ -127,7 +127,7 @@ function getBus(): EventBus {
 // ============================================================================
 export const SFDEventBusPlugin = async (ctx: any) => {
   const b = getBus();
-  
+
   // Log startup
   b.emit("system", "startup", {
     version: "1.0.0",
@@ -166,7 +166,7 @@ export default tool({
   },
   async execute(args: any, context: any) {
     const b = getBus();
-    
+
     if (args.action === "stats") {
       return JSON.stringify({
         families: Object.keys(EVENT_FAMILIES).length,
@@ -174,14 +174,14 @@ export default tool({
         families_detail: EVENT_FAMILIES,
       });
     }
-    
+
     if (args.action === "emit" && args.source && args.type) {
       const data = args.data ? JSON.parse(args.data) : {};
       data.session_id = context.sessionID;
       const event = b.emit(args.source, args.type, data);
       return JSON.stringify({ emitted: true, event_id: event.event_id });
     }
-    
+
     return JSON.stringify({ error: "Invalid action. Use 'stats' or 'emit' with source+type." });
   },
 });

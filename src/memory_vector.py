@@ -10,9 +10,6 @@ Backend selection: ODYSSEUS_QDRANT=on → Qdrant, else ChromaDB.
 
 import logging
 import os
-from typing import List, Dict, Optional
-
-import numpy as np
 
 from src.embedding_lanes import (
     LANE_CUSTOM,
@@ -39,6 +36,7 @@ def _qdrant_store():
         return None
     try:
         from services.vector.qdrant_store import QdrantVectorStore
+
         store = QdrantVectorStore()
         return store if store.healthy else None
     except Exception as e:
@@ -92,12 +90,13 @@ class MemoryVectorStore:
     def healthy(self) -> bool:
         return self._healthy
 
-    def _mem_embed(self, texts: List[str]) -> List[List[float]]:
+    def _mem_embed(self, texts: list[str]) -> list[list[float]]:
         """Embed texts using the first lane or fastembed directly."""
         if self._lanes:
             return self._lanes[0].encode(texts)
         try:
             from fastembed import TextEmbedding
+
             model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
             return [list(v) for v in model.embed(texts)]
         except Exception:
@@ -192,7 +191,7 @@ class MemoryVectorStore:
             except Exception as e:
                 logger.warning(f"memory remove {memory_id}: {e}")
 
-    def search(self, query: str, k: int = 8) -> List[Dict]:
+    def search(self, query: str, k: int = 8) -> list[dict]:
         """Search for the most relevant memory IDs by semantic similarity.
         Returns list of {"memory_id": str, "score": float}."""
         if not self._healthy or self.count() == 0:
@@ -211,11 +210,13 @@ class MemoryVectorStore:
             out = []
             for r in results:
                 mid = r["metadata"].get("memory_id", r["id"])
-                out.append({
-                    "memory_id": mid,
-                    "score": r["similarity"],
-                    "embedding_lane": "qdrant",
-                })
+                out.append(
+                    {
+                        "memory_id": mid,
+                        "score": r["similarity"],
+                        "embedding_lane": "qdrant",
+                    }
+                )
             return dedupe_results(out, id_key="memory_id", limit=k)
 
         # -- ChromaDB path --
@@ -232,17 +233,19 @@ class MemoryVectorStore:
                 )
                 for idx, mid in enumerate(results["ids"][0]):
                     distance = results["distances"][0][idx]
-                    out.append({
-                        "memory_id": mid,
-                        "score": round(1.0 - distance, 4),
-                        "embedding_lane": lane.name,
-                    })
+                    out.append(
+                        {
+                            "memory_id": mid,
+                            "score": round(1.0 - distance, 4),
+                            "embedding_lane": lane.name,
+                        }
+                    )
             except Exception as e:
                 logger.warning("memory search failed in %s lane: %s", lane.name, e)
         out.sort(key=lambda row: (-row["score"], lane_priority.get(row["embedding_lane"], 99)))
         return dedupe_results(out, id_key="memory_id", limit=k)
 
-    def find_similar(self, text: str, threshold: float = 0.92) -> Optional[str]:
+    def find_similar(self, text: str, threshold: float = 0.92) -> str | None:
         """Check if a near-duplicate exists. Returns memory_id if found, else None."""
         if not self._healthy or self.count() == 0:
             return None
@@ -280,7 +283,7 @@ class MemoryVectorStore:
                 logger.warning("memory similarity search failed in %s lane: %s", lane.name, e)
         return None
 
-    def rebuild(self, memories: List[Dict]):
+    def rebuild(self, memories: list[dict]):
         """Rebuild the entire index from a list of memory entries.
         Each entry must have 'id' and 'text' keys."""
         if not self._healthy:
@@ -345,8 +348,8 @@ class MemoryVectorStore:
             # Batch in chunks of 100 to avoid oversized requests
             failed_lanes = set()
             for i in range(0, len(texts), 100):
-                batch_texts = texts[i:i + 100]
-                batch_ids = ids[i:i + 100]
+                batch_texts = texts[i : i + 100]
+                batch_ids = ids[i : i + 100]
                 for lane in self._lanes:
                     if lane.name in failed_lanes:
                         continue
@@ -363,7 +366,7 @@ class MemoryVectorStore:
 
         logger.info(f"MemoryVectorStore rebuilt with {len(ids)} entries across {len(self._lanes)} lanes")
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         if self._qdrant:
             return {
                 "healthy": self.healthy,

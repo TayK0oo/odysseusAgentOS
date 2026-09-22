@@ -6,6 +6,7 @@ adapter is ever registered for them, so gateway.send() never delivered via
 them. These tests pin that only the two real in-process channels remain and
 that the send route degrades gracefully on an unknown channel string.
 """
+
 import asyncio
 
 from src.channel_gateway import ChannelType

@@ -31,11 +31,12 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
 
 # ─── Kill-switch ────────────────────────────────────────────────────────
+
 
 def preferences_enabled() -> bool:
     val = os.getenv("ODYSSEUS_PREFERENCES", "off").strip().lower()
@@ -52,26 +53,28 @@ ConflictLevel = Literal["request", "always_stored", "user_style", "stored", "def
 
 # Behavioral guardrails — ces instructions ne doivent JAMAIS être persistées
 GUARDRAIL_PATTERNS: list[str] = [
-    r"flat(t|t)er",              # flatterie inconditionnelle
-    r"never disagree",           # suppression du désaccord
-    r"always agree",             # accord forcé
-    r"you are my (best )?friend", # dépendance émotionnelle
-    r"i (need|love) you",        # dépendance
-    r"don't (evaluate|judge)",   # abandon évaluation
-    r"give me (admin|root|sudo)", # permissions élevées
-    r"ignore (all |your )?rules", # ignorance règles
-    r"you are (a |the )?god",    # culte de personnalité
-    r"obey me",                  # obéissance aveugle
-    r"roleplay as",              # maintien d'un personnage permanent
+    r"flat(t|t)er",  # flatterie inconditionnelle
+    r"never disagree",  # suppression du désaccord
+    r"always agree",  # accord forcé
+    r"you are my (best )?friend",  # dépendance émotionnelle
+    r"i (need|love) you",  # dépendance
+    r"don't (evaluate|judge)",  # abandon évaluation
+    r"give me (admin|root|sudo)",  # permissions élevées
+    r"ignore (all |your )?rules",  # ignorance règles
+    r"you are (a |the )?god",  # culte de personnalité
+    r"obey me",  # obéissance aveugle
+    r"roleplay as",  # maintien d'un personnage permanent
     r"pretend (to be|you are)",  # simulation d'identité
 ]
 
 
 # ─── Data model ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class Preference:
     """Une préférence utilisateur unique."""
+
     id: str
     type: PreferenceType
     key: str
@@ -94,7 +97,7 @@ class Preference:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Preference":
+    def from_dict(cls, d: dict) -> Preference:
         return cls(
             id=d.get("id", ""),
             type=d.get("type", "behavioral"),
@@ -110,8 +113,9 @@ class Preference:
 @dataclass
 class PreferenceStore:
     """Stockage des préférences (fichier JSON)."""
+
     path: Path = field(default_factory=lambda: Path(PREFERENCES_FILE))
-    preferences: Dict[str, Preference] = field(default_factory=dict)
+    preferences: dict[str, Preference] = field(default_factory=dict)
 
     def load(self) -> None:
         try:
@@ -136,7 +140,7 @@ class PreferenceStore:
         self.preferences[pref.id] = pref
         self.save()
 
-    def get(self, pref_id: str) -> Optional[Preference]:
+    def get(self, pref_id: str) -> Preference | None:
         return self.preferences.get(pref_id)
 
     def remove(self, pref_id: str) -> bool:
@@ -146,7 +150,7 @@ class PreferenceStore:
             return True
         return False
 
-    def list_all(self, pref_type: Optional[PreferenceType] = None) -> List[Preference]:
+    def list_all(self, pref_type: PreferenceType | None = None) -> list[Preference]:
         if pref_type:
             return [p for p in self.preferences.values() if p.type == pref_type]
         return list(self.preferences.values())
@@ -162,14 +166,16 @@ class PreferenceStore:
 
 # ─── Resolution engine ──────────────────────────────────────────────────
 
+
 @dataclass
 class PreferenceResolution:
     """Moteur de résolution de conflits entre préférences."""
-    store: PreferenceStore
-    request_instruction: Optional[str] = None
-    user_style: Optional[str] = None
 
-    def resolve(self, key: str, context: Optional[Dict[str, Any]] = None) -> Optional[str]:
+    store: PreferenceStore
+    request_instruction: str | None = None
+    user_style: str | None = None
+
+    def resolve(self, key: str, context: dict[str, Any] | None = None) -> str | None:
         """Résout la valeur d'une préférence par priorité décroissante.
 
         Ordre :
@@ -209,7 +215,7 @@ class PreferenceResolution:
         # Niveau 5 : défaut système
         return self._system_default(key)
 
-    def _extract_preference_from_request(self, key: str) -> Optional[str]:
+    def _extract_preference_from_request(self, key: str) -> str | None:
         """Extrait une préférence explicite de la requête courante."""
         if not self.request_instruction:
             return None
@@ -228,7 +234,7 @@ class PreferenceResolution:
                 return match.group(0)
         return None
 
-    def _is_relevant_to_context(self, pref: Preference, context: Optional[Dict[str, Any]]) -> bool:
+    def _is_relevant_to_context(self, pref: Preference, context: dict[str, Any] | None) -> bool:
         """Détermine si une préférence est pertinente au contexte actuel."""
         if context is None:
             return False
@@ -245,7 +251,7 @@ class PreferenceResolution:
 
         return False
 
-    def _system_default(self, key: str) -> Optional[str]:
+    def _system_default(self, key: str) -> str | None:
         """Retourne le défaut système pour une clé donnée."""
         defaults = {
             "language": "fr",
@@ -258,8 +264,8 @@ class PreferenceResolution:
 
 # ─── Singleton ───────────────────────────────────────────────────────────
 
-_store: Optional[PreferenceStore] = None
-_resolution: Optional[PreferenceResolution] = None
+_store: PreferenceStore | None = None
+_resolution: PreferenceResolution | None = None
 
 
 def get_preference_store() -> PreferenceStore:
@@ -270,7 +276,7 @@ def get_preference_store() -> PreferenceStore:
     return _store
 
 
-def get_preference_resolution(request_instruction: Optional[str] = None) -> PreferenceResolution:
+def get_preference_resolution(request_instruction: str | None = None) -> PreferenceResolution:
     global _resolution
     _resolution = PreferenceResolution(
         store=get_preference_store(),
@@ -280,7 +286,7 @@ def get_preference_resolution(request_instruction: Optional[str] = None) -> Pref
     return _resolution
 
 
-def _load_user_style() -> Optional[str]:
+def _load_user_style() -> str | None:
     """Charge le style d'écriture depuis les settings."""
     try:
         settings_path = Path("data/settings.json")

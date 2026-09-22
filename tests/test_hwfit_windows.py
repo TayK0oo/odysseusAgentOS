@@ -40,9 +40,9 @@ def test_only_gguf_models_recommended_on_windows():
     recommended there must ship a real GGUF — no vLLM-only AWQ/GPTQ/FP8."""
     catalog = {m["name"]: m for m in get_models()}
     unservable = [
-        r["name"] for r in rank_models(_windows_system(), limit=900)
-        if not (catalog.get(r["name"], {}).get("is_gguf")
-                or catalog.get(r["name"], {}).get("gguf_sources"))
+        r["name"]
+        for r in rank_models(_windows_system(), limit=900)
+        if not (catalog.get(r["name"], {}).get("is_gguf") or catalog.get(r["name"], {}).get("gguf_sources"))
     ]
     assert unservable == [], f"{len(unservable)} non-GGUF models on Windows, e.g. {unservable[:3]}"
 
@@ -85,10 +85,7 @@ def test_remote_windows_probe_uses_encoded_command(monkeypatch):
     def fake_run(cmd):
         calls.append(cmd)
         if isinstance(cmd, str) and "EncodedCommand" in cmd:
-            return (
-                '{"ram_gb":64,"avail_gb":32,"cpu_name":"Test CPU",'
-                '"cpu_cores":8,"arch":64}'
-            )
+            return '{"ram_gb":64,"avail_gb":32,"cpu_name":"Test CPU","cpu_cores":8,"arch":64}'
         return None
 
     monkeypatch.setattr(hardware, "_run", fake_run)

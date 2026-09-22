@@ -19,11 +19,11 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 # ─── Kill-switch ────────────────────────────────────────────────────────
+
 
 def data_classification_enabled() -> bool:
     val = os.getenv("ODYSSEUS_DATA_CLASSIFICATION", "off").strip().lower()
@@ -32,12 +32,13 @@ def data_classification_enabled() -> bool:
 
 # ─── Types ──────────────────────────────────────────────────────────────
 
+
 class RetentionLevel(str, Enum):
-    PUBLIC = "public"           # Illimitée
-    INTERNAL = "internal"       # Workspace + 90 jours
-    PERSONAL = "personal"       # Illimitée (droit à l'oubli)
-    SENSITIVE = "sensitive"     # Session uniquement
-    PROTECTED = "protected"     # Jamais persisté
+    PUBLIC = "public"  # Illimitée
+    INTERNAL = "internal"  # Workspace + 90 jours
+    PERSONAL = "personal"  # Illimitée (droit à l'oubli)
+    SENSITIVE = "sensitive"  # Session uniquement
+    PROTECTED = "protected"  # Jamais persisté
 
 
 @dataclass
@@ -45,55 +46,76 @@ class DataClassified:
     key: str
     level: RetentionLevel
     created_at: float = field(default_factory=time.time)
-    expires_at: Optional[float] = None
-    session_id: Optional[str] = None
+    expires_at: float | None = None
+    session_id: str | None = None
 
 
 # ─── Classification rules ───────────────────────────────────────────────
 
 # Patterns qui déclenchent chaque niveau
-CLASSIFICATION_PATTERNS: Dict[RetentionLevel, List[str]] = {
+CLASSIFICATION_PATTERNS: dict[RetentionLevel, list[str]] = {
     RetentionLevel.PUBLIC: [
-        r"préférence de format", r"langue", r"skills? public",
+        r"préférence de format",
+        r"langue",
+        r"skills? public",
     ],
     RetentionLevel.INTERNAL: [
-        r"plan de projet", r"historique d.exécution", r"décision",
-        r"workflow", r"configuration",
+        r"plan de projet",
+        r"historique d.exécution",
+        r"décision",
+        r"workflow",
+        r"configuration",
     ],
     RetentionLevel.PERSONAL: [
-        r"prénom", r"nom", r"rôle", r"email professionnel",
-        r"préférence culinaire", r"intérêt",
+        r"prénom",
+        r"nom",
+        r"rôle",
+        r"email professionnel",
+        r"préférence culinaire",
+        r"intérêt",
     ],
     RetentionLevel.SENSITIVE: [
-        r"localisation", r"adresse IP", r"données de session",
+        r"localisation",
+        r"adresse IP",
+        r"données de session",
         r"historique de navigation",
     ],
     RetentionLevel.PROTECTED: [
-        r"santé", r"religion", r"orientation", r"ethnique",
-        r"données bancaires", r"sécurité sociale", r"casier",
-        r"diagnostic", r"thérapie", r"addiction",
-        r"enfant", r"mineur",
+        r"santé",
+        r"religion",
+        r"orientation",
+        r"ethnique",
+        r"données bancaires",
+        r"sécurité sociale",
+        r"casier",
+        r"diagnostic",
+        r"thérapie",
+        r"addiction",
+        r"enfant",
+        r"mineur",
     ],
 }
 
 
 # ─── Retention engine ───────────────────────────────────────────────────
 
+
 class DataClassificationEngine:
     """Moteur de classification et rétention des données."""
 
     def __init__(self, workspace_duration_days: int = 365):
         self.workspace_duration_days = workspace_duration_days
-        self.index: Dict[str, DataClassified] = {}
+        self.index: dict[str, DataClassified] = {}
         self._load_index()
 
-    def classify(self, key: str, content: str, session_id: Optional[str] = None) -> RetentionLevel:
+    def classify(self, key: str, content: str, session_id: str | None = None) -> RetentionLevel:
         """Classifie une donnée et détermine son niveau de rétention."""
         content_lower = content.lower()
 
         # Niveau 5 (priorité max) : Protégé
         for pattern in CLASSIFICATION_PATTERNS[RetentionLevel.PROTECTED]:
             import re
+
             if re.search(pattern, content_lower):
                 logger.info("Classified '%s' as PROTECTED — never persisted", key)
                 self._record(key, RetentionLevel.PROTECTED, session_id, expires_at=0)
@@ -102,6 +124,7 @@ class DataClassificationEngine:
         # Niveau 4 : Sensible
         for pattern in CLASSIFICATION_PATTERNS[RetentionLevel.SENSITIVE]:
             import re
+
             if re.search(pattern, content_lower):
                 expires = time.time() + 3600  # 1 heure max
                 self._record(key, RetentionLevel.SENSITIVE, session_id, expires_at=expires)
@@ -110,6 +133,7 @@ class DataClassificationEngine:
         # Niveau 3 : Personnel
         for pattern in CLASSIFICATION_PATTERNS[RetentionLevel.PERSONAL]:
             import re
+
             if re.search(pattern, content_lower):
                 self._record(key, RetentionLevel.PERSONAL, session_id)
                 return RetentionLevel.PERSONAL
@@ -117,6 +141,7 @@ class DataClassificationEngine:
         # Niveau 2 : Interne
         for pattern in CLASSIFICATION_PATTERNS[RetentionLevel.INTERNAL]:
             import re
+
             if re.search(pattern, content_lower):
                 expires = time.time() + (self.workspace_duration_days + 90) * 86400
                 self._record(key, RetentionLevel.INTERNAL, session_id, expires_at=expires)
@@ -162,8 +187,9 @@ class DataClassificationEngine:
         logger.info("Forgot all %d entries", count)
         return count
 
-    def _record(self, key: str, level: RetentionLevel, session_id: Optional[str] = None,
-                expires_at: Optional[float] = None) -> None:
+    def _record(
+        self, key: str, level: RetentionLevel, session_id: str | None = None, expires_at: float | None = None
+    ) -> None:
         self.index[key] = DataClassified(
             key=key,
             level=level,
@@ -205,7 +231,7 @@ class DataClassificationEngine:
 
 # ─── Singleton ───────────────────────────────────────────────────────────
 
-_engine: Optional[DataClassificationEngine] = None
+_engine: DataClassificationEngine | None = None
 
 
 def get_classification_engine() -> DataClassificationEngine:
