@@ -1,5 +1,8 @@
 # Audit Odysseus — Pertinence pour notre Vision
 
+> ⚠️ **RÉVISÉ 2026-09-25 — réalité vérifiée.** La cible « 55 → 15 routes / ~50 fichiers » **n'a pas été atteinte** (**63 routes, 1 071 `.py` actifs**). Les mentions ci-dessous sont des cibles ; état réel : `../traceability/00-CODE-INVENTORY.md`.
+
+
 > **Question :** Odysseus est-il encore le bon socle UI, ou faut-il le remplacer ?
 
 ---
@@ -30,7 +33,7 @@
 |--------|-----------|
 | **GARDER** | FastAPI, SSE, Chat UI, Cockpit, Kill-switches, Docker, MCP Manager, Tool implementations, Email/Calendar, ZenRouter |
 | **SUPPRIMER** | agent_loop.py (→ OpenCode Engine), llm_core.py (→ ZenRouter natif), Cookbook (trop spécifique), Gallery, Deep Research (déjà dans OpenCode) |
-| **RÉDUIRE** | 55 routes → 15 routes essentielles (chat, health, cockpit, settings, killswitches) |
+| **RÉDUIRE** | 55 routes → 15 routes essentielles (cible **non atteinte** : 63 routes) |
 
 ---
 
@@ -38,7 +41,7 @@
 
 | Approche | Avantages | Inconvénients |
 |----------|-----------|---------------|
-| **Garder Odysseus élagué** | 0 réécriture UI, FastAPI mature, Docker prêt | ~50 fichiers à supprimer, héritage complexe |
+| **Garder Odysseus élagué** | 0 réécriture UI, FastAPI mature, Docker prêt | cible ~50 fichiers (réel : 1 071 `.py` actifs), héritage complexe |
 | **UI légère (FastAPI + HTMX)** | Propre, 100% adapté à notre vision | 2-3 semaines de rebuild, perd Email/Calendar |
 | **OpenCode Web UI native** | Zéro code UI, 100% natif OpenCode | Fonctionnalités limitées (pas de cockpit custom) |
 
@@ -49,7 +52,7 @@
 **Garder Odysseus élagué.** On supprime agent_loop.py, llm_core.py, Cookbook, Gallery, routes inutiles. On garde le strict nécessaire : FastAPI, Chat UI, Cockpit, Docker, MCP. On branche OpenCode Engine comme moteur unique.
 
 ```
-Odysseus ÉLAGUÉ (~50 fichiers)
+Odysseus ÉLAGUÉ (cible ~50 fichiers ; réel 1 071 actifs)
 ├── app.py              FastAPI (allégé)
 ├── routes/
 │   ├── chat_routes.py  → OpenCode Engine

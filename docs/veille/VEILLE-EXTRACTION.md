@@ -3,7 +3,7 @@
 > **Date :** 2026-09-25
 > **Sources traitées (6) :** `fiches_veille.md`, `veille_extraction.md`, `veille_tiktok_complete.md`,
 > `veille_tiktok_dev_groupee.md`, `veille_instagram_dev_groupee.md`, `veille_systemes_ia.md`
-> **Croisement :** `docs/master-ref/01-SFD-v3.1.md` (22 principes, 20 modules), `02-OUTILS-TIERS.md` (grille 60 outils), `04-OBJECTIFS-COUVERTURE.md` (8 axes)
+> **Croisement :** `docs/master-ref/01-SFD-v3.1.md` (25 principes, 22 modules), `02-OUTILS-TIERS.md` (grille 60 outils), `04-OBJECTIFS-COUVERTURE.md` (8 axes)
 > **Périmètre :** on conserve tout ce qui est tech/dev/IA/OSS/homelab/OSINT/agents. On écarte films, séries, anime, jeux, musique, lifestyle, bons plans.
 
 **Échelle de verdict (reprise de la grille `02-OUTILS-TIERS.md`)** :

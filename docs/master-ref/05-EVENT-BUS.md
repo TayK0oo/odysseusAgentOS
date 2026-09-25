@@ -1,6 +1,6 @@
 # Event Bus Central — Spécification
 
-> **Couverture :** 01-SFD-v3.1 (22 principes, 20 modules) + 02-OUTILS-TIERS (60 outils, 5 couches) + 03-OBJECTIFS (plugins, bridge) + 04-COUVERTURE (8 axes)
+> **Couverture :** 01-SFD-v3.1 (25 principes, 22 modules) + 02-OUTILS-TIERS (60 outils, 5 couches) + 03-OBJECTIFS (plugins, bridge) + 04-COUVERTURE (8 axes)
 > **Principe :** Chaque action, chaque décision, chaque erreur émet un événement structuré. Rien n'est invisible.
 
 ---
