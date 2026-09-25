@@ -60,6 +60,24 @@ Ce que le système **EST** et **VA DEVENIR** :
 
 ---
 
+## Documents du dossier
+
+| # | Fichier | Rôle |
+|---|---|---|
+| 01 | `01-SFD-v3.1.md` | Spécification Fonctionnelle Détaillée (référence) |
+| 02 | `02-OUTILS-TIERS.md` | Analyse des 60 outils tiers |
+| 03 | `03-ARCHITECTURE-MIGRATION.md` | Architecture cible (Odysseus → OpenCode) — **révisé avec la réalité** |
+| 04 | `04-OBJECTIFS-COUVERTURE.md` | Objectifs + **score de couverture mesuré (source unique)** |
+| 05 | `05-EVENT-BUS.md` | Bus d'événements (15 familles, 62 types) |
+| 06 | `06-ENGINE-OUTILS.md` | Moteur OpenCode + outils par phase |
+| 07 | `07-ODYSSEUS-AUDIT.md` | Audit Odysseus — **révisé avec la réalité** |
+| 09 | `09-PLAN-ACTIONS-RESTANTES.md` | Backlog priorisé |
+| 10 | `10-ARCHITECTURE-MODULAIRE.md` | Analyse combinatoire outils × vision |
+
+> **Retirés le 2026-09-25 (périmés, remplacés par `../traceability/`) :** `08-VERIFICATION-ETAT-ACTUEL.md`, `12-CERTIFICATION-GUIDE-DEV.md`.
+
+---
+
 ## Voir aussi (documents dérivés)
 
 Ces documents **partent** des références maîtres et ne les remplacent pas :

@@ -8,9 +8,9 @@ All notable changes follow [SemVer](https://semver.org/) and
 ### Added
 - Architecture Decision Records (`docs/adr/`) for modular design
 - Risk register (`docs/governance/risk-register.md`) — operational risk catalog
-- RACI matrix (`docs/raci.md`) — role/responsibility assignments
+- RACI matrix (`docs/governance/raci-matrix.md`) — role/responsibility assignments
 - SLA template (`docs/governance/sla.md`) — service level agreements
-- Runbooks (`docs/runbooks/`) — operational procedures
+- Runbooks (`docs/operations/runbooks/`) — operational procedures
 - RFC template (`docs/governance/rfc-template.md`) — engineering proposals
 - User personas (`docs/governance/personas.md`) — target audience definitions
 - Post-mortem template (`docs/governance/post-mortem-template.md`) — incident retrospectives

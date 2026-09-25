@@ -8,7 +8,7 @@ Document **vérifiable** reliant les **22 principes SFD v3.1** (P1→P22, `docs/
 >
 > **Statuts.** `ACTIF` = code présent, chemin d'exécution par défaut, pas de kill-switch OFF. `DORMANT` = code présent mais kill-switch OFF par défaut (ou variable d'env. non lue). `PARTIEL` = implémentation partielle ou non branchée sur le flux live. `ABSENT` = non trouvé.
 >
-> **Avertissement.** Le point de vérité est le code, pas la checklist `08-VERIFICATION-ETAT-ACTUEL.md`. Les écarts constatés sont listés en fin de document (§4).
+> **Avertissement.** Le point de vérité est le code. (L'ancienne checklist `08-VERIFICATION-ETAT-ACTUEL.md` a été **retirée le 2026-09-25** — périmée ; ce document la remplace.) Les écarts constatés sont listés en fin de document (§4).
 
 ---
 
@@ -93,7 +93,7 @@ Document **vérifiable** reliant les **22 principes SFD v3.1** (P1→P22, `docs/
 
 ---
 
-## 4. Divergences avec la checklist `08-VERIFICATION-ETAT-ACTUEL.md`
+## 4. Divergences avec l'ancienne checklist 08 (retirée 2026-09-25)
 
 ### 4.1 Statuts divergents (principes)
 
@@ -155,7 +155,7 @@ Document **vérifiable** reliant les **22 principes SFD v3.1** (P1→P22, `docs/
 ## 5. Sources
 
 - `docs/master-ref/01-SFD-v3.1.md` §3 (P1-P22, lignes ~85-125) et §4 (UC, lignes ~128-152).
-- `docs/master-ref/08-VERIFICATION-ETAT-ACTUEL.md` (checklist comparée, lignes 143-194).
+- Ancienne checklist `08-VERIFICATION-ETAT-ACTUEL.md` (retirée) — conservée dans l'historique Git.
 - `src/killswitch_registry.py` (47 descriptors, `read_states()`).
 - `.env` / `.env.example` (48 variables `ODYSSEUS_*`).
 - `tools/sfd_audit.py` (audit interne de corroboration).

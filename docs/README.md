@@ -28,10 +28,10 @@ Le socle. Toute décision part de ces documents.
 | [`master-ref/05-EVENT-BUS.md`](master-ref/05-EVENT-BUS.md) | Bus d'événements (15 familles, 62 types) |
 | [`master-ref/06-ENGINE-OUTILS.md`](master-ref/06-ENGINE-OUTILS.md) | Moteur OpenCode + outils par phase |
 | [`master-ref/07-ODYSSEUS-AUDIT.md`](master-ref/07-ODYSSEUS-AUDIT.md) | Audit Odysseus (garder/élaguer) |
-| [`master-ref/08-VERIFICATION-ETAT-ACTUEL.md`](master-ref/08-VERIFICATION-ETAT-ACTUEL.md) | Vérification d'état (checklists) |
 | [`master-ref/09-PLAN-ACTIONS-RESTANTES.md`](master-ref/09-PLAN-ACTIONS-RESTANTES.md) | Backlog priorisé (P0→P3) |
 | [`master-ref/10-ARCHITECTURE-MODULAIRE.md`](master-ref/10-ARCHITECTURE-MODULAIRE.md) | Analyse combinatoire outils × vision |
-| [`master-ref/12-CERTIFICATION-GUIDE-DEV.md`](master-ref/12-CERTIFICATION-GUIDE-DEV.md) | Certification vs guide des bonnes pratiques |
+
+> Les documents `08-VERIFICATION` et `12-CERTIFICATION` ont été **retirés le 2026-09-25** (périmés). L'état réel fait foi dans [`traceability/TRACEABILITY.md`](traceability/TRACEABILITY.md).
 | [`master-ref/Guide meilleur pratique de dev/`](master-ref/Guide%20meilleur%20pratique%20de%20dev/) | Guide dev (14 chapitres) |
 
 ---

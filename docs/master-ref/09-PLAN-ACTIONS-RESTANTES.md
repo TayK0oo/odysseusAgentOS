@@ -1,6 +1,6 @@
 # Plan d'Actions Restantes — Backlog Unique Priorisé
 
-> **Dernière mise à jour :** 2026-08-05 | **Score baseline :** 83% | **Cible :** 100%
+> **Dernière mise à jour :** 2026-08-05 | **Score baseline :** voir le **score mesuré unique** dans `04-OBJECTIFS-COUVERTURE.md` | **Cible :** 100%
 
 ---
 

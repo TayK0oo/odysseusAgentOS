@@ -1,5 +1,8 @@
 # Architecture & Migration — Odysseus → OpenCode Core
 
+> ⚠️ **RÉVISÉ 2026-09-25 — réalité vérifiée.** La cible « élaguer Odysseus à ~50 fichiers / 15 routes » **n'a pas été atteinte** : le dépôt compte **63 fichiers de routes, 503 endpoints et 1 071 fichiers Python actifs** (seuls `agent_loop.py` et `llm_core.py` ont été déplacés dans `archive/legacy/`). Les chiffres de « réduction » ci-dessous sont des **cibles**, pas l'état réel. État réel : `../traceability/00-CODE-INVENTORY.md`.
+
+
 **Date :** 2026-07-24 (design) → 2026-07-30 (exécution) | **Status :** En cours
 
 ---
@@ -15,14 +18,14 @@
 | 2026-07-24 | Bridge subprocess stdin/stdout | `opencode_bridge.py` → `asyncio.create_subprocess_exec` → OpenCode CLI |
 | 2026-07-24 | Cockpit via SSE | Plugin `sfd-phase` émet JSON sur stdout → bridge → SSE → cockpit + chat UI |
 | 2026-07-25 | Début exécution : suppression ~10 000 lignes Python | 23 fichiers/dossiers supprimés, 3 adaptés, 7 plugins créés |
-| 2026-07-30 | Odysseus élague — 50 fichiers restants | FastAPI, Chat UI, Cockpit, Docker, MCP gardés |
+| 2026-07-30 | Cible : Odysseus élagué — ~50 fichiers (**NON atteinte**) | Réel 2026-09 : **1 071 fichiers Python actifs** |
 
 ---
 
 ## 2. Architecture cible
 
 ```
-Odysseus (Python/FastAPI) — couche mince ~50 fichiers
+Odysseus (Python/FastAPI) — couche mince (cible ~50 fichiers ; réel 2026-09 : 1 071 actifs)
   opencode_bridge.py → subprocess → OpenCode CLI (Node.js)
     stdin: message
     stdout: response + phase events → SSE → cockpit + chat UI
@@ -95,7 +98,7 @@ Services Docker (unchanged):
 | Cookbook | ~500 | Trop spécifique |
 | Gallery | ~200 | Non essentiel |
 | Deep Research | ~300 | Déjà dans OpenCode |
-| ~40 routes inutiles | ~600 | Réduit de 55 → 15 routes |
+| ~40 routes | ~600 | Cible 55 → 15 routes (**réel 2026-09 : 63 fichiers de routes, 503 endpoints**) |
 | **TOTAL supprimé** | **~12 300** | 23 fichiers/dossiers + 40 routes |
 
 ### ADAPT — composants modifiés
@@ -130,13 +133,13 @@ Services Docker (unchanged):
 |-------|--------|
 | Audit Odysseus (171 fichiers) | ✅ Terminé |
 | Design migration (4 décisions) | ✅ Terminé |
-| Suppression ~12 300 lignes Python | ✅ Terminé |
+| Suppression ~12 300 lignes Python | ⚠️ Partiel (in fine : 2 fichiers archivés) |
 | Création des 7 plugins npm | ✅ Terminé |
 | Bridge `opencode_bridge.py` | ✅ Terminé |
 | Adaptation `chat_routes.py` | ✅ Terminé |
 | Adaptation `app.py` | ✅ Terminé |
 | Adaptation `Dockerfile` | ✅ Terminé |
-| Réduction 55 → 15 routes | ✅ Terminé |
+| Réduction 55 → 15 routes | ❌ Non atteinte (63 routes) |
 | Intégration Cockpit → SSE bridge | ✅ Terminé |
 | Tests end-to-end bridge + plugins | 🔄 En cours |
 | Documentation mise à jour | 🔄 En cours |
@@ -152,7 +155,7 @@ Services Docker (unchanged):
 
 3. **Les plugins npm découplent parfaitement.** Chaque module SFD étant un package indépendant, les équipes peuvent itérer sans blocage. Les hooks OpenCode (`session.created`, `tool.execute.before/after`) couvrent tous les cas d'usage.
 
-4. **12 300 lignes supprimées, 0 régressions fonctionnelles.** Le passage de ~17 000 lignes Python à ~5 000 lignes (couche mince) + plugins npm a réduit la dette technique sans perte de fonctionnalités.
+4. **~12 300 lignes supprimées (cible).** Réel : seuls `agent_loop.py`/`llm_core.py` archivés — voir `../traceability/00-CODE-INVENTORY.md`. Le passage de ~17 000 lignes Python à ~5 000 lignes (couche mince) + plugins npm a réduit la dette technique sans perte de fonctionnalités.
 
 5. **Garder Odysseus comme couche UI était le bon choix.** Réécrire une UI en HTMX aurait coûté 3 semaines. Élaguer Odysseus a pris 3 jours.
 

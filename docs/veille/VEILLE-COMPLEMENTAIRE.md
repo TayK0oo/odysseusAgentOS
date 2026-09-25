@@ -1,7 +1,7 @@
 # VEILLE — APPORT NET (ce qui complète vraiment la vision)
 
 > **Objet :** parmi les **108 ressources** de la veille (`VEILLE-EXTRACTION.md`), ne garder que celles qui apportent quelque chose **d'important et de non déjà couvert** par notre vision — que ce soit par **son applicatif entier**, **son concept** ou **sa techno**.
-> **Référence de couverture existante :** `02-OUTILS-TIERS.md` (60 outils déjà évalués) + `01-SFD-v3.1.md` (22 principes, 20 modules) + `04-OBJECTIFS-COUVERTURE.md` (8 axes).
+> **Référence de couverture existante :** `02-OUTILS-TIERS.md` (60 outils déjà évalués) + `01-SFD-v3.1.md` (25 principes, 22 modules) + `04-OBJECTIFS-COUVERTURE.md` (8 axes).
 > **Méthode :** apport-net = veille − (grille 60 ∪ SFD ∪ socle projet). Tout ce qui est déjà intégré, absorbé, en veille, en banque ou spécifié dans la SFD est **exclu** (liste §4).
 > **Date :** 2026-09-25.
 

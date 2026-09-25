@@ -593,5 +593,5 @@ SEMAINE 4 : Optimisation (P3)        ──── 9 h
 > - [`01-SFD-v3.1.md`](./01-SFD-v3.1.md) — La spec normative
 > - [`05-EVENT-BUS.md`](./05-EVENT-BUS.md) — Les 62 événements qui alimentent ces combos
 > - [`06-ENGINE-OUTILS.md`](./06-ENGINE-OUTILS.md) — Mapping outils par phase SFD
-> - [`08-VERIFICATION-ETAT-ACTUEL.md`](./08-VERIFICATION-ETAT-ACTUEL.md) — État vérifié actuel (90%)
+> - [`../traceability/TRACEABILITY.md`](../traceability/TRACEABILITY.md) — État réel vérifié (source de vérité)
 > - [`09-PLAN-ACTIONS-RESTANTES.md`](./09-PLAN-ACTIONS-RESTANTES.md) — Les 9 actions pour atteindre 100%
