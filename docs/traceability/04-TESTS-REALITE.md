@@ -160,10 +160,10 @@ pip install ruff                      # lint (hors requirements.txt)
 python -m pytest -q --collect-only    # vérifier la collecte
 ```
 
-C'est exactement la procédure documentée dans `CONTRIBUTING.md:37` et `docs/setup.md:43`.
+C'est exactement la procédure documentée dans `CONTRIBUTING.md:37` et `docs/operations/setup.md:43`.
 Pour le lint seul : `ruff check .`.
-Optionnel selon les features : `pip install -r requirements-optional.txt` (voir `docs/setup.md:245`).
-Alternative documentée : `uv pip install -r requirements.txt` (`docs/setup.md:361`), mais `uv` n'est pas installé ici.
+Optionnel selon les features : `pip install -r requirements-optional.txt` (voir `docs/operations/setup.md:245`).
+Alternative documentée : `uv pip install -r requirements.txt` (`docs/operations/setup.md:361`), mais `uv` n'est pas installé ici.
 
 > Aucune de ces commandes n'a été lancée : contrainte « n'installe rien ».
 

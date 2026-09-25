@@ -1,79 +1,114 @@
-# 📚 Documentation — Odysseus AgentOS
+# 📚 Documentation AgentOS — Index maître
 
-> Hub central de la documentation. Chaque section renvoie aux fichiers détaillés.
-
-## 🚀 Démarrage rapide
-
-| Vous voulez… | Lire |
-|---|---|
-| Installer et lancer le projet | [→ Setup / Installation](setup/installation.md) |
-| Comprendre l'architecture | [→ Architecture / Vue d'ensemble](architecture/overview.md) |
-| Comprendre la boucle agent | [→ Architecture / Boucle agent](architecture/agent-loop.md) |
-| Configurer les variables d'environnement | [→ Setup / Configuration](setup/configuration.md) |
-| Déployer en production | [→ Operations / Déploiement](operations/deployment.md) |
-| Comprendre la sécurité | [→ Sécurité / Modèle de menace](security/threat-model.md) |
-| Contribuer au code | [→ Development / Conventions](development/guidelines.md) |
-| Lancer les tests | [→ Development / Tests](development/testing.md) |
-
-## 📖 Documentation par thème
-
-### 🏗 Architecture
-- [Vue d'ensemble](architecture/overview.md) — schéma global, couches, flux
-- [Boucle agent et orchestration](architecture/agent-loop.md) — 7 phases canoniques, kill-switches, LangGraph
-- [Services](architecture/services.md) — description de chaque service (Meilisearch, Qdrant, n8n, OPA…)
-- [Flux de données](architecture/data-flow.md) — diagrammes de séquence
-
-### ⚙️ Setup
-- [Prérequis](setup/prerequisites.md) — Docker, Python 3.14, Node.js
-- [Installation](setup/installation.md) — Docker Compose, natif, GPU
-- [Configuration](setup/configuration.md) — variables d'env, `model-routing.json`, `phase-lock.yaml`
-
-### 💻 Development
-- [Conventions](development/guidelines.md) — code style, Git, PR
-- [Tests](development/testing.md) — stratégie, taxonomie, CI
-- [Debug](development/debugging.md) — logs, traces, observabilité
-
-### 🚀 Operations
-- [Déploiement](operations/deployment.md) — Docker, Traefik, GPU
-- [Sauvegarde/Restauration](operations/backup-restore.md) — `scripts/odysseus-backup`
-- [Observabilité](operations/observability.md) — LangFuse, OpenTelemetry, dashboards
-
-### 🔒 Sécurité
-- [Modèle de menace](security/threat-model.md) — synthèse du `THREAT_MODEL.md`
-- [Authentification et permissions](security/auth-permissions.md) — rôles, gates, phase-lock
-- [Sandboxing](security/sandboxing.md) — Docker hardening, gVisor, OPA
-
-### 🔌 Intégrations
-- [Email / Outlook](integrations/email-outlook.md)
-- [Workflows n8n](integrations/n8n-workflows.md)
-- [Autres outils](integrations/other-tools.md) — Discord, Telegram, CalDAV, CardDAV
-
-### 📋 Référence
-- [Glossaire](reference/glossary.md) — terminologie partagée
-- [Résumé SFD](reference/sfd-summary.md) — spécification fonctionnelle en bref
-- [Index maître](reference/index-master.md) — table des matières ultime du projet
+> **Point d'entrée unique.** La documentation est organisée autour de **`master-ref/`** (la référence fondatrice) ; tout le reste en dérive ou la prolonge.
+> Branche : `feat/inventaire-global-v1`.
 
 ---
 
-## 📁 Documents racine (conservés)
+## 🧭 Ordre de lecture conseillé
 
-| Document | Rôle |
-|---|---|
-| `SFD.md` | Spécification fonctionnelle détaillée v3.0 |
-| `README.md` | Page d'accueil officielle Odysseus |
-| `CONTRIBUTING.md` | Guide de contribution |
-| `SECURITY.md` | Politique de sécurité |
-| `THREAT_MODEL.md` | Modèle de menace complet |
-| `ROADMAP.md` | Roadmap publique |
-| `loop-canonique.md` | Spécification des 7 phases |
-| `permission-matrix.md` | Matrice outils × phases |
-| `ACKNOWLEDGMENTS.md` | Crédits open source |
-| `LICENSE` | AGPL-3.0 |
-
-## 📦 Archive
-
-L'historique complet des analyses, inventaires, audits et plans passés est préservé dans [`docs/archive/`](archive/).
+1. **`master-ref/`** — *ce que le système DOIT faire* (la référence).
+2. **`traceability/`** — *ce qu'il fait réellement* (vérifié).
+3. **`veille/`** — *ce qui pourrait le compléter* (apports externes).
+4. **`VISION-INTEGRATION.md`** — *le plan unifié* (référence → réel → apports).
 
 ---
 
-*→ Retour à l'[INDEX-MAITRE](../.planning/INDEX-MAITRE.md)*
+## 1. 📖 Référence fondatrice — `master-ref/`
+
+Le socle. Toute décision part de ces documents.
+
+| Fichier | Rôle |
+|---|---|
+| [`master-ref/README.md`](master-ref/README.md) | Présentation des documents fondateurs |
+| [`master-ref/01-SFD-v3.0.md`](master-ref/01-SFD-v3.0.md) | **Spécification Fonctionnelle Détaillée** — 22 principes, 20 modules, 19 UC |
+| [`master-ref/02-OUTILS-TIERS.md`](master-ref/02-OUTILS-TIERS.md) | Analyse des 60 outils tiers (grille /35) |
+| [`master-ref/03-ARCHITECTURE-MIGRATION.md`](master-ref/03-ARCHITECTURE-MIGRATION.md) | Architecture cible : Odysseus → OpenCode |
+| [`master-ref/04-OBJECTIFS-COUVERTURE.md`](master-ref/04-OBJECTIFS-COUVERTURE.md) | Objectifs + 8 axes de couverture |
+| [`master-ref/05-EVENT-BUS.md`](master-ref/05-EVENT-BUS.md) | Bus d'événements (15 familles, 62 types) |
+| [`master-ref/06-ENGINE-OUTILS.md`](master-ref/06-ENGINE-OUTILS.md) | Moteur OpenCode + outils par phase |
+| [`master-ref/07-ODYSSEUS-AUDIT.md`](master-ref/07-ODYSSEUS-AUDIT.md) | Audit Odysseus (garder/élaguer) |
+| [`master-ref/08-VERIFICATION-ETAT-ACTUEL.md`](master-ref/08-VERIFICATION-ETAT-ACTUEL.md) | Vérification d'état (checklists) |
+| [`master-ref/09-PLAN-ACTIONS-RESTANTES.md`](master-ref/09-PLAN-ACTIONS-RESTANTES.md) | Backlog priorisé (P0→P3) |
+| [`master-ref/10-ARCHITECTURE-MODULAIRE.md`](master-ref/10-ARCHITECTURE-MODULAIRE.md) | Analyse combinatoire outils × vision |
+| [`master-ref/12-CERTIFICATION-GUIDE-DEV.md`](master-ref/12-CERTIFICATION-GUIDE-DEV.md) | Certification vs guide des bonnes pratiques |
+| [`master-ref/Guide meilleur pratique de dev/`](master-ref/Guide%20meilleur%20pratique%20de%20dev/) | Guide dev (14 chapitres) |
+
+---
+
+## 2. 🔍 État réel & traçabilité — `traceability/`
+
+Ce que le code fait **vraiment** (vérifié), et les écarts avec la doc.
+
+| Fichier | Rôle |
+|---|---|
+| [`traceability/TRACEABILITY.md`](traceability/TRACEABILITY.md) | **Document maître** — verdict de réalité |
+| [`traceability/00-CODE-INVENTORY.md`](traceability/00-CODE-INVENTORY.md) | Inventaire code (routes, modules, MCP, packages…) |
+| [`traceability/01-SFD-TRACEABILITY.md`](traceability/01-SFD-TRACEABILITY.md) | Modules SFD ↔ fichiers + kill-switches |
+| [`traceability/02-PRINCIPES-UC.md`](traceability/02-PRINCIPES-UC.md) | Principes P1-P22 + UC vérifiés |
+| [`traceability/03-MODULARITE.md`](traceability/03-MODULARITE.md) | Couplages + briques interchangeables |
+| [`traceability/04-TESTS-REALITE.md`](traceability/04-TESTS-REALITE.md) | Exécution réelle (env, tests, lint) |
+
+---
+
+## 3. 🔭 Veille & apports — `veille/`
+
+Ce que l'écosystème 2026 apporte et qui **n'est pas déjà couvert**.
+
+| Fichier | Rôle |
+|---|---|
+| [`veille/VEILLE-EXTRACTION.md`](veille/VEILLE-EXTRACTION.md) | 108 ressources triées + verdict |
+| [`veille/VEILLE-FEATURES.md`](veille/VEILLE-FEATURES.md) | 33 features candidates (impact/effort) |
+| [`veille/VEILLE-COMPLEMENTAIRE.md`](veille/VEILLE-COMPLEMENTAIRE.md) | **Apport net** (24) vs vision existante |
+
+---
+
+## 4. 🗺️ Plan unifié — `VISION-INTEGRATION.md`
+
+[`VISION-INTEGRATION.md`](VISION-INTEGRATION.md) — rassemble **tous les apports** (fondations + intégrations + modularité + veille) dans un plan séquencé (Sprints 0→5).
+
+---
+
+## 5. 🏗️ Architecture — `adr/`
+
+| Fichier | Rôle |
+|---|---|
+| [`adr/0001-architecture-decision-record.md`](adr/0001-architecture-decision-record.md) | ADR — format de décision |
+| [`adr/0002-sfd-pipeline-7-phases.md`](adr/0002-sfd-pipeline-7-phases.md) | ADR — pipeline 7 phases |
+
+---
+
+## 6. ⚙️ Opérations — `operations/`
+
+| Fichier | Rôle |
+|---|---|
+| [`operations/setup.md`](operations/setup.md) | Installation, config, déploiement |
+| [`operations/backup-restore.md`](operations/backup-restore.md) | Sauvegarde / restauration |
+| [`operations/email-outlook.md`](operations/email-outlook.md) | Intégration email/Outlook |
+| [`operations/security-ci.md`](operations/security-ci.md) | Sécurité & CI |
+| [`operations/runbooks/incident-response.md`](operations/runbooks/incident-response.md) | Runbook incident |
+
+---
+
+## 7. 🏛️ Gouvernance — `governance/`
+
+| Fichier | Rôle |
+|---|---|
+| [`governance/personas.md`](governance/personas.md) | Personas utilisateurs |
+| [`governance/raci-matrix.md`](governance/raci-matrix.md) | Matrice RACI |
+| [`governance/risk-register.md`](governance/risk-register.md) | Registre des risques |
+| [`governance/bus-factor.md`](governance/bus-factor.md) | Analyse bus factor |
+| [`governance/sla.md`](governance/sla.md) | SLA / SLO / SLI |
+| [`governance/rfc-template.md`](governance/rfc-template.md) | Template RFC |
+| [`governance/post-mortem-template.md`](governance/post-mortem-template.md) | Template post-mortem |
+| [`governance/deprecation-policy.md`](governance/deprecation-policy.md) | Politique de dépréciation |
+
+---
+
+## 8. 🎨 Assets — `assets/`
+
+Vidéos de démo (`.webm`), images et landing page (`index.html`).
+
+---
+
+*Hub mis à jour le 2026-09-25 — l'ancien README pointait vers des dossiers inexistants ; cet index reflète l'arborescence réelle.*

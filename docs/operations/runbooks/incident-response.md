@@ -233,7 +233,7 @@ Un post-mortem est **obligatoire** pour tout SEV1 et **recommandé** pour tout S
 
 ### Template
 
-Utiliser le template `docs/post-mortem-template.md`.
+Utiliser le template `docs/governance/post-mortem-template.md`.
 
 ### Délai
 
@@ -292,5 +292,5 @@ Maintenance nocturne : nettoyage, compaction, vérification d'intégrité.
 - `workflows/security-incident.yaml` : réponse automatisée aux incidents de sécurité
 - `SECURITY.md` : politique de sécurité
 - `THREAT_MODEL.md` : modèle de menace et surface d'attaque
-- `docs/sla.md` : SLA, SLO, SLI, RTO, RPO
-- `docs/post-mortem-template.md` : template de rapport post-incident
+- `../governance/sla.md` : SLA, SLO, SLI, RTO, RPO
+- `docs/governance/post-mortem-template.md` : template de rapport post-incident

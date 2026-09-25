@@ -7,15 +7,15 @@ All notable changes follow [SemVer](https://semver.org/) and
 
 ### Added
 - Architecture Decision Records (`docs/adr/`) for modular design
-- Risk register (`docs/risk-register.md`) — operational risk catalog
+- Risk register (`docs/governance/risk-register.md`) — operational risk catalog
 - RACI matrix (`docs/raci.md`) — role/responsibility assignments
-- SLA template (`docs/sla.md`) — service level agreements
+- SLA template (`docs/governance/sla.md`) — service level agreements
 - Runbooks (`docs/runbooks/`) — operational procedures
-- RFC template (`docs/rfc-template.md`) — engineering proposals
-- User personas (`docs/personas.md`) — target audience definitions
-- Post-mortem template (`docs/post-mortem-template.md`) — incident retrospectives
-- Deprecation policy (`docs/deprecation-policy.md`) — lifecycle management
-- Bus factor analysis (`docs/bus-factor.md`) — key-person risk assessment
+- RFC template (`docs/governance/rfc-template.md`) — engineering proposals
+- User personas (`docs/governance/personas.md`) — target audience definitions
+- Post-mortem template (`docs/governance/post-mortem-template.md`) — incident retrospectives
+- Deprecation policy (`docs/governance/deprecation-policy.md`) — lifecycle management
+- Bus factor analysis (`docs/governance/bus-factor.md`) — key-person risk assessment
 - `sfd-visual` package — visual output generation for SFD pipeline
 - `explore.md` agent — codebase exploration automation
 - Semantic versioning tags — `v1.0.0` tag applied to HEAD
