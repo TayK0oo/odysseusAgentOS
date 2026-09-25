@@ -93,8 +93,8 @@ Le **bus factor** est le nombre minimum de personnes qui, si elles étaient soud
 | Spécification fonctionnelle | `SFD.md` (1065 lignes) | ✅ |
 | Documentation des services | `README.md §Services` | ✅ |
 | Audit de couverture | `docs/master-ref/04-OBJECTIFS-COUVERTURE.md` | ✅ |
-| Registre des risques | `docs/risk-register.md` | ✅ |
-| Matrice RACI | `docs/raci-matrix.md` | ✅ |
+| Registre des risques | `docs/governance/risk-register.md` | ✅ |
+| Matrice RACI | `docs/governance/raci-matrix.md` | ✅ |
 | Runbook incidents | `docs/runbooks/incident-response.md` | ✅ |
 | Documentation des plugins | `packages/*/README.md` | ⬜ |
 | Guide de contribution | `CONTRIBUTING.md` | ✅ |

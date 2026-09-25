@@ -55,3 +55,14 @@ Ce que le système **EST** et **VA DEVENIR** :
 1. **03-OBJECTIFS** — Comprendre la vision et l'architecture cible
 2. **01-SFD** — Comprendre ce que le système doit faire
 3. **02-OUTILS** — Comprendre avec quoi le faire
+
+---
+
+## Voir aussi (documents dérivés)
+
+Ces documents **partent** des références maîtres et ne les remplacent pas :
+
+- [`../traceability/TRACEABILITY.md`](../traceability/TRACEABILITY.md) — **état réel vérifié** (ce que le code fait vraiment).
+- [`../veille/VEILLE-COMPLEMENTAIRE.md`](../veille/VEILLE-COMPLEMENTAIRE.md) — **apports externes** non déjà couverts.
+- [`../VISION-INTEGRATION.md`](../VISION-INTEGRATION.md) — **plan unifié** (référence → réel → apports).
+- [`../README.md`](../README.md) — **index maître** de toute la documentation.

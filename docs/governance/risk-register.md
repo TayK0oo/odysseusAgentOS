@@ -80,10 +80,10 @@ D.md §5.9`, `src/budget_enforcer.py` |
 | **Description** | Un seul contributeur maîtrise un composant critique (ex. le bridge OpenCode, le Docker Compose, l'orchestrateur) ; son absence bloque toute évolution |
 | **Probabilité** | Moyenne |
 | **Impact** | Moyen — ralentissement majeur, incapacité à corriger des bugs critiques |
-| **Détection** | Analyse du bus factor (`docs/bus-factor.md`), revue des CODEOWNERS |
+| **Détection** | Analyse du bus factor (`bus-factor.md`), revue des CODEOWNERS |
 | **Mitigation** | 1. Documentation complète dans `docs/master-ref/`<br>2. CODEOWNERS à la racine du repo<br>3. Sessions de transfert de connaissances<br>4. Tests automatisés comme documentation vivante |
 | **Kill-switch** | N/A |
-| **Référence** | `docs/bus-factor.md`, `CODEOWNERS` |
+| **Référence** | `bus-factor.md`, `CODEOWNERS` |
 
 ### R-06 : Erreur humaine lors de la configuration Docker
 

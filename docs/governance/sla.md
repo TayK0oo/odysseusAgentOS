@@ -166,6 +166,6 @@ Dans un déploiement self-hosted, c'est l'administrateur du système qui est res
 
 L'équipe Odysseus fournit :
 - Les images Docker et le code source
-- La documentation de déploiement (`docs/setup.md`, `SECURITY.md`)
+- La documentation de déploiement (`docs/operations/setup.md`, `SECURITY.md`)
 - Les mises à jour de sécurité via le dépôt GitHub
 - Le canal de signalement des vulnérabilités (GitHub Security Advisories)

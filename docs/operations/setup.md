@@ -15,7 +15,7 @@ On first setup, Odysseus creates an admin account (`admin` unless
 For Docker installs, the same line is in `docker compose logs odysseus`.
 Use that for the first login, then change it in **Settings**.
 
-Contributing? See [CONTRIBUTING.md](../CONTRIBUTING.md) for setup, testing, and
+Contributing? See [CONTRIBUTING.md](../../CONTRIBUTING.md) for setup, testing, and
 pull request guidelines.
 
 ### Docker (recommended)
@@ -374,7 +374,7 @@ uv pip sync requirements.lock                          # reproduce it exactly la
 ### Outlook / Office 365 email
 Odysseus email accounts currently use IMAP/SMTP username-password auth. Outlook
 and Microsoft 365 generally require OAuth instead, so normal Microsoft mailbox
-passwords will fail. See [docs/email-outlook.md](docs/email-outlook.md) for the
+passwords will fail. See [docs/email-outlook.md](email-outlook.md) for the
 current limitation and the planned integration direction.
 
 ## Security Notes
@@ -541,4 +541,4 @@ All user data lives in `data/` (gitignored): `app.db` (sessions, messages, docum
 `memory.json`, `presets.json`, `uploads/`, `personal_docs/`, `chroma/`, `settings.json`.
 
 To back up or restore everything in `data/`, see the
-[Backup & Restore guide](docs/backup-restore.md).
+[Backup & Restore guide](backup-restore.md).
