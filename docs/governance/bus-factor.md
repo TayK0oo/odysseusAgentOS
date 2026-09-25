@@ -58,7 +58,7 @@ Le **bus factor** est le nombre minimum de personnes qui, si elles étaient soud
 | **CI/CD pipelines** | `.github/workflows/{ci,e2e,docker-publish,secret-scan}.yml` | 🟡 Moyenne | 1 | Équipe core | *(à former)* |
 | **Workflows** | `workflows/{auto-heal,security-incident,nightly-maintenance}.yaml` | 🟡 Moyenne | 1 | Équipe core | *(à former)* |
 | **Kill-switches** | `src/killswitch_registry.py` | 🟢 Faible | 1 | Équipe core | *(à former)* |
-| **SFD v3.0** | `SFD.md`, `docs/master-ref/01-SFD-v3.0.md` | 🔴 Élevée | 1 | Équipe core | *(documentation écrite)* |
+| **SFD v3.1** | `SFD.md`, `docs/master-ref/01-SFD-v3.1.md` | 🔴 Élevée | 1 | Équipe core | *(documentation écrite)* |
 
 ### UI et Frontend
 

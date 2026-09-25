@@ -10,7 +10,7 @@
 ## TL;DR — le verdict
 
 1. **Le projet est bien plus large que ce que la doc prétend.** `03/07` annoncent « Odysseus élagué → ~15 routes / ~50 fichiers » ; la réalité est **63 fichiers de routes, 503 endpoints, 1 071 fichiers Python actifs**. La « réduction » documentée n'a pas eu lieu.
-2. **Tout est codé, presque rien n'est actif.** Les 20 modules de la SFD v3.0 ont **tous** une implémentation présente. Mais **2 kill-switches seulement sont ON par défaut** sur 35 → la majorité est **câblée mais dormante**.
+2. **Tout est codé, presque rien n'est actif.** Les 20 modules de la SFD v3.1 ont **tous** une implémentation présente. Mais **2 kill-switches seulement sont ON par défaut** sur 35 → la majorité est **câblée mais dormante**.
 3. **Les scores des docs sont non fiables.** `04`=59 %, `09`=83 %, `08`=90 % — tous non traçables, et démentis par la vérification : **6/22 principes ACTIFS**, **6/19 UC ACTIFS**.
 4. **Des bugs de nommage neutralisent des features « terminées »** : 6 variables d'env écrites dans `.env` ne sont **jamais lues** par le code (noms différents) → durable, provenance, visuel sont OFF malgré `on` dans `.env`.
 5. **La modularité est réelle mais inégale** : bons points (packages npm, MCP, skills, `MemoryProvider`), mauvais points (`core.database` importé par 64 modules, `route_loader` non dynamique, shims vers `archive/legacy/`).
@@ -39,7 +39,7 @@ Détail complet : `00-CODE-INVENTORY.md`.
 
 ---
 
-## 2. Traçabilité SFD v3.0 ↔ code
+## 2. Traçabilité SFD v3.1 ↔ code
 
 ### 2.1 Modules fonctionnels (§5.1 → §5.20)
 **Tous les 20 modules ont du code présent** (vérifié par existence). Le statut réel dépend du kill-switch : la plupart sont **dormants** (ex. orchestration live, model router, mémoire/Obsidian, canaux, gouvernance, autoeval, LangFuse, CBM/Graphify/Serena, préférences, visuel, classification). Détail : `01-SFD-TRACEABILITY.md`.

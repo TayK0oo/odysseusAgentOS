@@ -1,8 +1,8 @@
 # AGENT OS — SPÉCIFICATION FONCTIONNELLE DÉTAILLÉE (SFD)
 
-**Version :** 3.0 — Édition juillet 2026
+**Version :** 3.1 — Édition septembre 2026
 **Statut :** Approuvé pour conception
-**Sources :** SFD v1.0 (vision fonctionnelle) → v2.0 (exécution durable, observabilité, contexte) → v3.0 (intégration patterns Fable 5)
+**Sources :** SFD v1.0 (vision fonctionnelle) → v2.0 (exécution durable, observabilité, contexte) → v3.0 (intégration patterns Fable 5) → **v3.1 (intégration des apports de veille 2026)**
 
 ---
 
@@ -13,6 +13,7 @@
 | 1.0 | 2025 | 10 principes invariants, architecture en couches, exigences fonctionnelles et non-fonctionnelles |
 | 2.0 | Juillet 2026 | 5 nouveaux principes (P11-P15), couche d'exécution durable (§5.5), couche d'observabilité (§5.11), contexte comme budget d'attention (§5.2), MCP nommé explicitement (§5.13) |
 | 3.0 | Juillet 2026 | 7 nouveaux principes (P16-P22), système de fichiers mémoire avec provenance (§5.7 enrichi), 6 nouveaux modules (§5.15-5.20), enrichissement de l'extensibilité (§5.13), 8 nouvelles exigences non-fonctionnelles (NF-12 à NF-19) |
+| **3.1** | **Septembre 2026** | **3 principes (P23-P25), 2 modules (§5.21 ordonnancement proactif, §5.22 grounding), Wide Research (§5.1.7), apprentissage continu depuis les traces (§5.11.5), 2 exigences non-fonctionnelles (NF-20, NF-21), 2 cas d'usage (UC-20, UC-21) — issus de la veille 2026** |
 
 ### 0.1 Ce que la v3.0 apporte par rapport à la v2.0
 
@@ -26,6 +27,17 @@
 | Continuité cross-session | Non traitée | Recherche par sujet et par fenêtre temporelle, détection automatique de signaux linguistiques |
 | Modalités de sortie | Texte et tableaux de bord | Arbre de décision 3 étapes (MCP → fichier → visualiseur), widgets SVG/HTML interactifs |
 | Application mémoire | Non spécifiée | Règles never/always/selectively, principe d'impact, garde-fous anti-sur-familiarité |
+
+### 0.2 Ce que la v3.1 apporte (intégration veille 2026)
+
+| Domaine | Avant (v3.0) | v3.1 |
+|---|---|---|
+| Orchestration | agent unique / décomposition sur preuve | + **recherche large (Wide Research)** : N recherches indépendantes parallèles, bornées (§5.1.7) |
+| Proactivité | exécution à la demande | + **ordonnancement proactif / heartbeat** : briefs planifiés, cron en langage naturel (§5.21) |
+| Fiabilité des réponses | synthèse | + **grounding & citations** : toute affirmation factuelle adossée à une source (§5.22) |
+| Apprentissage | leçons → skills (curation) | + **data flywheel** : les traces de run deviennent des données d'apprentissage / RL (§5.11.5) |
+| Déploiement | Docker Compose permanent | + **exécution élastique** (idle ≈ gratuit), en option (NF-20) |
+| Souveraineté | mode dégradé possible | + **local-first de premier rang** (NF-21) |
 
 ---
 
@@ -123,6 +135,12 @@ Ces principes sont non négociables et guident toute conception. Ils priment sur
 
 22. **La sortie visuelle est une modalité de premier rang.** Diagrammes, graphiques, widgets interactifs et visualisations ne sont pas des "fichiers à télécharger" mais des réponses à part entière, intercalées dans le flux de conversation. Le choix de la modalité (texte seul, texte + visuel inline, fichier) suit un arbre de décision explicite (§5.18), pas une intuition.
 
+### Principes d'autonomie et de continuité (P23-P25, v3.1 — issus de la veille 2026)
+
+23. **L'agent travaille en continu, pas seulement à la demande.** Un objectif confié peut être suivi par des exécutions planifiées (heartbeat, briefs, veille) qui reprennent l'état durable sans solliciter l'utilisateur. La proactivité reste bornée par les budgets et les permissions (§5.21).
+24. **Une réponse factuelle se fonde sur ses sources.** Toute affirmation issue d'une recherche ou d'un document est adossée à une citation vérifiable ; le système ne présente jamais une inférence non sourcée comme un fait (§5.22).
+25. **Chaque run nourrit le run suivant.** Les traces d'exécution ne servent pas qu'à l'audit : elles alimentent l'apprentissage (leçons → skills, export de trajectoires pour l'amélioration/entraînement), sans violer la provenance ni la vie privée (§5.11.5).
+
 ---
 
 ## 4. Cas d'usage principaux
@@ -148,6 +166,8 @@ Ces principes sont non négociables et guident toute conception. Ils priment sur
 | UC-17 | Exporter un artefact visuel | Utilisateur | Sauvegarde d'une visualisation en fichier ; routage vers création de fichier (§5.18.5). |
 | UC-18 | Gérer ses préférences | Utilisateur | Consulter, modifier ou supprimer les préférences stockées, avec indication de source et portée. |
 | UC-19 | Consulter et gérer ses données | Utilisateur | Droit à l'oubli : suppression unitaire, par fichier, ou totale des données personnelles (§5.19). |
+| UC-20 | Recevoir un brief planifié (proactif) | Utilisateur | Le système exécute une tâche planifiée (brief quotidien, veille, relance) et notifie sur le canal configuré (§5.21). |
+| UC-21 | Vérifier la source d'une affirmation | Utilisateur | Chaque affirmation factuelle expose sa source sous forme de citation ; l'utilisateur peut remonter à l'origine (§5.22). |
 
 ---
 
@@ -195,6 +215,10 @@ Quand la décomposition est justifiée, la règle de découpage est **le context
 - Les messages sont structurés (type, expéditeur, destinataire, contenu, priorité) et **condensés** : un sous-agent renvoie une synthèse exploitable, pas son contexte complet.
 - Un **courtier de messages** filtre, route et archive les échanges (traçabilité et rejouabilité).
 - Les agents peuvent émettre des requêtes synchrones (appel-réponse) ou asynchrones (événements).
+
+#### 5.1.7 Recherche large (Wide Research)
+
+Cas particulier du critère de **parallélisation** (§5.1.2) : lorsqu'une question se décompose en N **pistes de recherche véritablement indépendantes** (sans dépendance ni état partagé), le système peut lancer N sous-agents de recherche en parallèle et agréger leurs résultats. Bornes obligatoires : N plafonné par la configuration, budget multi-agent **visible** (§5.9), et agrégation qui conserve la **provenance de chaque source** (§5.22). Le multiplicateur de coût (§5.1.1) doit rester affiché.
 
 ---
 
@@ -480,6 +504,14 @@ Chaque appel modèle, chaque appel d'outil, chaque invocation d'agent ou de sous
 #### 5.11.4 Gouvernance
 La couche d'observabilité est le point d'ancrage naturel pour les obligations de gouvernance externes (cadres de gestion des risques IA, réglementations sectorielles) : elle fournit la matière première (traces, décisions, évaluations) sur laquelle toute obligation de documentation ou d'audit peut s'appuyer.
 
+#### 5.11.5 Des traces à l'apprentissage (data flywheel)
+
+Les traces ne sont pas uniquement un outil d'audit : elles constituent la matière première de l'amélioration continue (principe P25).
+
+- **Leçons** : les trajectoires de run (succès/échec) alimentent le cycle Génération → Réflexion → Curation (§5.7.7) et produisent des fiches de compétence.
+- **Datasets** : à la demande et sous contrôle, les trajectoires peuvent être **exportées** comme données d'entraînement ou de récompense (RL), en respectant la provenance (§5.7.2) et la classification/rétention (§5.19). Aucune donnée protégée (§5.7.3) n'entre dans un dataset.
+- **Boucle de qualité** : les scores d'évaluation continue (§5.10) conditionnent la promotion d'une leçon ou d'un export.
+
 ---
 
 ### 5.12 Organisation des projets : Workspaces et Worktrees
@@ -713,6 +745,22 @@ Le superviseur de sécurité peut émettre des rappels dans certaines conditions
 
 ---
 
+### 5.21 Ordonnancement proactif et heartbeat
+
+- **Déclencheurs planifiés** : le système exécute des tâches récurrentes (brief quotidien, veille technologique, relance, digest hebdomadaire) sur la base d'une planification **exprimée en langage naturel** (cron NL).
+- **Reprise** : chaque exécution planifiée s'appuie sur la couche d'exécution durable (§5.5) — une occurrence interrompue reprend sans double effet.
+- **Bornes** : toute exécution proactive respecte les budgets (§5.9), les permissions de phase (§5.4.2) et les préférences de canal (§5.15) ; elle est silencieuse par défaut et notifie uniquement sur le canal configuré.
+- **Traçabilité** : chaque occurrence émet les mêmes traces structurées qu'une exécution à la demande (§5.11), avec un identifiant de planification.
+
+### 5.22 Grounding, citations et fidélité aux sources
+
+- **Ancrage** : toute affirmation issue d'une recherche, d'un document ou d'une mémoire porte une **citation** vers sa source (URL, fichier, entrée mémoire avec sa provenance).
+- **Distinction fait / inférence** : une inférence ne peut jamais être présentée comme un fait ; elle est étiquetée comme telle (cohérent avec la provenance `[inferred]`, §5.7.2).
+- **Score de fidélité** : la fidélité aux sources est mesurée par l'évaluation continue (§5.10/§5.11) et exposée dans les tableaux de bord.
+- **Effondrement de contexte** : les citations renvoient à la source, jamais à un résumé auto-réécrit, ce qui évite l'érosion du détail (§5.2.4).
+
+---
+
 ## 6. Exigences non-fonctionnelles
 
 | ID | Catégorie | Exigence |
@@ -736,6 +784,8 @@ Le superviseur de sécurité peut émettre des rappels dans certaines conditions
 | NF-17 | Multimodalité de sortie | Le système doit supporter au moins trois modalités : texte inline, fichier téléchargeable, et visualisation interactive inline. |
 | NF-18 | Préférences | Les préférences utilisateur doivent être appliquées de façon contextuelle ; la requête courante prime toujours. |
 | NF-19 | Sécurité des préférences | Les instructions demandant la flatterie, la suppression du désaccord, ou la dépendance émotionnelle ne doivent jamais être persistées. |
+| NF-20 | Exécution élastique | Le système doit pouvoir exécuter les tâches longues sur un runtime à la demande (idle ≈ gratuit) sans dépendre d'un Docker Compose permanent, sans perte d'état (couche durable §5.5). |
+| NF-21 | Local-first | Le mode 100 % local (modèles locaux, données locales) est un chemin de premier rang, pas un simple repli : parité fonctionnelle des tâches courantes hors ligne. |
 
 ---
 
@@ -1062,4 +1112,4 @@ fonction router_sortie(demande):
 
 ---
 
-**Fin du document SFD v3.0.**
+**Fin du document SFD v3.1.**

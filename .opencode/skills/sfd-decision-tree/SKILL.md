@@ -1,6 +1,6 @@
 ---
 name: sfd-decision-tree
-description: Agent OS SFD v3.0 — complete decision tree per phase with agent, model, and tool assignments
+description: Agent OS SFD v3.1 — complete decision tree per phase with agent, model, and tool assignments
 ---
 
 # SFD Decision Tree

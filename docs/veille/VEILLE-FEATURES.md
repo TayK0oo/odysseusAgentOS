@@ -1,7 +1,7 @@
 # VEILLE — FEATURES CANDIDATES POUR AGENTOS
 
 > **Date :** 2026-09-25 · **Issu de :** `VEILLE-EXTRACTION.md`
-> **Rattachement :** modules `docs/master-ref/01-SFD-v3.0.md` (§5.x) + axes `docs/master-ref/04-OBJECTIFS-COUVERTURE.md`
+> **Rattachement :** modules `docs/master-ref/01-SFD-v3.1.md` (§5.x) + axes `docs/master-ref/04-OBJECTIFS-COUVERTURE.md`
 > **Grille :** chaque candidat est noté Impact (1-5), Effort (1-5), Priorité = Impact − Effort pondéré.
 > **Rappel de séquence (Constitution)** : `loop manuel → tools → permissions → observations → budgets → tracing → planning → context/memory → compaction → skills/connectors → goal loop → subagents`. On ne saute pas d'étape.
 

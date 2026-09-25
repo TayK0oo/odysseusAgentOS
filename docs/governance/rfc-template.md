@@ -141,7 +141,7 @@
 
 ### 5.3 Impact sur les principes invariants
 
-*Vérifier les 22 principes de la SFD v3.0. La proposition en viole-t-elle ou en renforce-t-elle ?*
+*Vérifier les 22 principes de la SFD v3.1. La proposition en viole-t-elle ou en renforce-t-elle ?*
 
 | Principe | Impact | Justification |
 |----------|:------:|---------------|

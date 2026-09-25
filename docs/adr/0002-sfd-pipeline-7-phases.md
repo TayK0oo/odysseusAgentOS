@@ -10,7 +10,7 @@
 
 ## Contexte
 
-La Spécification Fonctionnelle Détaillée v3.0 (`SFD.md`, `docs/master-ref/01-SFD-v3.0.md`) définit 22 principes invariants et un modèle d'exécution en phases. Pour implémenter cette vision, nous avions besoin d'un pipeline d'exécution structuré, observable et interrompible qui garantisse :
+La Spécification Fonctionnelle Détaillée v3.0 (`SFD.md`, `docs/master-ref/01-SFD-v3.1.md`) définit 22 principes invariants et un modèle d'exécution en phases. Pour implémenter cette vision, nous avions besoin d'un pipeline d'exécution structuré, observable et interrompible qui garantisse :
 
 - **Principe P8** : le plan passe les mêmes validations que toute autre action
 - **Principe P14** : toute action longue survit à une panne (exécution durable)
