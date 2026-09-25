@@ -45,6 +45,8 @@ S'il est **redondant** avec un outil de la grille ou **déjà spécifié** dans 
 | C8 | **Multi-canal étendu au-delà Discord/Telegram** (Slack/WhatsApp/Email/CLI via gateway unique) | OpenClaw | La SFD spécifie une gateway mais **2 canaux seulement** sont câblés. Apport = périmètre. | §5.8 | **Absorber** (consolider) |
 | C9 | **MCP de composants / de design system** | Magic UI | Pattern « exposer une lib UI comme MCP » — absent. | §5.13, §5.18 | **Absorber** (concept) |
 | C10 | **Sous-agents par tâche** (au niveau outil, pas métier) | Mistral Vibe 2.0 | Nuance vs P12 : Vibe découpe **par tâche**, pas par contexte — contre-exemple utile pour trancher. | §5.1.3 | **Veille** |
+| C11 | **Data flywheel MLOps** — export des trajectoires de run pour générer des données d'entraînement / RL | **Hermes** (Nous Research) | Nos traces servent à l'**audit**, pas à l'**apprentissage** : aucun module SFD ne transforme les runs en dataset/récompense. Hermes en fait un outil de MLOps. | §5.11, §5.7.7 | **Absorber** (veille long terme) |
+| C12 | **Déploiement élastique « idle ≈ gratuit »** — exécution sur Daytona/Modal/Singularity/SSH selon la charge | **Hermes** | La SFD suppose Docker Compose toujours allumé ; pattern d'exécution à la demande (coût nul au repos) absent. | §5.5, NF-06 | **Veille** |
 
 ---
 
@@ -85,7 +87,7 @@ Ces ressources sont **intéressantes mais n'ajoutent rien** : déjà intégrées
 | **Banque déjà actée** | grille banque | ALTCHA, Plausible, anime.js, reactbits, UIverse, Blender MCP, SketchUp MCP, MediaAgent, Design Galleries, ScrapGraphAI, Twenty, Cal.com* |
 | **Hors scope** | — | marketing/pub (Arcads, Higgsfield, Meta Ads, TopView), OSINT perso (Maigret, PimEyes…), hardware perso (OpenRGB…), apps grand public, films/jeux/musique/lifestyle |
 
-\* Hermes figure en « veille » dans la grille ; son **pattern** (auto-amélioration) est retenu via Acontext/SFD §5.7.7, donc l'outil lui-même n'est pas un apport net. *Cal.com : déjà proche de la banque planification.
+\* **Hermes** figure en « veille » dans la grille. Son **cœur** (auto-amélioration memory+skills) est déjà couvert via Acontext/SFD §5.7.7, son **cron NL** via C6 et son **multi-canal** via C8. Il n'est donc PAS retenu comme outil, **mais deux angles restent des apports nets** : **C11** (data flywheel MLOps / export trajectoires) et **C12** (déploiement élastique idle≈gratuit). *Cal.com : déjà proche de la banque planification.
 
 ---
 
@@ -94,9 +96,9 @@ Ces ressources sont **intéressantes mais n'ajoutent rien** : déjà intégrées
 | Catégorie | Gardés | Dont « Intégrer » |
 |---|---|---|
 | 🧩 Applicatifs entiers | 7 | 0 (absorber/veille) |
-| 💡 Concepts / patterns | 10 | 0 (absorber) |
+| 💡 Concepts / patterns | 12 | 0 (absorber) |
 | ⚙️ Technos | 5 | **1** (Ollama/llama.cpp) |
-| **Total apport net** | **22** | 1 |
+| **Total apport net** | **24** | 1 |
 
 > **Sur 108 ressources, seules ~22 apportent vraiment du neuf** — le reste est redondant avec une vision déjà très complète. Les 3 apports les plus structurants : **Wide Research** (C1), **Heartbeat/cron NL** (C6), **Grounding+citations** (C5) — tous les trois **absents de la SFD**.
 >
