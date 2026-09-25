@@ -44,7 +44,7 @@
 ## 1. Introduction et portée
 
 ### 1.1 Objectif du document
-Ce document constitue la spécification fonctionnelle détaillée d'**Agent OS v3.0**. Il définit l'ensemble des exigences, comportements et interactions attendus du système, sans présupposer de technologies particulières, tout en indiquant — quand c'est structurant — quels patterns d'implémentation sont aujourd'hui considérés comme état de l'art. Il sert de base commune pour la conception, le développement et la validation.
+Ce document constitue la spécification fonctionnelle détaillée d'**Agent OS v3.1**. Il définit l'ensemble des exigences, comportements et interactions attendus du système, sans présupposer de technologies particulières, tout en indiquant — quand c'est structurant — quels patterns d'implémentation sont aujourd'hui considérés comme état de l'art. Il sert de base commune pour la conception, le développement et la validation.
 
 Cette version intègre les patterns de production éprouvés du système agentic Fable 5 (Anthropic, juillet 2026), notamment son système de mémoire avec provenance, son écosystème de découverte d'outils, et ses modalités de sortie multimodales.
 

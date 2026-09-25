@@ -90,7 +90,7 @@ Le **bus factor** est le nombre minimum de personnes qui, si elles étaient soud
 | Action | Livrable | Statut |
 |--------|----------|:------:|
 | Documentation d'architecture | `docs/master-ref/03-ARCHITECTURE-MIGRATION.md` | ✅ |
-| Spécification fonctionnelle | `SFD.md` (1065 lignes) | ✅ |
+| Spécification fonctionnelle | `docs/master-ref/01-SFD-v3.1.md` (1115 lignes) | ✅ |
 | Documentation des services | `README.md §Services` | ✅ |
 | Audit de couverture | `docs/master-ref/04-OBJECTIFS-COUVERTURE.md` | ✅ |
 | Registre des risques | `docs/governance/risk-register.md` | ✅ |
@@ -129,7 +129,7 @@ Le **bus factor** est le nombre minimum de personnes qui, si elles étaient soud
 En attendant d'atteindre un bus factor ≥ 2, les documents suivants servent de "connaissance externalisée" :
 
 1. `docs/master-ref/` : 10 documents de référence couvrant l'architecture, les outils, la couverture, la migration, et l'état actuel
-2. `SFD.md` : spécification fonctionnelle exhaustive
+2. `docs/master-ref/01-SFD-v3.1.md` : spécification fonctionnelle de référence
 3. `THREAT_MODEL.md` : modèle de menace complet
 4. `SECURITY.md` : politique de sécurité et guide de déploiement
 5. `README.md` : vue d'ensemble du projet

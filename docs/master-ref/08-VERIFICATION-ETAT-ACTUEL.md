@@ -1,5 +1,7 @@
-# Agent OS v3.0 — Vérification de l'État Actuel
+# Agent OS — Vérification de l’état actuel (ère v3.0)
 
+
+> ⚠️ Document d’**ère v3.0** (avant le bump v3.1). Pour l’état réel actuel, voir `../traceability/TRACEABILITY.md`.
 > **Date :** 2026-07-28 | **Méthode :** Croisement systématique de chaque attente des 10 fichiers master-ref vs système live + test E2E exécuté
 > **Source primaire :** 11-VERIFICATION-COMPLETE.md (vérification la plus récente)
 > **Fichiers master-ref croisés :** 01-SFD · 02-OUTILS · 03-OBJECTIFS · 04-COUVERTURE · 05-EVENT · 06-ENGINE · 07-AUDIT

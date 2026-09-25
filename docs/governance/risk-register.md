@@ -127,7 +127,7 @@ D.md §5.7.3)<br>3. Droit à l'oubli : suppression unitaire/totale (SF
 
 D.md UC-19)<br>4. Taggage de provenance `[stated]`/`[observed]`/`[inferred]` pour auditer l'origine des données<br>5. Self-hosted : contrôle total des données par l'utilisateur |
 | **Kill-switch** | `ODYSSEUS_GOVERNANCE_ANCESTRY=off` (désactive le tracking) |
-| **Référence** | `SFD.md §5.7.3`, `src/data_classification.py`, `src/provenance_memory.py` |
+| **Référence** | `docs/master-ref/01-SFD-v3.1.md §5.7.3`, `src/data_classification.py`, `src/provenance_memory.py` |
 
 ---
 
