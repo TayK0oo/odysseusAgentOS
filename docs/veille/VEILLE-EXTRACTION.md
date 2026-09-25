@@ -3,7 +3,7 @@
 > **Date :** 2026-09-25
 > **Sources traitées (6) :** `fiches_veille.md`, `veille_extraction.md`, `veille_tiktok_complete.md`,
 > `veille_tiktok_dev_groupee.md`, `veille_instagram_dev_groupee.md`, `veille_systemes_ia.md`
-> **Croisement :** `docs/master-ref/01-SFD-v3.0.md` (22 principes, 20 modules), `02-OUTILS-TIERS.md` (grille 60 outils), `04-OBJECTIFS-COUVERTURE.md` (8 axes)
+> **Croisement :** `docs/master-ref/01-SFD-v3.1.md` (22 principes, 20 modules), `02-OUTILS-TIERS.md` (grille 60 outils), `04-OBJECTIFS-COUVERTURE.md` (8 axes)
 > **Périmètre :** on conserve tout ce qui est tech/dev/IA/OSS/homelab/OSINT/agents. On écarte films, séries, anime, jeux, musique, lifestyle, bons plans.
 
 **Échelle de verdict (reprise de la grille `02-OUTILS-TIERS.md`)** :
@@ -17,7 +17,7 @@
 
 | Constat | Détail |
 |---|---|
-| **Famille dominante** | Les agents autonomes à **mémoire persistante + skills auto-générés + MCP + multi-canal** (Hermes, OpenClaw, Manus, Acontext). C'est exactement la thèse de SFD v3.0 (§5.7, §5.13, §5.17). |
+| **Famille dominante** | Les agents autonomes à **mémoire persistante + skills auto-générés + MCP + multi-canal** (Hermes, OpenClaw, Manus, Acontext). C'est exactement la thèse de SFD v3.1 (§5.7, §5.13, §5.17). |
 | **Standard transverse** | **MCP** relie tout l'écosystème 2026 (§5.13.1). Rien à inventer : il faut industrialiser la découverte (registre + suggestion). |
 | **Goulot récurrent chez les créateurs** | La **consommation de tokens** (routing, compaction, skills, fallback). Recoupe `CodeBurn`, `OmO`, le « Caveman method ». |
 | **Angle mort d'AgentOS vs la veille** | La **boucle d'auto-amélioration fermée réellement branchée** (Hermes) et le **registre/découverte MCP dynamique** (§5.13.4) : la veille en fait son sujet #1, la couverture projet est à 45 % (Axe 7) et 0 % (registre). |

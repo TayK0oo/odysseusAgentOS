@@ -21,7 +21,7 @@
 
 > **« Un agent reçoit un objectif, l'exécute jusqu'au bout sans dériver, apprend de chaque run, et ne dépasse jamais ses limites — sans intervention humaine constante. »**
 
-Extrait de la SFD v3.0, nos **5 principes directeurs** pour le choix et la combinaison des outils :
+Extrait de la SFD v3.1, nos **5 principes directeurs** pour le choix et la combinaison des outils :
 
 | # | Principe directeur | Ce que ça implique pour les outils |
 |---|-------------------|-------------------------------------|
@@ -203,7 +203,7 @@ Chaque case = le combo fonctionne-t-il ? ✓ = natif, ⚡ = synergie forte, ○ 
 
 ## 4. Chaînes d'Outils par Use Case SFD
 
-Chaque Use Case de la SFD v3.0 se traduit par une chaîne d'outils spécifique.
+Chaque Use Case de la SFD v3.1 se traduit par une chaîne d'outils spécifique.
 
 ### UC-01 — Lancer un nouveau projet
 
@@ -590,7 +590,7 @@ SEMAINE 4 : Optimisation (P3)        ──── 9 h
 ---
 
 > **Documents connexes :**
-> - [`01-SFD-v3.0.md`](./01-SFD-v3.0.md) — La spec normative
+> - [`01-SFD-v3.1.md`](./01-SFD-v3.1.md) — La spec normative
 > - [`05-EVENT-BUS.md`](./05-EVENT-BUS.md) — Les 62 événements qui alimentent ces combos
 > - [`06-ENGINE-OUTILS.md`](./06-ENGINE-OUTILS.md) — Mapping outils par phase SFD
 > - [`08-VERIFICATION-ETAT-ACTUEL.md`](./08-VERIFICATION-ETAT-ACTUEL.md) — État vérifié actuel (90%)

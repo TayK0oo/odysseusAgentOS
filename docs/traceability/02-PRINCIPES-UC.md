@@ -2,7 +2,7 @@
 
 *Généré le 2026-09-25 · branche `feat/inventaire-global-v1` · dernière modification du dépôt : 2026-09-22*
 
-Document **vérifiable** reliant les **22 principes SFD v3.0** (P1→P22, `docs/master-ref/01-SFD-v3.0.md` §3) et les **19 cas d'usage** (UC-01→UC-19, §4) au code réellement présent.
+Document **vérifiable** reliant les **22 principes SFD v3.1** (P1→P22, `docs/master-ref/01-SFD-v3.1.md` §3) et les **19 cas d'usage** (UC-01→UC-19, §4) au code réellement présent.
 
 > **Méthode.** Analyse statique en lecture seule : `grep` ciblé dans `src/`, `routes/`, `core/`, `archive/`, `services/`, `.opencode/`, `packages/` ; vérification d'existence des fichiers ; lecture du kill-switch dans `src/killswitch_registry.py` et de sa valeur effective dans `.env` ; comptage des `tests/test_*.py` dont le **nom** matche un mot-clé.
 >
@@ -154,7 +154,7 @@ Document **vérifiable** reliant les **22 principes SFD v3.0** (P1→P22, `docs/
 
 ## 5. Sources
 
-- `docs/master-ref/01-SFD-v3.0.md` §3 (P1-P22, lignes ~85-125) et §4 (UC, lignes ~128-152).
+- `docs/master-ref/01-SFD-v3.1.md` §3 (P1-P22, lignes ~85-125) et §4 (UC, lignes ~128-152).
 - `docs/master-ref/08-VERIFICATION-ETAT-ACTUEL.md` (checklist comparée, lignes 143-194).
 - `src/killswitch_registry.py` (47 descriptors, `read_states()`).
 - `.env` / `.env.example` (48 variables `ODYSSEUS_*`).

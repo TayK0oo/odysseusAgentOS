@@ -5,19 +5,21 @@
 
 ---
 
-## 01 — SFD v3.0 (Spécification Fonctionnelle Détaillée)
+## 01 — SFD v3.1 (Spécification Fonctionnelle Détaillée)
 
-**Fichier :** `01-SFD-v3.0.md` (88 KB, 1065 lignes)
+**Fichier :** `01-SFD-v3.1.md` (~95 KB, 1115 lignes)
 
 Ce que le système **DOIT** faire :
-- 22 principes invariants (Constitution)
-- 20 modules fonctionnels (§5.1 à §5.20)
-- 19 exigences non-fonctionnelles (§6)
-- 19 cas d'usage (UC-01 à UC-19)
+- 25 principes invariants (Constitution, P1-P25)
+- 22 modules fonctionnels (§5.1 à §5.22)
+- 21 exigences non-fonctionnelles (§6)
+- 21 cas d'usage (UC-01 à UC-21)
 - Architecture logique 7 couches (§7)
-- Feuille de route 20 étapes (§8)
+- Feuille de route (§8)
 
-**Statut :** 20/20 modules implémentés → migrés vers OpenCode natif
+**Nouveau en v3.1 (sept. 2026 — veille) :** P23-P25 (proactivité, grounding, data flywheel) · §5.1.7 Wide Research · §5.11.5 apprentissage depuis les traces · §5.21 ordonnancement proactif/heartbeat · §5.22 grounding & citations · NF-20/NF-21 · UC-20/UC-21.
+
+**Statut :** modules codés → migrés vers OpenCode natif (état réel : `../traceability/TRACEABILITY.md`).
 
 ---
 
@@ -35,9 +37,9 @@ Ce que le système **PEUT** utiliser :
 
 ---
 
-## 03 — Objectifs Système & Migration Design
+## 03 — Architecture & Migration
 
-**Fichier :** `03-OBJECTIFS-SYSTEME.md` (3 KB)
+**Fichier :** `03-ARCHITECTURE-MIGRATION.md`
 
 Ce que le système **EST** et **VA DEVENIR** :
 - Architecture cible : Odysseus = UI, OpenCode = cœur, Plugins = features SFD

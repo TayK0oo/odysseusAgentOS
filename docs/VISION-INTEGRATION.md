@@ -1,7 +1,7 @@
 # AgentOS — VISION INTÉGRÉE (document unifié)
 
 > **Objet :** rassembler *l'entièreté des apports* (veille + écarts projet + modularité) et les **intégrer à la vision complète** du projet, en un plan unique et séquencé.
-> **Entrées fusionnées :** `docs/master-ref/01-SFD-v3.0.md` · `04-OBJECTIFS-COUVERTURE.md` · `09-PLAN-ACTIONS-RESTANTES.md` · `docs/traceability/*` (00→04 + TRACEABILITY) · `docs/veille/VEILLE-EXTRACTION.md` · `VEILLE-FEATURES.md` · `VEILLE-COMPLEMENTAIRE.md`.
+> **Entrées fusionnées :** `docs/master-ref/01-SFD-v3.1.md` · `04-OBJECTIFS-COUVERTURE.md` · `09-PLAN-ACTIONS-RESTANTES.md` · `docs/traceability/*` (00→04 + TRACEABILITY) · `docs/veille/VEILLE-EXTRACTION.md` · `VEILLE-FEATURES.md` · `VEILLE-COMPLEMENTAIRE.md`.
 > **Date :** 2026-09-25 · **Branche :** `feat/inventaire-global-v1`.
 
 ---
@@ -167,7 +167,7 @@ Chaque item a un **ID**, une **source** (veille / traceabilité / modularité / 
 | Apports veille | `docs/veille/VEILLE-COMPLEMENTAIRE.md` (+ `VEILLE-EXTRACTION`, `VEILLE-FEATURES`) |
 | Modularité | `docs/traceability/03-MODULARITE.md` §6 |
 | Backlog d'origine | `docs/master-ref/09-PLAN-ACTIONS-RESTANTES.md` |
-| Spec | `docs/master-ref/01-SFD-v3.0.md`, `04-OBJECTIFS-COUVERTURE.md` |
+| Spec | `docs/master-ref/01-SFD-v3.1.md`, `04-OBJECTIFS-COUVERTURE.md` |
 
 ---
 

@@ -21,7 +21,7 @@ Le socle. Toute décision part de ces documents.
 | Fichier | Rôle |
 |---|---|
 | [`master-ref/README.md`](master-ref/README.md) | Présentation des documents fondateurs |
-| [`master-ref/01-SFD-v3.0.md`](master-ref/01-SFD-v3.0.md) | **Spécification Fonctionnelle Détaillée** — 22 principes, 20 modules, 19 UC |
+| [`master-ref/01-SFD-v3.1.md`](master-ref/01-SFD-v3.1.md) | **Spécification Fonctionnelle Détaillée v3.1** — 25 principes, 22 modules, 21 UC, 21 NF |
 | [`master-ref/02-OUTILS-TIERS.md`](master-ref/02-OUTILS-TIERS.md) | Analyse des 60 outils tiers (grille /35) |
 | [`master-ref/03-ARCHITECTURE-MIGRATION.md`](master-ref/03-ARCHITECTURE-MIGRATION.md) | Architecture cible : Odysseus → OpenCode |
 | [`master-ref/04-OBJECTIFS-COUVERTURE.md`](master-ref/04-OBJECTIFS-COUVERTURE.md) | Objectifs + 8 axes de couverture |

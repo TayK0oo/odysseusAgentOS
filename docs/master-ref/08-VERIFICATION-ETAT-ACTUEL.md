@@ -140,7 +140,7 @@ Le **score global** est la **moyenne arithmétique** des 8 axes, arrondie au mul
 
 ---
 
-## II. CHECKLIST — 22 Principes SFD v3.0
+## II. CHECKLIST — 22 Principes SFD v3.1
 
 | # | Principe | Source | Statut | Comment |
 |---|----------|--------|--------|---------|

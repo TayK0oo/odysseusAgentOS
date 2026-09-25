@@ -1,4 +1,4 @@
-# Traçabilité SFD v3.0 ↔ Code — vérifiable
+# Traçabilité SFD v3.1 ↔ Code — vérifiable
 
 *Généré: 2026-09-25 · branche feat/inventaire-global-v1 · 35 kill-switches inventoriés*
 

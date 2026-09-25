@@ -1,6 +1,6 @@
 ---
 name: sfd-pipeline
-description: Agent OS SFD v3.0 — 7-phase project lifecycle, memory with provenance, durable execution, preferences, visual output, classification, content security
+description: Agent OS SFD v3.1 — 7-phase project lifecycle, memory with provenance, durable execution, preferences, visual output, classification, content security
 ---
 
 ## What I do
