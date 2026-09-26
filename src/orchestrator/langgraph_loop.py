@@ -594,7 +594,11 @@ def autoeval_node(state: AgentState) -> dict:
     Reads: verifier_reasons, drift_level, context
     Writes: passed, metrics
     """
-    from src.orchestrator.autoeval import apply_autoeval, autoeval_enabled
+    from src.orchestrator.autoeval import (
+        apply_autoeval,
+        autoeval_enabled,
+        destructive_revert_allowed,
+    )
 
     verifier_reasons = state.get("verifier_reasons", [])
     drift_level = state.get("drift_level")
@@ -613,7 +617,11 @@ def autoeval_node(state: AgentState) -> dict:
             )
             return cp.returncode == 0
 
-        ae_runner = _git_reset if autoeval_enabled() else None
+        # The destructive runner is wired ONLY when the second, explicit
+        # opt-in is set. With AUTOEVAL on but ALLOW_RESET off, apply_autoeval
+        # still returns decision="revert" (and logs it) — it just never gets a
+        # runner, so no `git reset --hard` can touch the working tree.
+        ae_runner = _git_reset if (autoeval_enabled() and destructive_revert_allowed()) else None
         ae = apply_autoeval(
             verifier_reasons,
             drift_level=drift_level,

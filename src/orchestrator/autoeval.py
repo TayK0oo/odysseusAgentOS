@@ -37,12 +37,29 @@ REVERT = "revert"
 
 
 def autoeval_enabled() -> bool:
-    """OFF unless ODYSSEUS_AUTOEVAL is set to a truthy value.
+    """True when ODYSSEUS_AUTOEVAL is truthy (Palier 0 default: ON).
 
-    Mirrors src/orchestrator/phase_tracker.py::tracker_enabled so the whole
-    destructive-revert path stays behind one default-OFF kill-switch.
+    Governs whether a keep/revert DECISION is taken at all. It does NOT by
+    itself authorise the destructive action — see destructive_revert_allowed().
     """
     val = os.getenv("ODYSSEUS_AUTOEVAL", "on").strip().lower()
+    return val in {"on", "1", "true", "yes"}
+
+
+def destructive_revert_allowed() -> bool:
+    """Whether a decided REVERT may actually run ``git reset --hard``.
+
+    Deliberately a SECOND, default-OFF switch. Deciding to revert is cheap,
+    observable and reversible (the decision is logged and returned). Executing
+    it is neither: a real ``git reset --hard`` destroys every uncommitted byte
+    in whatever tree the process runs in — including the agent's own checkout
+    and, historically, the working tree of a plain test run.
+
+    Consequence of leaving this OFF by default: AUTOEVAL still reports
+    "revert" for every flagged run, it just refuses to act on it. Set
+    ODYSSEUS_AUTOEVAL_ALLOW_RESET=on only in a sandbox/worktree you own.
+    """
+    val = os.getenv("ODYSSEUS_AUTOEVAL_ALLOW_RESET", "off").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
 
