@@ -37,7 +37,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Orchestration",
         "timing": "runtime",
         "desc": "Infere la phase par round et la pousse au ToolRegistry.",
-        "source": "src/orchestrator/phase_tracker.py:25",
+        "source": "src/orchestrator/phase_tracker.py:23",
     },
     {
         "name": "Model router",
