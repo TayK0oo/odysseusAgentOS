@@ -117,7 +117,10 @@ class DataClassificationEngine:
             import re
 
             if re.search(pattern, content_lower):
-                logger.info("Classified '%s' as PROTECTED — never persisted", key)
+                # Only the *decision* is recorded (key + level, never the
+                # content). The payload is the caller's responsibility: it must
+                # consult should_persist() before writing anywhere durable.
+                logger.info("Classified '%s' as PROTECTED — content must not be persisted", key)
                 self._record(key, RetentionLevel.PROTECTED, session_id, expires_at=0)
                 return RetentionLevel.PROTECTED
 
@@ -216,6 +219,11 @@ class DataClassificationEngine:
 
     def _save_index(self) -> None:
         path = Path("data/classification_index.json")
+        # The caller is the agent loop, whose blanket `except` turns any raise
+        # here into "classification skipped" at DEBUG level. Without this mkdir
+        # the first classify() outside a project directory raised
+        # FileNotFoundError and the P17 gate silently did not exist.
+        path.parent.mkdir(parents=True, exist_ok=True)
         data = [
             {
                 "key": dc.key,

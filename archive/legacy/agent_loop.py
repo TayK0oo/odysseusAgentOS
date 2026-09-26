@@ -4274,6 +4274,30 @@ async def stream_agent_loop(
     # M6 — SFD MODULES (all gated behind kill-switches, default OFF)
     # ═══════════════════════════════════════════════════════════════════
 
+    # M6.5 (hoisted) — DATA CLASSIFICATION (§5.19), P17.
+    # This used to run *after* M6.2, which had already written the raw user
+    # text into data/memory-fs/profile.md. The PROTECTED branch only logged, so
+    # "classified PROTECTED — not persisted" was printed next to a file on disk
+    # holding the very payload it claimed not to persist (see
+    # tests/test_sprint3_p17_protected_persistence.py). Classification is pure
+    # computation and order-independent, so it is hoisted above the durable
+    # write it has to gate. The level is kept for M6.5's report below.
+    _m65_level = None
+    try:
+        if os.environ.get("ODYSSEUS_DATA_CLASSIFICATION", "on").strip().lower() in ("1", "true", "yes", "on"):
+            from src.data_classification import get_classification_engine
+
+            _dclass = get_classification_engine()
+            if _last_user:
+                _m65_level = _dclass.classify(
+                    key=f"msg:{session_id}:{max_rounds}",
+                    content=str(_last_user)[:500],
+                    session_id=session_id,
+                )
+    except Exception as _m65_err:
+        logger.debug("[m6.5] data classification skipped: %s", _m65_err)
+    _m65_protected = bool(_m65_level is not None and _m65_level.value == "protected")
+
     # M6.1 — PREFERENCES (§5.15): resolve and apply user preferences
     try:
         if os.environ.get("ODYSSEUS_PREFERENCES", "on").strip().lower() in ("1", "true", "yes", "on"):
@@ -4296,11 +4320,19 @@ async def stream_agent_loop(
             from src.provenance_memory import get_memory_fs
 
             _memfs = get_memory_fs()
-            if _last_user:
-                _memfs.update_profile(f"User said: {str(_last_user)[:200]}", "stated")
-            if full_response and len(full_response) > 50:
-                _memfs.add_observed("agent-output", f"Agent responded ({len(full_response)} chars)")
-            logger.info("[m6.2] provenance memory updated")
+            # P17: the durable writes below carry the raw user text, so they are
+            # gated on the classification verdict computed above. On PROTECTED
+            # nothing is written and the block is announced on the stream — a
+            # silent skip could never be tested, and could never be noticed.
+            if _m65_protected:
+                logger.info("[m6.2] durable write blocked — message classified PROTECTED")
+                yield f"data: {json.dumps({'type': 'memory_blocked', 'level': 'protected', 'reason': 'data classification'})}\n\n"
+            else:
+                if _last_user:
+                    _memfs.update_profile(f"User said: {str(_last_user)[:200]}", "stated")
+                if full_response and len(full_response) > 50:
+                    _memfs.add_observed("agent-output", f"Agent responded ({len(full_response)} chars)")
+                logger.info("[m6.2] provenance memory updated")
     except Exception as _m62_err:
         logger.debug("[m6.2] provenance memory skipped: %s", _m62_err)
 
@@ -4341,22 +4373,9 @@ async def stream_agent_loop(
     except Exception as _m64_err:
         logger.debug("[m6.4] output router skipped: %s", _m64_err)
 
-    # M6.5 — DATA CLASSIFICATION (§5.19): classify data before persistence
-    try:
-        if os.environ.get("ODYSSEUS_DATA_CLASSIFICATION", "on").strip().lower() in ("1", "true", "yes", "on"):
-            from src.data_classification import get_classification_engine
-
-            _dclass = get_classification_engine()
-            if _last_user:
-                _level = _dclass.classify(
-                    key=f"msg:{session_id}:{max_rounds}",
-                    content=str(_last_user)[:500],
-                    session_id=session_id,
-                )
-                if _level.value == "protected":
-                    logger.info("[m6.5] message classified PROTECTED — not persisted")
-    except Exception as _m65_err:
-        logger.debug("[m6.5] data classification skipped: %s", _m65_err)
+    # M6.5 — DATA CLASSIFICATION (§5.19): report the verdict computed above
+    if _m65_level is not None:
+        logger.info("[m6.5] message classified %s", _m65_level.value.upper())
 
     # M6.6 — CONTENT SECURITY (§5.20): validate memory/output for injections
     try:
