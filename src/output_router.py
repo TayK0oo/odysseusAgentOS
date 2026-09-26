@@ -16,8 +16,13 @@ import os
 import re
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Sorties materializees par OutputRouter.apply(). Relatif au CWD comme le
+# reste du projet (data/ est gitignore) — resolu a l'appel, pas a l'import.
+DEFAULT_OUTPUT_DIR = Path("data/outputs")
 
 # ─── Kill-switch ────────────────────────────────────────────────────────
 
@@ -201,6 +206,67 @@ class OutputRouter:
 
         # Défaut : texte
         return OutputDecision(mode=OutputMode.TEXT_ONLY, reason="no visual trigger detected")
+
+    def apply(
+        self,
+        decision: OutputDecision,
+        response_text: str,
+        out_dir: Path | None = None,
+    ) -> Path | None:
+        """Exécute la décision et renvoie le fichier produit (None si rien).
+
+        `route()` reste pur : décider et écrire sont deux gestes distincts, pour
+        que le premier soit testable sans disque. C'est `apply()` qui donne à
+        `OutputDecision` l'effet de bord qui manquait — jusque-là la décision
+        était calculée puis loggée, donc P22 ne produisait aucun effet.
+
+        Ne fait rien pour TEXT_ONLY (la réponse est déjà la sortie) ni pour
+        MCP_TOOL (l'invocation appartient à l'appelant, qui détient la
+        connexion). Retourne le chemin écrit, ou None.
+        """
+        if decision.mode is OutputMode.TEXT_ONLY or decision.mode is OutputMode.MCP_TOOL:
+            return None
+        if not response_text or not response_text.strip():
+            return None
+
+        target_dir = Path(out_dir) if out_dir is not None else DEFAULT_OUTPUT_DIR
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        ext = self._extension_for(decision)
+        stem = self._slug_for(decision)
+        path = self._unique_path(target_dir / f"{stem}{ext}", response_text)
+
+        try:
+            path.write_text(response_text, encoding="utf-8")
+        except OSError as exc:
+            # Rule 2: never fail silently. A decision that could not be
+            # honoured must be visible, not look like a success.
+            logger.warning("[p22] could not write %s output: %s", decision.mode.value, exc)
+            return None
+
+        logger.info("[p22] wrote %s output to %s", decision.mode.value, path)
+        return path
+
+    def _extension_for(self, decision: OutputDecision) -> str:
+        if decision.file_extension:
+            return decision.file_extension
+        return {DesignModule.DIAGRAM: ".mmd", DesignModule.CHART: ".csv"}.get(decision.module, ".md")
+
+    def _slug_for(self, decision: OutputDecision) -> str:
+        if decision.module:
+            return decision.module.value
+        return decision.mode.value.replace("_", "-")
+
+    def _unique_path(self, path: Path, content: str) -> Path:
+        """Ne jamais écraser en silence : deux sorties de même nom sont deux
+        sorties distinctes, et un écrasement destructif serait invisible."""
+        if not path.exists() or path.read_text(encoding="utf-8") == content:
+            return path
+        for n in range(2, 100):
+            candidate = path.with_name(f"{path.stem}-{n}{path.suffix}")
+            if not candidate.exists() or candidate.read_text(encoding="utf-8") == content:
+                return candidate
+        return path
 
     def _is_purely_textual(self, request: str) -> bool:
         """Vérifie si la demande est purement textuelle."""

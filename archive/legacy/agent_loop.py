@@ -4391,14 +4391,24 @@ async def stream_agent_loop(
                 request=_last_user or "",
                 response_text=full_response or "",
             )
+            # P22: the decision used to stop at the log line, so a diagram
+            # request produced no artifact at all. `apply` is the side effect
+            # the decision was missing; it stays a separate call so `route`
+            # remains pure and testable without touching the disk.
+            _opath = _orouter.apply(_odecision, full_response or "")
             logger.info(
-                "[m6.4] output routed: mode=%s module=%s reason=%s",
+                "[m6.4] output routed: mode=%s module=%s reason=%s path=%s",
                 _odecision.mode.value,
                 _odecision.module,
                 _odecision.reason,
+                _opath,
             )
+            if _opath is not None:
+                yield f"data: {json.dumps({'type': 'output_routed', 'mode': _odecision.mode.value, 'module': _odecision.module.value if _odecision.module else None, 'path': str(_opath)})}\n\n"
     except Exception as _m64_err:
-        logger.debug("[m6.4] output router skipped: %s", _m64_err)
+        # Rule 2: the router is a user-visible output path. A failure here is
+        # not a debug detail — it means a requested artifact was never made.
+        logger.warning("[m6.4] output router failed: %s", _m64_err, exc_info=True)
 
     # M6.5 — DATA CLASSIFICATION (§5.19): report the verdict computed above
     if _m65_level is not None:

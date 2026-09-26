@@ -363,7 +363,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "P22: Routage de la sortie (HTML/SVG inline, Kroki).",
-        "source": "src/output_router.py:26",
+        "source": "src/output_router.py:30",
     },
     {
         "name": "Preferences",
