@@ -384,8 +384,13 @@ class TestMemoryFSHelpers:
 
 
 class TestProvenanceKillSwitch:
-    def test_default_off(self, monkeypatch: pytest.MonkeyPatch):
+    def test_default_on(self, monkeypatch: pytest.MonkeyPatch):
+        """Palier 0 (FND-4 option C): ON by default again."""
         monkeypatch.delenv("ODYSSEUS_PROVENANCE_MEMORY", raising=False)
+        assert provenance_memory_enabled() is True
+
+    def test_can_be_off(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("ODYSSEUS_PROVENANCE_MEMORY", "off")
         assert provenance_memory_enabled() is False
 
     def test_on_when_set(self, monkeypatch: pytest.MonkeyPatch):

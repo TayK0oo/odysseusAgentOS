@@ -188,14 +188,56 @@ class TestAutoevalNode:
         assert result["passed"] is True
 
     def test_autoeval_with_verifier_reasons(self, monkeypatch):
-        """With autoeval OFF (default), even verifier reasons -> keep."""
+        """AUTOEVAL is ON by default (Palier 0): verifier reasons -> revert decision."""
         monkeypatch.delenv("ODYSSEUS_AUTOEVAL", raising=False)
         from src.orchestrator.langgraph_loop import _default_state, autoeval_node
 
         state = _default_state(verifier_reasons=["file not found", "timeout"])
         result = autoeval_node(state)
-        # autoeval is OFF by default, so it always returns keep
+        assert result["passed"] is False
+
+    def test_autoeval_off_forces_keep(self, monkeypatch):
+        """The OFF polarity still short-circuits to keep."""
+        monkeypatch.setenv("ODYSSEUS_AUTOEVAL", "off")
+        from src.orchestrator.langgraph_loop import _default_state, autoeval_node
+
+        state = _default_state(verifier_reasons=["file not found", "timeout"])
+        result = autoeval_node(state)
         assert result["passed"] is True
+
+    def test_autoeval_never_shells_out_to_git_without_explicit_optin(self, monkeypatch):
+        """SAFETY: a decided revert must not run `git reset --hard` by default.
+
+        Regression guard. With AUTOEVAL on and ALLOW_RESET unset, this node
+        used to invoke a real subprocess `git reset --hard HEAD` — which, during
+        a test run, silently destroyed every uncommitted change in the tree.
+        The decision is still taken and reported; only the action is withheld.
+        """
+        monkeypatch.delenv("ODYSSEUS_AUTOEVAL", raising=False)
+        monkeypatch.delenv("ODYSSEUS_AUTOEVAL_ALLOW_RESET", raising=False)
+
+        import subprocess as _sp
+
+        from src.orchestrator import langgraph_loop
+        from src.orchestrator.langgraph_loop import _default_state, autoeval_node
+
+        calls = []
+        real_run = _sp.run
+
+        def _boom(*a, **kw):  # pragma: no cover - must never be reached
+            calls.append(a)
+            raise AssertionError("autoeval shelled out to git without ALLOW_RESET")
+
+        monkeypatch.setattr(_sp, "run", _boom)
+        try:
+            state = _default_state(verifier_reasons=["boom"], drift_level="high")
+            result = autoeval_node(state)
+        finally:
+            monkeypatch.setattr(_sp, "run", real_run)
+
+        assert calls == []
+        assert result["passed"] is False  # revert decided, not executed
+        assert langgraph_loop is not None
 
 
 # ─── memory_node tests ──────────────────────────────────────────────────────

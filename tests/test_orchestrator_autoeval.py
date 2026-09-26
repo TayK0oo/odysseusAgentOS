@@ -11,6 +11,7 @@ from src.orchestrator.autoeval import (
     apply_autoeval,
     autoeval_enabled,
     decide_keep_or_revert,
+    destructive_revert_allowed,
 )
 
 
@@ -32,9 +33,47 @@ class _FakeGitRunner:
 # ── kill-switch ─────────────────────────────────────────────────────────
 
 
-def test_autoeval_disabled_by_default(monkeypatch):
+def test_autoeval_enabled_by_default(monkeypatch):
+    """Palier 0 (FND-4 option C): AUTOEVAL decides by default again.
+
+    The default was flipped off->on; the OFF polarity is still tested below,
+    because a kill-switch nobody can turn off is not a kill-switch.
+    """
     monkeypatch.delenv("ODYSSEUS_AUTOEVAL", raising=False)
+    assert autoeval_enabled() is True
+
+
+def test_autoeval_can_be_switched_off(monkeypatch):
+    monkeypatch.setenv("ODYSSEUS_AUTOEVAL", "off")
     assert autoeval_enabled() is False
+
+
+# ── destructive-action gate (2nd, independent switch) ───────────────────
+
+
+def test_destructive_revert_denied_by_default(monkeypatch):
+    """AUTOEVAL deciding "revert" must NOT by itself authorise `git reset --hard`.
+
+    Regression guard: with AUTOEVAL on and ALLOW_RESET unset, a real test run
+    used to hard-reset the working tree and silently destroy uncommitted work.
+    """
+    monkeypatch.delenv("ODYSSEUS_AUTOEVAL_ALLOW_RESET", raising=False)
+    monkeypatch.setenv("ODYSSEUS_AUTOEVAL", "on")
+    assert autoeval_enabled() is True
+    assert destructive_revert_allowed() is False
+
+
+def test_destructive_revert_allowed_on_explicit_optin(monkeypatch):
+    monkeypatch.setenv("ODYSSEUS_AUTOEVAL_ALLOW_RESET", "on")
+    assert destructive_revert_allowed() is True
+
+
+def test_destructive_revert_gate_independent_of_decision_switch(monkeypatch):
+    """The two switches must not shadow each other."""
+    monkeypatch.setenv("ODYSSEUS_AUTOEVAL", "off")
+    monkeypatch.setenv("ODYSSEUS_AUTOEVAL_ALLOW_RESET", "on")
+    assert autoeval_enabled() is False
+    assert destructive_revert_allowed() is True
 
 
 def test_autoeval_enabled_when_env_on(monkeypatch):
@@ -88,13 +127,29 @@ def test_decide_verifier_failure_dominates_low_drift():
 
 
 def test_apply_noop_when_disabled_even_on_failure(monkeypatch):
-    monkeypatch.delenv("ODYSSEUS_AUTOEVAL", raising=False)
+    monkeypatch.setenv("ODYSSEUS_AUTOEVAL", "off")
     runner = _FakeGitRunner()
     d = apply_autoeval(["failed"], drift_level=DriftLevel.HIGH, git_runner=runner)
     assert runner.calls == []  # NO destructive path when OFF
     assert d.reverted is False
     assert d.decision == "keep"  # forced keep when disabled
     assert d.enabled is False
+
+
+def test_apply_decides_revert_by_default_but_action_is_callers_choice(monkeypatch):
+    """Default is ON: the decision flips to "revert"...
+
+    ...but whether a real `git reset --hard` runs is the CALLER's choice. Here
+    the caller passes no runner, which is what langgraph_loop now does unless
+    ODYSSEUS_AUTOEVAL_ALLOW_RESET is explicitly set. The decision is still
+    reported, so the signal stays observable.
+    """
+    monkeypatch.delenv("ODYSSEUS_AUTOEVAL", raising=False)
+    d = apply_autoeval(["failed"], drift_level=DriftLevel.HIGH, git_runner=None)
+    assert d.enabled is True
+    assert d.decision == "revert"
+    assert d.reverted is False
+    assert d.error == "no git_runner injected"
 
 
 def test_apply_reverts_on_failure_when_enabled(monkeypatch):

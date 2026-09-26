@@ -11,8 +11,18 @@ class _FakeRegistry:
         self.calls.append((session_id, phase))
 
 
-def test_tracker_disabled_by_default(monkeypatch):
+def test_tracker_enabled_by_default(monkeypatch):
+    """Palier 0 (FND-4 option C): PHASE_TRACKER is ON by default again.
+
+    The OFF polarity is still covered right below: a kill-switch nobody
+    can turn off is not a kill-switch.
+    """
     monkeypatch.delenv("ODYSSEUS_PHASE_TRACKER", raising=False)
+    assert tracker_enabled() is True
+
+
+def test_tracker_can_be_off(monkeypatch):
+    monkeypatch.setenv("ODYSSEUS_PHASE_TRACKER", "off")
     assert tracker_enabled() is False
 
 

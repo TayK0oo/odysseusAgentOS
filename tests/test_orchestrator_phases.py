@@ -41,8 +41,18 @@ def test_infer_phase_plan_mode_returns_plan():
     assert PhaseTracker.infer_phase(1, plan_mode=True) == "PLAN"
 
 
-def test_tracker_enabled_defaults_off(monkeypatch):
+def test_tracker_enabled_defaults_on(monkeypatch):
+    """Palier 0 (FND-4 option C): PHASE_TRACKER is ON by default again.
+
+    The OFF polarity is still covered right below: a kill-switch nobody
+    can turn off is not a kill-switch.
+    """
     monkeypatch.delenv("ODYSSEUS_PHASE_TRACKER", raising=False)
+    assert tracker_enabled() is True
+
+
+def test_tracker_can_be_off(monkeypatch):
+    monkeypatch.setenv("ODYSSEUS_PHASE_TRACKER", "off")
     assert tracker_enabled() is False
 
 
