@@ -128,7 +128,19 @@ class AutoevalLoop:
             return "unknown"
 
     def _git_revert_to(self, hash_before: str) -> bool:
-        """Reverte au hash précédent via git reset --hard."""
+        """Reverte au hash précédent via git reset --hard.
+
+        Refuse par défaut : voir src.orchestrator.autoeval.destructive_revert_allowed.
+        """
+        from src.orchestrator.autoeval import destructive_revert_allowed
+
+        if not destructive_revert_allowed():
+            logger.warning(
+                "Autoeval: revert to %s REFUSED (ODYSSEUS_AUTOEVAL_ALLOW_RESET is off) — "
+                "decision kept, action skipped",
+                hash_before,
+            )
+            return False
         try:
             subprocess.run(
                 ["git", "reset", "--hard", hash_before], cwd=self.project_dir, capture_output=True, check=False
