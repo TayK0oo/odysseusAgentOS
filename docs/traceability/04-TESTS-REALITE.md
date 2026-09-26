@@ -1,7 +1,7 @@
 # 04 — TESTS : Réalité fonctionnelle
 
 > **🟢 MISE À JOUR 2026-09-26 (Sprint 1b) — SUITE VERTE AVEC LE PALIER 0 ACTIVÉ.**
-> - **Suite réelle : 4 764 tests collectés → 4 762 PASS · 2 skipped · 0 FAILED · 0 errors (100 % vert).**
+> - **Suite réelle : 4 794 tests collectés → 4 792 PASS · 2 skipped · 0 FAILED · 0 errors (100 % vert).**
 > - +18 tests vs Sprint 1a. Ce ne sont pas des tests de couverture ajoutés à la chaîne : ce sont des **tests de garde** sur des propriétés de sécurité et d'honnêteté (détail en fin de document).
 >
 > **🟢 MISE À JOUR 2026-09-26 (Sprint 1a) — SUITE COMPLÈTEMENT VERTE.**
