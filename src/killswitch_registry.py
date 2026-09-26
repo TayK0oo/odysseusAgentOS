@@ -28,7 +28,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Orchestration",
         "timing": "runtime",
         "desc": "CanonicalLoop 7 phases.",
-        "source": "archive/legacy/agent_loop.py:2850",
+        "source": "archive/legacy/agent_loop.py:2932",
     },
     {
         "name": "Phase tracker",

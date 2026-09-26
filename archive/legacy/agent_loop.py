@@ -13,6 +13,7 @@ import logging
 import os
 import re
 import time
+import unicodedata
 from collections.abc import AsyncGenerator
 from urllib.parse import urlparse
 
@@ -887,6 +888,82 @@ def _is_explicit_continuation(text: str) -> bool:
     return bool(_EXPLICIT_CONTINUATION_RE.match(str(text or "").strip()))
 
 
+def _fold(text: str) -> str:
+    """Minuscules, accents retirés.
+
+    Pour que « reparer », « reparte » et « explain » se lisent avec un seul jeu de
+    motifs. Les verbes d'action existent dans les deux langues, avec et sans
+    accent ; sans normalisation il faudrait doubler chaque motif.
+    """
+    decomposed = unicodedata.normalize("NFKD", str(text or ""))
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch)).lower()
+
+
+# Un tour qui ne correspond à AUCUN mot-clé de domaine ne doit pas être traité par
+# défaut comme une conversation sans objet. C'était le défaut : `low_signal` valait
+# `not continuation and not domains`, donc tout ce qui sortait de la liste fermée de
+# `:982-1035` — c'est-à-dire la plupart des demandes réelles, la liste étant presque
+# entièrement en anglais — partait par la voie directe. Cette voie `return` avant
+# M6 (`agent_loop.py:2354`), donc P16, P17, P19, P20 et P22 n'y étaient pas
+# joignables depuis `routes/chat_routes.py:1388`, qui ne passe pas `relevant_tools`.
+# Mesuré et vérifié dans `tests/test_sprint3_reachability_m6.py`.
+_SUBSTANTIVE_VERB_RE = re.compile(
+    r"\b(?:"
+    r"ecris?|ecriture|explique|expliques|expliquez|explique-moi|ajoute|ajoutes|ajoutez|"
+    r"cree|crees|creer|modifie|modifies|modifier|analyse|analyser|cherche|chercher|"
+    r"cherches|recherche|rechercher|reparche?|explore|parcours|trouve|trouver|"
+    r"liste|lister|ouvre|ouvrir|lis|lire|montre|montrer|fais|faire|generer|generons|"
+    r"reecris|repare|teste|tester|installe|installer|supprime|supprimer|nettoie|"
+    r"simplifie|traduis|resume|resumer|compare|optimise|optimiser|debug|debug|"
+    r"write|explain|add|create|modify|analyse|analyze|search|find|list|open|read|"
+    r"show|make|generate|rewrite|fix|test|install|remove|refactor|debug|compare|"
+    r"optimise|optimize|clean|simplify|translate|summarize|summarise|build|"
+    r"implement|update|delete|move|rename|run|execute|check|review"
+    r")\b"
+)
+
+# Une question n'est un signal que si elle a une matière. « ça va ? » et
+# « c'est quoi ? » sont de la conversation : les envoyer dans une boucle agent
+# complète ne coûterait qu'un aller-retour LLM sans rien apporter. D'où le plancher
+# de mots propre à cette règle.
+_QUESTION_RE = re.compile(
+    r"\b(?:pourquoi|comment|quoi|quel|quelle|quels|quelles|quand|qui|est-ce|"
+    r"peux-tu|pourrais-tu|dis-moi|why|how|what|when|who|which|"
+    r"can you|could you|should i|is it|does it|do i|am i)\b"
+)
+
+# Une référence à un artefact : un chemin, une extension, ou le nom de la chose.
+_ARTIFACT_RE = re.compile(
+    r"(?:\w+/\w+|\.\w{1,5}\b|\b(?:fichier|fichiers|script|scripts|fonction|fonctions|"
+    r"classe|module|dossier|depot|projet|config|configuration|"
+    r"file|files|script|scripts|function|functions|class|module|folder|directory|"
+    r"repo|config|configuration|test|tests)\b)"
+)
+
+# Plancher de mots : une demande qui tient en quelques mots est probablement du
+# bavardage. Les salutations sont de toute façon écartées en amont, par
+# `_is_casual_low_signal`.
+_SUBSTANTIVE_MIN_WORDS = 6
+_SUBSTANTIVE_MIN_QUESTION_WORDS = 4
+
+
+def _is_substantive_request(text: str) -> bool:
+    """Vrai si ce tour demande quelque chose, et pas juste « quoi de neuf ».
+
+    Quatre signaux, du plus fort au plus faible : un verbe d'action, une
+    référence à un artefact, une question qui a une matière, puis un plancher de
+    longueur. En cas d'ambiguïté on penche vers « demande » : passer par la boucle
+    agent coûte de la latence, l'inverse coûte des principes inatteignables.
+    """
+    folded = _fold(text)
+    if _SUBSTANTIVE_VERB_RE.search(folded) or _ARTIFACT_RE.search(folded):
+        return True
+    words = re.findall(r"[\w'-]+", folded)
+    if _QUESTION_RE.search(folded) and len(words) >= _SUBSTANTIVE_MIN_QUESTION_WORDS:
+        return True
+    return len(words) >= _SUBSTANTIVE_MIN_WORDS
+
+
 def _is_casual_low_signal(text: str) -> bool:
     """True for short greetings/slang that should not inherit stale context."""
     s = str(text or "").strip()
@@ -1038,7 +1115,12 @@ def _classify_agent_request(messages: list[dict], last_user: str) -> dict[str, o
     if has(r"\bapi[ _]call\b", r"\bintegrations?\b", r"\b(?:home ?assistant|miniflux|gitea|linkding|jellyfin)\b"):
         domains.add("integrations")
 
-    low_signal = not continuation and not domains
+    # `low_signal` means "nothing to do here", NOT "no keyword matched". The two
+    # were conflated: any turn outside the closed keyword list above was sent down
+    # the direct-reply path, which `return`s before M6 (`:2354`) — so from
+    # `routes/chat_routes.py:1388` the P16/P17/P19/P20/P22 gates were unreachable.
+    # `_is_substantive_request` is the second opinion; see the comment above it.
+    low_signal = not continuation and not domains and not _is_substantive_request(text)
     return {
         "low_signal": low_signal,
         "continuation": continuation,

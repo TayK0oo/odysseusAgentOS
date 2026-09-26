@@ -165,6 +165,58 @@ Les divergences de nom signalées le 2026-09-25 ont été **nettoyées** : `ODYS
 
 `tools/sfd_audit.py` (audit préexistant, non daté) corrobore cette vérification. **Réserve forte** : il référence une arborescence disparue (`src/durable_execution/saga.py`, `memory_provenance/`, `multi_agent_decision/`, `context_manager/`) qui n'existe plus dans le dépôt. Il ne peut donc pas servir de preuve, seulement de corroboration.
 
+### 4.6 Défaut d'atteignabilité : des principes câblés hors d'atteinte (trouvé au Sprint 3, item 7)
+
+Le modèle de statut ci-dessus demande « le switch est-il `on` ? le module est-il
+appelé ? », jamais « **le chemin principal atteint-t-il ce module ?** ». Les deux
+questions ne sont pas équivalentes, et l'écart s'est avéré décisif.
+
+**Mesuré.** `_classify_agent_request` calculait
+`low_signal = not continuation and not domains` (`agent_loop.py:1123`), `domains`
+venant d'une liste **fermée** de mots-clés presque entièrement **anglaise**. Un tour
+qui n'y correspondait pas était donc classé « conversation sans objet » :
+
+| Tour | `low_signal` avant |
+|---|---|
+| « écris un script pour lister les fichiers du projet » | `True` |
+| « ajoute une fonction de tri à src/parser.py » | `True` |
+| « explique-moi la différence entre ces deux approches » | `True` |
+
+Or la porte `_direct_low_signal` (`agent_loop.py:2339-2347`) teste
+`not relevant_tools` — l'**argument de l'appelant**, jamais la récupération interne,
+qui a lieu plus bas. `routes/chat_routes.py:1388`, la route de chat principale, ne
+passe pas `relevant_tools`. La voie directe émet `metrics` puis `return`
+(`agent_loop.py:2436`) : **tout ce qui suit est sauté**, M6.1 à M6.9 comprises.
+
+Un tour réel donnait **0 événement M6** depuis la route principale, et des
+événements dès qu'on passait `relevant_tools` — ce que faisaient tous les tests des
+items 1 à 6, c'est-à-dire qu'ils testaient un chemin que les gens n'empruntent pas.
+Seul `src/task_scheduler.py:1692` compose `relevant_tools` et atteignait M6.
+
+**Conséquence sur l'Activation.** P16, P17, P19, P20 et P22 étaient câblés, testés et
+mutation-vérifiés — et injoignables depuis la route principale. C'est la raison la
+plus probable pour laquelle l'Activation ne bougeait pas. Ce n'est pas le modèle de
+statut qui mentait sur ces cinq lignes : il ne les interrogeait pas sur ce point.
+
+**Corrigé** dans le même correctif : `_is_substantive_request` (`agent_loop.py:950`,
+avec `_fold` `:891` et trois motifs) donne un second avis, et `low_signal` signifie désormais
+« rien à faire ici » au lieu de « aucun mot-clé reconnu ». Quatre signaux : verbe
+d'action, référence à un artefact, question ayant une matière, plancher de longueur.
+Le routage par domaine est **inchangé** — un test le verrouille — donc la sélection
+d'outils n'a pas bougé ; seule l'habilitation à entrer dans la boucle a changé.
+
+Preuve : `tests/test_sprint3_reachability_m6.py` (18 tests, 2 mutations vérifiées),
+dont la preuve de fin qui appelle la boucle **comme le fait `chat_routes.py:1388`**
+et exige qu'un événement M6 soit émis. Contre-épreuve explicite : les salutations
+restent sur la voie directe — une boucle agent complète pour « bonjour » serait un
+aller-retour LLM payé sans rien apporter.
+
+**Ce que ça ne change pas.** Le compteur ACTIF/PARTIEL de la section 3 reste celui du
+Palier 0 : ces cinq principes étaient comptés wired, et ils le sont toujours. Ce qui
+a changé, c'est qu'ils sont enfin **atteignables**. Une re-mesure des statuts tenant
+compte de l'atteignabilité reste à faire — c'est une décision de modèle, pas un
+câblage.
+
 ---
 
 ## 5. Ce qu'il reste à faire pour que ces statuts bougent
@@ -173,6 +225,7 @@ Rien de ce qui suit n'est un défaut : ce sont des câblages absents, tous rédu
 
 | Principe / UC | Geste manquant |
 |---|---|
+| **Modèle** | **Décider si le statut doit intégrer l'atteignabilité** (§4.6). Un principe câblé mais hors du chemin principal ne peut pas compter comme effectif ; le modèle ne pose aujourd'hui pas la question. Décision de modèle, validée séparément du câblage. |
 | P5, P21 | Injecter `allowed_tools` dans les schémas d'outils envoyés au modèle (la divulgation ne restreint rien aujourd'hui). |
 | P19 | ~~Fournir une vraie `hypothetical_response` au vérificateur d'impact, et relier `should_store` au store~~ **FAIT (Sprint 3 item 4)** — reste : le comparatif est une ablation lexicale, pas un vrai « et sans ce fait ? » généré ; un LLM nominal donnerait un contrefactual plus fidèle (bloqué par `OPENCODE_API_KEY` absente). |
 | P14, UC-02, UC-11 | Appeler `create_workflow` pour persister un workflow, et résoudre le chemin du vault pour le checkpoint. |
