@@ -83,7 +83,7 @@
 | Orchestration | `ODYSSEUS_LANGGRAPH` | `off` | `off` | oui | `src/orchestrator/langgraph_loop.py:42` |
 | Orchestration | `ODYSSEUS_LIVE_ORCHESTRATION` | `off` | `off` | oui | `archive/legacy/agent_loop.py:2825` |
 | Orchestration | `ODYSSEUS_MODEL_ROUTER` | `on` | `on` | oui | `src/orchestrator/router_advice.py:42` |
-| Orchestration | `ODYSSEUS_PHASE_TRACKER` | `on` | `on` | oui | `src/orchestrator/phase_tracker.py:25` |
+| Orchestration | `ODYSSEUS_PHASE_TRACKER` | `on` | `on` | oui | `src/orchestrator/phase_tracker.py:23` |
 | Quality | `ODYSSEUS_DEEPEVAL` | `off` | `off` | **NON** | `(aucun lecteur dans le code)` |
 | RAG | `ODYSSEUS_RRF_FUSION` | `off` | `off` | oui | `src/rag_vector.py:86` |
 
