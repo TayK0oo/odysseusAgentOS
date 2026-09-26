@@ -21,8 +21,18 @@ from src import trace_writer
 # ---------------------------------------------------------------------------
 
 
-def test_unified_tokens_disabled_by_default(monkeypatch):
+def test_unified_tokens_enabled_by_default(monkeypatch):
+    """Palier 0 (FND-4 option C): UNIFIED_TOKENS is ON by default again.
+
+    The OFF polarity is still covered right below: a kill-switch nobody
+    can turn off is not a kill-switch.
+    """
     monkeypatch.delenv("ODYSSEUS_UNIFIED_TOKENS", raising=False)
+    assert trace_writer.unified_tokens_enabled() is True
+
+
+def test_unified_tokens_can_be_off(monkeypatch):
+    monkeypatch.setenv("ODYSSEUS_UNIFIED_TOKENS", "off")
     assert trace_writer.unified_tokens_enabled() is False
 
 
@@ -128,7 +138,7 @@ def test_accumulate_off_uses_metrics_dict_as_today(monkeypatch, patched_helpers)
     """Kill-switch OFF: byte-identical to today — trusts the passed dict,
     never consults the authoritative registry."""
     chat_helpers, row, _ = patched_helpers
-    monkeypatch.delenv("ODYSSEUS_UNIFIED_TOKENS", raising=False)
+    monkeypatch.setenv("ODYSSEUS_UNIFIED_TOKENS", "off")
 
     # Poison the registry with different numbers; OFF path must ignore it.
     trace_writer.record_run_tokens("run-off", input_tokens=999, output_tokens=999)

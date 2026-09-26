@@ -9,8 +9,18 @@ native resolve_endpoint already understands — no phantom model catalog.
 from src.orchestrator.router_advice import advise, intent_to_role, router_enabled
 
 
-def test_router_disabled_by_default(monkeypatch):
+def test_router_enabled_by_default(monkeypatch):
+    """Palier 0 (FND-4 option C): MODEL_ROUTER is ON by default again.
+
+    The OFF polarity is still covered right below: a kill-switch nobody
+    can turn off is not a kill-switch.
+    """
     monkeypatch.delenv("ODYSSEUS_MODEL_ROUTER", raising=False)
+    assert router_enabled() is True
+
+
+def test_router_can_be_off(monkeypatch):
+    monkeypatch.setenv("ODYSSEUS_MODEL_ROUTER", "off")
     assert router_enabled() is False
 
 

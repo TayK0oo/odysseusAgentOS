@@ -34,8 +34,18 @@ class _FakeVault:
         return self._result
 
 
-def test_checkpoint_disabled_by_default(monkeypatch):
+def test_checkpoint_enabled_by_default(monkeypatch):
+    """Palier 0 (FND-4 option C): CHECKPOINT is ON by default again.
+
+    The OFF polarity is still covered right below: a kill-switch nobody
+    can turn off is not a kill-switch.
+    """
     monkeypatch.delenv("ODYSSEUS_CHECKPOINT", raising=False)
+    assert checkpoint_tracker.checkpoint_enabled() is True
+
+
+def test_checkpoint_can_be_off(monkeypatch):
+    monkeypatch.setenv("ODYSSEUS_CHECKPOINT", "off")
     assert checkpoint_tracker.checkpoint_enabled() is False
 
 
