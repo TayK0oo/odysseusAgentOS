@@ -1,12 +1,15 @@
 # 04 — TESTS : Réalité fonctionnelle
 
-> **🟢 MISE À JOUR 2026-09-25 (FND-2) — le projet est désormais EXÉCUTABLE.**
-> - Environnement : `venv` Python 3.12 créé, dépendances installées.
-> - Fix : `mcp` épinglé `>=1.9,<2` (le code utilise l'API mcp 1.x ; mcp 2.2 cassait 5 collections).
-> - **Suite réelle : 4 744 tests collectés → 4 633 PASS · 104 FAILED · 2 skipped · 5 errors (≈ 97,7 % vert).**
-> - `ruff check .` : **3 692 erreurs** (dette de lint pré-existante, jamais nettoyée — hors périmètre FND-2).
-> - Les 5 `errors` = `test_engine_bridge_e2e` sur un chemin conteneur codé en dur (`/home/agentos/data`) → problème de fixture, pas de code applicatif.
-> - Les 104 échecs se concentrent sur : `llm_core*` (~29), `code_nav_tools` (16), `tool_policy` (7), `review_regressions` (7), `gpu_compose_standalone` (7), `auth/security/workspace_confine` (~12) → **backlog « réparer/activer » (Sprint 1+)**.
+> **🟢 MISE À JOUR 2026-09-26 (Sprint 1a) — SUITE COMPLÈTEMENT VERTE.**
+> - **Suite réelle : 4 744 tests collectés → 4 742 PASS · 2 skipped · 0 FAILED · 0 errors (100 % vert).**
+> - Point de départ mesuré le 2026-09-25 : 4 633 PASS · 104 FAILED · 5 errors. **109 échecs réparés en 8 commits atomiques** (`b76471b` → `2b36f83`).
+> - Les 5 `errors` n'étaient pas une fixture cassée : `engine_server.py` codait `/home/agentos/*` en dur et faisait `mkdir()` à l'import → `PermissionError` sur hôte de dev. Chemins désormais surchargeables par env (`AGENTOS_DATA_DIR` / `AGENTOS_WORKSPACE_DIR` / `AGENTOS_VAULT_DIR`), défauts container inchangés. **Ces 5 tests n'avaient jamais été réellement exercés** — ils le sont désormais.
+> - **Cause racine dominante des 104 échecs : les shims `src/*.py` → `archive/legacy/*.py`.** En ré-exportant le legacy comme module top-level *distinct*, les fonctions résolvaient leurs globals depuis l'autre `__dict__` : `monkeypatch` et `importlib.reload` des tests devenaient inopérants (`StopIteration`, `[]`, `''`, `KeyError`). Corrigé par `exec` du source legacy dans le namespace du shim (`src/llm_core.py`, `src/agent_loop.py`).
+> - Autres classes réparées : imports `_truncate` déplacés vers `src/tool_utils.py` sans mettre à jour les appelants (tous les outils fichiers/sous-processus échouaient) ; compose GPU figés en version « minimale » ; pollution `AUTH_ENABLED` du module e2e (11 tests d'auth faussement rouges en suite complète) ; 2 assertions faussement négatives.
+> - `ruff check .` : **3 692 erreurs** (dette de lint pré-existante, inchangée — les correctifs Sprint 1a n'en ajoutent aucune).
+>
+> **Ce que « 100 % vert » ne dit pas** : la suite est verte *en local, sans service externe*. ChromaDB, Mem0, LLM et le moteur Docker ne sont pas joignables → les chemins degradés sont testés, pas les chemins nominaux. La couverture fonctionnelle réelle reste inférieure à 100 % (cf. `04-OBJECTIFS-COUVERTURE.md`).
+
 
 ---
 

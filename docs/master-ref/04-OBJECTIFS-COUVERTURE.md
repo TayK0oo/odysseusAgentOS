@@ -55,7 +55,12 @@ Statuts issus de `../traceability/02-PRINCIPES-UC.md` (vérifiés sur le code).
 | **Cas d'usage UC-01→19** | 6 | 10 | 1 | 2 | 19 | **61 %** | **32 %** |
 | **TOTAL (41 exigences)** | 12 | 22 | 5 | 2 | 41 | **≈ 62 %** | **≈ 29 %** |
 
-> **SFD v3.1** ajoute P23-P25 et UC-20-21 (proactivité, grounding, data flywheel, brief planifié, vérifier la source). Non encore vérifiés côté code (spec only) → à intégrer au score lors de leur implémentation.
+> **SFD v3.1** ajoute P23-P25 et UC-20-21 (proactivité, grounding, data flywheel, brief planisé, vérifier la source). Non encore vérifiés côté code (spec only) → à intégrer au score lors de leur implémentation.
+
+> **🟢 Sprint 1a (2026-09-26) — le score ci-dessus est INCHANGÉ, et c'est délibéré.**
+> Les 109 échecs réparés portaient sur des **tests**, pas sur des statuts de fonctionnalité : le bug des shims `src/*.py` → `archive/legacy/*.py` rendait le code **correct à l'exécution** mais insensible au `monkeypatch` des tests. Le code était donc déjà « codé » avant Sprint 1a — les statuts ACTIF/PARTIEL/DORMANT n'ont pas bougé.
+> Ce qui a changé, c'est la **vérifiabilité** : la suite est passée de 4 633 PASS / 109 non-verts à **4 742 PASS / 0 non-vert** (`../traceability/04-TESTS-REALITE.md`). Le score est désormais **étayé par une suite verte**, ce qui n'était pas le cas.
+> **Ce qui reste à faire pour un score honnête** : re-vérifier `02-PRINCIPES-UC.md` maintenant que la suite est fiable (les statuts avaient été établis contre une suite contenant 109 faux échecs, donc potentiellement sous- ou sur-estimés), puis activer les kill-switchs du Palier 0 qui fera monter la colonne *Activation*.
 
 **Lecture :** le système est **codé à ~62 %** de ses exigences (la majorité du reste étant *câblé mais dormant* via kill-switch OFF), mais **~29 % seulement sont actives par défaut**. Détail par module/axe : `../traceability/TRACEABILITY.md` et `01-SFD-TRACEABILITY.md`.
 
