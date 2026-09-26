@@ -372,7 +372,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "P12: Preferences utilisateur persistees.",
-        "source": "src/preferences.py:42",
+        "source": "src/preferences.py:41",
     },
     {
         "name": "Data classification",

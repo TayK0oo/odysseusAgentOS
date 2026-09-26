@@ -56,13 +56,13 @@
 | Governance/Memory | `ODYSSEUS_CHECKPOINT` | `on` | `on` | oui | `src/orchestrator/checkpoint_tracker.py:39` |
 | Governance/Memory | `ODYSSEUS_CODEBURN` | `off` | `off` | oui | `src/orchestrator/codeburn_runner.py:26` |
 | Governance/Memory | `ODYSSEUS_CONTENT_SECURITY` | `on` | `on` | oui | `src/content_security.py:24` |
-| Governance/Memory | `ODYSSEUS_DATA_CLASSIFICATION` | `on` | `on` | oui | `src/data_classification.py:29` |
+| Governance/Memory | `ODYSSEUS_DATA_CLASSIFICATION` | `on` | `on` | oui | `src/data_classification.py:28` |
 | Governance/Memory | `ODYSSEUS_DURABLE_EXECUTION` | `on` | `on` | oui | `src/durable_execution.py:32` |
 | Governance/Memory | `ODYSSEUS_GOVERNANCE_ANCESTRY` | `off` | `off` | oui | `src/orchestrator/ancestry_tracker.py:26` |
 | Governance/Memory | `ODYSSEUS_LANGFUSE` | `off` | `off` | oui | `services/observability/langfuse_tracer.py:38` |
 | Governance/Memory | `ODYSSEUS_MEMORY_IMPACT` | `on` | `on` | oui | `src/memory_impact.py:23` |
 | Governance/Memory | `ODYSSEUS_OUTPUT_ROUTER` | `on` | `on` | oui | `src/output_router.py:26` |
-| Governance/Memory | `ODYSSEUS_PREFERENCES` | `on` | `on` | oui | `src/preferences.py:42` |
+| Governance/Memory | `ODYSSEUS_PREFERENCES` | `on` | `on` | oui | `src/preferences.py:41` |
 | Governance/Memory | `ODYSSEUS_PROGRESSIVE_DISCLOSURE` | `on` | `on` | oui | `src/progressive_disclosure.py:25` |
 | Governance/Memory | `ODYSSEUS_PROVENANCE_MEMORY` | `on` | `on` | oui | `src/provenance_memory.py:40` |
 | Governance/Memory | `ODYSSEUS_UNIFIED_TOKENS` | `on` | `on` | oui | `src/trace_writer.py:146` |
