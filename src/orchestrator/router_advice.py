@@ -39,7 +39,7 @@ _DEFAULT_ROLE = "default"
 
 def router_enabled() -> bool:
     """OFF unless ODYSSEUS_MODEL_ROUTER is set to a truthy value."""
-    val = os.getenv("ODYSSEUS_MODEL_ROUTER", "off").strip().lower()
+    val = os.getenv("ODYSSEUS_MODEL_ROUTER", "on").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
 

@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def tracker_enabled() -> bool:
     """OFF unless ODYSSEUS_PHASE_TRACKER is set to a truthy value."""
-    val = os.getenv("ODYSSEUS_PHASE_TRACKER", "off").strip().lower()
+    val = os.getenv("ODYSSEUS_PHASE_TRACKER", "on").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
 

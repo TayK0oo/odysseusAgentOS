@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 
 def provenance_memory_enabled() -> bool:
-    val = os.getenv("ODYSSEUS_PROVENANCE_MEMORY", "off").strip().lower()
+    val = os.getenv("ODYSSEUS_PROVENANCE_MEMORY", "on").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
 

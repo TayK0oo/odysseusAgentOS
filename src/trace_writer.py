@@ -143,7 +143,7 @@ _run_tokens_lock = threading.Lock()
 
 def unified_tokens_enabled() -> bool:
     """OFF unless ODYSSEUS_UNIFIED_TOKENS is set to a truthy value."""
-    val = os.getenv("ODYSSEUS_UNIFIED_TOKENS", "off").strip().lower()
+    val = os.getenv("ODYSSEUS_UNIFIED_TOKENS", "on").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
 

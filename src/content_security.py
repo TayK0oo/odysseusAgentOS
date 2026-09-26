@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def content_security_enabled() -> bool:
-    return os.getenv("ODYSSEUS_CONTENT_SECURITY", "off").strip().lower() in {"on", "1", "true", "yes"}
+    return os.getenv("ODYSSEUS_CONTENT_SECURITY", "on").strip().lower() in {"on", "1", "true", "yes"}
 
 
 class ContentSecurityGuard:

@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 def preferences_enabled() -> bool:
-    val = os.getenv("ODYSSEUS_PREFERENCES", "off").strip().lower()
+    val = os.getenv("ODYSSEUS_PREFERENCES", "on").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
 

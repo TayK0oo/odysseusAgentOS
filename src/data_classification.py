@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def data_classification_enabled() -> bool:
-    val = os.getenv("ODYSSEUS_DATA_CLASSIFICATION", "off").strip().lower()
+    val = os.getenv("ODYSSEUS_DATA_CLASSIFICATION", "on").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
 

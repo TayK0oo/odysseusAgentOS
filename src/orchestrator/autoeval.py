@@ -42,7 +42,7 @@ def autoeval_enabled() -> bool:
     Mirrors src/orchestrator/phase_tracker.py::tracker_enabled so the whole
     destructive-revert path stays behind one default-OFF kill-switch.
     """
-    val = os.getenv("ODYSSEUS_AUTOEVAL", "off").strip().lower()
+    val = os.getenv("ODYSSEUS_AUTOEVAL", "on").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
 
