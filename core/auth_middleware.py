@@ -47,7 +47,7 @@ def _is_trusted_loopback(request: Request) -> bool:
     return True
 
 
-def setup_auth(app, auth_manager: AuthManager):
+def setup_auth(app, auth_manager: AuthManager, exempt_patterns=None):
     AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").lower() != "false"
     LOCALHOST_BYPASS = os.getenv("LOCALHOST_BYPASS", "false").lower() == "true"
 
@@ -75,7 +75,7 @@ def setup_auth(app, auth_manager: AuthManager):
         "/login",
     }
     AUTH_EXEMPT_PREFIXES = ["/static"]
-    AUTH_EXEMPT_PATTERNS = [
+    AUTH_EXEMPT_PATTERNS = exempt_patterns if exempt_patterns is not None else [
         _re.compile(r"^/api/tasks/[^/]+/webhook/[^/]+/?$"),
     ]
 

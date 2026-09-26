@@ -140,9 +140,19 @@ app.add_middleware(_RequestTimeoutMiddleware)
 auth_manager = AuthManager()
 app.state.auth_manager = auth_manager
 
+import re as _re
+
+# Paths the auth middleware lets through unauthenticated. The dynamic task
+# webhook trigger (POST /api/tasks/{task_id}/webhook/{token}) is public — the
+# path-embedded webhook_token is the credential and the route handler in
+# routes/task_routes.py validates it against the row (issue #621).
+AUTH_EXEMPT_PATTERNS = [
+    _re.compile(r"^/api/tasks/[^/]+/webhook/[^/]+/?$"),
+]
+
 from core.auth_middleware import setup_auth
 
-setup_auth(app, auth_manager)
+setup_auth(app, auth_manager, exempt_patterns=AUTH_EXEMPT_PATTERNS)
 
 # ── Static files ────────────────────────────────────────────────────
 os.makedirs(STATIC_DIR, exist_ok=True)

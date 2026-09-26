@@ -7,7 +7,7 @@ Summarizes older messages via the same LLM, preserving key context.
 
 import json
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from core.models import ChatMessage
 from src.endpoint_resolver import resolve_endpoint
@@ -316,7 +316,7 @@ async def maybe_compact(
     model: str,
     messages: list[dict],
     headers: dict | None = None,
-    owner: str | None = None,
+    owner: Optional[str] = None,
 ) -> tuple:
     """Check context usage and compact if above threshold.
 
