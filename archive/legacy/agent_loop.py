@@ -4168,7 +4168,11 @@ async def stream_agent_loop(
     # forces "keep" and never touches git, so behaviour is byte-identical to today.
     # The git runner is injected so it is fully mockable and never runs in tests.
     try:
-        from src.orchestrator.autoeval import apply_autoeval, autoeval_enabled
+        from src.orchestrator.autoeval import (
+            apply_autoeval,
+            autoeval_enabled,
+            destructive_revert_allowed,
+        )
 
         _drift_level = locals().get("drift")
 
@@ -4183,9 +4187,16 @@ async def stream_agent_loop(
             )
             return _cp.returncode == 0
 
-        # Only build a live runner when the kill-switch is ON; when OFF the
-        # runner is never invoked anyway (apply_autoeval forces "keep").
-        _ae_runner = _autoeval_git_reset_hard if autoeval_enabled() else None
+        # A live runner requires BOTH switches. AUTOEVAL alone decides
+        # "revert" and reports it; only ODYSSEUS_AUTOEVAL_ALLOW_RESET lets the
+        # decision become a real `git reset --hard`. Without this second gate
+        # the live path could wipe every uncommitted byte in the server's
+        # working tree the first time the Observer reports a HIGH drift.
+        _ae_runner = (
+            _autoeval_git_reset_hard
+            if (autoeval_enabled() and destructive_revert_allowed())
+            else None
+        )
         _ae = apply_autoeval(
             locals().get("_verifier_last_reasons"),
             drift_level=_drift_level,
@@ -4264,7 +4275,7 @@ async def stream_agent_loop(
 
     # M6.1 — PREFERENCES (§5.15): resolve and apply user preferences
     try:
-        if os.environ.get("ODYSSEUS_PREFERENCES", "").strip().lower() in ("1", "true", "yes", "on"):
+        if os.environ.get("ODYSSEUS_PREFERENCES", "on").strip().lower() in ("1", "true", "yes", "on"):
             from src.preferences import get_preference_resolution
 
             _pref_resolver = get_preference_resolution(request_instruction=_last_user[:500] if _last_user else None)
@@ -4280,7 +4291,7 @@ async def stream_agent_loop(
 
     # M6.2 — PROVENANCE MEMORY (§5.7): store facts with [stated]/[observed] tags
     try:
-        if os.environ.get("ODYSSEUS_PROVENANCE_MEMORY", "").strip().lower() in ("1", "true", "yes", "on"):
+        if os.environ.get("ODYSSEUS_PROVENANCE_MEMORY", "on").strip().lower() in ("1", "true", "yes", "on"):
             from src.provenance_memory import get_memory_fs
 
             _memfs = get_memory_fs()
@@ -4294,7 +4305,7 @@ async def stream_agent_loop(
 
     # M6.3 — DURABLE EXECUTION (§5.5): persist workflow state for crash recovery
     try:
-        if os.environ.get("ODYSSEUS_DURABLE_EXECUTION", "").strip().lower() in ("1", "true", "yes", "on"):
+        if os.environ.get("ODYSSEUS_DURABLE_EXECUTION", "on").strip().lower() in ("1", "true", "yes", "on"):
             from pathlib import Path
 
             from src.durable_execution import get_durable_executor
@@ -4312,7 +4323,7 @@ async def stream_agent_loop(
 
     # M6.4 — OUTPUT ROUTER (§5.18): route response through MCP→file→visual
     try:
-        if os.environ.get("ODYSSEUS_OUTPUT_ROUTER", "").strip().lower() in ("1", "true", "yes", "on"):
+        if os.environ.get("ODYSSEUS_OUTPUT_ROUTER", "on").strip().lower() in ("1", "true", "yes", "on"):
             from src.output_router import get_output_router
 
             _orouter = get_output_router()
@@ -4331,7 +4342,7 @@ async def stream_agent_loop(
 
     # M6.5 — DATA CLASSIFICATION (§5.19): classify data before persistence
     try:
-        if os.environ.get("ODYSSEUS_DATA_CLASSIFICATION", "").strip().lower() in ("1", "true", "yes", "on"):
+        if os.environ.get("ODYSSEUS_DATA_CLASSIFICATION", "on").strip().lower() in ("1", "true", "yes", "on"):
             from src.data_classification import get_classification_engine
 
             _dclass = get_classification_engine()
@@ -4348,7 +4359,7 @@ async def stream_agent_loop(
 
     # M6.6 — CONTENT SECURITY (§5.20): validate memory/output for injections
     try:
-        if os.environ.get("ODYSSEUS_CONTENT_SECURITY", "").strip().lower() in ("1", "true", "yes", "on"):
+        if os.environ.get("ODYSSEUS_CONTENT_SECURITY", "on").strip().lower() in ("1", "true", "yes", "on"):
             from src.content_security import get_content_security
 
             _csec = get_content_security()
@@ -4381,13 +4392,27 @@ async def stream_agent_loop(
 
     # M6.8 — PROGRESSIVE DISCLOSURE (§5.26): restrict tool surface by phase+risk
     try:
-        if os.environ.get("ODYSSEUS_PROGRESSIVE_DISCLOSURE", "").strip().lower() in ("1", "true", "yes", "on"):
+        if os.environ.get("ODYSSEUS_PROGRESSIVE_DISCLOSURE", "on").strip().lower() in ("1", "true", "yes", "on"):
             from src.progressive_disclosure import get_progressive_disclosure
 
+            # `phase` used to be a bare free name here: it resolved to nothing in
+            # this scope, so the call raised NameError and the blanket except
+            # below swallowed it at debug level. The M6.8 block therefore had
+            # never executed once. Read the phase the loop actually resolved
+            # for this round, and degrade to BUILD when there is none.
+            from src.orchestrator.phases import Phase as _Phase
+
+            _m68_phase = locals().get("_current_phase")
+            if not isinstance(_m68_phase, _Phase):
+                try:
+                    _m68_phase = _Phase(str(getattr(_m68_phase, "value", _m68_phase) or "BUILD"))
+                except ValueError:
+                    _m68_phase = _Phase.BUILD
             _pdc = get_progressive_disclosure()
-            _pdc_summary = _pdc.get_disclosure_summary(phase)
+            _pdc_summary = _pdc.get_disclosure_summary(_m68_phase)
             logger.info(
-                "[m6.8] progressive disclosure: level=%s tools=%d",
+                "[m6.8] progressive disclosure: phase=%s level=%s tools=%d",
+                _m68_phase.value,
                 _pdc_summary["disclosure_level"],
                 _pdc_summary["allowed_tool_count"],
             )
@@ -4396,7 +4421,7 @@ async def stream_agent_loop(
 
     # M6.9 — MEMORY IMPACT VERIFICATION (§5.27): only store impactful facts
     try:
-        if os.environ.get("ODYSSEUS_MEMORY_IMPACT", "").strip().lower() in ("1", "true", "yes", "on"):
+        if os.environ.get("ODYSSEUS_MEMORY_IMPACT", "on").strip().lower() in ("1", "true", "yes", "on"):
             from src.memory_impact import get_memory_impact_verifier
 
             _miv = get_memory_impact_verifier()
