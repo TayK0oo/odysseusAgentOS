@@ -128,6 +128,36 @@ _DYNAMIC_READERS = {
 
 def _real_readers() -> dict[str, set[str]]:
     """Map every env var name to the set of defaults its real readers use."""
+    return _reader_sites_defaults()
+
+
+def _reader_sites() -> dict[str, list[str]]:
+    """Map every env var name to the files+lines that actually read it.
+
+    Location, not just existence: `wired` proves a reader exists, but nothing
+    proved the *cited* file was it. It was not — 33 of 54 descriptors pointed
+    at two unrelated files (`checkpoint_tracker.py`, `memory_impact.py`),
+    copy-pasted. The cockpit renders `source` as "Lecteur", so a wrong value
+    there is a false statement about where the switch is honoured.
+    """
+    sites: dict[str, list[str]] = {}
+    for d in _SOURCE_DIRS:
+        root = _REPO_ROOT / d
+        if not root.is_dir():
+            continue
+        for f in sorted(root.rglob("*.py")):
+            try:
+                lines = f.read_text(encoding="utf-8", errors="ignore").splitlines()
+            except OSError:
+                continue
+            for i, line in enumerate(lines, 1):
+                for m in _READER_RE.finditer(line):
+                    sites.setdefault(m.group(1), []).append(f"{f.relative_to(_REPO_ROOT)}:{i}")
+    return sites
+
+
+def _reader_sites_defaults() -> dict[str, set[str]]:
+    """env var name -> the defaults its real readers apply."""
     found: dict[str, set[str]] = {}
     for d in _SOURCE_DIRS:
         root = _REPO_ROOT / d
@@ -198,3 +228,40 @@ def test_no_switch_presents_itself_active_while_unwired():
             f"{row['env_var']} is unwired yet reports effective=True — "
             f"the dashboard would be advertising an unreachable switch"
         )
+
+
+def test_wired_source_points_at_a_file_that_really_reads_the_var():
+    """`source` is rendered as "Lecteur" — it must not be a guess.
+
+    33 of 54 descriptors cited `checkpoint_tracker.py:39` or
+    `memory_impact.py:23` regardless of the switch they described. Nothing
+    policed the field, so the cockpit could name a file that has nothing to do
+    with the switch. `wired` proves a reader exists; this proves the cited one
+    is it.
+    """
+    sites = _reader_sites()
+    dynamic = set(_DYNAMIC_READERS)
+    wrong = []
+    for row in ksr.read_states():
+        if not row["wired"]:
+            continue
+        cited = row["source"].split(":")[0]
+        if cited in dynamic:
+            continue  # read via _is_enabled(env_var), no literal getenv site
+        if row["env_var"] in sites and any(s.startswith(cited) for s in sites[row["env_var"]]):
+            continue
+        wrong.append(
+            f"{row['env_var']}: source={row['source']!r} "
+            f"lecteurs réels={sites.get(row['env_var'], [])}"
+        )
+    assert wrong == []
+
+
+def test_unwired_source_declares_the_absence_of_a_reader():
+    """A descriptor with no reader must not cite a file as if it had one."""
+    wrong = [
+        f"{row['env_var']}: source={row['source']!r}"
+        for row in ksr.read_states()
+        if not row["wired"] and "aucun lecteur" not in row["source"]
+    ]
+    assert wrong == []
