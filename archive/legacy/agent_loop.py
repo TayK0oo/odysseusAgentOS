@@ -39,6 +39,7 @@ from src.agent_tools import (
 )
 from src.llm_core import _is_ollama_native_url, stream_llm_with_fallback
 from src.model_context import estimate_tokens
+from src.orchestrator.phases import Phase
 from src.prompt_security import untrusted_context_message
 from src.settings import get_setting
 from src.sse_indicators import (
@@ -4400,14 +4401,12 @@ async def stream_agent_loop(
             # below swallowed it at debug level. The M6.8 block therefore had
             # never executed once. Read the phase the loop actually resolved
             # for this round, and degrade to BUILD when there is none.
-            from src.orchestrator.phases import Phase as _Phase
-
             _m68_phase = locals().get("_current_phase")
-            if not isinstance(_m68_phase, _Phase):
+            if not isinstance(_m68_phase, Phase):
                 try:
-                    _m68_phase = _Phase(str(getattr(_m68_phase, "value", _m68_phase) or "BUILD"))
+                    _m68_phase = Phase(str(getattr(_m68_phase, "value", _m68_phase) or "BUILD"))
                 except ValueError:
-                    _m68_phase = _Phase.BUILD
+                    _m68_phase = Phase.BUILD
             _pdc = get_progressive_disclosure()
             _pdc_summary = _pdc.get_disclosure_summary(_m68_phase)
             logger.info(
