@@ -53,6 +53,9 @@ from src.tool_utils import _truncate, get_mcp_manager
 
 logger = logging.getLogger(__name__)
 
+# Domaine de provenance des reponses de l'agent (P16) : `topics/<domaine>.md`.
+_M62_OBSERVED_DOMAIN = "topics/agent-output.md"
+
 # OTel tracer — no-op when ODYSSEUS_OTEL=off (zero overhead)
 _tracer = get_tracer("odysseus.agent_loop")
 
@@ -4376,6 +4379,16 @@ async def stream_agent_loop(
             from src.provenance_memory import get_memory_fs
 
             _memfs = get_memory_fs()
+            # P16: `add_observed` refuses to write when the domain file does not
+            # exist (`provenance_memory.py:344-346`) — a deliberate, tested
+            # contract (`test_add_observed_requires_existing_file`). But nothing
+            # ever created `topics/agent-output.md`, so the call below was a
+            # GUARANTEED no-op whose `False` was discarded. A missing file is a
+            # bootstrap problem, not a provenance guarantee: seed the domain once.
+            # `add_stated` -> `memory_append` is idempotent (`:248-250`), so this
+            # poses its line a single time however many turns run.
+            if not (_memfs.root / _M62_OBSERVED_DOMAIN).exists():
+                _memfs.add_stated("agent-output", "Faits observes sur les reponses de l'agent")
             # P17: the durable writes below carry the raw user text, so they are
             # gated on the classification verdict computed above. On PROTECTED
             # nothing is written and the block is announced on the stream — a
@@ -4388,17 +4401,31 @@ async def stream_agent_loop(
                 # the verifier is off (_m69_result is None) we keep the previous
                 # behaviour and store — the switch governs, not a silent default.
                 _m69_keep = _m69_result is None or _m69_result.should_store
+                # P16: report what actually landed. The previous unconditional
+                # "[m6.2] provenance memory updated" was printed even when every
+                # write had been refused — a log that cannot be wrong tells you
+                # nothing, and it is what let a guaranteed no-op stay invisible.
+                _m62_written = []
                 if _last_user and _m69_keep:
-                    _memfs.update_profile(f"User said: {str(_last_user)[:200]}", "stated")
+                    if _memfs.update_profile(f"User said: {str(_last_user)[:200]}", "stated")[0]:
+                        _m62_written.append("profile")
                 elif _last_user:
                     logger.info(
                         "[m6.2] fact not stored — impact %.4f <= threshold %.4f",
                         _m69_result.impact_score if _m69_result else 0.0,
                         _m69_result.threshold if _m69_result else 0.0,
                     )
-                if full_response and len(full_response) > 50:
-                    _memfs.add_observed("agent-output", f"Agent responded ({len(full_response)} chars)")
-                logger.info("[m6.2] provenance memory updated")
+                if (
+                    full_response
+                    and len(full_response) > 50
+                    and _memfs.add_observed("agent-output", f"Agent responded ({len(full_response)} chars)")[0]
+                ):
+                    _m62_written.append("agent-output")
+                logger.info(
+                    "[m6.2] provenance memory: %d write(s) [%s]",
+                    len(_m62_written),
+                    ", ".join(_m62_written) or "none",
+                )
     except Exception as _m62_err:
         logger.debug("[m6.2] provenance memory skipped: %s", _m62_err)
 
