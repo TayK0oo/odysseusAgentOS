@@ -4341,6 +4341,35 @@ async def stream_agent_loop(
     except Exception as _m61_err:
         logger.warning("[m6.1] preferences could not be resolved: %s", _m61_err, exc_info=True)
 
+    # M6.9 (hoisted) — MEMORY IMPACT VERIFICATION (§5.27), P19.
+    # Hoisted for the same reason as M6.5: the verdict has to be known BEFORE
+    # the durable write it is meant to govern. Left in place it stayed purely
+    # advisory — M6.2 wrote the fact unconditionally at :4359 and the impact
+    # score, computed afterwards, was only logged. A principle that cannot
+    # prevent anything is a report, not a control.
+    _m69_result = None
+    _m69_hypothetical = ""
+    try:
+        if os.environ.get("ODYSSEUS_MEMORY_IMPACT", "on").strip().lower() in ("1", "true", "yes", "on"):
+            from src.memory_impact import build_hypothetical_response, get_memory_impact_verifier, store_impacted_fact
+
+            if _last_user and full_response:
+                _m69_fact = str(_last_user)[:500]
+                # The counterfactual used to be the empty string, which
+                # short-circuits evaluate_impact to 0.0 and made should_store
+                # permanently False. Build the real "and without this fact?"
+                # response instead.
+                _m69_hypothetical = build_hypothetical_response(_m69_fact, full_response or "")
+                _m69_result = get_memory_impact_verifier().verify(
+                    fact=_m69_fact,
+                    current_response=full_response or "",
+                    hypothetical_response=_m69_hypothetical,
+                )
+    except Exception as _m69_hoist_err:
+        # Rule 2: this block decides what enters long-term memory. Swallowing it
+        # at debug level means silently storing everything, or nothing.
+        logger.warning("[m6.9] memory impact check failed: %s", _m69_hoist_err, exc_info=True)
+
     # M6.2 — PROVENANCE MEMORY (§5.7): store facts with [stated]/[observed] tags
     try:
         if os.environ.get("ODYSSEUS_PROVENANCE_MEMORY", "on").strip().lower() in ("1", "true", "yes", "on"):
@@ -4355,8 +4384,18 @@ async def stream_agent_loop(
                 logger.info("[m6.2] durable write blocked — message classified PROTECTED")
                 yield f"data: {json.dumps({'type': 'memory_blocked', 'level': 'protected', 'reason': 'data classification'})}\n\n"
             else:
-                if _last_user:
+                # P19: only keep a fact if it actually changed the answer. When
+                # the verifier is off (_m69_result is None) we keep the previous
+                # behaviour and store — the switch governs, not a silent default.
+                _m69_keep = _m69_result is None or _m69_result.should_store
+                if _last_user and _m69_keep:
                     _memfs.update_profile(f"User said: {str(_last_user)[:200]}", "stated")
+                elif _last_user:
+                    logger.info(
+                        "[m6.2] fact not stored — impact %.4f <= threshold %.4f",
+                        _m69_result.impact_score if _m69_result else 0.0,
+                        _m69_result.threshold if _m69_result else 0.0,
+                    )
                 if full_response and len(full_response) > 50:
                     _memfs.add_observed("agent-output", f"Agent responded ({len(full_response)} chars)")
                 logger.info("[m6.2] provenance memory updated")
@@ -4474,25 +4513,33 @@ async def stream_agent_loop(
     except Exception as _m68_err:
         logger.debug("[m6.8] progressive disclosure skipped: %s", _m68_err)
 
-    # M6.9 — MEMORY IMPACT VERIFICATION (§5.27): only store impactful facts
-    try:
-        if os.environ.get("ODYSSEUS_MEMORY_IMPACT", "on").strip().lower() in ("1", "true", "yes", "on"):
-            from src.memory_impact import get_memory_impact_verifier
-
-            _miv = get_memory_impact_verifier()
-            if _last_user and full_response:
-                _impact_result = _miv.verify(
-                    fact=str(_last_user)[:500],
-                    current_response=full_response or "",
-                    hypothetical_response="",
+    # M6.9 — MEMORY IMPACT VERIFICATION (§5.27): report and persist the verdict
+    # computed above. M6.2 already consulted it; this block records the decision
+    # (stream event) and writes the fact to the impact store when kept, so the
+    # verdict is readable after the fact and not only in a log line.
+    if _m69_result is not None:
+        try:
+            if _m69_result.should_store and not _m65_protected:
+                # P17 outranks P19: a fact that changed the answer is still a
+                # PROTECTED payload, and "impactful" is not a retention
+                # exemption. Writing it here would silently undo the M6.2 gate.
+                _stored_ok, _stored_msg = store_impacted_fact(
+                    str(_last_user)[:500],
+                    tag="inferred",
+                    confidence=round(float(_m69_result.impact_score), 4),
                 )
-                logger.info(
-                    "[m6.9] memory impact: score=%.4f threshold=%.4f store=%s",
-                    _impact_result.impact_score,
-                    _impact_result.threshold,
-                    _impact_result.should_store,
-                )
-    except Exception as _m69_err:
-        logger.debug("[m6.9] memory impact skipped: %s", _m69_err)
+                if not _stored_ok:
+                    # Rule 2: a decision to keep that kept nothing must be
+                    # visible, otherwise P19 looks applied while it is not.
+                    logger.warning("[m6.9] impact said store=True but write failed: %s", _stored_msg)
+            logger.info(
+                "[m6.9] memory impact: score=%.4f threshold=%.4f store=%s",
+                _m69_result.impact_score,
+                _m69_result.threshold,
+                _m69_result.should_store,
+            )
+            yield f"data: {json.dumps({'type': 'memory_impact', 'score': _m69_result.impact_score, 'threshold': _m69_result.threshold, 'should_store': _m69_result.should_store})}\n\n"
+        except Exception as _m69_store_err:
+            logger.warning("[m6.9] could not record impact verdict: %s", _m69_store_err, exc_info=True)
 
     yield "data: [DONE]\n\n"
