@@ -81,7 +81,7 @@
 | Orchestration | `ODYSSEUS_DESTRUCTIVE_GATE` | `on` | `on` | oui | `src/orchestrator/gate.py:26` |
 | Orchestration | `ODYSSEUS_LANGGRAPH_INTERRUPT` | `on` | `on` | oui | `src/orchestrator/langgraph_loop.py:805` |
 | Orchestration | `ODYSSEUS_LANGGRAPH` | `off` | `off` | oui | `src/orchestrator/langgraph_loop.py:42` |
-| Orchestration | `ODYSSEUS_LIVE_ORCHESTRATION` | `off` | `off` | oui | `archive/legacy/agent_loop.py:2850` |
+| Orchestration | `ODYSSEUS_LIVE_ORCHESTRATION` | `off` | `off` | oui | `archive/legacy/agent_loop.py:2932` |
 | Orchestration | `ODYSSEUS_MODEL_ROUTER` | `on` | `on` | oui | `src/orchestrator/router_advice.py:42` |
 | Orchestration | `ODYSSEUS_PHASE_TRACKER` | `on` | `on` | oui | `src/orchestrator/phase_tracker.py:23` |
 | Quality | `ODYSSEUS_DEEPEVAL` | `off` | `off` | **NON** | `(aucun lecteur dans le code)` |
