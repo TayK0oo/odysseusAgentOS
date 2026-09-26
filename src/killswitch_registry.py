@@ -28,7 +28,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Orchestration",
         "timing": "runtime",
         "desc": "CanonicalLoop 7 phases.",
-        "source": "src/orchestrator/checkpoint_tracker.py:39",
+        "source": "archive/legacy/agent_loop.py:2825",
     },
     {
         "name": "Phase tracker",
@@ -37,7 +37,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Orchestration",
         "timing": "runtime",
         "desc": "Infere la phase par round et la pousse au ToolRegistry.",
-        "source": "src/orchestrator/checkpoint_tracker.py:39",
+        "source": "src/orchestrator/phase_tracker.py:25",
     },
     {
         "name": "Model router",
@@ -46,7 +46,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Orchestration",
         "timing": "runtime",
         "desc": "Routing advisory log-only (n'ecrase pas le modele user).",
-        "source": "src/orchestrator/checkpoint_tracker.py:39",
+        "source": "src/orchestrator/router_advice.py:42",
     },
     {
         "name": "Destructive gate",
@@ -55,7 +55,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Orchestration",
         "timing": "runtime",
         "desc": "Garde-fou operations destructrices (ON par defaut).",
-        "source": "src/orchestrator/checkpoint_tracker.py:39",
+        "source": "src/orchestrator/gate.py:26",
     },
     {
         "name": "Autoeval",
@@ -64,7 +64,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "Decision keep/revert post-build.",
-        "source": "src/orchestrator/checkpoint_tracker.py:39",
+        "source": "src/orchestrator/autoeval.py:45",
     },
     {
         "name": "Autoeval: exécution destructrice",
@@ -84,7 +84,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "Recherche d'amelioration apres drift HIGH + revert.",
-        "source": "src/orchestrator/checkpoint_tracker.py:39",
+        "source": "src/orchestrator/autoevolve.py:18",
     },
     {
         "name": "CodeBurn",
@@ -93,7 +93,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "Rapport one-shot rate / waste / cout.",
-        "source": "src/orchestrator/checkpoint_tracker.py:39",
+        "source": "src/orchestrator/codeburn_runner.py:26",
     },
     {
         "name": "LangFuse",
@@ -102,7 +102,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "LLM tracing & observability dashboard (self-hosted).",
-        "source": "src/orchestrator/checkpoint_tracker.py:39",
+        "source": "services/observability/langfuse_tracer.py:38",
     },
     {
         "name": "Governance ancestry",
@@ -111,7 +111,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "Ecrit GoalTask avec ancestry mission->goal->project->task.",
-        "source": "src/orchestrator/checkpoint_tracker.py:39",
+        "source": "src/orchestrator/ancestry_tracker.py:26",
     },
     {
         "name": "LangGraph loop",
@@ -120,7 +120,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Orchestration",
         "timing": "runtime",
         "desc": "StateGraph 7-nœuds (remplace stream_agent_loop).",
-        "source": "src/orchestrator/checkpoint_tracker.py:39",
+        "source": "src/orchestrator/langgraph_loop.py:42",
     },
     {
         "name": "LangGraph interrupt",
@@ -129,7 +129,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Orchestration",
         "timing": "runtime",
         "desc": "Interrupt before BUILD when risk==DESTRUCTIVE.",
-        "source": "src/orchestrator/checkpoint_tracker.py:39",
+        "source": "src/orchestrator/langgraph_loop.py:805",
     },
     {
         "name": "Checkpoint",
@@ -147,7 +147,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "Comptage tokens unifie avec run_id de correlation.",
-        "source": "src/memory_impact.py:23",
+        "source": "src/trace_writer.py:146",
     },
     {
         "name": "RRF fusion",
@@ -156,7 +156,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "RAG",
         "timing": "runtime",
         "desc": "Fusion vecteur+BM25 par Reciprocal Rank Fusion.",
-        "source": "src/memory_impact.py:23",
+        "source": "src/rag_vector.py:86",
     },
     {
         "name": "Docling",
@@ -165,7 +165,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Document Processing",
         "timing": "runtime",
         "desc": "PDF extraction via Docling (tables, layout, reading order).",
-        "source": "src/memory_impact.py:23",
+        "source": "src/docling_runtime.py:30",
     },
     {
         "name": "DeepEval",
@@ -175,7 +175,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "timing": "runtime",
         "wired": False,
         "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. LLM quality evaluation (faithfulness, relevancy, hallucination, bias, toxicity).",
-        "source": "src/memory_impact.py:23",
+        "source": "(aucun lecteur dans le code)",
     },
     {
         "name": "Tree-sitter",
@@ -184,7 +184,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Code Parsing",
         "timing": "runtime",
         "desc": "Incremental syntax parsing (AST, symbols, call sites).",
-        "source": "src/memory_impact.py:23",
+        "source": "src/agent_tools/filesystem_tools.py:16",
     },
     {
         "name": "Disable MCP",
@@ -193,7 +193,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "MCP/Services",
         "timing": "startup",
         "desc": "Coupe tous les serveurs MCP built-in (lu au boot).",
-        "source": "src/memory_impact.py:23",
+        "source": "src/builtin_mcp.py:90",
     },
     {
         "name": "Obsidian MCP",
@@ -202,7 +202,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "MCP/Services",
         "timing": "runtime",
         "desc": "Active le serveur MCP Obsidian.",
-        "source": "src/memory_impact.py:23",
+        "source": "src/builtin_mcp.py:99",
     },
     {
         "name": "Graphify",
@@ -211,7 +211,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "MCP/Services",
         "timing": "runtime",
         "desc": "Active le serveur MCP Graphify.",
-        "source": "src/memory_impact.py:23",
+        "source": "src/builtin_mcp.py:108",
     },
     {
         "name": "CBM (Codebase Memory)",
@@ -220,7 +220,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "MCP/Services",
         "timing": "runtime",
         "desc": "Active le client CBM pour le graphe semantique de code.",
-        "source": "src/memory_impact.py:23",
+        "source": "src/cbm_client.py:24",
     },
     {
         "name": "Serena MCP",
@@ -229,7 +229,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "MCP/Services",
         "timing": "runtime",
         "desc": "Active le client Serena MCP (find_references, goto_definition, etc.).",
-        "source": "src/memory_impact.py:23",
+        "source": "src/serena_client.py:25",
     },
     {
         "name": "AgentSeal",
@@ -238,7 +238,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "MCP/Services",
         "timing": "runtime",
         "desc": "Active le scanner d'injection AgentSeal (prompts + outputs).",
-        "source": "src/memory_impact.py:23",
+        "source": "src/agentseal_runner.py:82",
     },
     {
         "name": "Supabase",
@@ -248,7 +248,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "timing": "startup",
         "wired": False,
         "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Active l'integration Supabase (backend-as-a-service).",
-        "source": "src/memory_impact.py:23",
+        "source": "(aucun lecteur dans le code)",
     },
     {
         "name": "Vaultwarden",
@@ -258,7 +258,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "timing": "runtime",
         "wired": False,
         "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Active l'integration Vaultwarden (password manager).",
-        "source": "src/memory_impact.py:23",
+        "source": "(aucun lecteur dans le code)",
     },
     {
         "name": "Playwright MCP",
@@ -268,7 +268,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "timing": "runtime",
         "wired": False,
         "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Active le serveur MCP Playwright pour le browsing headless.",
-        "source": "src/memory_impact.py:23",
+        "source": "(aucun lecteur dans le code)",
     },
     {
         "name": "Browser Harness",
@@ -278,7 +278,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "timing": "runtime",
         "wired": False,
         "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Active le harness de navigateur pour les tests E2E.",
-        "source": "src/memory_impact.py:23",
+        "source": "(aucun lecteur dans le code)",
     },
     {
         "name": "Zen from endpoint",
@@ -288,7 +288,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "timing": "runtime",
         "wired": False,
         "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Route Zen via un endpoint enregistre.",
-        "source": "src/memory_impact.py:23",
+        "source": "(aucun lecteur dans le code)",
     },
     {
         "name": "n8n integration",
@@ -297,7 +297,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "MCP/Services",
         "timing": "runtime",
         "desc": "Active la routing n8n pour trigger de workflows.",
-        "source": "src/memory_impact.py:23",
+        "source": "routes/n8n_routes.py:27",
     },
     {
         "name": "In-process Discord",
@@ -307,7 +307,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "timing": "startup",
         "wired": False,
         "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Bootstrap du bot Discord in-process.",
-        "source": "src/memory_impact.py:23",
+        "source": "(aucun lecteur dans le code)",
     },
     {
         "name": "In-process Telegram",
@@ -317,7 +317,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "timing": "startup",
         "wired": False,
         "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Bootstrap du bot Telegram in-process.",
-        "source": "src/memory_impact.py:23",
+        "source": "(aucun lecteur dans le code)",
     },
     {
         "name": "Channel agent reply",
@@ -327,7 +327,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "timing": "runtime",
         "wired": False,
         "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Reponse auto de l'agent sur les channels.",
-        "source": "src/memory_impact.py:23",
+        "source": "(aucun lecteur dans le code)",
     },
     {
         "name": "Agent catalog",
@@ -336,7 +336,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Agents",
         "timing": "startup",
         "desc": "Charge le catalogue d'agents .opencode au boot.",
-        "source": "src/memory_impact.py:23",
+        "source": "core/startup.py:278",
     },
     {
         "name": "Progressive disclosure",
@@ -345,7 +345,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "P5: Restreint les outils visibles par phase+risque.",
-        "source": "src/memory_impact.py:23",
+        "source": "src/progressive_disclosure.py:25",
     },
     {
         "name": "Memory impact verification",
