@@ -17,9 +17,28 @@ from fastapi.testclient import TestClient
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-os.environ.setdefault("AUTH_ENABLED", "false")
-os.environ.setdefault("LOCALHOST_BYPASS", "true")
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+
+_AUTH_OFF_KEYS = ("AUTH_ENABLED", "LOCALHOST_BYPASS")
+_SAVED_ENV = {k: os.environ.get(k) for k in _AUTH_OFF_KEYS}
+
+
+def _set_auth_off() -> None:
+    os.environ["AUTH_ENABLED"] = "false"
+    os.environ["LOCALHOST_BYPASS"] = "true"
+
+
+def _restore_env(saved: dict) -> None:
+    for key, val in saved.items():
+        if val is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = val
+
+
+# L'auth doit etre OFF **avant** l'import de app : setup_auth() capture
+# LOCALHOST_BYPASS dans la closure de AuthMiddleware au moment du setup.
+_set_auth_off()
 
 # Init DB tables before importing app
 import core.database as _cdb
@@ -27,6 +46,27 @@ import core.database as _cdb
 _cdb.init_db()
 
 import app as _app_module
+
+# ... mais on restaure immediatement apres l'import : sinon la pollution
+# (setdefault module jamais revoque) casse les tests d'auth des modules
+# collectes apres, qui verifient que l'auth est bien active.
+_restore_env(_SAVED_ENV)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _auth_off():
+    """Auth OFF pendant les tests de CE module, restaure a la fin.
+
+    require_user() relit os.getenv a chaque appel, il faut donc reposer
+    l'env pour la duree d'execution des tests (la closure du middleware,
+    elle, a deja ete construite avec le bypass actif lors de l'import).
+    """
+    saved = {k: os.environ.get(k) for k in _AUTH_OFF_KEYS}
+    _set_auth_off()
+    try:
+        yield
+    finally:
+        _restore_env(saved)
 
 _client = TestClient(_app_module.app)
 
@@ -58,6 +98,17 @@ def route_exists(method: str, path: str):
     """Return True if route returns something other than 404/405."""
     resp = api(method, path)
     return resp.status_code not in (404, 405)
+
+
+def route_registered(method: str, path: str) -> bool:
+    """Return True if a route with this method+path pattern is registered.
+
+    Necessary for routes taking a path parameter: probing them with a random
+    id hits a legit 404 ("not found") that says nothing about registration.
+    Read from the OpenAPI schema because the app registers its routes through
+    lazy ``_IncludedRouter`` wrappers, invisible in ``app.routes``.
+    """
+    return method.lower() in _app_module.app.openapi().get("paths", {}).get(path, {})
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -446,8 +497,9 @@ class TestE2E_Documents:
         assert route_exists("POST", "/api/documents")
 
     def test_list(self):
-        sid = f"e2e-{uuid.uuid4().hex[:8]}"
-        assert route_exists("GET", f"/api/documents/{sid}")
+        # /api/documents/{session_id} prend un session_id : un id aleatoire
+        # renvoie 404 "not found", ce qui ne prouve rien sur l'enregistrement.
+        assert route_registered("GET", "/api/documents/{session_id}")
 
 
 # ══════════════════════════════════════════════════════════════════════════
