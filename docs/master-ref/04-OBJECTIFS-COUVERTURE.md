@@ -55,7 +55,7 @@ Statuts issus de `../traceability/02-PRINCIPES-UC.md` (vérifiés sur le code).
 | **Cas d'usage UC-01→19** | 6 | 10 | 1 | 2 | 19 | **61 %** | **32 %** |
 | **TOTAL (41 exigences)** | 12 | 22 | 5 | 2 | 41 | **≈ 62 %** | **≈ 29 %** |
 
-> **SFD v3.1** ajoute P23-P25 et UC-20-21 (proactivité, grounding, data flywheel, brief planisé, vérifier la source). Non encore vérifiés côté code (spec only) → à intégrer au score lors de leur implémentation.
+> **SFD v3.1** ajoute P23-P25 et UC-20-21 (proactivité, grounding, data flywheel, brief planifié, vérifier la source). Non encore vérifiés côté code (spec only) → à intégrer au score lors de leur implémentation.
 
 > **🟢 Sprint 1a (2026-09-26) — le score ci-dessus est INCHANGÉ, et c'est délibéré.**
 > Les 109 échecs réparés portaient sur des **tests**, pas sur des statuts de fonctionnalité : le bug des shims `src/*.py` → `archive/legacy/*.py` rendait le code **correct à l'exécution** mais insensible au `monkeypatch` des tests. Le code était donc déjà « codé » avant Sprint 1a — les statuts ACTIF/PARTIEL/DORMANT n'ont pas bougé.
