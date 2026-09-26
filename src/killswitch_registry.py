@@ -21,12 +21,10 @@ def _truthy(value: str | None) -> bool:
 
 # Curated set — grounded in code (rg 'os\.(environ\.get|getenv)\("ODYSSEUS_')
 # plus the agent/channel gates. Config params (paths, ids, models) are excluded.
-_SWITCHES: list[dict[str, Any]] = [
-    # -- Orchestration --
-    {
+_SWITCHES: list[dict[str, Any]] = [    {
         "name": "Live orchestration",
         "env_var": "ODYSSEUS_LIVE_ORCHESTRATION",
-        "default": "on",
+        "default": "off",
         "category": "Orchestration",
         "timing": "runtime",
         "desc": "CanonicalLoop 7 phases.",
@@ -59,7 +57,6 @@ _SWITCHES: list[dict[str, Any]] = [
         "desc": "Garde-fou operations destructrices (ON par defaut).",
         "source": "src/orchestrator/checkpoint_tracker.py:39",
     },
-    # -- Governance / Memory --
     {
         "name": "Autoeval",
         "env_var": "ODYSSEUS_AUTOEVAL",
@@ -92,7 +89,7 @@ _SWITCHES: list[dict[str, Any]] = [
     {
         "name": "CodeBurn",
         "env_var": "ODYSSEUS_CODEBURN",
-        "default": "on",
+        "default": "off",
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "Rapport one-shot rate / waste / cout.",
@@ -101,7 +98,7 @@ _SWITCHES: list[dict[str, Any]] = [
     {
         "name": "LangFuse",
         "env_var": "ODYSSEUS_LANGFUSE",
-        "default": "on",
+        "default": "off",
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "LLM tracing & observability dashboard (self-hosted).",
@@ -110,7 +107,7 @@ _SWITCHES: list[dict[str, Any]] = [
     {
         "name": "Governance ancestry",
         "env_var": "ODYSSEUS_GOVERNANCE_ANCESTRY",
-        "default": "on",
+        "default": "off",
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "Ecrit GoalTask avec ancestry mission->goal->project->task.",
@@ -119,7 +116,7 @@ _SWITCHES: list[dict[str, Any]] = [
     {
         "name": "LangGraph loop",
         "env_var": "ODYSSEUS_LANGGRAPH",
-        "default": "on",
+        "default": "off",
         "category": "Orchestration",
         "timing": "runtime",
         "desc": "StateGraph 7-nœuds (remplace stream_agent_loop).",
@@ -152,51 +149,47 @@ _SWITCHES: list[dict[str, Any]] = [
         "desc": "Comptage tokens unifie avec run_id de correlation.",
         "source": "src/memory_impact.py:23",
     },
-    # -- RAG --
     {
         "name": "RRF fusion",
         "env_var": "ODYSSEUS_RRF_FUSION",
-        "default": "on",
+        "default": "off",
         "category": "RAG",
         "timing": "runtime",
         "desc": "Fusion vecteur+BM25 par Reciprocal Rank Fusion.",
         "source": "src/memory_impact.py:23",
     },
-    # -- Document Processing --
     {
         "name": "Docling",
         "env_var": "ODYSSEUS_DOCLING",
-        "default": "on",
+        "default": "off",
         "category": "Document Processing",
         "timing": "runtime",
         "desc": "PDF extraction via Docling (tables, layout, reading order).",
         "source": "src/memory_impact.py:23",
     },
-    # -- Quality --
     {
         "name": "DeepEval",
         "env_var": "ODYSSEUS_DEEPEVAL",
-        "default": "on",
+        "default": "off",
         "category": "Quality",
         "timing": "runtime",
-        "desc": "LLM quality evaluation (faithfulness, relevancy, hallucination, bias, toxicity).",
+        "wired": False,
+        "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. LLM quality evaluation (faithfulness, relevancy, hallucination, bias, toxicity).",
         "source": "src/memory_impact.py:23",
     },
-    # -- Code Parsing --
     {
         "name": "Tree-sitter",
         "env_var": "ODYSSEUS_TREESITTER",
-        "default": "on",
+        "default": "off",
         "category": "Code Parsing",
         "timing": "runtime",
         "desc": "Incremental syntax parsing (AST, symbols, call sites).",
         "source": "src/memory_impact.py:23",
     },
-    # -- MCP / Services --
     {
         "name": "Disable MCP",
         "env_var": "ODYSSEUS_DISABLE_MCP",
-        "default": "on",
+        "default": "off",
         "category": "MCP/Services",
         "timing": "startup",
         "desc": "Coupe tous les serveurs MCP built-in (lu au boot).",
@@ -205,7 +198,7 @@ _SWITCHES: list[dict[str, Any]] = [
     {
         "name": "Obsidian MCP",
         "env_var": "ODYSSEUS_OBSIDIAN_MCP",
-        "default": "on",
+        "default": "off",
         "category": "MCP/Services",
         "timing": "runtime",
         "desc": "Active le serveur MCP Obsidian.",
@@ -214,7 +207,7 @@ _SWITCHES: list[dict[str, Any]] = [
     {
         "name": "Graphify",
         "env_var": "ODYSSEUS_GRAPHIFY",
-        "default": "on",
+        "default": "off",
         "category": "MCP/Services",
         "timing": "runtime",
         "desc": "Active le serveur MCP Graphify.",
@@ -223,7 +216,7 @@ _SWITCHES: list[dict[str, Any]] = [
     {
         "name": "CBM (Codebase Memory)",
         "env_var": "ODYSSEUS_CBM",
-        "default": "on",
+        "default": "off",
         "category": "MCP/Services",
         "timing": "runtime",
         "desc": "Active le client CBM pour le graphe semantique de code.",
@@ -232,7 +225,7 @@ _SWITCHES: list[dict[str, Any]] = [
     {
         "name": "Serena MCP",
         "env_var": "ODYSSEUS_SERENA_MCP",
-        "default": "on",
+        "default": "off",
         "category": "MCP/Services",
         "timing": "runtime",
         "desc": "Active le client Serena MCP (find_references, goto_definition, etc.).",
@@ -241,7 +234,7 @@ _SWITCHES: list[dict[str, Any]] = [
     {
         "name": "AgentSeal",
         "env_var": "ODYSSEUS_AGENTSEAL",
-        "default": "on",
+        "default": "off",
         "category": "MCP/Services",
         "timing": "runtime",
         "desc": "Active le scanner d'injection AgentSeal (prompts + outputs).",
@@ -250,96 +243,101 @@ _SWITCHES: list[dict[str, Any]] = [
     {
         "name": "Supabase",
         "env_var": "ODYSSEUS_SUPABASE",
-        "default": "on",
+        "default": "off",
         "category": "MCP/Services",
         "timing": "startup",
-        "desc": "Active l'integration Supabase (backend-as-a-service).",
+        "wired": False,
+        "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Active l'integration Supabase (backend-as-a-service).",
         "source": "src/memory_impact.py:23",
     },
     {
         "name": "Vaultwarden",
         "env_var": "ODYSSEUS_VAULTWARDEN",
-        "default": "on",
+        "default": "off",
         "category": "MCP/Services",
         "timing": "runtime",
-        "desc": "Active l'integration Vaultwarden (password manager).",
+        "wired": False,
+        "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Active l'integration Vaultwarden (password manager).",
         "source": "src/memory_impact.py:23",
     },
     {
         "name": "Playwright MCP",
         "env_var": "ODYSSEUS_PLAYWRIGHT",
-        "default": "on",
+        "default": "off",
         "category": "MCP/Services",
         "timing": "runtime",
-        "desc": "Active le serveur MCP Playwright pour le browsing headless.",
+        "wired": False,
+        "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Active le serveur MCP Playwright pour le browsing headless.",
         "source": "src/memory_impact.py:23",
     },
     {
         "name": "Browser Harness",
         "env_var": "ODYSSEUS_BROWSER_HARNESS",
-        "default": "on",
+        "default": "off",
         "category": "MCP/Services",
         "timing": "runtime",
-        "desc": "Active le harness de navigateur pour les tests E2E.",
+        "wired": False,
+        "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Active le harness de navigateur pour les tests E2E.",
         "source": "src/memory_impact.py:23",
     },
     {
         "name": "Zen from endpoint",
         "env_var": "ODYSSEUS_ZEN_FROM_ENDPOINT",
-        "default": "on",
+        "default": "off",
         "category": "MCP/Services",
         "timing": "runtime",
-        "desc": "Route Zen via un endpoint enregistre.",
+        "wired": False,
+        "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Route Zen via un endpoint enregistre.",
         "source": "src/memory_impact.py:23",
     },
     {
         "name": "n8n integration",
         "env_var": "ODYSSEUS_N8N",
-        "default": "on",
+        "default": "off",
         "category": "MCP/Services",
         "timing": "runtime",
         "desc": "Active la routing n8n pour trigger de workflows.",
         "source": "src/memory_impact.py:23",
     },
-    # -- Channels --
     {
         "name": "In-process Discord",
         "env_var": "ODYSSEUS_INPROCESS_DISCORD",
-        "default": "on",
+        "default": "off",
         "category": "Channels",
         "timing": "startup",
-        "desc": "Bootstrap du bot Discord in-process.",
+        "wired": False,
+        "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Bootstrap du bot Discord in-process.",
         "source": "src/memory_impact.py:23",
     },
     {
         "name": "In-process Telegram",
         "env_var": "ODYSSEUS_INPROCESS_TELEGRAM",
-        "default": "on",
+        "default": "off",
         "category": "Channels",
         "timing": "startup",
-        "desc": "Bootstrap du bot Telegram in-process.",
+        "wired": False,
+        "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Bootstrap du bot Telegram in-process.",
         "source": "src/memory_impact.py:23",
     },
     {
         "name": "Channel agent reply",
         "env_var": "ODYSSEUS_CHANNEL_AGENT_REPLY",
-        "default": "on",
+        "default": "off",
         "category": "Channels",
         "timing": "runtime",
-        "desc": "Reponse auto de l'agent sur les channels.",
+        "wired": False,
+        "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Reponse auto de l'agent sur les channels.",
         "source": "src/memory_impact.py:23",
     },
-    # -- Agents --
     {
         "name": "Agent catalog",
         "env_var": "ODYSSEUS_AGENT_CATALOG",
-        "default": "on",
+        "default": "off",
         "category": "Agents",
         "timing": "startup",
         "desc": "Charge le catalogue d'agents .opencode au boot.",
         "source": "src/memory_impact.py:23",
     },
-    # -- SFD Feature Modules --
     {
         "name": "Progressive disclosure",
         "env_var": "ODYSSEUS_PROGRESSIVE_DISCLOSURE",
@@ -358,7 +356,6 @@ _SWITCHES: list[dict[str, Any]] = [
         "desc": "P19: Ne stocke que les faits qui changent les reponses.",
         "source": "src/memory_impact.py:23",
     },
-    # -- Palier 0 SFD feature modules (P0) --
     {
         "name": "Output router",
         "env_var": "ODYSSEUS_OUTPUT_ROUTER",
@@ -467,11 +464,25 @@ def read_states() -> list[dict[str, Any]]:
 
     Adds raw (env value or None), is_default (True if unset), and effective
     (resolved bool). Best-effort per descriptor: never raises.
+
+    `effective` answers "is this switch on?", NOT "is this switch real?".
+    A descriptor flagged ``wired=False`` has no reader anywhere in the code,
+    so it can report effective=True while changing nothing at all. The
+    dashboard must read `wired` too — an unreachable switch presented as
+    active is exactly the kind of lie this registry exists to prevent.
     """
     rows: list[dict[str, Any]] = []
     for d in _SWITCHES:
         raw = os.environ.get(d["env_var"])
         is_default = raw is None
         effective = _truthy(d["default"]) if is_default else _truthy(raw)
-        rows.append({**d, "raw": raw, "is_default": is_default, "effective": effective})
+        rows.append(
+            {
+                **d,
+                "raw": raw,
+                "is_default": is_default,
+                "effective": effective,
+                "wired": d.get("wired", True),
+            }
+        )
     return rows
