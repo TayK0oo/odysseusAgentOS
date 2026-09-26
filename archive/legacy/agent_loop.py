@@ -41,6 +41,7 @@ from src.agent_tools import (
 from src.llm_core import _is_ollama_native_url, stream_llm_with_fallback
 from src.model_context import estimate_tokens
 from src.orchestrator.phases import Phase
+from src.progressive_disclosure import get_progressive_disclosure
 from src.prompt_security import untrusted_context_message
 from src.settings import get_setting
 from src.sse_indicators import (
@@ -3145,6 +3146,32 @@ async def stream_agent_loop(
             _last_content = _last_user.lower()
             _wants_mcp = any(kw in _last_content for kw in _MCP_KEYWORDS)
             all_tool_schemas = mcp_schemas if (_wants_mcp and mcp_schemas) else []
+        # P5 + P21 — the disclosure level must actually restrict what the model is
+        # offered. Until now the allowed set was computed in M6.8 and only logged:
+        # `get_allowed_tools` had no call site in the loop. Fixing it in M6.8 would
+        # also have changed nothing — M6.8 runs near the end of the round, long
+        # after these schemas were sent. The filter belongs where the list is built.
+        #
+        # Placed after the whole if/elif/else so it covers every selection path, and
+        # after `disabled_tools` so a tool refused twice is reported once.
+        try:
+            if os.environ.get("ODYSSEUS_PROGRESSIVE_DISCLOSURE", "on").strip().lower() in ("1", "true", "yes", "on"):
+                _pdc = get_progressive_disclosure()
+                _pdc_phase = _current_phase if isinstance(_current_phase, Phase) else Phase.BUILD
+                all_tool_schemas, _pdc_cut = _pdc.filter_schemas(all_tool_schemas, _pdc_phase)
+                if _pdc_cut:
+                    logger.info(
+                        "[p5/p21] phase=%s disclosure=%s removed %d tool(s): %s",
+                        _pdc_phase.value,
+                        _pdc.resolve_level(_pdc_phase).value,
+                        len(_pdc_cut),
+                        sorted(_pdc_cut)[:12],
+                    )
+        except Exception as _pdc_err:
+            # A restriction that fails OPEN is a security-relevant failure, so it is
+            # logged at warning and not at debug: `warning` is what makes it visible
+            # when the model is offered more tools than the phase allows.
+            logger.warning("[p5/p21] disclosure filter failed, sending the full tool surface: %s", _pdc_err)
         agent_stream_timeout = int(get_setting("agent_stream_timeout_seconds", 300) or 300)
 
         _tool_names_sent = [t.get("function", {}).get("name") for t in (all_tool_schemas or []) if t.get("function")]
@@ -4598,8 +4625,6 @@ async def stream_agent_loop(
     # M6.8 — PROGRESSIVE DISCLOSURE (§5.26): restrict tool surface by phase+risk
     try:
         if os.environ.get("ODYSSEUS_PROGRESSIVE_DISCLOSURE", "on").strip().lower() in ("1", "true", "yes", "on"):
-            from src.progressive_disclosure import get_progressive_disclosure
-
             # `phase` used to be a bare free name here: it resolved to nothing in
             # this scope, so the call raised NameError and the blanket except
             # below swallowed it at debug level. The M6.8 block therefore had
