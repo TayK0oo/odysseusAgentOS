@@ -2632,6 +2632,28 @@ async def stream_agent_loop(
         suppress_skills=_low_signal_turn,
         active_email=active_email,
     )
+    # P20 — user preferences resolved into an actual prompt directive. The M6.1
+    # block at the end of the loop used to compute language/tone/format and log
+    # them, which made the principle a dead computation: the model never saw it.
+    # Injected here, next to PLAN_MODE_DIRECTIVE, because a preference that is
+    # not in the system prompt is not applied. Empty string when the user has no
+    # explicit preference, so the common case costs no tokens.
+    if not guide_only and os.environ.get("ODYSSEUS_PREFERENCES", "on").strip().lower() in ("1", "true", "yes", "on"):
+        try:
+            from src.preferences import get_preference_resolution
+
+            _pref_directive = get_preference_resolution(
+                request_instruction=_last_user[:500] if _last_user else None
+            ).build_prompt_directive()
+            if _pref_directive:
+                if messages and messages[0].get("role") == "system":
+                    messages[0]["content"] = _pref_directive + "\n\n" + (messages[0].get("content") or "")
+                else:
+                    messages.insert(0, {"role": "system", "content": _pref_directive})
+        except Exception as _pref_inject_err:
+            # Rule 2: never a silent swallow. A preference that cannot be read
+            # must be visible, otherwise it looks applied.
+            logger.warning("[m6.1] preference directive not injected: %s", _pref_inject_err, exc_info=True)
     if plan_mode and not guide_only:
         # Steer the model to investigate-then-propose. Hard tool gating handles
         # every write path except shell; this directive is what keeps the
@@ -4298,21 +4320,26 @@ async def stream_agent_loop(
         logger.debug("[m6.5] data classification skipped: %s", _m65_err)
     _m65_protected = bool(_m65_level is not None and _m65_level.value == "protected")
 
-    # M6.1 — PREFERENCES (§5.15): resolve and apply user preferences
+    # M6.1 — PREFERENCES (§5.15): report what was actually injected upstream.
+    # The resolution itself now happens before the system prompt is built
+    # (`build_prompt_directive`, injected at the top of the prompt). This tail
+    # block only reports, so that "resolved" and "applied" stop being two
+    # different things — the gap that made P20 look alive while doing nothing.
     try:
         if os.environ.get("ODYSSEUS_PREFERENCES", "on").strip().lower() in ("1", "true", "yes", "on"):
             from src.preferences import get_preference_resolution
 
             _pref_resolver = get_preference_resolution(request_instruction=_last_user[:500] if _last_user else None)
-            _pref_lang = _pref_resolver.resolve("language")
-            _pref_tone = _pref_resolver.resolve("tone")
-            _pref_format = _pref_resolver.resolve("format")
-            if _pref_lang or _pref_tone or _pref_format:
-                logger.info(
-                    "[m6.1] preferences resolved: lang=%s tone=%s format=%s", _pref_lang, _pref_tone, _pref_format
-                )
+            _pref_directive_applied = bool(_pref_resolver.build_prompt_directive())
+            logger.info(
+                "[m6.1] preferences: lang=%s tone=%s format=%s — injected=%s",
+                _pref_resolver.resolve("language"),
+                _pref_resolver.resolve("tone"),
+                _pref_resolver.resolve("format"),
+                _pref_directive_applied,
+            )
     except Exception as _m61_err:
-        logger.debug("[m6.1] preferences skipped: %s", _m61_err)
+        logger.warning("[m6.1] preferences could not be resolved: %s", _m61_err, exc_info=True)
 
     # M6.2 — PROVENANCE MEMORY (§5.7): store facts with [stated]/[observed] tags
     try:
