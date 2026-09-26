@@ -70,7 +70,12 @@ def _run_turn(monkeypatch, tmp_path, user_text):
     monkeypatch.setattr(al, "estimate_tokens", lambda *a, **k: 10, raising=False)
 
     async def _fake_stream(_c, _messages, **kw):
-        yield _delta("Voici ce que j'en retiens.")
+        # The stub answers the request it was given, the way a real model does.
+        # That matters for P19: a fact the answer never used must NOT be
+        # remembered, so a stub that ignored the request would make every
+        # "a PUBLIC turn is still remembered" counter-evidence fail — for the
+        # wrong reason (P19 working correctly, not the P17 gate being broken).
+        yield _delta("Voici comment " + user_text[:60] + " se traite, étape par étape.")
         yield "data: [DONE]\n\n"
 
     monkeypatch.setattr(al, "stream_llm_with_fallback", _fake_stream, raising=False)
@@ -132,6 +137,21 @@ def test_public_turn_is_still_persisted(monkeypatch, tmp_path):
 def test_no_block_signal_when_the_message_is_public(monkeypatch, tmp_path):
     events = _events(_run_turn(monkeypatch, tmp_path, PUBLIC_TURN))
     assert not [e for e in events if e.get("type") == "memory_blocked"]
+
+
+def test_an_impactful_protected_fact_is_still_not_stored(monkeypatch, tmp_path):
+    """Régression croisée P17 × P19 (Sprint 3 items 1 et 4).
+
+    Wiring P19 (item 4) added a second durable write — the impact store — that
+    did not consult the classification verdict. A PROTECTED message that the
+    agent *did* use therefore scored high impact and got written to
+    `topics/agent-impact.md`, silently undoing the P17 gate. "Impactful" is not
+    a retention exemption: P17 outranks P19.
+    """
+    _run_turn(monkeypatch, tmp_path, PROTECTED_TURN)
+
+    offenders = {str(p.relative_to(tmp_path)): txt for p, txt in _data_files(tmp_path).items() if PROTECTED_MARKER in txt}
+    assert offenders == {}, f"un fait PROTECTED a fui par le store d'impact : {offenders}"
 
 
 def test_gate_is_off_when_the_kill_switch_is_off(monkeypatch, tmp_path):

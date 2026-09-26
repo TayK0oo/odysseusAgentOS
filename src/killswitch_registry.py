@@ -354,7 +354,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "P19: Ne stocke que les faits qui changent les reponses.",
-        "source": "src/memory_impact.py:23",
+        "source": "src/memory_impact.py:28",
     },
     {
         "name": "Output router",
