@@ -61,7 +61,7 @@
 | Governance/Memory | `ODYSSEUS_GOVERNANCE_ANCESTRY` | `off` | `off` | oui | `src/orchestrator/ancestry_tracker.py:26` |
 | Governance/Memory | `ODYSSEUS_LANGFUSE` | `off` | `off` | oui | `services/observability/langfuse_tracer.py:38` |
 | Governance/Memory | `ODYSSEUS_MEMORY_IMPACT` | `on` | `on` | oui | `src/memory_impact.py:23` |
-| Governance/Memory | `ODYSSEUS_OUTPUT_ROUTER` | `on` | `on` | oui | `src/output_router.py:26` |
+| Governance/Memory | `ODYSSEUS_OUTPUT_ROUTER` | `on` | `on` | oui | `src/output_router.py:30` |
 | Governance/Memory | `ODYSSEUS_PREFERENCES` | `on` | `on` | oui | `src/preferences.py:41` |
 | Governance/Memory | `ODYSSEUS_PROGRESSIVE_DISCLOSURE` | `on` | `on` | oui | `src/progressive_disclosure.py:25` |
 | Governance/Memory | `ODYSSEUS_PROVENANCE_MEMORY` | `on` | `on` | oui | `src/provenance_memory.py:40` |
