@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def output_router_enabled() -> bool:
-    val = os.getenv("ODYSSEUS_OUTPUT_ROUTER", "off").strip().lower()
+    val = os.getenv("ODYSSEUS_OUTPUT_ROUTER", "on").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
 

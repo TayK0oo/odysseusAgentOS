@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def memory_impact_enabled() -> bool:
-    val = os.getenv("ODYSSEUS_MEMORY_IMPACT", "off").strip().lower()
+    val = os.getenv("ODYSSEUS_MEMORY_IMPACT", "on").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
 

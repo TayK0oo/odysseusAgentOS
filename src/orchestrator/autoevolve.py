@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def autoevolve_enabled() -> bool:
     """OFF unless ODYSSEUS_AUTOEVOLVE is truthy. Default OFF → byte-identical."""
-    return os.environ.get("ODYSSEUS_AUTOEVOLVE", "").strip().lower() in ("1", "true", "yes", "on")
+    return os.environ.get("ODYSSEUS_AUTOEVOLVE", "on").strip().lower() in ("1", "true", "yes", "on")
 
 
 async def trigger_improvement_research(

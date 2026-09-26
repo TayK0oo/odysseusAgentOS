@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def progressive_disclosure_enabled() -> bool:
-    val = os.getenv("ODYSSEUS_PROGRESSIVE_DISCLOSURE", "off").strip().lower()
+    val = os.getenv("ODYSSEUS_PROGRESSIVE_DISCLOSURE", "on").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
 

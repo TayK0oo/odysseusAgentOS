@@ -36,7 +36,7 @@ MAX_METRICS_CHARS = 4000
 
 def checkpoint_enabled() -> bool:
     """OFF unless ODYSSEUS_CHECKPOINT is set to a truthy value."""
-    val = os.getenv("ODYSSEUS_CHECKPOINT", "off").strip().lower()
+    val = os.getenv("ODYSSEUS_CHECKPOINT", "on").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
 

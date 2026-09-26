@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 def durable_execution_enabled() -> bool:
-    val = os.getenv("ODYSSEUS_DURABLE_EXECUTION", "off").strip().lower()
+    val = os.getenv("ODYSSEUS_DURABLE_EXECUTION", "on").strip().lower()
     return val in {"on", "1", "true", "yes"}
 
 
