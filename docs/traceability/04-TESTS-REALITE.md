@@ -1,5 +1,10 @@
 # 04 — TESTS : Réalité fonctionnelle
 
+> **🟢 MESURE 2026-09-26 (Sprint 3 item 8) — 4 887 PASS.**
+> - **Suite réelle : 4 887 PASS · 2 skipped · 0 FAILED · 0 errors**, lint `ruff` à **3 707** (base connue 3 708).
+> - +11 tests : la preuve P5/P21 (`tests/test_sprint3_p5_p21_disclosure_restricts.py`), **4 mutations** vérifiées.
+> - Les ci-dessous sont les **mesures historiques** des sprints précédents, conservées telles quelles : un Palier 0 n'est pas un état courant.
+
 > **🟢 MISE À JOUR 2026-09-26 (Sprint 1b) — SUITE VERTE AVEC LE PALIER 0 ACTIVÉ.**
 > - **Suite réelle : 4 794 tests collectés → 4 792 PASS · 2 skipped · 0 FAILED · 0 errors (100 % vert).**
 > - +18 tests vs Sprint 1a. Ce ne sont pas des tests de couverture ajoutés à la chaîne : ce sont des **tests de garde** sur des propriétés de sécurité et d'honnêteté (détail en fin de document).

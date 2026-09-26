@@ -41,7 +41,7 @@ from src.agent_tools import (
 from src.llm_core import _is_ollama_native_url, stream_llm_with_fallback
 from src.model_context import estimate_tokens
 from src.orchestrator.phases import Phase
-from src.progressive_disclosure import get_progressive_disclosure
+from src.progressive_disclosure import get_progressive_disclosure, progressive_disclosure_enabled
 from src.prompt_security import untrusted_context_message
 from src.settings import get_setting
 from src.sse_indicators import (
@@ -3155,7 +3155,7 @@ async def stream_agent_loop(
         # Placed after the whole if/elif/else so it covers every selection path, and
         # after `disabled_tools` so a tool refused twice is reported once.
         try:
-            if os.environ.get("ODYSSEUS_PROGRESSIVE_DISCLOSURE", "on").strip().lower() in ("1", "true", "yes", "on"):
+            if progressive_disclosure_enabled():
                 _pdc = get_progressive_disclosure()
                 _pdc_phase = _current_phase if isinstance(_current_phase, Phase) else Phase.BUILD
                 all_tool_schemas, _pdc_cut = _pdc.filter_schemas(all_tool_schemas, _pdc_phase)
@@ -4624,7 +4624,7 @@ async def stream_agent_loop(
 
     # M6.8 — PROGRESSIVE DISCLOSURE (§5.26): restrict tool surface by phase+risk
     try:
-        if os.environ.get("ODYSSEUS_PROGRESSIVE_DISCLOSURE", "on").strip().lower() in ("1", "true", "yes", "on"):
+        if progressive_disclosure_enabled():
             # `phase` used to be a bare free name here: it resolved to nothing in
             # this scope, so the call raised NameError and the blanket except
             # below swallowed it at debug level. The M6.8 block therefore had
