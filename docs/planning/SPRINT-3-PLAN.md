@@ -33,6 +33,33 @@ Chaque ligne est un geste **borné et vérifiable**. Aucun n'est une refonte. Or
 | 9 | **UC-12** | traces écrites, jamais lues | exposer une lecture des traces (route d'audit) | `GET /api/audit/traces` rend ce qu'`autoeval` a décidé |
 | 10 | **P18** | jeton lu et réémis dans le même appel | faire circuler la version entre deux appels distincts | une écriture concurrente est **rejetée** |
 
+### 2 bis. Suivi — où en est le sprint
+
+| # | P/UC | État | Preuve de fin atteinte ? |
+|---|---|---|---|
+| 1 | P17 | **FAIT** | oui — un tour `PROTECTED` n'émet plus d'écriture durable |
+| 2 | P20 | **FAIT** | oui — le stub LLM répond dans la langue préférée |
+| 3 | P22 | **FAIT** | oui — une demande de diagramme écrit un fichier |
+| 4 | P19 | **FAIT** | oui — `score > 0` sur un tour réel, et rien n'est écrit quand le fait est ignoré |
+| 5 | UC-05 | **FAIT** | oui — une phase posée par l'API tient d'un tour à l'autre |
+| 6 | P16 | **FAIT** | oui — `[observed]` atterrit dans `data/memory-fs/` |
+| 7 | **P5 + P21** | **FAIT** | oui — le modèle ne reçoit plus les outils hors de sa phase. **Seul item du sprint qui fasse bouger un statut : P5 passe de PARTIEL à ACTIF.** 11 tests, 4 mutations |
+| 8 | P14 + UC-11 | **À faire** | — |
+| 9 | UC-12 | **À faire** | — |
+| 10 | P18 | **À faire** | — |
+
+**Effet net sur l'activation après 7 items : ACTIF 10 → 11 sur 41.** Un point pour un item, sur un item qui promouvait un principe. C'est un signal, pas une preuve : le critère de sortie du sprint disait *« si l'Activation ne bouge pas après les 10 items, c'est le modèle de statut qui est faux, pas le travail »*. Elle bouge, mais d'un cran par item. Le changement de statut **ne peut** pas être l'indicateur principal de ce sprint — il mesure la qualité d'un câblage, pas la santé du modèle. Ce qui reste à mesurer, c'est le **taux de principes dont la seule action était un `logger.info`**, et c'est lui qui doit tomber à zéro.
+
+### 2 ter. Défauts trouvés par les items, **signalés et non corrigés**
+
+Trois défauts sont apparus en mesurant les items. Aucun n'est dans le périmètre d'un item du sprint ; les trois sont proposals au Chef comme items bornés suivants, dans cet ordre :
+
+| Défaut | Site | Pourquoi ce n'est pas un item du sprint |
+|---|---|---|
+| `CLASSIFY` n'est **jamais atteinte** | `agent_loop.py:3040` avance la boucle canonique **avant** de résoudre la phase (`:3049`) — round 1 = `KNOW`, donc `CANONICAL_SEQUENCE[0]` est du code mort | décaler la séquence changerait toute l'orchestration canonique. Même famille que le défaut d'atteignabilité de l'item 7 : une donnée présente, jamais atteinte |
+| `blocked_tools_for_owner` ne dépend **pas** de l'owner | `tool_security.py:226` — les mêmes 38 outils pour `None`, un utilisateur et `"admin"` | contrat de sécurité public. À arbitrer par le Chef : le nom promet une dépendance de rôle que le code n'a pas |
+| 31 outils sur 68 ne sont **jamais** restreints | `_TOOL_CATEGORY_MAP` ne couvre que 37 schémas | élargir la carte est une décision de catalogue, pas du câblage. Le filtre de l'item 7 est borné pour ne pas casser ces 31 outils |
+
 ## 3. Ce qui est **exclu**, et pourquoi
 
 - **UC-01** (perte d'ACTIF) — bloqué sur une dépendance externe : `OPENCODE_API_KEY` absente de `.env`. Le projet utilise **OpenCode Zen**. *Escalade Chef : fourniture de la clé, ou décision explicite de travailler sans flux LLM nominal.*
