@@ -1,69 +1,89 @@
 # Traçabilité PRINCIPES & USE CASES → Code réel
 
-*Généré le 2026-09-25 · branche `feat/inventaire-global-v1` · dernière modification du dépôt : 2026-09-22*
+*Mesuré le 2026-09-26 (après activation du Palier 0) · branche `feat/inventaire-global-v1`*
 
 Document **vérifiable** reliant les **22 principes SFD v3.1** (P1→P22, `docs/master-ref/01-SFD-v3.1.md` §3) et les **19 cas d'usage** (UC-01→UC-19, §4) au code réellement présent.
 
-> **Méthode.** Analyse statique en lecture seule : `grep` ciblé dans `src/`, `routes/`, `core/`, `archive/`, `services/`, `.opencode/`, `packages/` ; vérification d'existence des fichiers ; lecture du kill-switch dans `src/killswitch_registry.py` et de sa valeur effective dans `.env` ; comptage des `tests/test_*.py` dont le **nom** matche un mot-clé.
+> **Méthode.** Analyse statique en lecture seule : `grep` ciblé dans `src/`, `routes/`, `core/`, `archive/`, `services/`, `mcp_servers/`, `.opencode/`, `packages/` ; vérification d'existence des fichiers ; lecture du kill-switch dans `src/killswitch_registry.py` et de sa valeur effective dans `.env` ; comptage des `tests/test_*.py` dont le **nom** matche un mot-clé. Contrôle des routes via `app.openapi()["paths"]` — les routes sont enregistrées par des wrappers paresseux invisibles dans `app.routes`.
 >
-> **Statuts.** `ACTIF` = code présent, chemin d'exécution par défaut, pas de kill-switch OFF. `DORMANT` = code présent mais kill-switch OFF par défaut (ou variable d'env. non lue). `PARTIEL` = implémentation partielle ou non branchée sur le flux live. `ABSENT` = non trouvé.
+> **Statuts.**
+> - `ACTIF` = présent, sur le chemin d'exécution **par défaut**, sans kill-switch OFF sur ce chemin, et le résultat agit réellement.
+> - `PARTIEL` = présent mais non branché au flux live, **ou branché mais inopérant** (résultat seulement loggé, ignoré, ou calcul constant), ou activé mais dont la dépendance externe manque.
+> - `DORMANT` = présent mais fermé par défaut.
+> - `ABSENT` = non trouvé.
 >
-> **Avertissement.** Le point de vérité est le code. (L'ancienne checklist `08-VERIFICATION-ETAT-ACTUEL.md` a été **retirée le 2026-09-25** — périmée ; ce document la remplace.) Les écarts constatés sont listés en fin de document (§4).
+> Le point de vérité est le code. (L'ancienne checklist `08-VERIFICATION-ETAT-ACTUEL.md` a été **retirée le 2026-09-25** — périmée ; ce document la remplace.)
+
+> ### ⚠️ Ce que cette révision a changé, et pourquoi c'est une mauvaise et une bonne nouvelle
+>
+> Ces statuts ont été **re-vérifiés intégralement** après l'activation du Palier 0 (14 kill-switchs basculés de `off` à `on` par défaut dans le code) et après la remise au vert de la suite de tests (4 792 PASS). Les statuts précédents dataient d'une époque où la suite comptait **109 faux échecs** : ils mesuraient un code que rien ne vérifiait.
+>
+> **Le Palier 0 a fait son travail : plus aucun principe DORMANT (4 → 0).** Les 14 modules câblés le sont pour de vrai, et le cockpit expose enfin leur état.
+>
+> **Mais l'activation a aussi révélé que « codé » ne veut pas dire « actif »**, et le score a **baissé** là où on l'attendait pas :
+> - **ACTIF 12 → 10.** UC-01 perd son statut : sans `OPENCODE_API_KEY` (le projet utilise OpenCode Zen et la clé n'est pas dans `.env`), `model_endpoints` est vide et l'agent n'a aucun endpoint. UC-05 le perd aussi : `on_round_start` **écrase en `BUILD`** la phase posée par l'API avant qu'elle ne soit appliquée. P7 et P11 sont déclassés (structure cosmétique, « complexifier sur preuve » sans mécanisme).
+> - **DORMANT 5 → 1.** Les 4 principes DORMANT sont devenus PARTIEL, pas ACTIF : leur switch est `on`, mais le module est appelé avec une entrée vide ou son résultat est seulement loggé. C'est la distinction que l'ancien document ne faisait pas.
+>
+> Autrement dit : le Palier 0 a démasqué du travail réellement inachevé. C'est le but.
 
 ---
 
 ## 1. PRINCIPES P1 → P22
 
-| # | Principe | Fichiers (vérifiés) | Kill-switch (défaut) | Tests (nom) | Statut | Preuve |
+| # | Principe | Fichiers (vérifiés) | Kill-switch (défaut) | Tests | Statut | Preuve |
 |---|---|---|---|---|---|---|
-| **P1** | Le risque modifie la boucle | `src/risk_classifier.py`, `src/orchestrator/gate.py`, `src/tool_execution.py`, `config/phase-lock.yaml` | `ODYSSEUS_DESTRUCTIVE_GATE=on` ; phase-lock sans switch | 7 (`test_orchestrator_gate.py`, `test_orchestrator_phaselock_integration.py`, `test_resend_message_nondestructive.py`, `test_e2e_complete.py`) | **PARTIEL** | `gate_enabled()` défaut `on` (`gate.py:24-27`) et réellement appelé (`tool_execution.py:588-594`) ; `classify_tool` est exécuté pour chaque outil (`tool_execution.py:565-580`). Mais la phase-lock retombe sur `default_phase=BUILD` non bloquante (`tool_registry.py:125-126`, `PHASE_TRACKER=off`) et les outils destructifs explicites ne sont ni bloqués ni soumis à approbation. |
-| **P2** | Un brouillon n'est pas un commit | `routes/editor_draft_routes.py`, `archive/legacy/agent_loop.py`, `opencode.json` | — | 2 (`test_editor_draft_payload.py`, `test_plan_mode.py`) | **PARTIEL** | Brouillons d'éditeur persistés (`editor_draft_routes.py`, 5 endpoints) ; mode plan + plan approuvé (`agent_loop.py:2079`, `:2240`, `:2644`) ; `opencode.json` → `permission.edit="ask"`. Mais aucune séparation draft/commit généralisée : `routes/memory_routes.py:84` écrit directement en base. |
-| **P3** | Contexte construit, pas déversé | `src/context_budget.py`, `src/context_compactor.py`, `src/model_context.py` | — | 8 (`test_context_budget.py`, `test_context_compactor.py`, `test_context_compactor_nonstring.py`, `test_model_context.py`, …) | **ACTIF** | Budget d'entrée calculé et appliqué (`agent_loop.py:2664-2665`) puis compaction `trim_for_context` (`agent_loop.py:2666`). |
-| **P4** | Budgets obligatoires par projet | `src/budget_enforcer.py`, `src/project_manifest.py`, `src/governance.py`, `src/context_budget.py` | — (pas de switch) | 5 (`test_budget_auto_sentinel.py`, `test_governance_budgets_list.py`, `test_manage_settings_token_budget.py`, …) | **PARTIEL** | `BudgetEnforcer` n'est instancié que si `PROJECT.yaml` existe (`agent_loop.py:2761-2764`) — **absent** à la racine (seul `PROJECT.yaml.example`). Un budget de contexte par défaut s'applique (`context_budget.py`), mais pas de budget *projet* obligatoire. `ODYSSEUS_PROJECT_MANIFEST` (`.env`) n'est lu nulle part. |
-| **P5** | Divulgation progressive | `src/progressive_disclosure.py` | `ODYSSEUS_PROGRESSIVE_DISCLOSURE=off` (registre `killswitch_registry.py:332-340`) | 1 (`test_orchestrator_phaselock_integration.py`) | **DORMANT** | Module complet (`progressive_disclosure.py:24`) mais jamais exécuté : seul appel dans `agent_loop.py:4382-4393`, sous `if env == on`, et il ne fait que **logger** un résumé. `.env` ne définit pas la variable → OFF. |
-| **P6** | Échecs répétés → fonctionnalités du harnais | `src/orchestrator/autoeval.py`, `src/orchestrator/autoevolve.py`, `src/orchestrator/codeburn_runner.py`, `src/observer.py` | `ODYSSEUS_AUTOEVAL=off`, `AUTOEVOLVE=off`, `CODEBURN=off`, `CHECKPOINT=off` | 5 (`test_autoeval.py`, `test_orchestrator_autoeval.py`, `test_orchestrator_codeburn_runner.py`, `test_observer_metrics.py`) | **PARTIEL** | Observer/dérive actif par défaut (`observer.py:146`, `agent_loop.py:4142-4153`). En revanche les boucles d'apprentissage (autoeval/autoevolve/codeburn) sont toutes OFF ; aucune règle de superviseur auto-apprise n'est branchée. |
-| **P7** | Structure > autonomie | `src/opencode_engine.py`, `src/orchestrator/loop.py`, `src/orchestrator/phases.py` | `ODYSSEUS_LIVE_ORCHESTRATION=off` (CanonicalLoop Python) — le walk 7 phases OpenCode n'a pas de switch | 3 (`test_orchestrator_loop.py`, `test_orchestrator_phases.py`, `test_orchestrator_phase_tracker.py`) | **ACTIF** | `OpenCodeEngine.walk()` impose les 7 phases par défaut (`opencode_engine.py:251-349`) et est appelé en mode agent (`routes/chat_routes.py:1413`). Variante Python `CanonicalLoop` dormante. |
-| **P8** | Le plan passe les mêmes portes | `src/planning_engine.py`, `archive/legacy/agent_loop.py`, `routes/phase_routes.py` | `ODYSSEUS_PLANNING_ENGINE=off` (code) | 2 (`test_plan_mode.py`, `test_update_plan_tool.py`) | **PARTIEL** | Validation du plan par mode plan/approuvé (`agent_loop.py:2240`, `:2644`) et API de phase (`phase_routes.py:20`). Le moteur de planification structuré est OFF et n'est appelé que sous switch (`agent_loop.py:4366-4378`). |
-| **P9** | Évaluer le harnais, pas le modèle | `src/observer.py`, `src/trace_writer.py`, `src/sse_indicators.py`, `src/perf_profiler.py` | `ODYSSEUS_LANGFUSE=off` (sous-partie) | 3 (`test_observer_metrics.py`, `test_observer_routes.py`, `test_trace_writer_run_id.py`) | **ACTIF** | Drift/observabilité calculés à chaque run (`agent_loop.py:4142-4160`), métriques SSE. `perf_profiler.py` n'a pas d'appelant (sous-partie non branchée). |
-| **P10** | Humain ON the loop | `src/tool_index.py`, `archive/legacy/agent_loop.py`, `routes/chat_routes.py` | — | 2 (`test_ask_user_tool.py`, `test_ask_user_persistence.py`) | **ACTIF** | Outil `ask_user` déclaré et implémenté (`tool_index.py:482`, `agent_loop.py:3767-3969`) ; Stop/Resume du run (`chat_routes.py:1455`, `:1466`). |
-| **P11** | Commencer simple, complexifier sur preuve | `archive/legacy/agent_loop.py`, `src/orchestrator/agent_dispatcher.py`, `.opencode/skills/sfd-decision-tree/` | Tous les switches `ODYSSEUS_AGENT_*=off` | 4 (`test_orchestrator_agent_dispatcher.py`, `test_orchestrator_dispatcher.py`, `test_orchestrator_dispatch_run.py`, `test_odysseus_dispatcher.py`) | **ACTIF** | Agent unique par défaut ; le multi-agent est opt-in via switches et la skill de décision `sfd-decision-tree`. Pas de décomposition automatique. |
-| **P12** | Découpage par contexte, pas par métier | `src/orchestrator/agent_dispatcher.py`, `src/orchestrator/multi_agent.py`, `src/orchestrator/phases.py` | Tous les `ODYSSEUS_AGENT_*=off` ; `LIVE_ORCHESTRATION=off` | 9 (nom `agent`) | **PARTIEL** | Mapping phase→agent par contexte (`agent_dispatcher.py:38-66`), mais **tous désactivés par défaut** : aucun agent ne se déclenche automatiquement. |
-| **P13** | Contexte = budget d'attention | `src/context_compactor.py`, `src/context_budget.py`, `src/provenance_memory.py` | Compaction : — ; mémoire incrémentale : `ODYSSEUS_PROVENANCE_MEMORY=off` | 8 | **PARTIEL** | Compaction active (P3). La mise à jour incrémentale de la mémoire par petites touches (provenance) est dormante. |
-| **P14** | Survivre à une panne | `src/durable_execution.py`, `src/orchestrator/checkpoint_tracker.py`, `src/agent_runs.py` | `ODYSSEUS_DURABLE_EXECUTION` non défini (off) ; `ODYSSEUS_CHECKPOINT=off` | 0 | **DORMANT** | Module durable complet (`durable_execution.py:31`) mais lu sous switch dans `agent_loop.py:4297`. **Divergence de nom** : `.env` définit `ODYSSEUS_DURABLE_EXEC=on`, variable jamais lue → OFF effectif. |
-| **P15** | On n'observe pas ce qu'on ne trace pas | `src/trace_writer.py`, `src/event_bus.py`, `src/opencode_engine.py` | `ODYSSEUS_UNIFIED_TOKENS=off` (sous-partie) | 8 (`test_trace_writer_run_id.py`, `test_classify_events_memory_text.py`, …) | **ACTIF** | Trace écrite pour **chaque** appel outil (`tool_execution.py:665-683`) ; bus d'événements avec `trace_id` corrélé par run (`opencode_engine.py:27-140`). |
-| **P16** | Provenance explicite | `src/provenance_memory.py`, `src/memory_writer.py` | `ODYSSEUS_PROVENANCE_MEMORY=off` (non présent dans `killswitch_registry.py`) | 1 (`test_provenance_memory.py`) | **DORMANT** | Le module gère `[stated]/[observed]/[inferred]` (`provenance_memory.py:47`), mais il est lu sous switch (`agent_loop.py:4283`). **Divergence de nom** : `.env` définit `ODYSSEUS_MEMORY_PROVENANCE=on`, jamais lue. `memory_writer.py` (tags) n'a **aucun appelant**. |
-| **P17** | Ne jamais stocker le sensible | `src/provenance_memory.py`, `src/data_classification.py`, `src/content_security.py`, `routes/memory_routes.py` | `PROVENANCE_MEMORY=off` ; `ODYSSEUS_DATA_CLASSIFICATION=on` (.env) ; `ODYSSEUS_CONTENT_SECURITY=on` (.env) | 1 (filtre d'omission) | **PARTIEL** | Listes protégées/sensibles/identifiables (`provenance_memory.py:50-86`) et classification (`data_classification.py:28`), mais : la classification ne fait que **logger** (`agent_loop.py:4332-4347`) et le flux mémoire live `POST /api/memory/add` n'applique **aucun** filtre sensible (`memory_routes.py:84-130`). |
-| **P18** | Lire avant d'écrire | `src/provenance_memory.py`, `src/hash_edit_validator.py` | `ODYSSEUS_PROVENANCE_MEMORY=off` | 1 (`test_provenance_memory.py`) | **PARTIEL** | Contrôle de version `if_version` réel (`provenance_memory.py:213-281`) mais dormant. Pour les fichiers, `hash_edit_validator.py` est exporté (`src/__init__.py:5`) et actif. `memory_writer.py` calcule un hash **sans jamais le vérifier** — contrairement à ce qu'affirme la checklist 08. |
-| **P19** | La mémoire s'applique seulement si elle change la réponse | `src/memory_impact.py` | `ODYSSEUS_MEMORY_IMPACT=off` (registre `killswitch_registry.py:341-349`) | 0 | **DORMANT** | Module `MemoryImpactVerifier` présent (`memory_impact.py:22`) mais appelé seulement sous switch (`agent_loop.py:4397-4416`) et avec `hypothetical_response=""` → score toujours `0.0` donc `should_store=False`. Jamais branché sur le store. |
-| **P20** | Les préférences se résolvent par priorité décroissante | `src/preferences.py`, `routes/prefs_routes.py`, `archive/legacy/agent_loop.py` | `ODYSSEUS_PREFERENCES` = `on` dans `.env` (défaut code `off`, absent du registre) | 4 (`test_prefs_routes.py`, `test_prefs_atomic_write.py`, `test_prefs_single_user_no_clobber.py`, `test_new_chat_model_preference.py`) | **PARTIEL** | Résolution à 5 niveaux + guardrails (`preferences.py:12-17`, `:55-68`) mais seulement **loggée** (`agent_loop.py:4265-4277`). L'API live (`prefs_routes.py`) est un **autre** store clé/valeur sans priorité contextuelle. |
-| **P21** | Le bon outil au bon moment, sans friction | `src/tool_index.py`, `src/tool_registry.py`, `routes/mcp_routes.py`, `src/content_security.py` | `ODYSSEUS_TOOL_DISCOVERY=on` (.env) mais **sans appelant** ; switches MCP `off` | 19 (13 MCP, 3 `tool_index`, 3 `discovery`) | **PARTIEL** | Index d'outils statique actif (sélection d'outils dans le prompt) et gestion MCP manuelle (`mcp_routes.py`, 11 endpoints). `ToolDiscovery`/`suggest_connectors` (`content_security.py:100-290`) n'est **appelé nulle part** ; `sfd-discovery` n'est pas chargé (`opencode.json` ne référence que `@agentos/sfd-eventbus`). |
-| **P22** | La sortie visuelle est une modalité de premier rang | `src/output_router.py`, `routes/mcp_tools_routes.py`, `src/visual_report.py`, `packages/sfd-visual` | `ODYSSEUS_OUTPUT_ROUTER` non défini (off) ; `ODYSSEUS_VISUAL_OUTPUT=on` (.env) **jamais lue** ; `sfd-visual` non chargé | 6 (`test_render_diagram_tool.py`, `test_visual_report.py`, …) | **PARTIEL** | Rendu Kroki réellement exposé (`mcp_tools_routes.py:22-38`) et rapport visuel actif pour la recherche (`visual_report.py:1724`, appelé par `research_handler.py:712`). En revanche l'arbre de décision de modalité (`output_router.py:25`) est OFF et n'est invoqué que pour log (`agent_loop.py:4313-4330`). |
+| **P1** | Le risque modifie la boucle | `src/risk_classifier.py`, `src/orchestrator/gate.py`, `src/tool_execution.py`, `config/phase-lock.yaml` | `DESTRUCTIVE_GATE=on` ; `PHASE_TRACKER=on` (Palier 0) | 7 | **PARTIEL** | `classify_tool` exécuté par outil (`tool_execution.py:573`) ; gate ON (`gate.py:26`) et appelé (`:588-596`) ; phase-lock désormais **vivante** (`phase_tracker.py:25` → poussée `agent_loop.py:2934` → appliquée `tool_execution.py:625-630`). **Mais** l'inférence ne produit que `PLAN`/`BUILD` (`phase_tracker.py:52-54`) et `BUILD` ne bloque rien (`phase-lock.yaml:39`) : le risque ne change ni la phase, ni le modèle, ni l'approbation. Le gate risque→humain de LangGraph (`:802-833`) reste **inatteignable** (`ODYSSEUS_LANGGRAPH` lu `""` puis `off`, absent de `.env`). |
+| **P2** | Un brouillon n'est pas un commit | `routes/editor_draft_routes.py`, `archive/legacy/agent_loop.py`, `opencode.json` | — | 2 | **PARTIEL** | Dénylist du mode plan (`agent_loop.py:2241` → `tool_security.py:156-178`) ; plan approuvé épinglé au prompt (`build_active_plan_note`, `:2650-2655`) ; 5 endpoints brouillon **sans** commit/apply (`editor_draft_routes.py:81-165+`) ; écriture mémoire directe (`memory_routes.py:85-118`). |
+| **P3** | Contexte construit, pas déversé | `src/context_budget.py`, `src/context_compactor.py`, `src/model_context.py` | — | 8 | **ACTIF** | Budget et trim calculés (`agent_loop.py:2700-2702`), journalisés (`:2704-2710`), **réassignation effective** `messages = trimmed_messages` (`:2711`). *La version précédente citait `:2664-2666` — un `try:` d'import de `context_budget`.* |
+| **P4** | Budgets obligatoires par projet | `src/budget_enforcer.py`, `src/project_manifest.py`, `src/governance.py` | — | 5 | **PARTIEL** | `BudgetEnforcer` conditionné au manifeste (`load_manifest(".")` puis `agent_loop.py:2762-2765`, court-circuit `:2873`) et `PROJECT.yaml` **absent** (seul `PROJECT.yaml.example`). Un budget de contexte par défaut s'applique, mais pas de budget *projet* obligatoire. |
+| **P5** | Divulgation progressive | `src/progressive_disclosure.py`, `archive/legacy/agent_loop.py` | `PROGRESSIVE_DISCLOSURE=on` (Palier 0) | **28** (`test_progressive_disclosure.py`) | **PARTIEL** | Switch `on` des deux côtés ; bloc **exécuté** (la phase résolue est enfin lue, `agent_loop.py:4404-4419`). **Mais** le bloc ne fait que **logger** : `allowed_tools` / `allowed_tool_count` ne sont jamais injectés dans `disabled_tools` ni dans les schémas envoyés au modèle. Le module n'avait **aucun test** — c'est pourquoi un `NameError` l'a laissé mort sans que rien ne le remarque. |
+| **P6** | Échecs répétés → fonctionnalités du harnais | `src/orchestrator/autoeval.py`, `autoevolve.py`, `codeburn_runner.py`, `src/observer.py` | `AUTOEVAL=on`, `AUTOEVOLVE=on`, `CHECKPOINT=on` (Palier 0) ; `CODEBURN=off` ; `AUTOEVAL_ALLOW_RESET=off` | 5 | **PARTIEL** | Observer/dérive réel par run (`agent_loop.py:4154-4164`) ; décision AUTOEVAL tracée en live (`apply_autoeval`, `:4201-4204`) ; CHECKPOINT appelé (`record_checkpoint`, `:4121-4126`). **Mais** la recherche autoevolve n'est **jamais réinjectée** dans la boucle (donc aucune règle auto-apprise) ; `CODEBURN=off` ; et surtout l'**action** reste dormante par défaut — la dérive est détectée et la décision tracée, jamais exécutée. |
+| **P7** | Structure > autonomie | `src/opencode_engine.py`, `src/orchestrator/phases.py` | `LIVE_ORCHESTRATION=off` (CanonicalLoop Python) | 3 | **PARTIEL** ⬇ | `walk()` est bien appelé par défaut (`chat_routes.py:1413` → `opencode_engine.py:251-325`). **Mais seule `BUILD` streame l'agent** (`:291-318`) ; les 6 autres n'émettent qu'une chaîne SSE `phase_active` (`:319-322`). `PHASE_TOOLS`/`PHASE_AGENTS`/`PHASE_MODELS` (`:104-240`) ne contraignent **jamais** `agent_stream_fn()`. La structure est cosmétique. |
+| **P8** | Le plan passe les mêmes portes | `src/planning_engine.py`, `archive/legacy/agent_loop.py`, `routes/phase_routes.py` | `PLANNING_ENGINE=off` (code) | 2 | **PARTIEL** | Mode plan réel (`agent_loop.py:2252`), `PLAN` bloque `bash` (`phase-lock.yaml:32-33`). **Mais** le moteur de planification structuré est `off` (`planning_engine.py:27`), absent du registre et du `.env` ; `approved_plan` n'est qu'une note de prompt injectée en message system (`:2650-2655`). |
+| **P9** | Évaluer le harnais, pas le modèle | `src/observer.py`, `src/trace_writer.py`, `src/sse_indicators.py` | `LANGFUSE=off` (sous-partie) | 3 | **ACTIF** | Drift par run (`agent_loop.py:4151-4154`) ; `run_status` émis à chaque tour (`:2982`) et en fin de run (`:4161`) ; `/api/observer/drift` (`observer_routes.py:17-18`) ; trace écrite pour **chaque** appel outil (`tool_execution.py:665-683`). `perf_profiler.py` n'a toujours aucun appelant ; `LANGFUSE` reste `off`. |
+| **P10** | Humain ON the loop | `src/tool_index.py`, `archive/legacy/agent_loop.py`, `routes/chat_routes.py` | — | 2 | **ACTIF** | `ask_user` toujours disponible (`tool_index.py:42`, implémentation `agent_loop.py:3778-3980`) ; Stop/Resume du run (`chat_routes.py:1466`/`:1455`). **Réserve** : aucun gate humain n'est lié au risque — `ask_user` part à l'initiative du modèle. |
+| **P11** | Commencer simple, complexifier sur preuve | `archive/legacy/agent_loop.py`, `src/orchestrator/agent_dispatcher.py` | 12 `AGENT_*=off`, `LIVE_ORCHESTRATION=off` | 4 | **PARTIEL** ⬇ | La moitié « simple » est réelle : agent unique par défaut, `agents_for_phase` → `[]` (`agent_dispatcher.py:118-121`). La moitié « sur preuve » est **absente du chemin d'exécution** : `get_decision_engine()` (`src/decision_engine.py:749`) a 0 appelant, et `MultiAgentWorkflow` exige `LIVE_ORCHESTRATION=on` (OFF). |
+| **P12** | Découpage par contexte, pas par métier | `src/orchestrator/agent_dispatcher.py`, `multi_agent.py`, `phases.py` | 13 switches agents `off` | 9 | **PARTIEL** | `dispatch_for_phase` (`agent_dispatcher.py:123`) a **0 appelant en production** ; seul `dispatch_explicit` est utilisé (`core/route_loader.py:394-398`). |
+| **P13** | Contexte = budget d'attention | `src/context_compactor.py`, `src/provenance_memory.py` | `PROVENANCE_MEMORY=on` (Palier 0) | 8 | **ACTIF** ⬆ | Compaction **appliquée** (`messages = trimmed_messages`, `agent_loop.py:2711`). Mémoire incrémentale vivante (`agent_loop.py:4294` → `provenance_memory.py:366-381`) ; preuve empirique : `data/memory-fs/profile.md`. **Réserve** : seule la branche `[stated]` est vive (cf. P16). |
+| **P14** | Survivre à une panne | `src/durable_execution.py`, `src/orchestrator/checkpoint_tracker.py` | `DURABLE_EXECUTION=on`, `CHECKPOINT=on` (Palier 0) | 0 | **PARTIEL** ⬆ | Switches `on` et `wired`. **Mais** `DurableExecutor.create_workflow` (`durable_execution.py:113`) n'a **aucun appelant** et `data/workflows/` est **vide** ⇒ `resume()` (`agent_loop.py:4315`) renvoie toujours `None` — le garde `if _wf and ...` (`:4316`) n'est donc jamais franchi. Le checkpoint échoue en plus car `_ensure_vault()` ne trouve pas `/obsidian-vault` (`obsidian_mcp.py:12-18`) et `checkpoint_tracker.py:120` saute l'écriture. La reprise après crash reste **inexistante**. |
+| **P15** | On n'observe pas ce qu'on ne trace pas | `src/trace_writer.py`, `src/event_bus.py`, `src/opencode_engine.py` | `UNIFIED_TOKENS=on` (Palier 0) | 8 | **ACTIF** | `UNIFIED_TOKENS` défaut `"on"` et `wired=True` ; publication effective (`agent_loop.py:4050-4057`, `run_id` posé à `:4045`) ; **réconciliation** réelle (`routes/chat_helpers.py:783-785`). |
+| **P16** | Provenance explicite | `src/provenance_memory.py`, `src/memory_writer.py` | `PROVENANCE_MEMORY=on` (Palier 0) | 1 | **PARTIEL** ⬆ | `update_profile` (`agent_loop.py:4300` → `provenance_memory.py:366-381`) écrit réellement des entrées `[stated]`. **Mais** `add_observed` (`:4302`) renvoie `(False, "Domain file does not exist")` (`provenance_memory.py:344-346`) car `topics/agent-output.md` n'est **jamais créé** ⇒ **no-op garanti**. `memory_writer.py` : toujours 0 appelant. 1 tag sur 3 a un producteur vivant. |
+| **P17** | Ne jamais stocker le sensible | `src/data_classification.py`, `src/content_security.py`, `routes/memory_routes.py` | `DATA_CLASSIFICATION=on`, `CONTENT_SECURITY=on` (Palier 0) | 1 | **PARTIEL** | M6.5 **classifie et persiste pour de vrai** (`agent_loop.py:4350-4354` → `data_classification.py:190-199`, `:217-229`) ; preuve `data/classification_index.json`. **Mais** la branche `PROTECTED` ne fait que logger (`:4356-4357`) : le message est persisté quand même ; M6.6 loggue « output blocked » (`:4371`) **sans bloquer l'émission**. `validate_memory_entry` / `sanitize_memory` : 0 appelant ⇒ `POST /api/memory/add` ne filtre toujours rien. |
+| **P18** | Lire avant d'écrire | `src/provenance_memory.py`, `src/hash_edit_validator.py` | `PROVENANCE_MEMORY=on` (Palier 0) | 1 | **PARTIEL** | `if_version` réel avec rejet (`provenance_memory.py:213-233`). **Mais** le jeton est lu et réémis dans le **même appel** (`:237` → `:253`) : la branche de rejet ne peut pas se déclencher en production, le contrôle est **tautologique**. `hash_edit_validator.py` n'a **toujours aucun appelant fonctionnel** — la version précédente de ce document affirmait le contraire. |
+| **P19** | La mémoire s'applique seulement si elle change la réponse | `src/memory_impact.py` | `MEMORY_IMPACT=on` (Palier 0) | 0 | **PARTIEL** ⬆ | Switch `on` et `wired`, site live (`agent_loop.py:4424-4433`). **Mais** `hypothetical_response=""` (`:4431`) fait court-circuiter `evaluate_impact` à `0.0` (`memory_impact.py:51-52`) ⇒ `should_store` est **toujours** `False` ; et le résultat n'est **que loggé** (`:4433-4438`), jamais relié à un store. |
+| **P20** | Les préférences se résolvent par priorité décroissante | `src/preferences.py`, `routes/prefs_routes.py` | `PREFERENCES=on` (Palier 0) | 4 | **PARTIEL** | Moteur complet : 5 niveaux (`preferences.py:178-216`) + guardrails (`:55-68`, appliqués `:158-164`). **Mais** un seul appel en production (`agent_loop.py:4282`) et les 3 valeurs (`language`/`tone`/`format`) ne sont **que loggées** (`:4287-4289`) — jamais injectées au prompt ni à la réponse. `data/preferences.json` n'existe pas. L'API live est par ailleurs un **autre** store, sans priorité contextuelle. |
+| **P21** | Le bon outil au bon moment, sans friction | `src/tool_index.py`, `src/content_security.py`, `routes/mcp_routes.py` | `TOOL_DISCOVERY=off` (code), absent du registre | 19 | **PARTIEL** | Index d'outils statique vivant (`agent_loop.py:1646`) ; gestion MCP manuelle (`mcp_routes.py`, 11 endpoints). **Mort** : `ToolDiscovery` / `suggest_connectors` ont **0 appelant dans tout le dépôt** ; `@agentos/sfd-discovery` absent de `opencode.json`. Et même après réparation, `get_allowed_tools` (`progressive_disclosure.py:131`) n'a **0 appelant** : la divulgation progressive ne restreint donc aucun outil. |
+| **P22** | La sortie visuelle est une modalité de premier rang | `src/output_router.py`, `routes/mcp_tools_routes.py`, `src/visual_report.py` | `OUTPUT_ROUTER=on` (Palier 0) | 6 | **PARTIEL** | `route()` est **pur** — aucun effet de bord (`output_router.py:164-203`) — mais la décision n'est **que loggée** (`agent_loop.py:4335-4339`) : aucun fichier écrit, aucun outil invoqué. `connected_mcp_tools` n'est **jamais peuplé** ⇒ la branche `MCP_TOOL` (`:177-181`) est du code mort. Kroki reste le seul chemin visuel réel. |
+
+> ⬆ = promu · ⬇ = rétrogradé par rapport à la mesure du 2026-09-25.
 
 ---
 
 ## 2. USE CASES UC-01 → UC-19
 
-| ID | Cas d'usage | Fichiers (vérifiés) | Kill-switch (défaut) | Tests (nom) | Statut | Preuve |
-|---|---|---|---|---|---|---|
-| **UC-01** | Lancer un nouveau projet | `routes/chat_routes.py`, `src/opencode_engine.py`, `archive/legacy/agent_loop.py` | — (pas de switch) | e2e / `test_orchestrator_loop.py` | **ACTIF** | Mode agent → `OpenCodeEngine.walk()` sur 7 phases (`chat_routes.py:1372-1414`). |
-| **UC-02** | Interrompre / modifier un projet | `routes/chat_routes.py`, `src/agent_runs.py`, `src/durable_execution.py` | `ODYSSEUS_DURABLE_EXECUTION=off` | `test_agent_rounds_exhausted.py` | **PARTIEL** | Stop/Resume d'un run détaché opérationnels (`chat_routes.py:1455-1470`, `agent_runs.py`). La reprise « exactement où elle s'est arrêtée » après crash dépend de l'exécution durable, dormante. |
-| **UC-03** | Consulter l'état d'avancement | `routes/observer_routes.py`, `routes/phase_routes.py`, `archive/legacy/agent_loop.py`, `static/` | — | `test_observer_routes.py` | **ACTIF** | `/drift` (`observer_routes.py:17`), `/current/{session_id}` (`phase_routes.py:38`), `run_status` SSE (drift + budget) (`agent_loop.py:4160`). |
-| **UC-04** | Ajouter un nouvel outil (MCP) | `routes/mcp_routes.py`, `src/mcp_manager.py`, `src/tool_registry.py` | `ODYSSEUS_DISABLE_MCP=off` ; connexions externes OFF | 13 (`test_mcp_manager.py`, …) | **ACTIF** | API CRUD/administration MCP active (11 endpoints, `mcp_routes.py`), enregistrée au boot (`route_loader.py:264`). La *découverte dynamique* reste partielle (cf. UC-15). |
-| **UC-05** | Modifier le workflow d'un projet | `config/phase-lock.yaml`, `config/tool-decision-tree.yaml`, `routes/phase_routes.py` | — | `test_orchestrator_phaselock_integration.py` | **ACTIF** | Configuration déclarative des phases (`config/phase-lock.yaml`) et changement de phase (`phase_routes.py:20`, `route_loader.py:317-320`). |
-| **UC-06** | Forker un projet (worktree) | `src/opencode_engine.py`, `src/opencode_bridge.py`, `src/decision_engine.py` | — | 0 | **ABSENT** | Aucune occurrence de `git worktree` dans le code. `worktree=` n'est qu'un chemin de travail passé à moteur/bridge (`opencode_engine.py:185-188`). Confirmé par l'audit interne `tools/sfd_audit.py:286` : `"UC-06 Forker worktree": {"live": False, "note": "Non implémenté"}`. |
-| **UC-07** | Fusionner un worktree | — | — | 0 | **ABSENT** | Même constat : aucun merge de branche/worktree. `tools/sfd_audit.py:287` : `"Non implémenté"`. |
-| **UC-08** | Consulter la mémoire transversale | `routes/memory_routes.py`, `src/memory.py`, `services/memory/`, `archive/legacy/agent_loop.py` | Mémoire : préférence utilisateur ; `ODYSSEUS_OBSIDIAN_MCP=off` | 21 (nom `memory`) | **ACTIF** | API riche : liste, recherche, timeline, profil, rappel (`memory_routes.py`, 14 endpoints) et rappel mémoire dans la boucle (tests `test_memory_recall_nondict_rows.py`). |
-| **UC-09** | Recevoir une alerte | `src/task_scheduler.py`, `services/notifications/apprise_service.py`, `src/observer.py`, `src/webhook_manager.py` | `ODYSSEUS_APPRISE=off` (défaut), canaux in-process OFF | `test_budget_auto_sentinel.py` | **PARTIEL** | Notifications in-app actives (`task_scheduler.py:499`), observateur de dérive actif. Push externe (Apprise/ntfy) gated OFF (`apprise_service.py:32-37`). |
-| **UC-10** | Escalader vers une architecture multi-agent | `src/orchestrator/agent_dispatcher.py`, `src/orchestrator/multi_agent.py`, `src/decision_engine.py`, `.opencode/skills/sfd-decision-tree/` | Tous `ODYSSEUS_AGENT_*=off`, `LIVE_ORCHESTRATION=off` | `test_orchestrator_agent_dispatcher.py` | **PARTIEL** | Dispatch explicite via `POST /api/agents/dispatch` (`route_loader.py:379-407`) et scorer de décision. Aucune escalade automatique chiffrée ; `/api/agents` retourne `[]` sans `ODYSSEUS_AGENT_CATALOG=on` (`route_loader.py:367-371`). |
-| **UC-11** | Reprendre après panne | `src/durable_execution.py`, `src/orchestrator/checkpoint_tracker.py` | `ODYSSEUS_DURABLE_EXECUTION=off` ; `CHECKPOINT=off` | 0 | **DORMANT** | Toute la couche de reprise durable est sous switch OFF ; seule la persistance de session/détachement (`agent_runs`) survit à une déconnexion client, pas à un crash process. |
-| **UC-12** | Auditer une décision passée | `src/trace_writer.py`, `src/opencode_engine.py`, `routes/history_routes.py` | Base : — ; `UNIFIED_TOKENS=off` | `test_trace_writer_run_id.py` | **PARTIEL** | Traces JSONL par appel outil et `trace_id` corrélé (`opencode_engine.py:254-255`). Aucune route/UI d'audit dédiée (les traces sont sur disque). |
-| **UC-13** | Retrouver une conversation passée | `src/session_search.py`, `routes/chat_routes.py`, `src/tools/search.py` | — (`ODYSSEUS_MEILISEARCH=off` pour l'index externe) | 2 (`test_session_search.py`, `test_session_search_batch_fetch.py`) | **ACTIF** | `GET /api/search` → `search_session_messages` (`chat_routes.py:1508-1527`) et outil agent (`tools/search.py:23`). |
-| **UC-14** | Définir une préférence persistante | `routes/prefs_routes.py`, `src/preferences.py` | `ODYSSEUS_PREFERENCES=on` (.env) ; résolveur structuré défaut `off` | `test_prefs_routes.py` | **PARTIEL** | Persistance clé/valeur active (`prefs_routes.py:82-92`). Application contextuelle par priorité (module `preferences.py`) seulement loggée (cf. P20). |
-| **UC-15** | Découvrir et connecter un nouveau service | `routes/mcp_routes.py`, `src/content_security.py`, `src/model_discovery.py` | `ODYSSEUS_TOOL_DISCOVERY=on` mais sans appelant ; MCP externes OFF | 13 MCP + 3 discovery | **PARTIEL** | Connexion MCP manuelle active ; découverte de modèles locale active (`model_discovery.py`). La recherche de registre/suggestion de connecteurs n'est pas branchée. |
-| **UC-16** | Obtenir une visualisation d'un concept | `routes/mcp_tools_routes.py`, `src/visual_report.py`, `src/output_router.py` | `ODYSSEUS_OUTPUT_ROUTER=off` ; `ODYSSEUS_VISUAL_OUTPUT` (morte) | `test_render_diagram_tool.py`, `test_visual_report.py` | **PARTIEL** | Rendu Kroki SVG/PNG via `POST /api/tools/diagram` (`mcp_tools_routes.py:22-38`) et rapport visuel de recherche (`visual_report.py:1724`). Le routage automatique par arbre de décision est dormant. |
-| **UC-17** | Exporter un artefact visuel | `src/output_router.py`, `src/visual_report.py` | `ODYSSEUS_OUTPUT_ROUTER=off` | `test_visual_report.py` | **PARTIEL** | Le mode `FILE_DOWNLOAD` de `output_router.py` est dormant. L'export existe indirectement via le HTML téléchargeable généré par `visual_report.py` (ligne ~908 du JS embarqué). |
-| **UC-18** | Gérer ses préférences | `routes/prefs_routes.py`, `src/preferences.py` | — (API simple) | 4 | **PARTIEL** | Lecture et modification exposées (`GET /api/prefs`, `PUT /api/prefs/{key}`) mais **aucun** endpoint `DELETE` (`prefs_routes.py` : 0 occurrence de `delete`). Pas d'UI pour le module structuré. |
-| **UC-19** | Consulter et gérer ses données (droit à l'oubli) | `routes/admin_wipe_routes.py`, `routes/memory_routes.py` | — | 1 (`test_admin_wipe_gallery.py`) | **PARTIEL** | Wipe par catégorie (`DELETE /api/admin/wipe/{kind}` : chats, memory, skills, notes, tasks, documents, gallery, calendar) et suppression unitaire de mémoire (`memory_routes.py:587`). Le wipe est **admin-only** (`require_admin`) ; pas de flux d'auto-suppression utilisateur global. |
+| ID | Cas d'usage | Statut | Preuve |
+|---|---|---|---|
+| **UC-01** | Lancer un nouveau projet | **PARTIEL** ⬇ | Le mode est détecté par mots-clés, pas par défaut agent (`opencode_engine.py:259`) ; `model_endpoints` est **vide** et `OPENCODE_API_KEY` est absent de `.env` ⇒ `agent_loop.py:2118` n'a aucun endpoint. Le flux nominal est donc inatteignable en l'état. |
+| **UC-02** | Interrompre / modifier un projet | **PARTIEL** | Stop/Resume d'un run détaché opérationnels (`chat_routes.py:1455-1470`). `resume()` est appelé puis **seulement loggé** (`agent_loop.py:4314-4316`) ; `create_workflow` a 0 appelant. |
+| **UC-03** | Consulter l'état d'avancement | **ACTIF** | `/api/observer/drift` (`observer_routes.py:17`) et `/current/{session_id}` (`phase_routes.py:38`) ; vérifié en exécution : HTTP 200 `{"ok":true,"drift_level":"low"}`. |
+| **UC-04** | Ajouter un nouvel outil (MCP) | **ACTIF** | `POST /api/mcp/servers` persiste en base (`mcp_routes.py:163`) ; route enregistrée au boot (`core/route_loader.py:266`). La *découverte dynamique* reste partielle (cf. UC-15). |
+| **UC-05** | Modifier le workflow d'un projet | **PARTIEL** ⬇ | `POST /api/phase/set` + `config/phase-lock.yaml` existent, **mais** `on_round_start` **écrase en `BUILD`** la phase posée par l'API (`agent_loop.py:2934` → `phase_tracker.py:60`) **avant** que `tool_execution.py:625` ne l'applique. L'API ne peut donc pas tenir. |
+| **UC-06** | Forker un projet (worktree) | **ABSENT** | 0 occurrence de `git worktree`. `opencode_engine.py:188` : `worktree=` n'est qu'un `cwd` de travail. Confirmé par l'audit interne `tools/sfd_audit.py:286`. |
+| **UC-07** | Fusionner un worktree | **ABSENT** | 0 appel git `merge`/`worktree` dans `src/`, `routes/`, `core/`, `services/`, `archive/`. `tools/sfd_audit.py:287` : « Non implémenté ». |
+| **UC-08** | Consulter la mémoire transversale | **ACTIF** | 14 endpoints sur SQLite (`memory_routes.py:132/138/156/531`) ; ChromaDB dégradé **sans impact** (vérifié en exécution : `GET /api/memory` → 200). |
+| **UC-09** | Recevoir une alerte | **PARTIEL** | Webhooks et notifications in-app actifs, **mais** une dérive `HIGH` n'est qu'un `logger.warning` (`agent_loop.py:4152`) — **aucune alerte** ; push externe (Apprise) `off` (`apprise_service.py:37`). |
+| **UC-10** | Escalader vers une architecture multi-agent | **DORMANT** ⬇ | L'endpoint lève `ValueError` car les 12 switches agents sont `off` (`agent_dispatcher.py:201-204`), puis `RuntimeError` car `AGENT_CATALOG` est `off` (`:206-208`). Le dispatch explicite existe mais **fermé par défaut**. |
+| **UC-11** | Reprendre après panne | **PARTIEL** ⬆ | Le switch est désormais `on`, mais `data/workflows/` est vide ⇒ `resume()` (`durable_execution.py:222`) rend toujours `None`. Seule la persistance de session survit à une déconnexion, pas à un crash. |
+| **UC-12** | Auditer une décision passée | **PARTIEL** | Les traces **sont** écrites (`tool_execution.py:672` → `data/traces/*.jsonl`, 145 Ko produits), **mais** `trace_writer.py` n'expose **aucune fonction de lecture** et **aucune route** ne lit ce fichier. Les deux routes qui ressemblent à un audit sont des faux amis : `knowledge_routes.py:49` est un proxy CBM (service éteint) et `memory_routes.py:274` dépend d'un LLM. |
+| **UC-13** | Retrouver une conversation passée | **ACTIF** | `GET /api/search` → `search_session_messages` (`chat_routes.py:1508-1520`, `session_search.py:301`, FTS5 avec repli `LIKE`) + outil agent. |
+| **UC-14** | Définir une préférence persistante | **ACTIF** ⬆ | `GET /api/prefs` / `PUT /api/prefs/{key}` (`prefs_routes.py:79`/`:85`) avec écriture atomique (`os.replace`, `:30`) et scoping utilisateur (`:33-43`). |
+| **UC-15** | Découvrir et connecter un nouveau service | **PARTIEL** | Découverte locale de modèles active (`model_routes.py:1743`), **mais** `suggest_connectors` (`content_security.py:245`) a 0 appelant. |
+| **UC-16** | Obtenir une visualisation d'un concept | **PARTIEL** | La route existe (`mcp_tools_routes.py:24`) **mais Kroki est injoignable** (`curl` → code 000) et `KROKI_ENABLED=off` (`.env:371`). Le rapport visuel de recherche reste le seul chemin vivant. |
+| **UC-17** | Exporter un artefact visuel | **PARTIEL** | `OUTPUT_ROUTER=on` mais la boucle ne logge que `mode`/`reason` (`agent_loop.py:4330-4339`) : `FILE_DOWNLOAD` n'est **jamais appliqué**. |
+| **UC-18** | Gérer ses préférences | **PARTIEL** | `GET /api/prefs`, `GET /api/prefs/{key}`, `PUT /api/prefs/{key}` existent (`prefs_routes.py:74/79/85`) ; **aucun** `@router.delete` dans le fichier (confirmé via `openapi()["paths"]`). |
+| **UC-19** | Consulter et gérer ses données (droit à l'oubli) | **PARTIEL** | La vraie route d'export est `GET /api/export` (`backup_routes.py:19-62`, `require_admin`) — vérifiée en exécution, 200, ~4,9 Ko. `admin_wipe_routes.py:76` : wipe global **admin-only**, pas d'auto-purge utilisateur. ⚠️ Les routes `POST /api/backup/export` (`:206`) et `/import` (`:211`) sont des **stubs** (`{"ok":true,"export":null}`) et ne doivent pas servir de preuve. |
+
+> ⬆ = promu · ⬇ = rétrogradé par rapport à la mesure du 2026-09-25.
 
 ---
 
@@ -73,9 +93,9 @@ Document **vérifiable** reliant les **22 principes SFD v3.1** (P1→P22, `docs/
 
 | Statut | Nombre | IDs |
 |---|---|---|
-| **ACTIF** | **6** | P3, P7, P9, P10, P11, P15 |
-| **PARTIEL** | **12** | P1, P2, P4, P6, P8, P12, P13, P17, P18, P20, P21, P22 |
-| **DORMANT** | **4** | P5, P14, P16, P19 |
+| **ACTIF** | **5** | P3, P9, P10, P13, P15 |
+| **PARTIEL** | **17** | P1, P2, P4, P5, P6, P7, P8, P11, P12, P14, P16, P17, P18, P19, P20, P21, P22 |
+| **DORMANT** | **0** | — |
 | **ABSENT** | **0** | — |
 | **Total** | **22** | |
 
@@ -83,80 +103,94 @@ Document **vérifiable** reliant les **22 principes SFD v3.1** (P1→P22, `docs/
 
 | Statut | Nombre | IDs |
 |---|---|---|
-| **ACTIF** | **6** | UC-01, UC-03, UC-04, UC-05, UC-08, UC-13 |
-| **PARTIEL** | **10** | UC-02, UC-09, UC-10, UC-12, UC-14, UC-15, UC-16, UC-17, UC-18, UC-19 |
-| **DORMANT** | **1** | UC-11 |
+| **ACTIF** | **5** | UC-03, UC-04, UC-08, UC-13, UC-14 |
+| **PARTIEL** | **11** | UC-01, UC-02, UC-05, UC-09, UC-11, UC-12, UC-15, UC-16, UC-17, UC-18, UC-19 |
+| **DORMANT** | **1** | UC-10 |
 | **ABSENT** | **2** | UC-06, UC-07 |
 | **Total** | **19** | |
 
-> Constat d'ensemble : sur 41 exigences, **12 sont pleinement actives**, **22 partielles**, **5 dormantes** et **2 absentes**. Aucun principe n'est totalement absent, mais 4 des 5 modules de la vague « mémoire/interaction » (P16, P17 partiel, P18 partiel, P19) sont neutralisés par des kill-switches OFF ou par des variables d'environnement mal nommées.
+### Bilan
+
+| | Avant (2026-09-25) | Après (Palier 0) | Δ |
+|---|---:|---:|---:|
+| ACTIF | 12 | **10** | −2 |
+| PARTIEL | 22 | **28** | +6 |
+| DORMANT | 5 | **1** | −4 |
+| ABSENT | 2 | **2** | = |
+| **Total** | 41 | **41** | |
+
+Les 4 principes DORMANT ont migré vers PARTIEL : leur switch est `on`, mais le module est soit appelé avec une entrée vide, soit branché sur un `logger.info`. **C'est la seule interprétation honnête** : « le switch est activé » n'a jamais voulu dire « le module agit ».
+
+Les 2 ACTIF perdus ne sont pas des régressions du code : ce sont des dépendances et des câblages que la mesure précédente ne pouvait pas voir. **UC-01** attend une clé d'API absente. **UC-05** est écrasé par la phase-lock. Les corriger est du travail, pas de la documentation.
 
 ---
 
-## 4. Divergences avec l'ancienne checklist 08 (retirée 2026-09-25)
+## 4. Écarts de configuration (section réécue le 2026-09-26)
 
-### 4.1 Statuts divergents (principes)
+### 4.1 Kill-switchs enregistrés **sans aucun lecteur dans le code**
 
-| # | Checklist 08 | Réalité vérifiée | Cause de l'écart |
-|---|---|---|---|
-| P1 | 🟢 SATISFAIT | PARTIEL | Le gate bloque les commandes shell catastrophiques mais n'impose pas d'approbation humaine sur les outils destructifs explicites ; phase-lock neutralisée par `PHASE_TRACKER=off` (défaut BUILD). |
-| P2 | 🟢 SATISFAIT | PARTIEL | « Draft/commit séparés dans agents » : seuls les brouillons d'éditeur et le mode plan existent ; la mémoire/écriture directe n'a pas de staging. |
-| P4 | 🟢 SATISFAIT | PARTIEL | `budget_enforcer.py` n'agit que si `PROJECT.yaml` existe — absent (seul `.example`). |
-| P5 | 🟢 SATISFAIT « Phase-lock : permissions par phase » | **DORMANT** | `progressive_disclosure.py` OFF par défaut ; phase-lock non alimentée (phase par défaut BUILD). |
-| P6 | 🟡 PARTIEL | PARTIEL | Cohérent. |
-| P12 | 🟡 PARTIEL | PARTIEL | Cohérent, mais plus sévère : 100 % des agents auto sont OFF. |
-| P14 | 🟢 SATISFAIT « Durable execution codé » | **DORMANT** | Module OFF et **variable `.env` erronée** (voir §4.3). |
-| P16 | 🟢 SATISFAIT « tags actifs » | **DORMANT** | `.env` écrit `ODYSSEUS_MEMORY_PROVENANCE`, le code lit `ODYSSEUS_PROVENANCE_MEMORY` ; `memory_writer.py` sans appelant. |
-| P17 | 🟢 SATISFAIT « omission filter » | PARTIEL | Filtre présent uniquement dans des modules dormants/non branchés ; le flux live `POST /api/memory/add` ne filtre pas. |
-| P18 | 🟢 SATISFAIT « if_version hash check dans memory_writer » | PARTIEL | Faux : `memory_writer.py` calcule un hash mais ne le compare à rien. Le `if_version` réel est dans `provenance_memory.py` (dormant). |
-| P19 | 🟢 SATISFAIT « Earn its place codé » | **DORMANT** | OFF + logique inopérante (`hypothetical_response=""` → impact nul). |
-| P20 | 🟢 SATISFAIT « 5 niveaux » | PARTIEL | Résolveur seulement loggé ; l'API live est un store distinct sans priorité. |
-| P21 | 🟢 SATISFAIT « Tool discovery + registry MCP » | PARTIEL | `ToolDiscovery` sans appelant ; registre MCP en gestion manuelle. |
-| P22 | 🟢 SATISFAIT « Kroki SVG inline, arbre décision » | PARTIEL | Kroki actif, mais `output_router.py` OFF ; `ODYSSEUS_VISUAL_OUTPUT` n'est lue par personne. |
+Le cockpit (registre) en présentait 9 comme `on`. Aucun code ne les lit : ils annonçaient de l'activation. Marqués `wired=False` et remis à `off` — le registre ne peut plus afficher un switch inatteignable comme actif.
 
-### 4.2 Statuts divergents (use cases)
+`ODYSSEUS_DEEPEVAL`, `ODYSSEUS_SUPABASE`, `ODYSSEUS_VAULTWARDEN`, `ODYSSEUS_PLAYWRIGHT`, `ODYSSEUS_BROWSER_HARNESS`, `ODYSSEUS_ZEN_FROM_ENDPOINT`, `ODYSSEUS_INPROCESS_DISCORD`, `ODYSSEUS_INPROCESS_TELEGRAM`, `ODYSSEUS_CHANNEL_AGENT_REPLY`
 
-| ID | Checklist 08 | Réalité vérifiée | Cause de l'écart |
-|---|---|---|---|
-| UC-04 | 🟡 CODE-ONLY | ACTIF | L'API MCP est enregistrée et opérationnelle (11 endpoints). |
-| UC-05 | 🟡 CODE-ONLY | ACTIF | `POST /api/phase/set` + `config/phase-lock.yaml` actifs. |
-| UC-06 | 🟡 « Git worktree support codé » | **ABSENT** | Aucune commande `git worktree` dans le dépôt ; confirmé par `tools/sfd_audit.py:286`. |
-| UC-07 | 🟡 « Codé » | **ABSENT** | Idem ; `tools/sfd_audit.py:287`. |
-| UC-10 | 🟢 SATISFAIT « 16 agents, routing par phase » | PARTIEL | Tous les switches agents sont OFF ; `/api/agents` vide sans `ODYSSEUS_AGENT_CATALOG=on`. |
-| UC-11 | 🟡 CODE-ONLY | **DORMANT** | Couche durable OFF. |
-| UC-13 | 🟡 CODE-ONLY | ACTIF | `session_search` branché dans `chat_routes.py` et l'outil agent. |
-| UC-14 | 🟢 SATISFAIT | PARTIEL | Application contextuelle non branchée. |
-| UC-18 | 🟢 « API /api/preferences » | PARTIEL | La route réelle est `/api/prefs` et n'offre **pas** de suppression. |
-| UC-19 | 🟡 CODE-ONLY | PARTIEL | Wipe admin-only + suppression unitaire ; pas de flux utilisateur global. |
+`tests/test_killswitch_registry.py` interdit désormais le retour de cette dérive : un descripteur `wired=True` doit avoir un lecteur réel, un `wired=False` ne doit pas en avoir, et le `default` affiché doit être celui que le code appliquera.
 
-### 4.3 Variables d'environnement divergentes (nom ou lecteur)
+### 4.2 Descripteurs du registre contredisant leur propre lecteur
 
-| Variable dans `.env` | Valeur | Réalité |
-|---|---|---|
-| `ODYSSEUS_DURABLE_EXEC` | `on` | **Jamais lue.** Le code lit `ODYSSEUS_DURABLE_EXECUTION` (non défini) → P14/UC-11 OFF. |
-| `ODYSSEUS_MEMORY_PROVENANCE` | `on` | **Jamais lue.** Le code lit `ODYSSEUS_PROVENANCE_MEMORY` (non défini) → P16 OFF. |
-| `ODYSSEUS_VISUAL_OUTPUT` | `on` | **Jamais lue.** Le code lit `ODYSSEUS_OUTPUT_ROUTER` (non défini) → P22/UC-16/17 OFF. |
-| `ODYSSEUS_THOUGHT_BUS` | `on` | **Jamais lue** dans le code Python. |
-| `ODYSSEUS_PROJECT_MANIFEST` | `off` | **Jamais lue** ; `load_manifest()` est appelé inconditionnellement. |
-| `ODYSSEUS_TOOL_DISCOVERY` | `on` | Lue (`content_security.py:100`) mais `ToolDiscovery` n'a aucun appelant → sans effet. |
+Seize descripteurs déclaraient `default: "on"` alors que leur lecteur retombe sur `off` ou sur chaîne vide — le cockpit affichait donc `effective=true` sur du OFF.
+
+`LIVE_ORCHESTRATION`, `CODEBURN`, `LANGFUSE`, `GOVERNANCE_ANCESTRY`, `LANGGRAPH`, `RRF_FUSION`, `DOCLING`, `TREESITTER`, `DISABLE_MCP`, `OBSIDIAN_MCP`, `GRAPHIFY`, `CBM`, `SERENA_MCP`, `AGENTSEAL`, `N8N`, `AGENT_CATALOG`
+
+Tous réalignés sur le code. **Corollaire notable** : `AGENT_CATALOG` est `off`, donc `/api/agents` renvoie `[]` — ce qui confirme UC-10 en DORMANT.
+
+### 4.3 Variables d'environnement (la liste précédente était périmée)
+
+Les divergences de nom signalées le 2026-09-25 ont été **nettoyées** : `ODYSSEUS_DURABLE_EXEC`, `ODYSSEUS_MEMORY_PROVENANCE`, `ODYSSEUS_VISUAL_OUTPUT` et `ODYSSEUS_PROJECT_MANIFEST` ont **0 occurrence** dans `.env`. `ODYSSEUS_THOUGHT_BUS` n'y est plus non plus et n'est posée que par `launch_fast.py:8`, sans lecteur — l'événement SSE `thought_bus` (`opencode_engine.py:349`) est inconditionnel.
+
+| Constat | État réel |
+|---|---|
+| `ODYSSEUS_TRAEFIK=on` | Seule variable `ODYSSEUS_*` de `.env` (**49**) qu'aucun `.py` du dépôt ne lit. Relève du Palier P2 (reverse proxy). |
+| `ODYSSEUS_TOOL_DISCOVERY` | Lue (`content_security.py:101`) mais `ToolDiscovery` a 0 appelant ⇒ sans effet. Défaut `off`, et absent du registre. |
+| 5 variables P2 lues hors Python | `ODYSSEUS_OPA`, `ODYSSEUS_PREFECT`, `ODYSSEUS_OPA_URL`, `ODYSSEUS_API_TOKEN` : lues par les scripts de lancement, pas par le cœur applicatif. |
 
 ### 4.4 Divergences de décompte
 
-- Checklist 08 : « **45+ switches dans .env** » → `src/killswitch_registry.py` ne curate que **35** descriptors, étendus à **47** avec les 12 switches agents. `.env` contient **48** variables `ODYSSEUS_*`, dont plusieurs ne sont pas des kill-switches (tokens, URLs).
-- Checklist 08 : « P1-P22 : 🟢 20 · 🟡 2 · 🔴 0 » → vérification code : **🟢 6 · 🟡 12 · ⚪ 4 · 🔴 0**.
-- Checklist 08 : « UC : 🟢 9 · 🟡 10 · 🔴 0 » → vérification code : **🟢 6 · 🟡 10 · ⚪ 1 · 🔴 2**.
+- « 35 descriptors » puis « 47 étendus aux switches agents » (mesure du 2026-09-25) → le registre en compte **54**.
+- Le bloc « Sprint 1a » de `04-OBJECTIFS-COUVERTURE.md` affirme que « les statuts ACTIF/PARTIEL/DORMANT n'ont pas bougé » et que l'Activation montera « plus tard ». C'est faux : le Palier 0 a **rétrogradé** UC-05 et fait passer UC-11 de DORMANT à PARTIEL.
+- La liste « Actives (28) » de ce même document inclut « multi-agent live » et « goal-ancestry live », ce que les switches agents tous `off` contredisent.
 
 ### 4.5 Concordance avec l'audit interne existant
 
-`tools/sfd_audit.py` (audit préexistant, non daté) converge davantage avec cette vérification qu'avec `08` : il marque notamment non implémentés P5, P6, P12, P19, « live: False » pour P14/P16/P17/P18/P20/P21/P22, et « Non implémenté » pour UC-06/UC-07. **Réserve** : cet audit référence une arborescence obsolète (`src/durable_execution/saga.py`, `memory_provenance/`, `multi_agent_decision/`, `context_manager/`) qui n'existe plus dans le dépôt — il ne peut donc pas servir de preuve directe, seulement de corroboration.
+`tools/sfd_audit.py` (audit préexistant, non daté) corrobore cette vérification. **Réserve forte** : il référence une arborescence disparue (`src/durable_execution/saga.py`, `memory_provenance/`, `multi_agent_decision/`, `context_manager/`) qui n'existe plus dans le dépôt. Il ne peut donc pas servir de preuve, seulement de corroboration.
 
 ---
 
-## 5. Sources
+## 5. Ce qu'il reste à faire pour que ces statuts bougent
 
-- `docs/master-ref/01-SFD-v3.1.md` §3 (P1-P22, lignes ~85-125) et §4 (UC, lignes ~128-152).
-- Ancienne checklist `08-VERIFICATION-ETAT-ACTUEL.md` (retirée) — conservée dans l'historique Git.
-- `src/killswitch_registry.py` (47 descriptors, `read_states()`).
-- `.env` / `.env.example` (48 variables `ODYSSEUS_*`).
-- `tools/sfd_audit.py` (audit interne de corroboration).
-- Code : `src/orchestrator/*`, `src/opencode_engine.py`, `archive/legacy/agent_loop.py`, `src/tool_execution.py`, `routes/*`, `config/*.yaml`, `packages/*`, `.opencode/*`.
+Rien de ce qui suit n'est un défaut : ce sont des câblages absents, tous réduits au même geste — **consommer le résultat au lieu de le loguer**.
+
+| Principe / UC | Geste manquant |
+|---|---|
+| P5, P21 | Injecter `allowed_tools` dans les schémas d'outils envoyés au modèle (la divulgation ne restreint rien aujourd'hui). |
+| P19 | Fournir une vraie `hypothetical_response` au vérificateur d'impact, et relier `should_store` au store. |
+| P14, UC-02, UC-11 | Appeler `create_workflow` pour persister un workflow, et résoudre le chemin du vault pour le checkpoint. |
+| P16 | Créer `topics/agent-output.md` (ou gérer son absence) pour que `[observed]`/`[inferred]` aient un producteur. |
+| P17 | Faire **bloquer** l'émission sur une branche `PROTECTED`, et appliquer le filtre sur `POST /api/memory/add`. |
+| P20 | Injecter `language`/`tone`/`format` dans le prompt, au lieu de les loguer. |
+| P22, UC-17 | Donner un effet de bord à `OutputDecision` (écrire le fichier, invoquer l'outil). |
+| UC-05 | Empêcher `on_round_start` d'écraser une phase posée explicitement par l'API. |
+| UC-12 | Exposer une lecture des traces (route d'audit), ou assumer que les traces sont un artefact de debogage. |
+| P18 | Faire circuler le jeton de version entre deux appels distincts, sinon le contrôle ne peut pas s'exercer. |
+
+---
+
+## 6. Sources
+
+- `docs/master-ref/01-SFD-v3.1.md` §3 (P1-P22) et §4 (UC-01-19).
+- Ancienne checklist `08-VERIFICATION-ETAT-ACTUEL.md` (retirée le 2026-09-25) — conservée dans l'historique Git.
+- `src/killswitch_registry.py` — **54** descripteurs, `read_states()` (expose `default`, `raw`, `is_default`, `effective`, `wired`).
+- `.env` — **49** variables `ODYSSEUS_*` (gitignoré) ; `.env.example` — template committé.
+- `tests/test_killswitch_registry.py` — 4 tests d'audit qui interdisent au registre de mentir.
+- `tests/test_progressive_disclosure.py` — 28 tests, dont la garde statique sur le site d'appel mort.
+- Mesure de tests : `docs/traceability/04-TESTS-REALITE.md` (4 792 PASS · 2 skipped · 0 FAILED).
+- `tools/sfd_audit.py` — corroboration seulement (arborescence périmée).
