@@ -14,8 +14,9 @@
 3. **Le Palier 0 a supprimé les switchs OFF, et révélé le vrai taux d'inactivité.** Les 14 kill-switchs P0 sont **`on` par défaut dans le code** (plus seulement dans `.env`) : DORMANT 5 → 1. Mais ACTIF 12 → 10 — en branchant les modules, on a constaté que plusieurs ne consumaient pas leur résultat, et que **UC-01** attend une `OPENCODE_API_KEY` absente. L'écart résiduel n'est plus « des switchs », c'est **du câblage**.
 4. **Le cockpit des kill-switchs ne peut plus mentir.** 9 descripteurs n'avaient **aucun lecteur** et étaient présentés comme actifs : ils sont maintenant `wired=False` + `off`, et **4 tests d'auto-police** rendent la dérive non réintroduisible.
 5. **La modularité est réelle mais inégale** : bons points (packages npm, MCP, skills, `MemoryProvider`), mauvais points (`core.database` importé par 64 modules, `route_loader` non dynamique, shims vers `archive/legacy/`).
-6. **La suite de tests est verte et le projet s'exécute localement** : 4 876 PASS (contre 4 633 + 109 non-verts au départ). Réserve : le « 100 % vert » est **local** — ChromaDB, Mem0, LLM et Docker sont injoignables, donc les chemins nominaux ne sont pas testés.
+6. **La suite de tests est verte et le projet s'exécute localement** : 4 887 PASS (contre 4 633 + 109 non-verts au départ). Réserve : le « 100 % vert » est **local** — ChromaDB, Mem0, LLM et Docker sont injoignables, donc les chemins nominaux ne sont pas testés.
 7. **Un défaut d'atteignabilité, trouvé au Sprint 3, expliquait l'Activation plate.** Le bloc M6 — qui porte P16, P17, P19, P20, P22 — était **injoignable depuis la route de chat principale** : un classifieur d'intention trop étroit marquait « low-signal » la plupart des demandes réelles, la voie directe `return`ait avant M6, et `routes/chat_routes.py:1388` ne passe pas `relevant_tools`. Un tour réel donnait **0 événement M6**. Le classifieur est corrigé ; les tests le prouvent en appelant la boucle **comme le fait la route principale**. Détail et mesure : `02-PRINCIPES-UC.md` §4.6.
+8. **Le même examen a promoted P5 de PARTIEL à ACTIF (Sprint 3 item 8).** La divulgation progressive calculait une liste d'outils autorisés et se contentait de la **journaliser** : aucun site de la boucle n'appelait `get_allowed_tools`, et le corriger dans M6.8 n'aurait rien changé puisque ce bloc tourne après l'envoi des schémas. Le filtre agit désormais **là où la liste est construite** (`agent_loop.py:3158-3169`). La règle est bornée après mesure : `_TOOL_CATEGORY_MAP` ne connaît que 37 des 68 schémas, donc un filtrage strict aurait supprimé 31 outils dans **toutes** les phases, `BUILD` comprise. Preuve : 11 tests, **4 mutations**, dont celle qui calcule le filtre sans affecter le résultat — le test mesure ce qui est **envoyé**, pas ce qui est calculé. Le même examen a révélé que **`CLASSIFY` n'est jamais atteinte** (`agent_loop.py:3040` avance la boucle canonique avant de résoudre la phase).
 
 ---
 
@@ -111,7 +112,7 @@ Registre vérifiable : `src/killswitch_registry.py` — **54 descripteurs**, `re
 
 ## 5. Réalité fonctionnelle (exécution)
 
-- **Suite complète : verte.** **4 792 PASS · 2 skipped · 0 FAILED** (~110 s), sur le `venv` du dépôt. Le point de départ était 4 633 PASS / **109 non-verts**.
+- **Suite complète : verte.** **4 887 PASS · 2 skipped · 0 FAILED** (~120 s), sur le `venv` du dépôt. Le point de départ était 4 633 PASS / **109 non-verts**.
 - **Les 109 faux échecs** portaient sur les shims `src/*.py` → `archive/legacy/*.py` : le code était **correct à l'exécution** mais insensible au `monkeypatch` des tests. Le code n'avait donc jamais été cassé — il était **invérifiable**.
 - **Lint** : `ruff` strict (E,F,I,N,UP,B,C4,SIM,PL…) → **3 707** diagnostics contre une base de **3 708** mesurée sur `HEAD~2` (extrait via `git archive` dans un répertoire temporaire), soit **−1** : le `F821` du bloc M6.8 a disparu. La base n'est pas zéro, elle est **connue** et **ne descend pas**.
 - **Limite honnête du « 100 % vert »** : il est **local**. ChromaDB, Mem0, les appels LLM et le moteur Docker sont injoignables ici — les chemins dégradés sont testés, les chemins nominaux non. `OPENCODE_API_KEY` est absente de `.env` (le projet utilise OpenCode Zen) : le flux LLM nominal est donc **non exécutable en l'état** (cf. UC-01).
@@ -133,7 +134,7 @@ Détail : `04-TESTS-REALITE.md`.
 | P18 | 08 : « if_version dans memory_writer » | faux sur deux points : le vrai `if_version` est dans `provenance_memory.py`, et `memory_writer.py` n'a **toujours aucun appelant** |
 | Env | `.env` met `on` | **résolu** — les 4 divergences de nommage ont été nettoyées ; une seule variable `ODYSSEUS_*` de `.env` (sur 49) reste sans lecteur Python : `ODYSSEUS_TRAEFIK` (palier P2) |
 | Kill-switchs | 2 ON / 33 OFF | **résolu** — 14 P0 à `on` dans le code, 9 descripteurs non câblés marqués `wired=False` |
-| Tests | « 0 test exécutable » | **résolu** — 4 792 PASS sur le `venv` du dépôt |
+| Tests | « 0 test exécutable » | **résolu** — 4 887 PASS sur le `venv` du dépôt |
 
 ### 6.1 Bugs de nommage des kill-switches — **CORRIGÉS le 2026-09-25/26**
 
@@ -168,7 +169,7 @@ Cette table est conservée comme **post-mortem** : les quatre divergences de nom
 1. **CI de modularité** : transformer le script de `03-MODULARITE.md` en job qui échoue si un god node dépasse un seuil (ex. > 40 importateurs) ou si une nouvelle arête `src→routes` apparaît.
 2. **Traçabilité par switch** : générer `docs/traceability/killswitches.md` depuis `src/killswitch_registry.py` à chaque PR (source déjà citée). *Le registre expose déjà `wired` et `effective` — la génération est une formalité.*
 3. **Statut SFD** : rejouer les checks de `01`/`02` (existences + switches) en CI et publier un verdict à chaque release.
-4. ~~Installer les deps + activer pytest en local~~ → **fait le 2026-09-25/26** : 4 792 PASS, lint à 3 707 contre une base connue de 3 708.
+4. ~~Installer les deps + activer pytest en local~~ → **fait le 2026-09-25/26** : 4 792 PASS à cette date, **4 887 PASS** après le Sprint 3 item 8, lint à 3 707 contre une base connue de 3 708.
 5. **Backlog de câblage** : le résultat de 10 modules au lieu de le loguer (`02-PRINCIPES-UC.md` §5). C'est le levier qui fera monter l'*Activation* de ~24 % — pas l'activation de nouveaux switchs.
 
 ---

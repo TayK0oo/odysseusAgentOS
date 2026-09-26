@@ -63,7 +63,7 @@
 | Governance/Memory | `ODYSSEUS_MEMORY_IMPACT` | `on` | `on` | oui | `src/memory_impact.py:28` |
 | Governance/Memory | `ODYSSEUS_OUTPUT_ROUTER` | `on` | `on` | oui | `src/output_router.py:30` |
 | Governance/Memory | `ODYSSEUS_PREFERENCES` | `on` | `on` | oui | `src/preferences.py:41` |
-| Governance/Memory | `ODYSSEUS_PROGRESSIVE_DISCLOSURE` | `on` | `on` | oui | `src/progressive_disclosure.py:25` |
+| Governance/Memory | `ODYSSEUS_PROGRESSIVE_DISCLOSURE` | `on` | `on` | oui | `src/progressive_disclosure.py:27` |
 | Governance/Memory | `ODYSSEUS_PROVENANCE_MEMORY` | `on` | `on` | oui | `src/provenance_memory.py:40` |
 | Governance/Memory | `ODYSSEUS_UNIFIED_TOKENS` | `on` | `on` | oui | `src/trace_writer.py:146` |
 | MCP/Services | `ODYSSEUS_AGENTSEAL` | `off` | `off` | oui | `src/agentseal_runner.py:82` |
@@ -81,7 +81,7 @@
 | Orchestration | `ODYSSEUS_DESTRUCTIVE_GATE` | `on` | `on` | oui | `src/orchestrator/gate.py:26` |
 | Orchestration | `ODYSSEUS_LANGGRAPH_INTERRUPT` | `on` | `on` | oui | `src/orchestrator/langgraph_loop.py:805` |
 | Orchestration | `ODYSSEUS_LANGGRAPH` | `off` | `off` | oui | `src/orchestrator/langgraph_loop.py:42` |
-| Orchestration | `ODYSSEUS_LIVE_ORCHESTRATION` | `off` | `off` | oui | `archive/legacy/agent_loop.py:2932` |
+| Orchestration | `ODYSSEUS_LIVE_ORCHESTRATION` | `off` | `off` | oui | `archive/legacy/agent_loop.py:2933` |
 | Orchestration | `ODYSSEUS_MODEL_ROUTER` | `on` | `on` | oui | `src/orchestrator/router_advice.py:42` |
 | Orchestration | `ODYSSEUS_PHASE_TRACKER` | `on` | `on` | oui | `src/orchestrator/phase_tracker.py:23` |
 | Quality | `ODYSSEUS_DEEPEVAL` | `off` | `off` | **NON** | `(aucun lecteur dans le code)` |

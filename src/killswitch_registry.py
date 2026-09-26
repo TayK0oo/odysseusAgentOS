@@ -28,7 +28,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Orchestration",
         "timing": "runtime",
         "desc": "CanonicalLoop 7 phases.",
-        "source": "archive/legacy/agent_loop.py:2932",
+        "source": "archive/legacy/agent_loop.py:2933",
     },
     {
         "name": "Phase tracker",
@@ -345,7 +345,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "P5: Restreint les outils visibles par phase+risque.",
-        "source": "src/progressive_disclosure.py:25",
+        "source": "src/progressive_disclosure.py:27",
     },
     {
         "name": "Memory impact verification",

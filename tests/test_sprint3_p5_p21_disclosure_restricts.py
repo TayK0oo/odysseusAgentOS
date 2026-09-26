@@ -31,7 +31,7 @@ de la carte est *inconnu ici*, pas interdit : il passe. Mesuré sur les 68 sché
 
 Ce que la boucle offre vraiment — 33 schémas
 ------------------------------------------
-`blocked_tools_for_owner` (`tool_security.py:2320`) retire **38** outils *avant* la
+`blocked_tools_for_owner` (`tool_security.py:226`) retire **38** outils *avant* la
 divulgation, dont `bash`, `edit_file`, `glob`, `grep`, `api_call`. Sur les 33 restants,
 la divulgation retire 11 (minimal) / 10 (standard) / 0 (full).
 
