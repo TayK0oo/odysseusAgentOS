@@ -381,7 +381,7 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "category": "Governance/Memory",
         "timing": "runtime",
         "desc": "P21: Classification 5 niveaux de retention.",
-        "source": "src/data_classification.py:29",
+        "source": "src/data_classification.py:28",
     },
     {
         "name": "Content security",
