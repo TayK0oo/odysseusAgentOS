@@ -17,7 +17,9 @@ Does NOT require an LLM key — the engine walks the phases structurally.
 
 import importlib.util
 import json
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -38,6 +40,12 @@ def _load_engine_module():
     # Ensure src/ + core/ are importable (they're at the repo root)
     if str(here) not in sys.path:
         sys.path.insert(0, str(here))
+    # Point the engine's data/workspace/vault at a temp dir (the container
+    # path /home/agentos is not writable/present on dev hosts).
+    tmp = tempfile.mkdtemp(prefix="agentos-engine-e2e-")
+    os.environ.setdefault("AGENTOS_DATA_DIR", os.path.join(tmp, "data"))
+    os.environ.setdefault("AGENTOS_WORKSPACE_DIR", os.path.join(tmp, "workspace"))
+    os.environ.setdefault("AGENTOS_VAULT_DIR", os.path.join(tmp, "vault"))
     spec.loader.exec_module(mod)
     return mod
 

@@ -35,9 +35,10 @@ logger = logging.getLogger("agentos-engine")
 # ====================================================================
 # Paths (Docker volumes)
 # ====================================================================
-DATA_DIR = Path("/home/agentos/data")
-WORKSPACE_DIR = Path("/home/agentos/workspace")
-VAULT_DIR = Path("/home/agentos/obsidian-vault")
+# Overridable via env (tests dev-host; container defaults are /home/agentos/*)
+DATA_DIR = Path(os.environ.get("AGENTOS_DATA_DIR", "/home/agentos/data"))
+WORKSPACE_DIR = Path(os.environ.get("AGENTOS_WORKSPACE_DIR", "/home/agentos/workspace"))
+VAULT_DIR = Path(os.environ.get("AGENTOS_VAULT_DIR", "/home/agentos/obsidian-vault"))
 TRACE_DIR = DATA_DIR / "traces"
 
 for d in [DATA_DIR, WORKSPACE_DIR, VAULT_DIR, TRACE_DIR]:
