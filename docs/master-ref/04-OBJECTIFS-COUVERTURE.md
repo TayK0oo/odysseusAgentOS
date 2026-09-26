@@ -1,7 +1,7 @@
 # Agent OS — Objectifs & Couverture (score mesuré)
 
 > **Fusion de :** objectifs du projet (`PROJECT-2026-06-27.md`) + matrice de couverture.
-> **MAJ :** 2026-09-25 — **source unique de couverture** : le score est **recalculé depuis la traçabilité vérifiée** (`../traceability/`), en remplacement des scores contradictoires antérieurs (59 % / 83 % / 90 %).
+> **MAJ :** 2026-09-26 — **source unique de couverture** : le score est **recalculé depuis la traçabilité vérifiée** (`../traceability/`), en remplacement des scores contradictoires antérieurs (59 % / 83 % / 90 %). Recalculé après activation du Palier 0.
 
 ---
 
@@ -51,28 +51,38 @@ Statuts issus de `../traceability/02-PRINCIPES-UC.md` (vérifiés sur le code).
 
 | Ensemble | ACTIF | PARTIEL | DORMANT | ABSENT | Total | Couverture (codé) | Activation (live) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| **Principes P1-P22** | 6 | 12 | 4 | 0 | 22 | **64 %** | **27 %** |
-| **Cas d'usage UC-01→19** | 6 | 10 | 1 | 2 | 19 | **61 %** | **32 %** |
-| **TOTAL (41 exigences)** | 12 | 22 | 5 | 2 | 41 | **≈ 62 %** | **≈ 29 %** |
+| **Principes P1-P22** | 5 | 17 | 0 | 0 | 22 | **61 %** | **23 %** |
+| **Cas d'usage UC-01→19** | 5 | 11 | 1 | 2 | 19 | **58 %** | **26 %** |
+| **TOTAL (41 exigences)** | 10 | 28 | 1 | 2 | 41 | **≈ 60 %** | **≈ 24 %** |
 
 > **SFD v3.1** ajoute P23-P25 et UC-20-21 (proactivité, grounding, data flywheel, brief planifié, vérifier la source). Non encore vérifiés côté code (spec only) → à intégrer au score lors de leur implémentation.
 
-> **🟢 Sprint 1a (2026-09-26) — le score ci-dessus est INCHANGÉ, et c'est délibéré.**
-> Les 109 échecs réparés portaient sur des **tests**, pas sur des statuts de fonctionnalité : le bug des shims `src/*.py` → `archive/legacy/*.py` rendait le code **correct à l'exécution** mais insensible au `monkeypatch` des tests. Le code était donc déjà « codé » avant Sprint 1a — les statuts ACTIF/PARTIEL/DORMANT n'ont pas bougé.
-> Ce qui a changé, c'est la **vérifiabilité** : la suite est passée de 4 633 PASS / 109 non-verts à **4 742 PASS / 0 non-vert** (`../traceability/04-TESTS-REALITE.md`). Le score est désormais **étayé par une suite verte**, ce qui n'était pas le cas.
-> **Ce qui reste à faire pour un score honnête** : re-vérifier `02-PRINCIPES-UC.md` maintenant que la suite est fiable (les statuts avaient été établis contre une suite contenant 109 faux échecs, donc potentiellement sous- ou sur-estimés), puis activer les kill-switchs du Palier 0 qui fera monter la colonne *Activation*.
+> **🟡 Sprint 1b (2026-09-26) — le score a BAISSÉ : ~62 % → ~60 % de couverture, ~29 % → ~24 % d'activation.**
+> Le Palier 0 a activé 14 kill-switchs **dans le code** (défaut `on`, plus seulement dans `.env`), et les 41 statuts ont été intégralement re-vérifiés contre le code, suite verte à l'appui (4 792 PASS).
+> - **DORMANT 5 → 1.** Le levier a fonctionné : plus aucun principe fermé par défaut.
+> - **ACTIF 12 → 10.** C'est le contrepoint honnête : en branchant les modules, on a découvert que « codé » ≠ « actif ». **UC-01** attend une `OPENCODE_API_KEY` absente de `.env` (le projet utilise OpenCode Zen) ⇒ l'agent n'a aucun endpoint. **UC-05** est écrasé : `on_round_start` réimpose `BUILD` sur la phase posée par l'API. **P7** et **P11** sont déclassés (structure cosmétique, `get_decision_engine()` sans appelant).
+> - Les 4 DORMANT devenus PARTIEL ne sont pas des résurrections : leur switch est `on`, mais le résultat est **seulement loggé** ou calculé sur une entrée vide.
+>
+> Le score baisse donc parce qu'il est **plus juste**, pas parce que le code a régressé. Détail : `../traceability/02-PRINCIPES-UC.md`.
 
-**Lecture :** le système est **codé à ~62 %** de ses exigences (la majorité du reste étant *câblé mais dormant* via kill-switch OFF), mais **~29 % seulement sont actives par défaut**. Détail par module/axe : `../traceability/TRACEABILITY.md` et `01-SFD-TRACEABILITY.md`.
+**Lecture :** le système est **codé à ~60 %** de ses exigences, mais **~24 % seulement sont actives en production** — et l'écart n'est plus constitué de switchs OFF, il est constitué de **résultats calculés puis ignorés**. C'est un backlog de câblage, pas de fonctionnalité manquante. Détail : `../traceability/TRACEABILITY.md` et `../traceability/02-PRINCIPES-UC.md`.
 
 ---
 
 ## Exigences fondatrices (historique)
 
 - **Validées** (12) : FastAPI, LLM routing + fallback, MCP servers, Deep Research, Task scheduler, Context compactor, CalDAV/Email, PWA UI, Cookbook, Auth, Claude/Codex integrations, ChromaDB RAG.
-- **Actives** (28) : loop canonique + invariants, phase-lock, Serena/Scrapling MCP, observations JSONL, CodeBurn, GSD, PROJECT.yaml + autoeval, Acontext, Governance, Channel Gateway, Trinité UI, Decision Engine, Sandbox durci, Design Extract/Open Design, Debate 5 personas, RRF hybrid search…
+- **Actives** (16 listées, l'en-tête « 28 » était faux) : loop canonique + invariants, phase-lock, Serena/Scrapling MCP, observations JSONL, CodeBurn, GSD, PROJECT.yaml + autoeval, Acontext, Governance, Channel Gateway, Trinité UI, Decision Engine, Sandbox durci, Design Extract/Open Design, Debate 5 personas, RRF hybrid search…
 - **Planifiées** (7) : Trinité branchée UI, Graphify pipeline, Obsidian second-brain, Heartbeat, budgets granulaires live, goal-ancestry live, multi-agent live.
 
 > ⚠️ Ces listes proviennent de l'ère v3.0 et **recoupent** les statuts ci-dessus ; en cas de conflit, **le score mesuré et `../traceability/` font foi**.
+>
+> **Trois entrées de la liste « Actives » sont contredites par la mesure du 2026-09-26**, et sont donc à relire :
+> - **Decision Engine** — `get_decision_engine()` (`src/decision_engine.py:749`) n'a **aucun appelant** : le moteur existe, rien ne l'interroge (cf. P11).
+> - **CodeBurn** — `ODYSSEUS_CODEBURN` est `off` par défaut dans le code.
+> - **PROJECT.yaml + autoeval** — `PROJECT.yaml` n'existe pas (seul l'exemple) ; autoeval est bien `on`, mais son action reste dormante (cf. P4, P6).
+>
+> `phase-lock`, lui, est désormais **vivante** (poussée par le phase tracker, appliquée par `tool_execution.py:625-630`) mais **cosmétique** : l'inférence ne produit que `PLAN`/`BUILD` et `BUILD` ne bloque rien. Cf. P1.
 
 ---
 
