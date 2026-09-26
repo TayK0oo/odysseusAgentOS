@@ -303,7 +303,8 @@ class WriteFileTool:
 
 class LsTool:
     async def execute(self, content: str, ctx: dict) -> dict:
-        from src.tool_execution import _resolve_search_root, _truncate
+        from src.tool_execution import _resolve_search_root
+        from src.tool_utils import _truncate
 
         raw_path = ""
         _s = (content or "").strip()
@@ -354,7 +355,8 @@ class LsTool:
 
 class GlobTool:
     async def execute(self, content: str, ctx: dict) -> dict:
-        from src.tool_execution import _resolve_search_root, _truncate
+        from src.tool_execution import _resolve_search_root
+        from src.tool_utils import _truncate
 
         args = {}
         _s = (content or "").strip()
@@ -423,7 +425,8 @@ class GlobTool:
 
 class GrepTool:
     async def execute(self, content: str, ctx: dict) -> dict:
-        from src.tool_execution import _resolve_search_root, _truncate
+        from src.tool_execution import _resolve_search_root
+        from src.tool_utils import _truncate
 
         args: dict[str, Any] = {}
         _s = (content or "").strip()

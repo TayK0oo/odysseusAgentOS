@@ -107,7 +107,8 @@ async def _run_subprocess_streaming(
 
 class BashTool:
     async def execute(self, content: str, ctx: dict) -> dict:
-        from src.tool_execution import _truncate, agent_cwd
+        from src.tool_execution import agent_cwd
+        from src.tool_utils import _truncate
 
         progress_cb = ctx.get("progress_cb")
         _subproc_env = ctx.get("subproc_env")
@@ -140,7 +141,8 @@ class BashTool:
 
 class PythonTool:
     async def execute(self, content: str, ctx: dict) -> dict:
-        from src.tool_execution import _truncate, agent_cwd
+        from src.tool_execution import agent_cwd
+        from src.tool_utils import _truncate
 
         progress_cb = ctx.get("progress_cb")
         _subproc_env = ctx.get("subproc_env")
