@@ -23,6 +23,7 @@ def _strip_list_prefix(text: str) -> str:
     return _LIST_PREFIX_RE.sub("", text, count=1).strip()
 
 
+from core.database import SessionLocal
 from core.session_manager import SessionManager
 from services.memory import MemoryManager
 from services.memory.memory_extractor import audit_memories

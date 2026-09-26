@@ -5,7 +5,7 @@ import logging
 import secrets
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -300,7 +300,7 @@ def setup_task_routes(task_scheduler) -> APIRouter:
     def _owner(request: Request):
         return get_current_user(request)
 
-    async def _generate_task_name(prompt: str, owner: str | None = None) -> str:
+    async def _generate_task_name(prompt: str, owner: Optional[str] = None) -> str:
         """Use LLM to generate a short task name from the prompt."""
         try:
             from core.database import Session as DbSession
