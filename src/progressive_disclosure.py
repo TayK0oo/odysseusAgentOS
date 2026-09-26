@@ -3,7 +3,9 @@
 Controls tool visibility based on the current phase and risk level so the
 model never operates with more tool surface than its immediate task demands.
 
-Gated behind ODYSSEUS_PROGRESSIVE_DISCLOSURE kill-switch (default OFF).
+Gated behind ODYSSEUS_PROGRESSIVE_DISCLOSURE kill-switch (default ON since the
+Palier 0 activation; the switch gates where the restriction is applied, not this
+module's arithmetic — the allowlist is always computed).
 """
 
 from __future__ import annotations
@@ -140,6 +142,44 @@ class ProgressiveDisclosure:
         level = self.resolve_level(phase, risk_level)
         allowed = self.get_allowed_tools(level)
         return tool_name in allowed
+
+    def filter_schemas(
+        self,
+        schemas: list[dict],
+        phase: Phase,
+        risk_level: RiskLevel | None = None,
+    ) -> tuple[list[dict], list[str]]:
+        """Restreint `schemas` à ce que le niveau de divulgation de la phase autorise.
+
+        Renvoie `(kept, removed_names)`.
+
+        **La règle est volontairement conservatrice** : un outil n'est retiré que si
+        `_TOOL_CATEGORY_MAP` le connaît **et** que le niveau refuse sa catégorie. Un
+        outil inconnu de la carte est *inconnu ici*, pas interdit : il passe.
+
+        Ce n'est pas de la prudence décorative. La carte couvre **37 des 68** schémas
+        natifs. Un filtrage strict sur l'allowlist aurait donc supprimé 31 outils dans
+        **toutes** les phases, `BUILD` comprise — `web_search`, `ask_user`, toute la
+        surface e-mail, la gestion des sessions. Un filtre de « moins d'outils » qui
+        casse tout le monde pour restreindre un cas de niche. Mesuré :
+
+            CLASSIFY / AUTOEVAL / MEMORY_OBSERVE  level=minimal   retire 26, garde 31
+            KNOW / PLAN                           level=standard  retire 23, garde 31
+            BUILD / QUALITY                       level=full      retire  0, garde 31
+
+        `full` ne retire rien : le chemin courant est intact.
+        """
+        level = self.resolve_level(phase, risk_level)
+        allowed = self.get_allowed_tools(level)
+        kept: list[dict] = []
+        removed: list[str] = []
+        for schema in schemas:
+            name = (schema.get("function") or {}).get("name") or schema.get("name")
+            if name in _TOOL_CATEGORY_MAP and name not in allowed:
+                removed.append(name)
+            else:
+                kept.append(schema)
+        return kept, removed
 
     def get_disclosure_summary(self, phase: Phase, risk_level: RiskLevel | None = None) -> dict[str, Any]:
         level = self.resolve_level(phase, risk_level)
