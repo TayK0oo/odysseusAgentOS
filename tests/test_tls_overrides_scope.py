@@ -38,7 +38,10 @@ REPO = Path(__file__).resolve().parents[1]
 # come with its own justification in code review.
 ALLOWED_CALLERS = frozenset(
     {
-        "src/llm_core.py",  # shared AsyncClient used by stream_llm
+        # The LLM dispatch code physically lives here; src/llm_core.py is a
+        # thin shim that exec's this file into its own namespace. The shared
+        # AsyncClient (and the Kimi Code UA probe) still live in this file.
+        "archive/legacy/llm_core.py",  # shared AsyncClient used by stream_llm
         "routes/model_routes.py",  # _probe_endpoint + _ping_endpoint
     }
 )
