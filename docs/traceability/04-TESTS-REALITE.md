@@ -1,7 +1,11 @@
 # 04 — TESTS : Réalité fonctionnelle
 
+> **🟢 MISE À JOUR 2026-09-26 (Sprint 1b) — SUITE VERTE AVEC LE PALIER 0 ACTIVÉ.**
+> - **Suite réelle : 4 764 tests collectés → 4 762 PASS · 2 skipped · 0 FAILED · 0 errors (100 % vert).**
+> - +18 tests vs Sprint 1a. Ce ne sont pas des tests de couverture ajoutés à la chaîne : ce sont des **tests de garde** sur des propriétés de sécurité et d'honnêteté (détail en fin de document).
+>
 > **🟢 MISE À JOUR 2026-09-26 (Sprint 1a) — SUITE COMPLÈTEMENT VERTE.**
-> - **Suite réelle : 4 744 tests collectés → 4 742 PASS · 2 skipped · 0 FAILED · 0 errors (100 % vert).**
+> - Suite réelle : 4 744 tests collectés → 4 742 PASS · 2 skipped · 0 FAILED · 0 errors (100 % vert).
 > - Point de départ mesuré le 2026-09-25 : 4 633 PASS · 104 FAILED · 5 errors. **109 échecs réparés en 8 commits atomiques** (`b76471b` → `2b36f83`).
 > - Les 5 `errors` n'étaient pas une fixture cassée : `engine_server.py` codait `/home/agentos/*` en dur et faisait `mkdir()` à l'import → `PermissionError` sur hôte de dev. Chemins désormais surchargeables par env (`AGENTOS_DATA_DIR` / `AGENTOS_WORKSPACE_DIR` / `AGENTOS_VAULT_DIR`), défauts container inchangés. **Ces 5 tests n'avaient jamais été réellement exercés** — ils le sont désormais.
 > - **Cause racine dominante des 104 échecs : les shims `src/*.py` → `archive/legacy/*.py`.** En ré-exportant le legacy comme module top-level *distinct*, les fonctions résolvaient leurs globals depuis l'autre `__dict__` : `monkeypatch` et `importlib.reload` des tests devenaient inopérants (`StopIteration`, `[]`, `''`, `KeyError`). Corrigé par `exec` du source legacy dans le namespace du shim (`src/llm_core.py`, `src/agent_loop.py`).
@@ -20,6 +24,30 @@
 > - Branche : `feat/inventaire-global-v1`
 > - Dernier commit : `5402e61 backup: snapshot pre-reinstallation PC (WIP fige, hook bypass)`
 > - Machine : Linux, workdir `/home/tayk0oo/Projets/odysseusAgentOS`
+
+---
+
+## Palier 0 activé : ce que la suite ne dit pas
+
+Le Palier 0 (FND-4 option C) a basculé 14 kill-switchs de `off` à `on` **par défaut dans le code**. Trois choses ont été apprises en le faisant ; les trois sont désormais verrouillées par des tests.
+
+**1. Une suite verte ne prouve pas qu'un chemin est atteint — elle peut même le détruire.**
+`ODYSSEUS_AUTOEVAL` à `on` a suffi à déclencher un **vrai `git reset --hard HEAD`** depuis un test de la suite. Le chemin : le test fournit des `verifier_reasons` → `apply_autoeval` décide `REVERT` → `_git_reset` s'exécute dans l'arbre de travail du dépôt. **14 flip de kill-switchs non commités ont été effacés** avant d'être détectés. Règle appliquée depuis : *commiter avant de lancer la suite, toujours*.
+
+**2. Décider et agir sont deux choses différentes.**
+Correction : `ODYSSEUS_AUTOEVAL_ALLOW_RESET`, second switch **OFF par défaut**, est requis pour qu'une décision soit exécutée. La décision reste prise, tracée et retournée ; seule l'action est retenue. Le trou a d'abord été fermé sur `langgraph_loop.py` et `autoeval_loop.py`, **puis sur le chemin live** `archive/legacy/agent_loop.py` — qui filait encore le vrai runner sur le seul `autoeval_enabled()`. Chaîne réelle et atteignable : écriture d'un fichier harness → drift Observer `HIGH` → revert → effacement de l'arbre du serveur.
+
+**3. Un test qui ne teste rien coûte plus cher qu'un test manquant.**
+Ces 18 tests protègent des propriétés, pas des fonctions :
+- aucun processus `git` lancé sans opt-in explicite ;
+- un switch `wired=True` a réellement un lecteur dans le code ;
+- un switch `wired=False` n'en a pas (le drapeau ne peut pas pourrir) ;
+- le `default` affiché par le cockpit est bien celui que le code appliquera ;
+- aucun switch non câblé ne peut se présenter actif.
+
+Ce dernier point a révélé **9 switches sans aucun lecteur** (DEEPEVAL, SUPABASE, VAULTWARDEN, PLAYWRIGHT, BROWSER_HARNESS, ZEN_FROM_ENDPOINT, INPROCESS_DISCORD, INPROCESS_TELEGRAM, CHANNEL_AGENT_REPLY) qui annonçaient `on` — de la configuration inerte présentée comme active — et **16 descripteurs** dont le `default` contredisait le lecteur réel. Le cockpit est une condition préalable du Palier 0 : il ne pouvait pas mentir.
+
+**Ce que l'activation n'a pas résolu** : les 14 switchs sont câblés, mais plusieurs modules ne sont encore appelés que pour `logger.info(...)` leur résultat, ou avec une entrée vide qui rend un calcul constant. Un switch `on` ne rend pas un module actif. Le détail principe par principe est dans `02-PRINCIPES-UC.md`.
 
 ---
 
