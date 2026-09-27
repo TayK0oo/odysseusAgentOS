@@ -25,7 +25,6 @@ confonde plus « bridé parce que non-admin » et « bridé parce que pré-insta
 import pytest
 
 import core.auth as ca
-import src.tool_security as ts
 from src.tool_security import blocked_tools_for_owner, owner_is_admin_or_single_user
 
 HIGH_RISK = ("bash", "python", "edit_file", "write_file", "api_call", "serve_model")
