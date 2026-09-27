@@ -9,10 +9,15 @@ import logging
 import socket
 import threading
 from pathlib import Path
-
 import yaml
 
 logger = logging.getLogger(__name__)
+
+# Racine du projet, ancrée sur ce module et non sur le CWD. `src/tool_registry.py`
+# vit dans `<projet>/src/`, donc la racine est son parent. Un chemin relatif au CWD
+# faisait dépendre le phase-lock du répertoire de lancement du process — et le
+# singleton le figeait pour toute la durée de vie du process.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 # ============================================================
@@ -88,14 +93,27 @@ class ToolRegistry:
     - Reads config/phase-lock.yaml for phase-based tool restrictions
     - Reads config/tool-decision-tree.yaml for tool capabilities and fallbacks
     - Thread-safe singleton
+
+    FAIL-CLOSED. ``config/phase-lock.yaml`` est un contrôle de gouvernance : s'il est
+    absent, illisible ou malformé, le registre ne doit surtout pas se rabattre sur une
+    configuration permissive. Il ne le fait plus — voir ``_load_config`` et
+    ``is_tool_allowed``.
+
+    Les chemins sont ancrés sur le module (``_PROJECT_ROOT``), jamais sur le CWD du
+    process. Un chemin relatif au CWD faisait dépendre le verrou du répertoire depuis
+    lequel le process avait démarré, et le singleton le figeait pour toute la durée de
+    vie du process : le premier appel sous un mauvais CWD désactivait le phase-lock
+    pour toutes les requêtes suivantes, silencieusement.
     """
 
     _instance = None
     _lock = threading.Lock()
 
     def __init__(self, config_path: str | None = None, brick_path: str | None = None):
-        self._config_path = config_path or "config/phase-lock.yaml"
-        self._brick_path = brick_path or "config/tool-decision-tree.yaml"
+        self._config_path = Path(config_path) if config_path else _PROJECT_ROOT / "config" / "phase-lock.yaml"
+        self._brick_path = Path(brick_path) if brick_path else _PROJECT_ROOT / "config" / "tool-decision-tree.yaml"
+        self._config: dict = {}
+        self._config_loaded = False
         self._config = self._load_config()
         self._session_phases: dict[str, PhaseContext] = {}
         self._session_lock = threading.Lock()
@@ -116,23 +134,73 @@ class ToolRegistry:
     # ── Config loading ────────────────────────────────────────
 
     def _load_config(self) -> dict:
+        """Charge le phase-lock. En cas d'échec, on reste fermé, pas ouvert.
+
+        Échecs traités comme tels : fichier absent, illisible, ou YAML invalide. Les trois
+        tombaient auparavant sur ``{"phases": {"BUILD": {"blocked_tools": []}}}``, c'est-à-dire
+        un registre où **plus rien n'est jamais bloqué** — et le ``logger.warning`` ne
+        couvrait que les exceptions, pas un fichier simplement absent : le mode dégradé
+        était donc entièrement silencieux.
+
+        Retourne ``{}`` et positionne ``_config_loaded = False`` ; ``is_tool_allowed``
+        refuse alors tout, et refuse de *lever* : le seul appelant
+        (``src/tool_execution.py:625``) est enveloppé dans ``except Exception: pass``
+        (« ne jamais bloquer le loop sur une erreur de phase-lock »), donc une exception
+        ici serait avalée et l'outil s'exécuterait — un fail-**open**. Le refus doit
+        passer par la valeur de retour, qu'aucun appelant ne peut transformer en
+        permission.
+        """
         try:
             path = Path(self._config_path)
-            if path.exists():
-                with open(path) as f:
-                    return yaml.safe_load(f)
+            if not path.exists():
+                raise FileNotFoundError(f"phase-lock introuvable : {path}")
+            with open(path) as f:
+                loaded = yaml.safe_load(f)
+            if not isinstance(loaded, dict):
+                raise ValueError(f"phase-lock malformé : racine {type(loaded).__name__}, dict attendu")
+            # `phases` doit être une table de tables. Un scalaire y passerait le test de
+            # véracité (`12` est truthy) puis lèverait un `AttributeError` sur le
+            # `.get(phase, {})` plus tard — exception avalée par l'appelant, donc
+            # transformée en permission. La forme se vérifie ici, une fois pour toutes.
+            phases = loaded.get("phases")
+            if not isinstance(phases, dict) or not phases:
+                raise ValueError(f"phase-lock malformé : `phases` doit être une table non vide, vu {type(phases).__name__}")
+            bad = [k for k, v in phases.items() if not isinstance(v, dict)]
+            if bad:
+                raise ValueError(f"phase-lock malformé : entrées de `phases` non-table : {bad[:5]}")
+            self._config_loaded = True
+            return loaded
         except Exception as e:
-            logger.warning(f"phase-lock.yaml non chargé: {e}")
-        return {"phases": {"BUILD": {"blocked_tools": []}}, "default_phase": "BUILD"}
+            self._config_loaded = False
+            logger.critical(
+                "PHASE-LOCK INDISPONIBLE — tous les outils seront REFUSÉS par sécurité "
+                "(fail-closed). Cause : %s. Attendu : %s",
+                e,
+                self._config_path,
+            )
+            return {}
+
+    @property
+    def phase_lock_loaded(self) -> bool:
+        """`False` quand le phase-lock n'a pas pu être chargé → tout est refusé.
+
+        Exposé pour que le cockpit puisse afficher l'état du contrôle, plutôt que de
+        le laisser se dégrader sans que personne ne le voie.
+        """
+        return self._config_loaded
 
     def _build_brick_index(self):
         try:
             path = Path(self._brick_path)
-            if path.exists():
-                with open(path) as f:
-                    self._brick_config = yaml.safe_load(f)
+            if not path.exists():
+                raise FileNotFoundError(f"decision tree introuvable : {path}")
+            with open(path) as f:
+                self._brick_config = yaml.safe_load(f)
         except Exception as e:
-            logger.warning(f"tool-decision-tree.yaml not loaded: {e}")
+            # Index de capacités, pas un contrôle d'accès : l'effet d'un index vide est
+            # « outil non découvert », pas « outil autorisé ». On le signale, mais on ne
+            # bloque pas le process pour autant.
+            logger.warning("tool-decision-tree.yaml not loaded: %s", e)
             self._brick_config = {"decision_tree": {"phases": {}, "tool_capabilities": {}, "fallback_chains": {}}}
 
         caps = self._brick_config.get("decision_tree", {}).get("tool_capabilities", {})
@@ -152,6 +220,20 @@ class ToolRegistry:
             return ctx.phase if ctx else self._config.get("default_phase", "BUILD")
 
     def is_tool_allowed(self, tool_name: str, session_id: str, tool_args: dict = None) -> dict:
+        # Fail-closed : sans phase-lock chargé, on ne peut rien autoriser. Ce contrôle
+        # passe par la VALEUR DE RETOUR et jamais par une exception — voir `_load_config`
+        # pour pourquoi (l'appelant avale les exceptions, ce qui ouvrirait la porte).
+        if not self._config_loaded:
+            return {
+                "allowed": False,
+                "reason": (
+                    f"phase-lock indisponible — refus par défaut de {tool_name} "
+                    f"(contrôle de gouvernance non chargé, voir phase_lock_loaded)"
+                ),
+                "phase": self.get_phase(session_id),
+                "phase_lock_loaded": False,
+            }
+
         phase = self.get_phase(session_id)
         phase_config = self._config.get("phases", {}).get(phase, {})
         blocked = phase_config.get("blocked_tools", [])
