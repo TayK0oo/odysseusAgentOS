@@ -4,12 +4,30 @@ import asyncio
 import os
 
 # Skip slow services
+#
+# Each line below must name a variable the code actually READS. The launcher used
+# to write three names nothing read, so it activated nothing:
+#
+#   * `ODYSSEUS_DURABLE_EXEC` → the real name is `ODYSSEUS_DURABLE_EXECUTION`,
+#     read by `src/durable_execution.py`. Renamed. It was masked because the
+#     switch is already `on` by default: the day a palier flips that default to
+#     `off`, the launcher would silently stop enabling what it believes it
+#     enables.
+#   * `ODYSSEUS_THOUGHT_BUS` → deleted. There is no such switch: no module reads
+#     it, and the registry has no thought-bus entry. The launcher was writing an
+#     intention, not a setting. (That the bus feature has NO kill-switch at all is
+#     a governance finding of its own — reported, not fixed here.)
+#   * `MCP_CONNECT_TIMEOUT` → deleted. The speed-up is the monkey-patch below
+#     (`connect_all_enabled` / `connect_external_enabled`), and nothing read the
+#     variable. Giving it a plausible real name would have created a second dead
+#     wire, this one harder to spot than the first.
+#
+# `tests/test_sprint4_lanceur.py` now fails on any variable written here that has
+# no reader, so the next drift of this kind is caught by the suite and not by eye.
 os.environ["CHROMADB_HOST"] = ""
-os.environ["ODYSSEUS_THOUGHT_BUS"] = "on"
-os.environ["ODYSSEUS_DURABLE_EXEC"] = "on"
+os.environ["ODYSSEUS_DURABLE_EXECUTION"] = "on"
 os.environ["AUTH_ENABLED"] = "false"
 os.environ["LOCALHOST_BYPASS"] = "true"
-os.environ["MCP_CONNECT_TIMEOUT"] = "2"
 
 # Patch MCP manager to skip slow connections
 import src.mcp_manager as mcp_mgr
