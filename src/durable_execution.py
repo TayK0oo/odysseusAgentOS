@@ -35,8 +35,16 @@ def durable_execution_enabled() -> bool:
 
 # ─── Constants ──────────────────────────────────────────────────────────
 
-WORKFLOW_DIR = Path("data/workflows")
-WORKFLOW_DIR.mkdir(parents=True, exist_ok=True)
+# Ancré sur le module, jamais sur le CWD. Un chemin relatif au CWD faisait dépendre la
+# reprise d'un crash du répertoire depuis lequel le process avait démarré : le fichier
+# écrit par le process d'avant n'était simplement pas trouvé par le suivant, et le run
+# repartait de zéro — une reprise qui ne survit pas au crash qu'elle est censée traiter.
+# `data/` est gitignoré, donc rien de persistant n'est exposé.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+WORKFLOW_DIR = _PROJECT_ROOT / "data" / "workflows"
+
+# Clé sous laquelle la conversation en cours est rangée dans `WorkflowState.context`.
+RUN_MESSAGES_KEY = "messages"
 
 
 # ─── Types ──────────────────────────────────────────────────────────────
@@ -220,12 +228,101 @@ class DurableExecutor:
         return True
 
     def resume(self, workflow_id: str) -> WorkflowState | None:
-        """Charge un workflow depuis le disque pour reprise après panne."""
+        """Charge un workflow depuis le disque pour reprise après panne.
+
+        Charge par **id de workflow** (`<uuid>.json`). Pour retrouver un run par session,
+        utiliser `resume_session()` — passer un id de session ici rend toujours `None`.
+        """
         path = WORKFLOW_DIR / f"{workflow_id}.json"
         if not path.exists():
             return None
-        data = json.loads(path.read_text())
-        wf = WorkflowState(
+        return self._from_dict(json.loads(path.read_text()))
+
+    # ─── Cycle de vie d'un run de boucle (P14 / UC-02 / UC-11) ────────────
+    #
+    # `create_workflow`/`resume` sont corrects mais n'étaient appelés par personne : rien
+    # n'était donc jamais persisté, et le seul appelant de `resume()` (M6.3) le faisait
+    # APRÈS la boucle de rounds, dans une section qui ne pouvait rien restaurer. Les
+    # trois méthodes ci-dessous donnent enfin au module un cycle de vie utilisable par la
+    # boucle : ouvrir un run, avancer son curseur, le clore.
+    #
+    # Le workflow d'un run n'a **aucune étape** : le nombre de tours n'est pas connu à
+    # l'avance, et `WorkflowStep` n'a pas grand sens pour un tour de LLM. Ce qui est
+    # suivi, c'est `current_step` comme curseur de round et `context` comme conversation.
+
+    def save(self, wf: WorkflowState) -> None:
+        """Persistance publique — même écriture que `_save`, pour les appelants externes."""
+        self._save(wf)
+
+    def resume_session(self, session_id: str) -> WorkflowState | None:
+        """Retrouve le run d'une session, le plus récent ET encore reprenable.
+
+        `resume()` charge par **id de workflow** (`<uuid>.json`) ; il ne peut donc pas
+        servir à retrouver un run par session. C'est le troisième défaut du reliquat R2 :
+        l'ancien appelant passait un id de session là où un id de workflow était attendu,
+        donc `path.exists()` était toujours `False` et `resume()` rendait toujours `None`
+        — même si un fichier avait existé. Deux raisons indépendantes pour le même
+        symptôme, qu'il fallait mesurer séparément.
+
+        Le plus récent l'emporte (`updated_at`) : plusieurs runs d'une même session
+        peuvent coexister sur disque tant que la rétention n'a pas tourné, et reprendre
+        le plus ancien reviendrait ressusciter un état périmé.
+        """
+        if not WORKFLOW_DIR.is_dir():
+            return None
+        candidates: list[WorkflowState] = []
+        for path in WORKFLOW_DIR.glob("*.json"):
+            try:
+                data = json.loads(path.read_text())
+            except (OSError, ValueError):
+                # Un fichier illisible ou tronqué ne doit pas empêcher la reprise des
+                # autres : c'est le même état qu'un fichier absent pour ce run-là.
+                continue
+            if data.get("name") != session_id:
+                continue
+            try:
+                wf = self._from_dict(data)
+            except (KeyError, ValueError, TypeError):
+                continue
+            if self.is_resumable(wf):
+                candidates.append(wf)
+        if not candidates:
+            return None
+        return max(candidates, key=lambda w: w.updated_at or w.created_at)
+
+    def _prune_session(self, session_id: str, keep_id: str) -> int:
+        """Ne garde que le run le plus récent d'une session. Retourne le nombre supprimé.
+
+        Une session n'a jamais besoin de plusieurs runs reprenables : un seul état
+        « courant » suffit. Sans cette rétention, ce module — qui jusqu'ici n'écrivait
+        rien du tout, faute d'appelant — laisserait un fichier JSON par tour et par
+        session, et `resume_session` deviendrait un parcours du répertoire à chaque tour.
+
+        Les fichiers ne sont supprimés qu'après lecture et contrôle de `name` : on ne
+        touche jamais un fichier dont on n'a pas vérifié qu'il appartient à cette session.
+        """
+        if not WORKFLOW_DIR.is_dir():
+            return 0
+        removed = 0
+        for path in WORKFLOW_DIR.glob("*.json"):
+            if path.stem == keep_id:
+                continue
+            try:
+                data = json.loads(path.read_text())
+            except (OSError, ValueError):
+                continue
+            if data.get("name") != session_id:
+                continue
+            try:
+                path.unlink()
+                removed += 1
+            except OSError as e:
+                logger.debug("workflow ancien non supprimé (%s) : %s", path.name, e)
+        return removed
+
+    @staticmethod
+    def _from_dict(data: dict) -> WorkflowState:
+        return WorkflowState(
             id=data["id"],
             name=data["name"],
             status=WorkflowStatus(data["status"]),
@@ -235,10 +332,129 @@ class DurableExecutor:
             created_at=data.get("created_at", 0),
             updated_at=data.get("updated_at", 0),
         )
-        return wf
+
+    @staticmethod
+    def is_resumable(wf: WorkflowState) -> bool:
+        """Un run interrompu reprend ; un run terminé ne ressuscite pas.
+
+        `COMPLETED`/`FAILED` sont donc volontairement exclus. Sans cette borne, le tour
+        suivant de l'utilisateur repartirait indéfiniment d'une conversation vieille, et
+        le mot « reprise » désignerait une régression : l'agent n'oublerait jamais l'il
+        s'agit d'une nouvelle demande.
+        """
+        if wf.status not in (WorkflowStatus.RUNNING, WorkflowStatus.PAUSED):
+            return False
+        return bool(wf.context.get(RUN_MESSAGES_KEY))
+
+    def begin_run(
+        self, session_id: str, messages: list, *, enabled: bool | None = None
+    ) -> tuple[WorkflowState | None, bool]:
+        """Ouvre un run, ou reprend celui qui a été interrompu.
+
+        Retourne `(workflow, repris)`. `workflow is None` quand la persistance est
+        éteinte — et dans ce cas rien n'est écrit du tout.
+
+        `messages` doit être sérialisable en JSON, ce qui est le cas des messages OpenAI
+        (du JSON pur). Un contenu non sérialisable ferait échouer `_save` ; l'appelant
+        traite l'échec, donc un message exotique ne casse pas le run.
+        """
+        is_enabled = durable_execution_enabled() if enabled is None else bool(enabled)
+        if not is_enabled:
+            return None, False
+
+        existing = self.resume_session(session_id)
+        if existing is not None:
+            existing.status = WorkflowStatus.RUNNING
+            self._save(existing)
+            return existing, True
+
+        created = self.create_workflow(session_id, steps=[], context={RUN_MESSAGES_KEY: messages})
+        created.status = WorkflowStatus.RUNNING
+        self._save(created)
+        self._prune_session(session_id, created.id)
+        return created, False
+
+    def record_progress(self, wf: WorkflowState, next_round: int, messages: list) -> None:
+        """Enregistre la conversation et le round **à jouer ensuite**.
+
+        `next_round` est le round suivant, pas le round qui vient d'être joué : le curseur
+        doit désigner le travail restant, sinon la reprise rejouerait un round déjà
+        terminé. `next_round == 1` signifie « rien d'accompli, on démarre ».
+
+        Appelé en fin de round. Un crash au milieu du round N laisse donc le curseur à N,
+        et la reprise rejoue N — un tour de LLM n'étant pas idempotent, un tour à moitié
+        exécuté ne doit pas être compté comme acquis.
+        """
+        wf.current_step = next_round
+        wf.updated_at = time.time()
+        wf.context[RUN_MESSAGES_KEY] = messages
+        self._save(wf)
+
+    @staticmethod
+    def is_continuation(incoming: list, persisted: list) -> bool:
+        """Vrai si la conversation entrante est un **préfixe** de celle persistée.
+
+        C'est le test qui distingue « le client se reconnecte et rejoue le même run » de
+        « l'utilisateur a posé une nouvelle question ». Sans lui, une reprise écrase la
+        nouvelle question par l'ancienne conversation : la saisie de l'utilisateur
+        disparaît, silencieusement. Un préfixe est la signature d'un client qui renvoie
+        ce qu'il avait lui-même envoyé et qui a progressé plus loin que lui.
+
+        Une conversation entrante qui diverge — ou qui est plus longue que la persistée,
+        cas où le client a ajouté des messages que le serveur n'a jamais vus — n'est pas
+        une continuation : le run repris ne doit pas l'écraser.
+        """
+        if not persisted:
+            return False
+        if len(incoming) > len(persisted):
+            return False
+        return list(incoming) == list(persisted[: len(incoming)])
+
+    def restart_run(self, session_id: str, messages: list) -> WorkflowState:
+        """Abandonne le run reprenable de la session et en ouvre un neuf.
+
+        Utilisé quand la conversation entrante n'est PAS une continuation de l'état
+        persisté : plutôt que de laisser un état périmé composer la conversation suivante, on le clôture en
+        `FAILED` — l'honnêteté est de dire qu'il n'a pas abouti, pas de le faire passer
+        pour un run Compatible.
+        """
+        existing = self.resume_session(session_id)
+        if existing is not None:
+            existing.status = WorkflowStatus.FAILED
+            self._save(existing)
+        created = self.create_workflow(session_id, steps=[], context={RUN_MESSAGES_KEY: messages})
+        created.status = WorkflowStatus.RUNNING
+        self._save(created)
+        self._prune_session(session_id, created.id)
+        return created
+
+    def finish_run(self, wf: WorkflowState, status: WorkflowStatus, messages: list | None = None) -> None:
+        """Clôt un run pour qu'il ne soit plus repris.
+
+        À appeler seulement quand le run va vraiment au bout. Si le générateur est
+        interrompu par le client, le run reste `RUNNING` — c'est ce qui le rend reprenable
+        au lancement suivant.
+
+        `messages` permet d'y ranger la conversation finale : les sorties de boucle
+        (`break` sur budget ou attente utilisateur) passent par là, et l'état de fin
+        serait sinon celui du dernier début de round.
+        """
+        if messages is not None:
+            wf.context[RUN_MESSAGES_KEY] = messages
+        wf.status = status
+        wf.updated_at = time.time()
+        self._save(wf)
+        self._prune_session(wf.name, wf.id)
 
     def _save(self, wf: WorkflowState) -> None:
-        """Persiste l'état du workflow sur disque."""
+        """Persiste l'état du workflow sur disque.
+
+        Le répertoire est créé ici, et plus au moment de l'import : un `mkdir` à l'import
+        est un effet de bord qui s'exécute dès que le module est chargé, y compris dans
+        un simple `python -c "import ..."`. `data/` étant gitignoré, le créer au premier
+        besoin suffit.
+        """
+        WORKFLOW_DIR.mkdir(parents=True, exist_ok=True)
         path = WORKFLOW_DIR / f"{wf.id}.json"
         data = {
             "id": wf.id,
