@@ -118,6 +118,20 @@ _READER_RE = re.compile(
     r'(?:os\.environ\.get|os\.getenv)\(\s*"(ODYSSEUS_[A-Z0-9_]+)"\s*,\s*"([^"]*)"'
 )
 
+# Une lecture SANS defaut litteral — `os.getenv("ODYSSEUS_X")` — etait invisible
+# ici, alors que c'est une lecture au meme titre. Six variables en profitaient,
+# dont deux inscrites au registre (LETTA, MEM0) et une deja presente avant
+# (`ZEN_FROM_ENDPOINT`) : leurs entrées ne pouvaient donc pas etre verifiees, ni
+# leur defaut concorde avec quoi que ce soit de lisible.
+#
+# On les capte donc, avec le defaut vide — ce que `_normalise` lit deja comme
+# « eteint ». Un interrupteur lu sans defaut explicite n'est pas pour autant un
+# interrupteur inexistant, et c'est justement ce qu'on ne voulait pas voir
+# disparaitre du controle.
+_READER_SANS_DEFAUT_RE = re.compile(
+    r'(?:os\.environ\.get|os\.getenv)\(\s*"(ODYSSEUS_[A-Z0-9_]+)"\s*\)'
+)
+
 # Descriptors whose reader resolves the env var name at call time, so no
 # literal `os.getenv("ODYSSEUS_...")` exists to match. Each one is bound to
 # the module that reads it, and to the default that module applies.
@@ -151,8 +165,13 @@ def _reader_sites() -> dict[str, list[str]]:
             except OSError:
                 continue
             for i, line in enumerate(lines, 1):
+                trouve = False
                 for m in _READER_RE.finditer(line):
                     sites.setdefault(m.group(1), []).append(f"{f.relative_to(_REPO_ROOT)}:{i}")
+                    trouve = True
+                if not trouve:
+                    for m in _READER_SANS_DEFAUT_RE.finditer(line):
+                        sites.setdefault(m.group(1), []).append(f"{f.relative_to(_REPO_ROOT)}:{i}")
     return sites
 
 
@@ -170,6 +189,8 @@ def _reader_sites_defaults() -> dict[str, set[str]]:
                 continue
             for m in _READER_RE.finditer(txt):
                 found.setdefault(m.group(1), set()).add(m.group(2))
+            for m in _READER_SANS_DEFAUT_RE.finditer(txt):
+                found.setdefault(m.group(1), set()).add("")
     return found
 
 

@@ -189,6 +189,71 @@ def test_opa_est_coupe_par_defaut_sans_mentir_sur_son_cable(production):
     )
 
 
+def test_opa_est_coupe_dans_le_code_pas_seulement_dans_le_tableau(production):
+    """CONTRE-ÉPREUVE du piege que j'ai committed : le defaut vit dans le CODE.
+
+    J'ai d'abord pose `default=off` au registre et conclu que la decision v8
+    etait executee. Elle ne l'etait pas : `opa_client.py` lisait toujours
+    `os.getenv("ODYSSEUS_OPA", "on")`, donc le moteur restait actif et le
+    tableau affichait le contraire. C'est exactement « un registre qui ne ment
+    pas » qui etait viole — par moi, en croyant l'executer.
+
+    C'est `tests/test_killswitch_registry.py` qui l'a rattrape, et non mon test :
+    il compare le defaut declare a celui que le **lecteur reel** applique. Ce
+    test-ci verifie donc le code, parce que l'ordre de verite commence par lui.
+
+    Sans cette assertion, le test precedent suffit et le defaut peut retroler
+    dans le code sans que rien ne parle — le tableau resterait vert.
+    """
+    lecteur = (REPO / "services/security/opa_client.py").read_text(encoding="utf-8")
+    m = re.search(r"""os\.getenv\(\s*["']ODYSSEUS_OPA["']\s*,\s*["']([^"']*)["']""", lecteur)
+    assert m is not None, (
+        "la lecture d'ODYSSEUS_OPA n'est plus litterale : le verificateur de "
+        "tests/test_killswitch_registry.py ne pourra plus la voir, et le tableau "
+        "recommencera a diverger du code sans qu'on le voie."
+    )
+    assert m.group(1).lower() in {"off", "0", "false", "no"}, (
+        f"le CODE lit `os.getenv(\"ODYSSEUS_OPA\", {m.group(1)!r})` : le moteur est encore actif "
+        "par defaut. Le registre peut afficher `off` tant qu'il veut — c'est ce qui est arrive "
+        "avant ce test. Couper se fait dans le code, l'affichage ne suit que."
+    )
+
+    # Et les deux moities disent la meme chose, sinon le tableau ment encore.
+    declare = {s["env_var"]: s for s in read_states()}["ODYSSEUS_OPA"]["default"]
+    assert str(declare).lower() == m.group(1).lower(), (
+        f"le registre dit {declare!r} et le code applique {m.group(1)!r} : l'operateur lit une "
+        "chose, le systeme en fait une autre."
+    )
+
+
+def test_le_verificateur_du_registre_voit_les_lectures_sans_defaut_litteral(production):
+    """CONTRE-ÉPREUVE du verificateur : son angle mort est-il refermé ?
+
+    `os.getenv("ODYSSEUS_X")` sans defaut litteral etait invisible au
+    verificateur du registre. Six variables en profitaient, dont une portee
+    `wired=False` a tort — le drapeau avait donc pourri sans bruit. Ce test
+    echoue si une lecture sans defaut litteral redevient invisible.
+    """
+    src = (REPO / "tests/test_killswitch_registry.py").read_text(encoding="utf-8")
+    assert "_READER_SANS_DEFAUT_RE" in src, (
+        "le verificateur du registre ne reconnait plus les lectures sans defaut litteral : "
+        "six variables redeviennent invisibles, dont ODYSSEUS_ZEN_FROM_ENDPOINT dont le "
+        "`wired=False` etait faux. Le defaut doit etre capture comme vide, ce que "
+        "`_normalise` lit deja comme « eteint »."
+    )
+
+    # Et l'angle mort est reellement referme : la detection trouve une lecture nue.
+    sans_defaut = re.compile(r"""(?:os\.environ\.get|os\.getenv)\(\s*["'](ODYSSEUS_[A-Z0-9_]+)["']\s*\)""")
+    trouvees = set()
+    for p in production:
+        for m in sans_defaut.finditer(p.read_text(encoding="utf-8", errors="replace")):
+            trouvees.add(m.group(1))
+    assert trouvees, "plus aucune lecture sans defaut litteral dans le code : revoquer ce test, il n'a plus d'objet"
+    assert "ODYSSEUS_ZEN_FROM_ENDPOINT" in trouvees or not any(
+        s["env_var"] == "ODYSSEUS_ZEN_FROM_ENDPOINT" for s in read_states()
+    ), "incoherence inattendue sur ZEN_FROM_ENDPOINT"
+
+
 def test_la_description_d_opa_dit_qu_aucun_module_ne_l_importe(production):
     """CONTRE-ÉPREUVE de transparence : le fait doit etre lisible, pas deviné.
 
