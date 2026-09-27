@@ -8,6 +8,7 @@ The LLM decides when to use tools by writing fenced code blocks.
 
 import asyncio
 import collections
+import contextlib
 import json
 import logging
 import os
@@ -3062,10 +3063,8 @@ async def stream_agent_loop(
         # `CANONICAL_SEQUENCE[0]` être la phase du round 1. `_canonical_loop` n'est lu
         # par personne entre les deux points, donc l'ordre n'a pas d'autre effet.
         if _use_canonical and _canonical_loop is not None:
-            try:
+            with contextlib.suppress(Exception):
                 _canonical_loop.advance()
-            except Exception:
-                pass  # phase tracking must never break the loop
         if _agent_dispatcher is not None and _current_phase is not None:
             try:
                 _ctx = _last_user if isinstance(_last_user, str) else ""
