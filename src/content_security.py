@@ -28,15 +28,26 @@ class ContentSecurityGuard:
     """Protection contre les injections dans la mémoire et les sorties."""
 
     # Patterns d'injection dans la mémoire
+    #
+    # Les qualificatifs s'empilent en anglais — « ignore all your previous
+    # instructions » porte TROIS mots avant la cible. Les motifs ci-dessous
+    # acceptent donc une *sequence* de qualificatifs, et non un seul
+    # qualificatif optionnel : mesuré, `ignore (all |your |previous )?`
+    # détectait « ignore all instructions » et manquait « ignore all previous
+    # instructions », c'est-à-dire la forme canonique de l'injection. Un motif
+    # défini puis jamais appliqué aggravait le problème : rien ne le prouvait.
+    _Q = r"(?:(?:all|any|the|of|your|my|previous|prior|earlier|above|foregoing|last|these|those|and)\s+){0,3}"
+
     MEMORY_INJECTION_PATTERNS: list[str] = [
-        r"ignore (all |your |previous )?(instructions|rules|constraints)",
+        rf"ignore\s+{_Q}(?:instructions|rules|constraints|directives|prompt)",
+        rf"disregard\s+{_Q}(?:instructions|rules|constraints|directives|prompt)",
         r"you are now",
-        r"new system prompt",
+        r"(?:new|updated|revised)\s+(?:system\s+)?(?:prompt|instructions)",
         r"forget everything",
         r"from now on you are",
         r"your new (role|identity|name) is",
-        r"override (all |your )?(safety|security)",
-        r"bypass (all |your )?(restrictions|filters)",
+        rf"override\s+{_Q}(?:safety|security|security\s+\w+|rules|guardrails)",
+        rf"bypass\s+{_Q}(?:restrictions|filters|limits|guardrails|checks)",
         r"sudo mode",
         r"jailbreak",
         r"DAN mode",

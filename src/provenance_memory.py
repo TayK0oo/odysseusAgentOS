@@ -33,6 +33,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from src.content_security import content_security_enabled, get_content_security
+
 logger = logging.getLogger(__name__)
 
 # ─── Kill-switch ────────────────────────────────────────────────────────
@@ -297,6 +299,13 @@ class MemoryFS:
 
             # Vérifier les règles d'omission
             content = self._sanitize_content(content)
+            # P17 reliquat : `sanitize_memory` n'avait AUCUN appelant, donc
+            # `MEMORY_INJECTION_PATTERNS` ne protégeait rien. Appliqué ici, et
+            # seulement ici, parce que c'est le point de passage de TOUTES les
+            # écritures mémoire : M6.2, M6.9 et le profil passent tous par
+            # `memory_write`. Un filtre posé à l'un de ses appelants aurait laissé
+            # les deux autres fuir.
+            content = self._assainir_injections(content)
 
             full_path.parent.mkdir(parents=True, exist_ok=True)
             try:
@@ -435,6 +444,23 @@ class MemoryFS:
                 continue
             clean_lines.append(line)
         return "\n".join(clean_lines)
+
+    @staticmethod
+    def _assainir_injections(content: str) -> str:
+        """Neutralise les phrases d'injection avant qu'elles n'atteignent le disque.
+
+        Une mémoire relue plus tard est du **texte que le modèle va suivre**. Y
+        laisser « ignore all previous instructions » revient à laisser une
+        consigne au rang de fait. Le remplacement est visible (`[FILTERED]`) et
+        non une suppression : un lecteur doit pouvoir distinguer « rien n'a été
+        dit » de « quelque chose a été retiré ».
+
+        Respecte `ODYSSEUS_CONTENT_SECURITY` : le kill-switch qui prétend régir
+        ce contrôle doit le régir vraiment, pas seulement le log qui l'annonçait.
+        """
+        if not content_security_enabled():
+            return content
+        return get_content_security().sanitize_memory(content)
 
     # ── Helpers de haut niveau ────────────────────────────────────────
 
