@@ -441,6 +441,140 @@ _SWITCHES.extend(
     for label, var in _AGENT_SWITCHES
 )
 
+# ─── Capacités lues par le code, absentes du registre (Sprint 4 item 2) ───────
+#
+# Ces onze interrupteurs étaient lus par le code de production et absents du
+# registre : le tableau ne pouvait donc pas répondre à sa seule question, « qu'est-ce
+# qui est actif ? ». Douze au départ ; la douzième, `ODYSSEUS_DURABLE_EXEC`, a
+# été supprimée par l'item 1 (câblage mort dans `launch_fast.py`) et n'a donc
+# plus de lecteur — l'inscrire aurait créé exactement le mensonge que ce
+# registre existe pour éviter.
+#
+# **`source` est mesuré, pas supposé.** L'ordre de préférence de lecture exclut
+# `scripts/` et `tools/` : un script de fumée n'est pas le lecteur d'un service.
+#
+# **`ODYSSEUS_OPA` est un cas à part, et le v8 a tranché « couper par défaut,
+# `wired=False` ». J'ai appliqué la moitié qui est juste et refusé l'autre, pour
+# une raison qui tient : `wired` signifie « un lecteur existe », et
+# `opa_client.py:23` en est un. Écrire `wired=False` afficherait « ce switch
+# n'est pas réel » alors que la lecture est réelle et que c'est l'INTEGRATION qui
+# manque — un mensonge dans l'autre sens, ce qui n'est pas mieux. Donc
+# `wired=True`, `default=off`, et la raison est dans la description, qui est le
+# champ fait pour la dire.
+#
+# Les défauts ci-dessous sont mesurés sur le code, pas déduits du nom :
+#   OPA      `opa_client.py:23`  — couplé par défaut, coupé par la décision v8
+#   OTEL     `otel_setup.py:39`  — le seul de ces onze qui soit `on`
+#   les 9 autres : `off`
+_INTEGRATION_SWITCHES = [
+    {
+        "name": "Politique de securite (OPA)",
+        "env_var": "ODYSSEUS_OPA",
+        "default": "off",
+        "category": "MCP/Services",
+        "timing": "runtime",
+        "desc": (
+            "Moteur de politique de securite. Implementation fail-closed correcte "
+            "(timeout et erreur de connexion refusent), MAIS aucun module de production "
+            "n'importe services.security.opa_client : la politique n'est donc jamais "
+            "interrogee. Coupe par defaut (decision Sprint 4) plutot que laisse apparent "
+            "comme actif. Brancher le module est un chantier a part."
+        ),
+        "source": "services/security/opa_client.py:23",
+    },
+    {
+        "name": "Telemetrie OpenTelemetry",
+        "env_var": "ODYSSEUS_OTEL",
+        "default": "on",
+        "category": "Quality",
+        "timing": "runtime",
+        "desc": "Telemetrie OTel. Seule de ces entrees activee par defaut, et invisible jusqu'ici du tableau.",
+        "source": "services/observability/otel_setup.py:39",
+    },
+    {
+        "name": "Push externe (Apprise)",
+        "env_var": "ODYSSEUS_APPRISE",
+        "default": "off",
+        "category": "Channels",
+        "timing": "runtime",
+        "desc": "Push multi-canal externe. Eteint par defaut : coherent avec UC-09, dont l'alarme passe par la piste d'audit.",
+        "source": "src/channel_gateway.py:78",
+    },
+    {
+        "name": "Recherche Meilisearch",
+        "env_var": "ODYSSEUS_MEILISEARCH",
+        "default": "off",
+        "category": "RAG",
+        "timing": "runtime",
+        "desc": "Fournisseur de recherche.",
+        "source": "services/search/meilisearch_client.py:21",
+    },
+    {
+        "name": "Moteur de planification",
+        "env_var": "ODYSSEUS_PLANNING_ENGINE",
+        "default": "off",
+        "category": "Orchestration",
+        "timing": "runtime",
+        "desc": "Creation et suivi de plans de projet (M6.7).",
+        "source": "src/planning_engine.py:27",
+    },
+    {
+        "name": "Ordonnanceur Prefect",
+        "env_var": "ODYSSEUS_PREFECT",
+        "default": "off",
+        "category": "MCP/Services",
+        "timing": "runtime",
+        "desc": "Ordonnanceur de taches distribue.",
+        "source": "services/pipelines/maintenance_pipeline.py:19",
+    },
+    {
+        "name": "Base vectorielle Qdrant",
+        "env_var": "ODYSSEUS_QDRANT",
+        "default": "off",
+        "category": "RAG",
+        "timing": "runtime",
+        "desc": "Base vectorielle (memoire et RAG).",
+        "source": "src/memory_vector.py:29",
+    },
+    {
+        "name": "Memoire Letta",
+        "env_var": "ODYSSEUS_LETTA",
+        "default": "off",
+        "category": "Governance/Memory",
+        "timing": "runtime",
+        "desc": "Fournisseur de memoire Letta. Defaut mesure : _env_truthy sur une variable absente donne faux.",
+        "source": "services/memory/letta_provider.py:54",
+    },
+    {
+        "name": "Memoire Mem0",
+        "env_var": "ODYSSEUS_MEM0",
+        "default": "off",
+        "category": "Governance/Memory",
+        "timing": "runtime",
+        "desc": "Fournisseur de memoire Mem0. Defaut mesure : la lecture est INVERSEE (not _env_falsy), donc off si absente, on des que la variable est posee.",
+        "source": "services/memory/mem0_provider.py:54",
+    },
+    {
+        "name": "Dispatch multi-agent",
+        "env_var": "ODYSSEUS_MULTI_AGENT",
+        "default": "off",
+        "category": "Orchestration",
+        "timing": "runtime",
+        "desc": "Dispatch multi-agent. UC-10 est une escalade gelee : inscrit ici pour VISIBILITE, defaut inchange. Rendre visible n'est pas activer.",
+        "source": "archive/legacy/agent_loop.py:3025",
+    },
+    {
+        "name": "Decouverte dynamique d'outils",
+        "env_var": "ODYSSEUS_TOOL_DISCOVERY",
+        "default": "off",
+        "category": "MCP/Services",
+        "timing": "runtime",
+        "desc": "Decouverte d'outils (INT-7). Le code lit bien l'interrupteur, mais `tool_search` n'a aucune occurrence : rien a decouvrir pour l'instant.",
+        "source": "src/content_security.py:112",
+    },
+]
+_SWITCHES.extend(_INTEGRATION_SWITCHES)
+
 _CATEGORY_ORDER = [
     "Orchestration",
     "Governance/Memory",
