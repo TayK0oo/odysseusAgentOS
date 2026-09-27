@@ -22,9 +22,10 @@ Ce test fixe les trois états distincts pour que la prochaine personne qui mesur
 confonde plus « bridé parce que non-admin » et « bridé parce que pré-installation ».
 """
 
+import importlib
+
 import pytest
 
-import core.auth as ca
 from src.tool_security import blocked_tools_for_owner, owner_is_admin_or_single_user
 
 HIGH_RISK = ("bash", "python", "edit_file", "write_file", "api_call", "serve_model")
@@ -44,19 +45,30 @@ def auth_state(monkeypatch):
     return monkeypatch
 
 
-def _set_configured(monkeypatch, value: bool, admins=("admin",)):
-    monkeypatch.setattr(
-        ca.AuthManager,
-        "is_configured",
-        property(lambda self: value),
-        raising=True,
-    )
-    monkeypatch.setattr(
-        ca.AuthManager,
-        "is_admin",
-        lambda self, owner: owner in admins,
-        raising=True,
-    )
+def _set_configured(monkeypatch, configured: bool, admins=("admin",)):
+    """Patche le **site de liaison** `core.auth.AuthManager`, pas la classe.
+
+    C'est la seule forme qui ne dépend pas de l'ordre d'exécution, et ce n'est pas un
+    détail. `tests/test_auth_regressions.py::_ensure_stub` remplace
+    `sys.modules["core.auth"]` par un module `types.ModuleType` pour toute la durée de la
+    session. La production fait `from core.auth import AuthManager` **au moment de
+    l'appel**, donc elle voit ce stub ; patcher l'objet classe réellement importé ne
+    changeait donc rien, et mes deux tests « admin configuré » échouaient en suite
+    complète alors qu'ils passaient isolément.
+
+    `importlib.import_module` est relu ici au moment du patch : c'est exactement
+    l'objet que la fonction de production va résoudre, stub compris.
+    """
+    admins = set(admins)
+
+    class _Auth:
+        is_configured = configured
+
+        def is_admin(self, owner):
+            return owner in admins
+
+    core_auth = importlib.import_module("core.auth")
+    monkeypatch.setattr(core_auth, "AuthManager", _Auth, raising=False)
 
 
 # ─── L'état arbitré : pré-installation ⇒ admin bridé ───────────────────────
