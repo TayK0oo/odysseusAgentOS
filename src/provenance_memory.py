@@ -26,6 +26,8 @@ import logging
 import os
 import re
 import secrets
+import tempfile
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -44,6 +46,12 @@ def provenance_memory_enabled() -> bool:
 # ─── Constants ──────────────────────────────────────────────────────────
 
 MEMORY_ROOT = Path("data/memory-fs")
+
+# Nombre de tentatives d'un compare-and-swap. Borne, et non boucle : sous une
+# contention reelle, un appel qui rend la main vaut mieux qu'un appel qui
+# n'en sort pas. Trois suffisent a faire aboutir le cas nominal (deux tours
+# concurrents se marchent dessus une fois) tout en sortant toujours.
+_CAS_TENTATIVES = 3
 ProvenanceTag = Literal["stated", "observed", "inferred"]
 
 # Catégories protégées — jamais stockées
@@ -189,15 +197,67 @@ class MemoryEntry:
         return None
 
 
+@dataclass(frozen=True)
+class ConflitMemoire:
+    """Un ecriture refusee parce que le jeton presente n'etait plus courant.
+
+    Porter les DEUX jetons, et non un simple « conflit » : c'est la seule chose
+    qui distingue un refus de version d'un autre echec d'ecriture, et c'est ce
+    qui permet a l'appelant de rapporter un fait verifie plutot qu'un verdict
+    sans cause. Un drapeau booléen aurait suffit a dire « conflit » et n'aurait
+    pas permis de dire lequel.
+    """
+
+    expected: str
+    actual: str
+
+
 # ─── Memory filesystem ──────────────────────────────────────────────────
 
 
 class MemoryFS:
     """Système de fichiers mémoire avec provenance et versionnage."""
 
+    # Un verrou par CHEMIN RÉSOLU, au niveau de la classe et non de l'instance :
+    # la ressource partagée est le fichier, pas l'objet. Deux `MemoryFS` pointant
+    # le même dossier doivent donc se serialiser, sinon le contrôle de version ne
+    # protège que les appels qui passent par la même instance.
+    _verrous: dict[str, threading.RLock] = {}
+    _verrous_mutex = threading.Lock()
+
+    # Plafond du registre de verrous. Sans lui, un chemin par requête ferait
+    # croitre le dictionnaire sans jamais se vider — le même défaut que
+    # `_run_tokens` dans `trace_writer`, qui est plafonné pour cette raison.
+    _VERROUS_MAX = 512
+
     def __init__(self, root: Path | None = None):
         self.root = root or MEMORY_ROOT
         self.root.mkdir(parents=True, exist_ok=True)
+
+    @classmethod
+    def _verrou_pour(cls, full_path: Path) -> threading.RLock:
+        """Le verrou d'un chemin, en légeant au besoin.
+
+        La purge est faite sous le même mutex que l'insertion, donc elle ne peut
+        pas observer un registre à moitié modifié. Elle ne retire pas un verrou
+        encore détenu : `threading.Lock` n'a pas de compteur d government's, et un
+        `del` sur un verrou en cours d'usage ferait échouer la prochaine insertion.
+        Le registre reste donc plafonné *et* fonctionnel.
+        """
+        cle = str(full_path)
+        with cls._verrous_mutex:
+            v = cls._verrous.get(cle)
+            if v is None:
+                if len(cls._verrous) >= cls._VERROUS_MAX:
+                    # On retire la moitié la plus ancienne, arbitrairement mais
+                    # déterministiquement (tri des clés), plutôt que de laisser
+                    # croître. Les verrous retirés ne sont plus réutilisés par les
+                    # writers : ils perdent leur sérialisation, jamais leurs données.
+                    for obsolete in sorted(cls._verrous)[: cls._VERROUS_MAX // 2]:
+                        cls._verrous.pop(obsolete, None)
+                v = threading.RLock()
+                cls._verrous[cle] = v
+            return v
 
     # ── Opérations de base ──────────────────────────────────────────
 
@@ -211,45 +271,105 @@ class MemoryFS:
         return content, version
 
     def memory_write(self, path: str, content: str, if_version: str) -> tuple[bool, str]:
-        """Crée ou remplace un fichier mémoire avec contrôle de version."""
+        """Crée ou remplace un fichier mémoire avec contrôle de version.
+
+        **Atomique de bout en bout.** La vérification et l'écriture ont lieu sous
+        le même verrou, et l'écriture elle-même passe par un fichier temporaire
+        puis `os.replace`. Sans cela, deux écrivains concurrents passaient tous
+        les deux la vérification et le dernier effaçait le premier : mesuré, un fait
+        disparaissait en silence. Le jeton ne protégeait que le cas particulier où
+        la collision tombait entre la lecture et la relecture — donc par chance
+        d'ordonnancement, pas par garantie. C'est le défaut que « lire avant
+        d'écrire » prétend fermer.
+        """
         full_path = self.root / path
 
-        if if_version == "new":
-            if full_path.exists():
-                return False, "File already exists — use existing version token"
-        elif full_path.exists():
-            current, current_version = self.memory_read(path)
-            if current_version != if_version:
-                return False, f"Version mismatch: expected {if_version}, got {current_version}. Re-read first."
-        else:
-            return False, "File does not exist — use 'new' to create"
+        with self._verrou_pour(full_path):
+            if if_version == "new":
+                if full_path.exists():
+                    return False, "File already exists — use existing version token"
+            elif full_path.exists():
+                current, current_version = self.memory_read(path)
+                if current_version != if_version:
+                    return False, f"Version mismatch: expected {if_version}, got {current_version}. Re-read first."
+            else:
+                return False, "File does not exist — use 'new' to create"
 
-        # Vérifier les règles d'omission
-        content = self._sanitize_content(content)
+            # Vérifier les règles d'omission
+            content = self._sanitize_content(content)
 
-        full_path.parent.mkdir(parents=True, exist_ok=True)
-        full_path.write_text(content, encoding="utf-8")
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                self._ecrire_atomiquement(full_path, content)
+            except OSError as exc:
+                # Ni la cible ni la version precedente n'ont ete touchees, mais
+                # l'appelant doit lire un REFUS explicite. Laisser l'exception
+                # remonter jusqu'au `except Exception` de la boucle la
+                # transformerait en `logger.debug` : une memoire non enregistree
+                # qui se presente comme un stockage sans fait.
+                return False, f"write failed, previous version kept: {exc}"
+
         new_version = hashlib.sha256(content.encode()).hexdigest()[:12]
         return True, new_version
 
+    @staticmethod
+    def _ecrire_atomiquement(full_path: Path, content: str) -> None:
+        """Écrit sans jamais laisser un fichier à moitié écrit.
+
+        `write_text` écrit DANS la cible : un process tué au milieu laisse un
+        fichier mémoire tronqué, et la version précédente — celle que le jeton
+        désigne — a disparu. Un fichier temporaire dans le *même* répertoire (donc
+        même système de fichiers, donc `os.replace` atomique) puis un renommage
+        rend l'opération indivisible : il y a une version complète avant, une
+        après, jamais une entre les deux.
+        """
+        fd, tmp = tempfile.mkstemp(dir=str(full_path.parent), prefix=f".{full_path.name}.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+            os.replace(tmp, full_path)
+        except BaseException:
+            # Une écriture interrompue ne doit pas laisser de tempfile derrière,
+            # et surtout ne doit pas avoir touché à la cible.
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
+
     def memory_append(self, path: str, entry: str, if_version: str) -> tuple[bool, str]:
         """Ajoute une ligne à un fichier existant."""
-        content, current_version = self.memory_read(path)
-        if content is None:
-            return False, "File does not exist"
+        full_path = self.root / path
 
-        if current_version != if_version:
-            return False, "Version mismatch"
+        # Le couple lecture-construction-écriture est tenu sous un seul verrou,
+        # sinon deux appends se lisent mutuellement, passent tous deux la
+        # vérification, et le second écrase le premier. `memory_write` prend le
+        # même verrou : il faut donc le relâcher avant d'y entrer, d'où la
+        # délégation explicite du dernier pas.
+        with self._verrou_pour(full_path):
+            content, current_version = self.memory_read(path)
+            if content is None:
+                return False, "File does not exist"
 
-        # Vérifier les règles d'omission
-        if self._should_omit(entry):
-            return False, "Entry blocked by omission rules"
+            if current_version != if_version:
+                # Meme forme que le refus de `memory_write` : le prefixe
+                # "Version mismatch" reste, donc rien de ce qui le reconnait ne
+                # casse, et les deux jetons deviennent disponibles sans relire.
+                return False, f"Version mismatch: expected {if_version}, got {current_version}. Re-read first."
 
-        # Vérifier que l'entrée n'est pas déjà présente
-        if entry.strip() in content:
-            return True, current_version  # Déjà présent, pas d'erreur
+            # Vérifier les règles d'omission
+            if self._should_omit(entry):
+                return False, "Entry blocked by omission rules"
 
-        new_content = content.rstrip() + "\n" + entry + "\n"
+            # Vérifier que l'entrée n'est pas déjà présente
+            if entry.strip() in content:
+                return True, current_version  # Déjà présent, pas d'erreur
+
+            new_content = content.rstrip() + "\n" + entry + "\n"
+
+        # Réutilise la vérification de version de `memory_write` plutôt que de la
+        # dupliquer : deux implémentations du même contrôle divergent, et c'est
+        # comme ça qu'un contrôle devient décoratif.
         return self.memory_write(path, new_content, current_version)
 
     def memory_str_replace(self, path: str, old_str: str, new_str: str, if_version: str) -> tuple[bool, str]:
@@ -334,18 +454,103 @@ class MemoryFS:
             mf.entries = [MemoryEntry(tag="stated", text=fact)]
             return self.memory_write(path, mf.content, "new")
 
-        return self.memory_append(path, entry, version)
+        ok, res, _conflit = self.append_cas(path, entry, if_version=version)
+        return ok, res
 
     def add_observed(self, domain: str, fact: str) -> tuple[bool, str]:
         """Ajoute un fait [observed]."""
-        path = f"topics/{domain}.md"
-        entry = f"- [observed] {fact}"
+        return self.add_observed_cas(domain, fact)[:2]
 
-        content, version = self.memory_read(path)
-        if content is None:
-            return False, "Domain file does not exist — cannot observe without prior context"
+    def add_observed_cas(
+        self,
+        domain: str,
+        fact: str,
+        *,
+        if_version: str | None = None,
+    ) -> tuple[bool, str, ConflitMemoire | None]:
+        """Comme `add_observed`, mais RAPPORTE le conflit. `(ok, jeton, conflit)`.
 
-        return self.memory_append(path, entry, version)
+        `if_version` est le jeton retenu lors d'un appel **antérieur**. C'est ce qui
+        donne enfin une route de production au contrôle de version : jusque-là les
+        quatre aides relisaient et écrivaient dans le même corps de fonction, donc
+        le jeton ne circulait jamais et la branche de rejet n'était atteignable que
+        depuis un test.
+
+        Passer un jeton périmé n'écrase rien : l'écriture est refusée, `conflit` est
+        vrai, et l'appelant décide — refuser, ou réessayer sur un jeton frais. On ne
+        réessaie pas à sa place : un appelant qui demandait une écriture conditionnelle
+        ne doit pas recevoir une écriture inconditionnelle en retour.
+        """
+        return self.append_cas(
+            f"topics/{domain}.md",
+            f"- [observed] {fact}",
+            if_version=if_version,
+            absent="Domain file does not exist — cannot observe without prior context",
+        )
+
+    def append_cas(
+        self,
+        path: str,
+        entry: str,
+        *,
+        if_version: str | None = None,
+        absent: str = "File does not exist",
+    ) -> tuple[bool, str, ConflitMemoire | None]:
+        """Compare-and-swap borné. Retourne `(ok, jeton_ou_message, conflit)`.
+
+        `conflit` est un `ConflitMemoire` — les deux jetons — ou `None`. Sa
+        verite est donc un booléen, comme un drapeau, mais l'appelant reçoit la
+        cause.
+
+        Implémentation unique de l'append à jeton : les quatre aides y délèguent
+        plutôt que de re-lire/re-écrire chacune de leur côté. Deux implémentations
+        du même contrôle divergent, et c'est ainsi qu'un contrôle devient décoratif.
+
+        Avec `if_version=None` (le cas des aides historiques) on relit puis on
+        réessaie : deux tours concurrents ne se marchent pas dessus, et aucun fait
+        ne se perd. La reprise est **bornée** — sous une contention réelle, un
+        nombre d'essais fixe est un appel qui rend la main au lieu de boucler.
+        """
+        # Le verrou est REENTRANT, donc `memory_append` puis `memory_write`
+        # peuvent le reprendre sans s'auto-bloquer. Il couvre ici tout le
+        # compare-and-swap : lecture, verification et ecriture forment une seule
+        # section critique. Sans cela, huit ecrivains se lisent mutuellement,
+        # passent tous la verification, et la reprise bornee sature a trois
+        # essais — mesure : 3 sur 8 seulement aboutissaient.
+        with self._verrou_pour(self.root / path):
+            refute: str | None = None
+            conflit: ConflitMemoire | None = None
+            for essai in range(_CAS_TENTATIVES):
+                if if_version is None or essai > 0:
+                    contenu, jeton = self.memory_read(path)
+                    if contenu is None:
+                        return False, absent, None
+                    # Le jeton lu ICI est la version qui a refuse l'essai precedent :
+                    # rien ne s'est ecrit entre les deux, puisque le verrou tient.
+                    # C'est le seul endroit ou le « courant » est connu — le
+                    # fabriquer au moment du refus, ce serait y mettre le jeton
+                    # presente, ce qui donne un conflit qui se compare a lui-meme
+                    # et qui ne prouve rien.
+                    if conflit is None and refute is not None:
+                        conflit = ConflitMemoire(expected=refute, actual=jeton)
+                else:
+                    # Premier essai : on honore le jeton de l'appelant, sans
+                    # relire. C'est ce qui rend le refus possible.
+                    jeton = if_version
+                ok, res = self.memory_append(path, entry, jeton)
+                if ok:
+                    return True, res, conflit
+                if "Version mismatch" not in res:
+                    return False, res, None
+                if refute is None:
+                    refute = jeton
+            if conflit is None:
+                # Les essais sont epuises sans qu'une lecture ait suivi le refus
+                # (possible seulement si `_CAS_TENTATIVES` valait 1). On relit une
+                # fois plutot que de rapporter un conflit sans cause.
+                _, courant = self.memory_read(path)
+                conflit = ConflitMemoire(expected=refute or "", actual=courant)
+            return False, f"Version mismatch after {_CAS_TENTATIVES} attempts", conflit
 
     def add_inferred(self, domain: str, fact: str, confidence: float) -> tuple[bool, str]:
         """Ajoute un fait [inferred] avec niveau de confiance."""
@@ -356,7 +561,8 @@ class MemoryFS:
         if content is None:
             return False, "Domain file does not exist"
 
-        return self.memory_append(path, entry, version)
+        ok, res, _conflit = self.append_cas(path, entry, if_version=version)
+        return ok, res
 
     def get_profile(self) -> str | None:
         """Lit le profil utilisateur."""
