@@ -165,6 +165,53 @@ def substitute(text: str, pattern: str, replacement: str | object) -> str:
     return new
 
 
+SENTINELLE = "(aucun lecteur dans le code)"
+
+
+def verifie_sources(states: dict[str, dict]) -> tuple[list[str], list[str]]:
+    """Verifie la colonne `source` du registre. Rend `(cassees, sans_ligne)`.
+
+    `--check` ne verifiait que les TABLEaux. La colonne `source` — 33 references
+    `fichier:ligne` sur 54 switches — n'etait verifiee par rien, donc une derive y
+    restait invisible jusqu'a ce qu'un oeil la remarque. C'est le meme defaut que
+    les citations de documentation, sur une autre colonne.
+
+    Trois formes sont acceptees, et la troisieme est signalee sans faire echouer
+    le controle, parce qu'elle n'est pas fausse :
+      * `chemin/fichier.py:42` — verifie : le fichier existe, la ligne existe ;
+      * `chemin/fichier.py`    — le fichier existe, mais aucune ligne n'est
+                                 designee, donc l'affirmation est plus faible.
+                                 Signalee, non bloquee.
+      * `(aucun lecteur dans le code)` — sentinelle explicite d'un switch non
+                                 cable. Ce n'est pas une source, c'est un aveu.
+    """
+    cassees: list[str] = []
+    sans_ligne: list[str] = []
+    for env, st in states.items():
+        src = (st.get("source") or "").strip()
+        if not src or src == SENTINELLE:
+            continue
+        m = re.fullmatch(r"([\w./-]+\.py):(\d+)", src)
+        if m:
+            rel, num = m.group(1), int(m.group(2))
+        elif re.fullmatch(r"[\w./-]+\.py", src):
+            rel, num = src, None
+            sans_ligne.append(f"{env}: {src}")
+        else:
+            cassees.append(f"{env}: forme non reconnue pour source={src!r}")
+            continue
+        chemin = REPO / rel
+        if not chemin.is_file():
+            cassees.append(f"{env}: {rel} n'existe pas")
+            continue
+        if num is not None:
+            total = sum(1 for _ in chemin.open(encoding="utf-8", errors="replace"))
+            if not 1 <= num <= total:
+                cassees.append(f"{env}: {rel} a {total} lignes, la source en designe {num}")
+    return cassees, sans_ligne
+
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="exit 1 si un doc est périmé")
@@ -224,6 +271,20 @@ def main() -> int:
         lambda _m: render_inventory_row(states),
     )
     targets.append((ptr, dtr))
+
+    cassees, sans_ligne = verifie_sources(states)
+    if sans_ligne:
+        print(
+            f"\n  {len(sans_ligne)} source(s) sans numero de ligne — "
+            "affirmation plus faible, signalee et non bloquante :"
+        )
+        for s_ in sans_ligne:
+            print(f"    {s_}")
+    if cassees:
+        print("\nSOURCES PERIMEES :")
+        for s_ in cassees:
+            print(f"  {s_}")
+        return 1
 
     stale = []
     for path, new in targets:
