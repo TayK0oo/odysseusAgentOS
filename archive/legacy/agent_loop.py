@@ -67,9 +67,22 @@ _M62_OBSERVED_DOMAIN = "topics/agent-output.md"
 # Jetons de version retenus entre deux tours (P18). Au niveau du module, et
 # pas dans la boucle : c'est la circulation entre deux appels distincts qui
 # donne une route de production au controle de version. Un dict local au tour
-# serait vide a chaque fois, donc le jeton presenterserait toujours frais et le
+# serait vide a chaque fois, donc le jeton presente serait toujours frais et le
 # refus ne se declencherait jamais.
 _M62_JETONS: dict[str, str] = {}
+
+# Niveaux de derive qui sont une ALERTE, et leur gravite (UC-09). Le nom dit
+# pourquoi `MEDIUM` y figure : l'enumeration le documente « Derive significative
+# — alerte ». Alerter sur `HIGH` seul laisserait deux gravites reellement
+# differentes indiscernables, donc l'alerte ne dirait rien du tout.
+#
+# Cle par la VALEUR du niveau, pas par le membre de l'enumeration : pas d'import
+# au chargement du module, donc pas d'alias a maintenir et pas de dependance
+# ajoutee au simple fait de demarrer la boucle. Le risque d'une table par chaine
+# est la faute de frappe silencieuse — il est couvert par un test qui compare
+# cette table a `DriftLevel` lui-meme, donc une renomination du niveau ferait
+# echouer la suite plutot que d'eteindre l'alerte en silence.
+_DRIFT_ALERTS: dict[str, int] = {"medium": 1, "high": 2}
 
 # OTel tracer — no-op when ODYSSEUS_OTEL=off (zero overhead)
 _tracer = get_tracer("odysseus.agent_loop")
@@ -4480,16 +4493,48 @@ async def stream_agent_loop(
         logger.debug("[agent] codeburn ignoré : %s", _cb_exc)
 
     # OBSERVER — drift score — Phase 5
+    #
+    # UC-09: `drift == HIGH` used to be a `logger.warning` and nothing else. The
+    # level did reach the client, but inside `run_status` — a status among others,
+    # in a stream nobody is obliged to be watching, gone the moment the client
+    # disconnects. A result nobody is obliged to see is not an alert.
+    #
+    # An alert is therefore: announced as its own event (indisputable), recorded
+    # on the audit trail (survives the client, retrievable by an admin over HTTP),
+    # and carrying the cause plus the recommended gesture (a level alone makes the
+    # reader redo the computation). `Observer.get_summary()` already computes both.
+    #
+    # MEDIUM alerts too, because the enum itself documents it as such — alert on
+    # HIGH only would leave the gradation unexpressed and the alert would not
+    # distinguish two genuinely different severities.
+    #
+    # NOT done, deliberately: acting on the alert. The old log said "re-loop ou
+    # escalade recommandée", and auto-re-looping spends tokens with no bound and
+    # no defined stop — that is a product decision, not a bug fix, so it is stated
+    # rather than smuggled in here.
     try:
-        from src.observer import DriftLevel, Observer
+        from src.observer import Observer
 
         _observer = Observer()
         if _budget_enforcer:
             _observer.record_budget_status(_run_id, _budget_enforcer.get_usage_report())
         _observer.ingest_metrics(metrics, tool_events)
         drift = _observer.compute_drift_score()
-        if drift == DriftLevel.HIGH:
-            logger.warning("Drift score HIGH — re-loop ou escalade recommandée")
+        _drift_value = getattr(drift, "value", None)
+        if _drift_value in _DRIFT_ALERTS:
+            _resume = _observer.get_summary()
+            _severity = _DRIFT_ALERTS[_drift_value]
+            logger.warning(
+                "[observer] derive %s — %s", _drift_value, _resume.get("recommendation", "")
+            )
+            yield f"data: {json.dumps({'type': 'drift_alert', 'level': _drift_value, 'severity': _severity, 'recommendation': _resume.get('recommendation', '')})}\n\n"
+            trace_writer.write_alert(
+                "drift",
+                level=drift.value,
+                severity=_severity,
+                session_id=session_id or "live",
+                detail=_resume,
+            )
         _last_drift = drift
     except Exception:
         drift = None

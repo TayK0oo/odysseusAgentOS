@@ -225,6 +225,53 @@ def write_decision(
         logger.warning("trace_writer: failed to write decision=%s: %s", decision, exc)
 
 
+def write_alert(
+    alert: str,
+    *,
+    level: str = "warning",
+    severity: int = 0,
+    session_id: str | None = None,
+    detail: dict | None = None,
+) -> None:
+    """Record an alert on the same trail, under `kind: "alert"`.
+
+    An alert is not a status and not a log line. A status is read among others; a
+    log line is read by nobody during a run. What makes an alert an alert is that
+    it is **retrievable later** — the client that would have shown it may already
+    be gone, and that is the normal case, not the exception (item 9 measured it).
+
+    `detail` carries the cause and the recommended action. A level alone forces the
+    reader to redo the computation that produced it, which is how an alert becomes
+    a chore nobody reads.
+
+    P17: this record is metadata about a run — levels, scores, booleans, run ids.
+    It never carries user text, so it is not gated on the classification verdict.
+    The caller is responsible for that claim, and `write_trace`'s own callers show
+    what a violation looks like. Nothing here sanitises: a sanitiser added at the
+    single choke point would protect tool arguments, but this record is built by
+    this function from its own arguments only, and callers pass a summary object
+    they computed. If that changes, the gate belongs at the call site.
+    """
+    try:
+        record = {
+            "ts": datetime.now(UTC).isoformat(),
+            "run_id": _run_id_var.get(),
+            "session_id": session_id or "",
+            "kind": "alert",
+            "alert": alert,
+            "level": level,
+            "severity": int(severity),
+            "detail": detail or {},
+        }
+        line = json.dumps(record, ensure_ascii=False) + "\n"
+        fpath = str(_today_file())
+        lock = _get_lock(fpath)
+        with lock, open(fpath, "a", encoding="utf-8") as f:
+            f.write(line)
+    except Exception as exc:
+        logger.warning("trace_writer: failed to write alert=%s: %s", alert, exc)
+
+
 def read_traces(
     *,
     run_id: str | None = None,
