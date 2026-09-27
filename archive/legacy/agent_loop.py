@@ -4276,6 +4276,83 @@ async def stream_agent_loop(
     if _fallback_chunk:
         yield _fallback_chunk
 
+    # ── VERDICT D'ÉMISSION (P17) ────────────────────────────────────────────
+    #
+    # Un seul endroit décide, une fois la réponse complète, de ce qui a le droit
+    # de quitter cette fonction — et il se place AVANT le premier consommateur.
+    #
+    # Les deux contrôles vivaient chacun plus bas que tout ce qu'ils
+    # contrôlaient, ce qui est l'inverse de ce qu'un contrôle doit être :
+    #
+    # * M6.5 (classification) était calculé à l'ancien `:4448`, alors que la
+    #   diffusion au gateway est à `:4325`. La porte PROTECTED de l'item 1 ne
+    #   couvrait donc pas la seule émission qui parte vers des tiers : un tour
+    #   PROTECTED arrivait chez tous les clients connectés.
+    # * M6.6 (sécurité des contenus) était à l'ancien `:4793`, le DERNIER point
+    #   à voir le texte. Il journalisait « output blocked » alors que la sortie
+    #   était déjà partie au gateway, à l'accroche enseignant, au routeur de
+    #   sortie et à la mémoire. Un journal ne bloque rien.
+    #
+    # Ce qui ne peut PAS être bloqué, et qu'il faut dire plutôt que laisser croire :
+    # les octets déjà diffusés en streaming pendant les rounds. Aucun code ne les
+    # reprend. Ce qui reste réellement contenu, et qui est mesuré ici : toute
+    # propagation en aval, toute écriture durable, et un refus **annoncé** pour
+    # que le client sache ce qu'il doit jeter.
+    _m65_level = None
+    try:
+        if os.environ.get("ODYSSEUS_DATA_CLASSIFICATION", "on").strip().lower() in ("1", "true", "yes", "on"):
+            from src.data_classification import get_classification_engine
+
+            _dclass = get_classification_engine()
+            if _last_user:
+                _m65_level = _dclass.classify(
+                    key=f"msg:{session_id}:{max_rounds}",
+                    content=str(_last_user)[:500],
+                    session_id=session_id,
+                )
+    except Exception as _m65_err:
+        logger.debug("[m6.5] data classification skipped: %s", _m65_err)
+    _m65_protected = bool(_m65_level is not None and _m65_level.value == "protected")
+
+    _m66_ok, _m66_reason = True, ""
+    try:
+        if os.environ.get("ODYSSEUS_CONTENT_SECURITY", "on").strip().lower() in ("1", "true", "yes", "on"):
+            from src.content_security import get_content_security
+
+            _csec = get_content_security()
+            if full_response:
+                # PAS de `message_count += 1` ici : `maybe_remind` l'augmente
+                # deja. Le double increment faisait que le seuil « apres 20
+                # messages » tombait en realite tous les 10 tours — mesure, et
+                # invisible parce que le rappel n'atteignait personne.
+                _m66_ok, _m66_reason = _csec.validate_output(full_response[:1000])
+            # Le rappel de sécurité était calculé puis **journalisé** : un rappel
+            # que personne ne reçoit est un rappel absent. Il part sur le flux.
+            _reminder = _csec.maybe_remind()
+            if _reminder:
+                logger.info("[m6.6] security reminder: %s", _reminder)
+                yield f"data: {json.dumps({'type': 'security_reminder', 'text': _reminder})}\n\n"
+    except Exception as _m66_err:
+        # Fail-OUVERT, et c'est délibéré, comme pour la classification : une
+        # panne du filtre ne doit pas rendre tout le service muet. Elle est
+        # journalisée en `warning`, pas en `debug` — un filtre de sécurité qui
+        # tombe en panne silencieuse est le pire des deux défauts.
+        logger.warning("[m6.6] content security skipped: %s", _m66_err)
+
+    # Le refus est annoncé AVANT toute décision aval : un client qui affiche du
+    # texte doit apprendre qu'il doit le jeter, et l'apprendre tout de suite.
+    if not _m66_ok:
+        logger.warning("[m6.6] output blocked: %s", _m66_reason)
+        yield f"data: {json.dumps({'type': 'content_blocked', 'reason': _m66_reason})}\n\n"
+    elif _m65_protected:
+        logger.info("[m6.5] message classified %s", _m65_level.value.upper())
+
+    # Un seul mot pour la suite : « cette réponse a-t-elle le droit de circuler ? »
+    _emission_refusee = _m65_protected or not _m66_ok
+    # Le texte que les consommateurs aval sont autorisés à propager. Vide si refus,
+    # pour qu'aucun appel ne doive se rappeler de tester le drapeau lui-même.
+    _texte_diffusable = "" if _emission_refusee else full_response
+
     # --- Final metrics ---
     total_duration = time.time() - total_start
     metrics = _compute_final_metrics(
@@ -4314,7 +4391,11 @@ async def stream_agent_loop(
     yield f"data: {json.dumps({'type': 'metrics', 'data': metrics})}\n\n"
 
     # ── CHANNEL GATEWAY — broadcast résultat final ──────────────────
-    if full_response:
+    # P17 : c'est la première émission de la réponse vers des tiers, et elle
+    # précède de plusieurs centaines de lignes tout ce qui la consommait. Le
+    # verdict d'émission est calculé plus haut ; ici on le respecte. Le refus est
+    # tracé, pas seulement decisionnel : un log `debug` dirait « rien à dire ».
+    if _texte_diffusable:
         try:
             import asyncio as _asyncio
 
@@ -4322,9 +4403,13 @@ async def stream_agent_loop(
 
             _gateway = get_gateway()
             if _gateway._adapters:
-                _asyncio.create_task(_gateway.broadcast(full_response))
+                _asyncio.create_task(_gateway.broadcast(_texte_diffusable))
+            elif _emission_refusee:
+                logger.info("[agent] diffusion canal non tentee — emission refusee")
         except Exception as _gw_exc:
             logger.debug("[agent] channel_gateway broadcast ignoré : %s", _gw_exc)
+    elif _emission_refusee:
+        logger.info("[agent] diffusion canal NON effectuee — emission refusee (PROTECTED=%s)", _m65_protected)
     # ── FIN CHANNEL GATEWAY ──────────────────────────────────────────
 
     # MEMORY_OBSERVE — end-of-session distillation via the native provider seam.
@@ -4416,36 +4501,15 @@ async def stream_agent_loop(
     except Exception:
         pass
 
-    # ── M6.5 (HOISTED) — DATA CLASSIFICATION (§5.19), P17 ─────────────────
+    # M6.5 (classification) et M6.6 (sécurité des contenus) sont calculés plus
+    # haut, dans le bloc « VERDICT D'ÉMISSION », avant tout consommateur. Ce
+    # n'est pas un déplacement de confort : ici, ils arrivaient après la diffusion
+    # au gateway et après tout ce qui emporte le texte. La porte PROTECTED de
+    # l'item 1 s'arrêtait donc une emission trop tard — voir le commentaire du
+    # bloc, et tests/test_sprint3_v5_p17_emission_refusee.py.
     #
-    # This block used to sit just above M6.2, the durable write it gates. Two
-    # durable writes now precede it, and both must be behind the classification:
-    # the AUTOEVAL audit record (below) and M6.2 itself. Hoisted for the same
-    # reason it was hoisted once already — the computation is pure and its
-    # inputs (`_last_user` at :2337, `session_id`, `max_rounds`) are all bound
-    # long before either write, so moving it earlier changes nothing but the
-    # number of writes it can actually stop.
-    #
-    # Without this, a PROTECTED turn's request could be echoed into the
-    # `verifier_reasons` of an audit record on disk, while the log claimed the
-    # content had not been persisted. That is the exact shape of the defect P17
-    # was opened for: a "not persisted" message printed next to a file that
-    # holds the payload. See tests/test_sprint3_v5_uc12_audit_traces.py.
-    _m65_level = None
-    try:
-        if os.environ.get("ODYSSEUS_DATA_CLASSIFICATION", "on").strip().lower() in ("1", "true", "yes", "on"):
-            from src.data_classification import get_classification_engine
-
-            _dclass = get_classification_engine()
-            if _last_user:
-                _m65_level = _dclass.classify(
-                    key=f"msg:{session_id}:{max_rounds}",
-                    content=str(_last_user)[:500],
-                    session_id=session_id,
-                )
-    except Exception as _m65_err:
-        logger.debug("[m6.5] data classification skipped: %s", _m65_err)
-    _m65_protected = bool(_m65_level is not None and _m65_level.value == "protected")
+    # Rien n'est laissé ici : deux copies classeraient deux fois et pourraient
+    # se contredire.
 
     # AUTOEVAL — keep/revert verifier (M3.3). Decides whether to KEEP or REVERT
     # (git reset --hard) the changes this run made, driven by the verifier
@@ -4580,7 +4644,10 @@ async def stream_agent_loop(
                 student_endpoint_url=endpoint_url,
                 student_messages=messages,
                 student_tool_events=tool_events,
-                student_reply=full_response,
+                # P17 : on ne passe pas au modele enseignant un texte que la
+                # porte vient de refuser. Vide plutot que refuse : l'accroche reste
+                # un no-op honnete, et l'absence de contenu se voit.
+                student_reply=_texte_diffusable,
                 owner=owner,
             ):
                 yield evt
@@ -4635,10 +4702,15 @@ async def stream_agent_loop(
                 # short-circuits evaluate_impact to 0.0 and made should_store
                 # permanently False. Build the real "and without this fact?"
                 # response instead.
-                _m69_hypothetical = build_hypothetical_response(_m69_fact, full_response or "")
+                # P17 : la reponse refusee n'alimente ni le verificateur d'impact ni
+                # l'ecriture memoire qui suit. La raison mesuree : sans cela, un
+                # tour dont la sortie est rejetee enregistre tout de meme un fait
+                # « Agent responded », ce qui affirme dans la memoire de provenance
+                # qu'une reponse a ete conservee alors qu'elle a ete refusee.
+                _m69_hypothetical = build_hypothetical_response(_m69_fact, _texte_diffusable)
                 _m69_result = get_memory_impact_verifier().verify(
                     fact=_m69_fact,
-                    current_response=full_response or "",
+                    current_response=_texte_diffusable,
                     hypothetical_response=_m69_hypothetical,
                 )
     except Exception as _m69_hoist_err:
@@ -4688,7 +4760,11 @@ async def stream_agent_loop(
                         _m69_result.impact_score if _m69_result else 0.0,
                         _m69_result.threshold if _m69_result else 0.0,
                     )
-                if full_response and len(full_response) > 50:
+                # P17 : `_emission_refusee` et pas seulement `_m65_protected` — la
+                # porte de sortie de contenu (M6.6) compte aussi. Ecrire
+                # « Agent responded (N chars) » apres un refus affirmerait dans la
+                # memoire de provenance qu'une reponse a ete conservee.
+                if _texte_diffusable and len(_texte_diffusable) > 50:
                     # P18: le jeton de version CIRCULE. Jusque-là les quatre aides
                     # de `MemoryFS` relisaient et écrivaient dans le même corps de
                     # fonction : le jeton ne sortait jamais de l'appel, et la
@@ -4697,7 +4773,7 @@ async def stream_agent_loop(
                     # On retient donc le jeton rendu par l'écriture précédente, au
                     # niveau du module pour qu'il survive d'un tour à l'autre, et on
                     # le présente à l'écriture suivante.
-                    _fait_62 = f"Agent responded ({len(full_response)} chars)"
+                    _fait_62 = f"Agent responded ({len(_texte_diffusable)} chars)"
                     _jeton_tenu = _M62_JETONS.get(_M62_OBSERVED_DOMAIN)
                     _ok62, _jeton62, _conflit62 = _memfs.add_observed_cas(
                         "agent-output", _fait_62, if_version=_jeton_tenu
@@ -4757,13 +4833,20 @@ async def stream_agent_loop(
             _orouter = get_output_router()
             _odecision = _orouter.route(
                 request=_last_user or "",
-                response_text=full_response or "",
+                response_text=_texte_diffusable,
             )
             # P22: the decision used to stop at the log line, so a diagram
             # request produced no artifact at all. `apply` is the side effect
             # the decision was missing; it stays a separate call so `route`
             # remains pure and testable without touching the disk.
-            _opath = _orouter.apply(_odecision, full_response or "")
+            # `apply` écrit un artefact sur disque. Le verdict d'emission est
+            # prononce : une sortie refusee ne devient pas un fichier que le client
+            # peut aller chercher, et dont la presence dirait qu'elle a ete produite.
+            if _emission_refusee:
+                logger.info("[m6.4] routage de sortie NON applique — emission refusee")
+                _opath = None
+            else:
+                _opath = _orouter.apply(_odecision, _texte_diffusable)
             logger.info(
                 "[m6.4] output routed: mode=%s module=%s reason=%s path=%s",
                 _odecision.mode.value,
@@ -4782,22 +4865,12 @@ async def stream_agent_loop(
     if _m65_level is not None:
         logger.info("[m6.5] message classified %s", _m65_level.value.upper())
 
-    # M6.6 — CONTENT SECURITY (§5.20): validate memory/output for injections
-    try:
-        if os.environ.get("ODYSSEUS_CONTENT_SECURITY", "on").strip().lower() in ("1", "true", "yes", "on"):
-            from src.content_security import get_content_security
-
-            _csec = get_content_security()
-            if full_response:
-                _csec.message_count += 1
-                _ok, _reason = _csec.validate_output(full_response[:1000])
-                if not _ok:
-                    logger.warning("[m6.6] output blocked: %s", _reason)
-                _reminder = _csec.maybe_remind()
-                if _reminder:
-                    logger.info("[m6.6] security reminder: %s", _reminder)
-    except Exception as _m66_err:
-        logger.debug("[m6.6] content security skipped: %s", _m66_err)
+    # M6.6 — CONTENT SECURITY (§5.20) est dans le bloc « VERDICT D'ÉMISSION », en
+    # haut de fonction. Ici, il était le DERNIER à voir le texte : il journalisait
+    # « output blocked » alors que la sortie était déjà partie au gateway, à
+    # l'accroche enseignant, au routeur de sortie et à la mémoire. Aucun journal
+    # ne rattrape un octet émis, donc ce bloc ne bloquait rien du tout.
+    # Voir tests/test_sprint3_v5_p17_emission_refusee.py.
 
     # M6.7 — PLANNING ENGINE (§5.3): create/update project plans
     try:
