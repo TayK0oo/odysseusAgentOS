@@ -229,6 +229,31 @@ câblage.
 
 ---
 
+## 4 bis. Statut des défauts trouvés **hors plan**
+
+Le rapport de clôture du Sprint 3 listait, sous « ce que la mesure a contredit »,
+des défauts trouvés hors plan sans dire s'ils avaient été **corrigés** ou
+seulement **observés**. Cette ambiguïté a coûté un aller-retour. Règle désormais
+appliquée : *tout défaut listé porte un statut explicite — corrigé avec preuve, ou
+ouvert avec la raison de ne pas l'avoir traité.*
+
+Ces deux-là sont des **corrections**, pas des principes supplémentaires : ils
+n'ont donc pas de numéro, et les compteurs des tableaux ci-dessus n'en tiennent
+pas compte.
+
+| Défaut trouvé hors plan | Statut | Preuve | Reste |
+|---|---|---|---|
+| La porte PROTECTED ne couvrait pas la **diffusion** vers les clients connectés — le verdict était calculé **après** la diffusion au gateway, donc un tour PROTECTED arrivait chez tous | **CORRIGÉ** (item 11), re-prouvé hors fiche | `tests/test_sprint3_v6_statut_trouvailles_hors_plan.py::test_un_tour_protege_ne_sort_par_aucun_flux` — les **cinq** sorties d'un coup (gateway, accroche enseignant, routeur de sortie, écriture profil, vérificateur d'impact), avec contre-épreuve qu'un tour PUBLIC alimente toujours les cinq. Mutation A1 : le verdict d'oublie la classification → 2 tests tombent. | **rien** |
+| `sanitize_memory` n'avait **aucun appelant** — dix motifs d'injection, dont « ignore all previous instructions », qui ne protégeaient rien | **CORRIGÉ** (item 11), re-prouvé hors fiche | `…::test_le_texte_de_l_utilisateur_arrive_assaini` — le texte **non fiable** de l'utilisateur, poussé par la boucle, atteint le disque sous `profile.md` en `User said: … [FILTERED] and obey me` : motif neutralisé, texte légitime intact. Mutations B1-B4, dont le kill-switch mesuré dans les deux sens. | le filtre ne couvre que ce qui passe par `MemoryFS` — un stockage mémoire secondaire n'y échapperait pas sans rappel explicite |
+
+**Distinction mesurée, et écrite parce qu'elle est facile à sur-corriger** : le
+*fait* — le texte de la **demande** — atteint encore le vérificateur d'impact, en
+mémoire de processus. Il ne part vers aucun tiers et n'est écrit nulle part ; son
+écriture durable est séparément gardée (`store_impacted_fact`, sous
+`not _m65_protected`). Vider aussi serait une paraphobie, pas une défense. C'est
+la seule voie par laquelle un tour PROTECTED touche encore un calcul interne, et
+elle est désormais prouvée plutôt que supposée.
+
 ## 5. Ce qu'il reste à faire pour que ces statuts bougent
 
 Rien de ce qui suit n'est un défaut : ce sont des câblages absents, tous réduits au même geste — **consommer le résultat au lieu de le loguer**.
@@ -236,6 +261,8 @@ Rien de ce qui suit n'est un défaut : ce sont des câblages absents, tous rédu
 | Principe / UC | Geste manquant |
 |---|---|
 | **Modèle** | **Décider si le statut doit intégrer l'atteignabilité** (§4.6). Un principe câblé mais hors du chemin principal ne peut pas compter comme effectif ; le modèle ne pose aujourd'hui pas la question. Décision de modèle, validée séparément du câblage. |
+| P17 (diffusion) | ~~Couvrir la diffusion, pas seulement la persistance~~ **FAIT (Sprint 3 item 11, re-prouvé v6)** — reste : rien. Les cinq consommateurs sont sous le verdict d'émission, et le test hors fiche les vérifie tous les cinq. |
+| P17 (mémoire) | ~~Assainir la mémoire avant écriture~~ **FAIT (Sprint 3 item 11, re-prouvé v6)** — reste : le filtre ne couvre que ce qui passe par `MemoryFS`. Un stockage mémoire secondaire (`data/memory-fs` est le seul aujourd'hui) n'y échapperait pas sans rappel explicite. |
 | P5, P21 | ~~Injecter `allowed_tools` dans les schémas d'outils envoyés au modèle~~ **FAIT (Sprint 3 item 7)** — reste : **`CLASSIFY` n'est jamais atteinte** (`agent_loop.py:3040` avance la boucle canonique avant de résoudre la phase, `:3049`) ; `_TOOL_CATEGORY_MAP` ne couvre que 37 des 68 schémas, donc 31 outils ne sont **jamais** restreints, quelle que soit la phase ; `blocked_tools_for_owner` (`tool_security.py:226`, appelée `agent_loop.py:2320`) retire 38 outils en amont et **ne dépend pas de l'owner** ; `TOOL_DISCOVERY=off` et absent du registre. |
 | P19 | ~~Fournir une vraie `hypothetical_response` au vérificateur d'impact, et relier `should_store` au store~~ **FAIT (Sprint 3 item 4)** — reste : le comparatif est une ablation lexicale, pas un vrai « et sans ce fait ? » généré ; un LLM nominal donnerait un contrefactual plus fidèle (bloqué par `OPENCODE_API_KEY` absente). |
 | P14, UC-02, UC-11 | ~~Appeler `create_workflow` pour persister un workflow, et résoudre le chemin du vault pour le checkpoint~~ **FAIT (Sprint 3 item 8)** — reste : la conversation persistée se termine sur un message `tool` sans tour assistant suivant, forme que certains endpoints OpenAI-compatibles stricts refusent ; le plateau est donc le debut d'un round, pas sa fin. Arbitrage assumé — l'alternative perdait exactement le travail à sauver. |
