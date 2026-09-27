@@ -3027,7 +3027,61 @@ async def stream_agent_loop(
             )
             _multi_agent_workflow = False
 
-    for round_num in range(1, max_rounds + 1):
+    # P14 / UC-02 / UC-11 — REPRISE APRÈS INTERRUPTION.
+    #
+    # Ce bloc est ici, AVANT la boucle de rounds, et plus dans la section M6.3 qui
+    # suivait la boucle : appelé après, il ne pouvait rien restaurer — il ne journalisait
+    # qu'un `resume()` qui ramenait toujours `None` parce que rien n'était jamais écrit
+    # (`create_workflow` n'avait aucun appelant).
+    #
+    # Si un run de cette session a été interrompu, on repart de la conversation
+    # persistée et du round atteint, au lieu de redemander au modèle depuis le début.
+    #
+    # DEUX GARDES, tous deux appris à la mesure :
+    #
+    # 1. Conversation entrante = préfixe de la persistée ? C'est la signature d'un
+    #    client qui se reconnecte et rejoue CE QU'IL AVAIT ENVOYÉ. Sinon l'utilisateur a
+    #    posé une nouvelle question, et la restaurer effacerait sa saisie en silence. On
+    #    clôt alors le vieux run en FAILED et on ouvre un neuf — « abandon » est le seul
+    #    état honnête pour un run que personne n'a repris.
+    # 2. Le run repris n'est réutilisé que s'il est effectivement reprenable ; un run
+    #    terminé (COMPLETED/FAILED) ne ressuscite pas, sinon chaque tour de l'utilisateur
+    #    repartirait d'une conversation vieille.
+    _run_wf = None
+    _run_resumed = False
+    _run_start_round = 1
+    try:
+        import src.durable_execution as _dex
+
+        if _dex.durable_execution_enabled():
+            _dexec = _dex.get_durable_executor()
+            _run_wf, _run_resumed = _dexec.begin_run(session_id or "live", messages)
+            if _run_resumed and _run_wf is not None:
+                _restored = _run_wf.context.get(_dex.RUN_MESSAGES_KEY) or []
+                if _dexec.is_continuation(messages, _restored):
+                    messages = list(_restored)
+                    # `current_step` désigne le round À JOUER : 0/1 = rien d'accompli.
+                    _run_start_round = max(1, int(_run_wf.current_step or 0))
+                    yield f"data: {json.dumps({'type': 'run_resumed', 'session': session_id or 'live', 'round': _run_start_round, 'messages': len(messages)})}\n\n"
+                    logger.info(
+                        "[durable] run repris | session=%s round=%s messages=%s",
+                        session_id or "live",
+                        _run_start_round,
+                        len(messages),
+                    )
+                else:
+                    logger.info(
+                        "[durable] conversation entrante divergente — run anterieur abandonne | session=%s",
+                        session_id or "live",
+                    )
+                    _run_wf = _dexec.restart_run(session_id or "live", messages)
+                    _run_resumed = False
+                    _run_start_round = 1
+    except Exception as _resume_err:
+        _run_wf = None
+        logger.debug("[durable] reprise ignorée : %s", _resume_err)
+
+    for round_num in range(_run_start_round, max_rounds + 1):
         # ── MULTI-AGENT WORKFLOW already completed ────────────────────
         if _multi_agent_workflow and getattr(locals(), "_workflow_completed", False):
             break  # skip normal round loop — workflow already handled everything
@@ -3102,6 +3156,7 @@ async def stream_agent_loop(
         except Exception:
             pass
 
+        # P14 / UC-11 — curseur de reprise : enregistré en fin de round (voir bloc jumeau).
         round_response = ""
         round_reasoning = ""  # reasoning_content deltas (DeepSeek-thinking, vLLM --reasoning-parser)
         native_tool_calls = []  # populated if model uses function calling
@@ -4131,6 +4186,35 @@ async def stream_agent_loop(
             round_reasoning=round_reasoning,
         )
 
+        # P14 / UC-11 — PERSISTANCE, ici et nulle part ailleurs.
+        #
+        # C'est le SEUL endroit où la conversation grandit de manière à la fois certaine et
+        # obtenue par le chemin nominal. J'avais d'abord mesuré deux emplacements
+        #vature avant d'arriver à celui-ci :
+        #
+        # * en bas de la boucle du round : inatteignable. Le corps du round a trois
+        #   sorties anticipées (verifier `continue`, « pas d'outil » `break`,
+        #   loop-breaker `continue`) et l'état sur disque restait au round 0, conversation
+        #   initiale, après n'importe quel run ;
+        # * en tête de round : atteint, mais trop tôt. Si le client abandonne le flux au
+        #   `agent_step` de la fin du round — ce que fait exactement une déconnexion —
+        #   le round suivant n'a jamais commencé, donc rien n'était enregistré et la
+        #   reprise repartait de zéro.
+        #
+        # Ici, l'état est « round N joué, à rejouer = N, conversation complète jusqu'à N ».
+        # La reprise rejoue donc le round dont les résultats sont déjà dans la
+        # conversation : le modèle voit l'échange entier et continue au lieu de refaire
+        # les appels. Contrepartie honnête : la conversation persistée se termine par un
+        # message `tool` sans tour assistant suivant, forme que les fournisseurs OpenAI
+        # acceptent mais que certains endpoints stricts refusent. C'est un compromis
+        # assumé : l'alternative — ne pas persister avant la fin du round — perd
+        # exactement le travail qu'on veut sauver.
+        if _run_wf is not None:
+            try:
+                _dexec.record_progress(_run_wf, round_num, messages)
+            except Exception as _rp_err:
+                logger.debug("[durable] progression non enregistrée : %s", _rp_err)
+
         # Emit agent_step event
         yield (f"data: {json.dumps({'type': 'agent_step', 'round': round_num + 1})}\n\n")
 
@@ -4155,6 +4239,19 @@ async def stream_agent_loop(
     if _exhausted_rounds:
         logger.info("[agent] round cap (%d) reached mid-task — emitting rounds_exhausted", max_rounds)
         yield f"data: {json.dumps({'type': 'rounds_exhausted', 'rounds': max_rounds})}\n\n"
+
+    # P14 / UC-11 — clôture du run.
+    #
+    # Volontairement ICI, et pas dans un `finally`. Un `finally` s'exécute aussi quand le
+    # client abandonne le générateur : le run serait alors marqué terminé alors qu'il a
+    # été interrompu, et il ne serait jamais repris. Atteindre cette ligne signifie au
+    # contraire que la boucle est allée à son terme (ou a fait un `break` motivé) —
+    # donc le run est fini et ne doit pas ressusciter.
+    if _run_wf is not None:
+        try:
+            _dexec.finish_run(_run_wf, _dex.WorkflowStatus.COMPLETED, messages)
+        except Exception as _fr_err:
+            logger.debug("[durable] clôture non enregistrée : %s", _fr_err)
 
     # Final flush of any pending agent dispatch events (M4)
     while _agent_events:
@@ -4549,21 +4646,24 @@ async def stream_agent_loop(
     except Exception as _m62_err:
         logger.debug("[m6.2] provenance memory skipped: %s", _m62_err)
 
-    # M6.3 — DURABLE EXECUTION (§5.5): persist workflow state for crash recovery
+    # M6.3 — DURABLE EXECUTION (§5.5): état de la reprise pour ce run.
+    #
+    # Ce bloc ne fait plus appel à `resume()`. Il le faisait APRÈS la boucle de rounds,
+    # donc il ne pouvait rien restaurer : il ramenait toujours `None` (rien n'était écrit,
+    # `create_workflow` n'ayant aucun appelant) et se réduisait à journaliser. La reprise
+    # vit désormais au DÉBUT du run, avant les rounds, où elle peut effectivement servir.
+    # Ce qui reste ici n'est qu'un constat de fin de tour.
     try:
-        if os.environ.get("ODYSSEUS_DURABLE_EXECUTION", "on").strip().lower() in ("1", "true", "yes", "on"):
-            from pathlib import Path
-
-            from src.durable_execution import get_durable_executor
-
-            _dexec = get_durable_executor()
-            _wf = _dexec.resume(session_id or "live")
-            if _wf and _wf.status.value == "paused":
-                logger.info("[m6.3] resuming durable workflow %s", _wf.id)
+        if _run_wf is not None:
             logger.info(
-                "[m6.3] durable execution active — %d workflows on disk",
-                len(list((Path("data/workflows")).glob("*.json"))),
+                "[m6.3] durable execution — run %s | repris=%s | round=%s | statut=%s",
+                _run_wf.id,
+                _run_resumed,
+                _run_wf.current_step,
+                _run_wf.status.value,
             )
+        elif _dex.durable_execution_enabled():
+            logger.info("[m6.3] durable execution active — aucun run ouvert")
     except Exception as _m63_err:
         logger.debug("[m6.3] durable execution skipped: %s", _m63_err)
 
