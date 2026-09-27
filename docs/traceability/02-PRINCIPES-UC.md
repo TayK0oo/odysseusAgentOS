@@ -110,6 +110,34 @@ Document **vérifiable** reliant les **22 principes SFD v3.1** (P1→P22, `docs/
 | **ABSENT** | **2** | UC-06, UC-07 |
 | **Total** | **19** | |
 
+### Items de la vision **sans fiche** — INT
+
+`../VISION-INTEGRATION.md` promet 21 intégrations (INT-1 → INT-21) et 11 chantiers
+de modularité (MOD-1 → MOD-11). La grille ci-dessus en suit 22 principes et 19 cas
+d'usage. **Sept items de la vision n'avaient aucune ligne qui les suive** : la
+grille a été dérivée du SFD, pas de la vision intégrée.
+
+C'est le trou qui a permis à `core.database` de passer de 64 à 120 importeurs sans
+qu'une porte le voie : une promesse que rien ne mesure n'est pas une promesse, et
+une vision que la traçabilité ne suit pas ne se contrôle pas, elle se raconte.
+
+Inscrits ici, en `NON SUIVI`, pour que le vide soit compté. Aucun n'est résolu par
+cette ligne : les inscrire est un **pré-requis de mesure**, pas un chantier.
+
+| ID | Apport (vision) | Fiche qui le suit | État mesuré au `0e4d4f9` |
+|---|---|---|---|
+| **INT-4** | Routage modèle live, modèle par phase/agent, bandeau modèle | *aucune* | `ModelEndpoint` et `model-routing.json` existent (383 occurrences) mais la source de vérité est dupliquée — voir MOD-3. |
+| **INT-6** | Skills à chargement obligatoire + catalogue | *aucune* | `routes/skills_routes.py` existe ; **aucun gate** de chargement obligatoire. |
+| **INT-7** | Découverte dynamique d'outils (`tool_search`) | *aucune* | `tool_search` : **0 occurrence**. L'interrupteur `ODYSSEUS_TOOL_DISCOVERY` est désormais inscrit (item 2 du Sprint 4) et vaut `off`. |
+| **INT-10** | Grounding + citations dans les livrables | *aucune* | **Absent.** `tools/check_citations.py` vérifie la **documentation** du dépôt — ne pas le confondre (item 6 du Sprint 4). |
+| **INT-11** | Heartbeat / cron / briefs en langage naturel | *aucune* | Un ordonnanceur existe (`src/task_scheduler.py`) ; le « en langage naturel » n'est pas mesuré. |
+| **INT-12** | Wide Research (recherches parallèles bornées) | *aucune* | **0 occurrence.** Rien à mesurer, rien à corriger. |
+| **INT-15** | `AGENTS.md` généré par projet | *aucune* | **0 occurrence.** |
+
+| Statut | Nombre | IDs |
+|---|---:|---|
+| **NON SUIVI** | **7** | INT-4, INT-6, INT-7, INT-10, INT-11, INT-12, INT-15 |
+
 ### Bilan
 
 | | Avant (2026-09-25) | Après (Palier 0) | Δ |
@@ -242,6 +270,7 @@ n'ont donc pas de numéro, et les compteurs des tableaux ci-dessus n'en tiennent
 pas compte.
 
 | Défaut trouvé hors plan | Statut | Preuve | Reste |
+| « Bus de pensées » signalé comme une capacité de 11 fichiers | **CORRIGÉ PAR LA MESURE — il n'y a pas de capacité à interrupter** | Mesuré au `0e4d4f9` : `src/thought_bus/` **n'existe pas** — et `tools/sfd_audit.py:32` l'affirme pourtant comme code implémenté de P3. Le seul « bus » réel est `self.bus.emit(...)` dans `src/opencode_engine.py`, et l'unique événement SSE étiqueté `thought_bus` (`:349`) porte un **`phases_walked: 7` en dur** — une constante, pas une mesure. Mes « 11 fichiers » étaient un **compte de chaîne** : ils comptaient `chain-of-thought` et `_replace_gemma_thought`, sans rapport. | **Aucun interrupteur créé, délibérément** : un interrupteur pour une capacité qui n'existe serait exactement le défaut que le registre existe pour interdire — une entrée `wired=False` pour un switch qui n'a rien a gouverner. La décision du Chef (garder, étendre, retirer) doit être reprise sur ces faits, pas sur mon compte. Reste **ouvert** : l'audit `sfd_audit.py` affirme un chemin de code absent — à trancher séparément. |
 | Deux pièges de lecture, qui n'étaient pas des bugs mais des occasions de se tromper : `check_citations` se confond avec INT-10, et `run_script`/`ssh_command` ressemblaient à une escalade | **TRAITÉS (Sprint 4 items 6 et 7)** — aucun des deux n'était un défaut, tous deux devenaient un piège le jour où le code change | **Item 6** : la section « ce que cet outil NE fait PAS » est écrite dans `check_citations.py` lui-même, et un test échoue si `DOC_GLOBS` s'élargit hors documentation ou si la section disparaît. **Item 7** : la contrainte latente est transformée en deux tests — l'**atteinte** (`BUILTIN_ACTION` n'est pas référencé par la boucle : pas d'outil d'agent, donc pas de voie d'escalade) et la **couverture** (la détection des actions exécutantes est vérifiée non vide, parce qu'une détection qui ne trouve plus rien donnerait un vide silencieux). `tests/test_sprint4_faux_amis.py`, 6 tests. | **Ce que ces items ne font pas, et qu'il faut dire** : ils ne ferment rien aujourd'hui. La porte du propriétaire ne couvre toujours pas `run_script` — elle n'a pas à le faire, puisque l'atteinte est absente, et c'est ce qui est vérifié à chaque exécution. Le jour où la boucle exposerait les actions builtin, les deux tests tomberaient ensemble. |
 | Les mesures du constat vivaient dans `/tmp` : elles disparaissaient au redémarrage, et la discipline « mesurer avant de croire » reposait sur la mémoire d'un agent | **CORRIGÉ** (Sprint 4 item 5) | `tools/check_governance.py` + `tests/test_sprint4_gouvernance_porte.py` — 7 tests, 8 mutations (2 mortes, voir le commit). Le **tri** capacités/configuration est **extrait** du test de l'item 2, jamais recopié : deux listes divergeraient et la divergence serait invisible. Le compte est **écrit** dans `TRACEABILITY.md` par `--write`, jamais recopié. Apporte aussi le signal **`called`** — avoir un lecteur n'est pas être appelé — que `wired` ne peut pas dire. | **Le signal `called` a été écrit faux trois fois avant d'être juste** : un import prend quatre formes (`from a.b.c`, `from .c`, `from src import trace_writer`, et les shims `src/agent_loop.py` ↔ `archive/legacy/`). Chaque forme omise faisait annoncer « jamais appelé » pour un module appelé à chaque tour : le compte est passé de **9 à 5**, et les 5 restants ont été vérifiés à la main. Un signal qui **exagère** est aussi un mensonge : il décourage de lire celui qui dit juste. |
 | La modularité ne se mesurait nulle part : `core.database` est passé de 64 à 120 importeurs sans qu'une porte le voie, et les dix chantiers MOD-1→MOD-10 n'étaient pas conduisables | **CORRIGÉ** (Sprint 4 item 4, MOD-11) | `tools/check_modularity.py` + `tests/test_sprint4_modularite_porte.py` — 9 tests, 14 mutations. Trois seuils **au niveau actuel** : god node 120, arêtes `src/*→routes.*` 30, imports statiques de `route_loader` 54. 9 tests, dont la **frontière exacte** (30 vert / 31 rouge) et un garde anti-inflation. | **Deux pièges corrigés en route** : compter les arêtes depuis les tests et le chargeur donnait 421 et un seuil que l'on contourne en supprimant un test — donc un seuil qui mesure la mauvaise grandeur **et** se contourne seul ; et `packages/sfd-*/src/` existe dix fois, donc un test par « `src` dans le chemin » aurait compté des paquets sans `.py` aujourd'hui et explosé demain. Le seuil est « ne pas augmenter », jamais « être sous un idéal » : l'idéal, c'est MOD-6. |

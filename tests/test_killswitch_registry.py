@@ -115,7 +115,7 @@ def _find(rows, env_var):
 _REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 _SOURCE_DIRS = ("src", "core", "routes", "archive", "services", "mcp_servers")
 _READER_RE = re.compile(
-    r'(?:os\.environ\.get|os\.getenv)\(\s*"(ODYSSEUS_[A-Z0-9_]+)"\s*,\s*"([^"]*)"'
+    r'(?:os\.environ\.get|os\.getenv)\(\s*(?:"(ODYSSEUS_[A-Z0-9_]+)"|([A-Z_][A-Z0-9_]*))\s*,\s*"([^"]*)"'
 )
 
 # Une lecture SANS defaut litteral — `os.getenv("ODYSSEUS_X")` — etait invisible
@@ -131,6 +131,22 @@ _READER_RE = re.compile(
 _READER_SANS_DEFAUT_RE = re.compile(
     r'(?:os\.environ\.get|os\.getenv)\(\s*"(ODYSSEUS_[A-Z0-9_]+)"\s*\)'
 )
+
+# Un module peut nommer la variable dans une CONSTANTE et la lire par cette
+# constante : `os.getenv(REMOTE_SSH_ENV, "off")`. C'est la bonne pratique — une
+# seule orthographe, code et tableau d'accord — mais c'était un angle mort de
+# plus : le verificateur ne voyait que les litteraux, donc une lecture par
+# constante Passait pour une lecture inexistante, et le registre exigeait
+# `wired=False` pour une porte qui gouvernait reellement quelque chose.
+#
+# On resout donc les constantes de module avant de scanner. C'est du support d'une
+# bonne pratique, pas un assouplissement : la constante doit etre une chaine
+# `ODYSSEUS_*` directement au niveau du module, pas un calcul.
+_CONSTANTE_RE = re.compile(r'^([A-Z_][A-Z0-9_]*)\s*(?::[^=]+)?=\s*"(ODYSSEUS_[A-Z0-9_]+)"', re.M)
+
+
+def _constantes_env(texte: str) -> dict[str, str]:
+    return {m.group(1): m.group(2) for m in _CONSTANTE_RE.finditer(texte)}
 
 # Descriptors whose reader resolves the env var name at call time, so no
 # literal `os.getenv("ODYSSEUS_...")` exists to match. Each one is bound to
@@ -164,10 +180,16 @@ def _reader_sites() -> dict[str, list[str]]:
                 lines = f.read_text(encoding="utf-8", errors="ignore").splitlines()
             except OSError:
                 continue
+            # Les constantes se resolvent par FICHIER, pas par ligne : une
+            # constante est definie une fois en haut du module et lue cent lignes
+            # plus bas.
+            consts = _constantes_env("\n".join(lines))
             for i, line in enumerate(lines, 1):
                 trouve = False
                 for m in _READER_RE.finditer(line):
-                    sites.setdefault(m.group(1), []).append(f"{f.relative_to(_REPO_ROOT)}:{i}")
+                    nom = m.group(1) or consts.get(m.group(2), "")
+                    if nom:
+                        sites.setdefault(nom, []).append(f"{f.relative_to(_REPO_ROOT)}:{i}")
                     trouve = True
                 if not trouve:
                     for m in _READER_SANS_DEFAUT_RE.finditer(line):
@@ -187,8 +209,11 @@ def _reader_sites_defaults() -> dict[str, set[str]]:
                 txt = f.read_text(encoding="utf-8", errors="ignore")
             except OSError:
                 continue
+            consts = _constantes_env(txt)
             for m in _READER_RE.finditer(txt):
-                found.setdefault(m.group(1), set()).add(m.group(2))
+                nom = m.group(1) or consts.get(m.group(2), "")
+                if nom:
+                    found.setdefault(nom, set()).add(m.group(3))
             for m in _READER_SANS_DEFAUT_RE.finditer(txt):
                 found.setdefault(m.group(1), set()).add("")
     return found

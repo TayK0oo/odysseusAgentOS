@@ -35,7 +35,7 @@
 | Agents `.opencode/agents/` | 20 |
 | Skills (`skills/` + `.opencode/skills/`) | 12 + 3 |
 | Fichiers de test / fonctions `test_*` | 693 / ~4 151 |
-| Kill-switches curatés | 65 (**17 ON**, dont **14/14 P0** ; 8 non câblés) — *généré par* `tools/gen_killswitch_tables.py` |
+| Kill-switches curatés | 66 (**17 ON**, dont **14/14 P0** ; 8 non câblés) — *généré par* `tools/gen_killswitch_tables.py` |
 
 Détail complet : `00-CODE-INVENTORY.md`.
 
