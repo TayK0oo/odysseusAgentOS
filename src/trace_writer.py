@@ -1,12 +1,23 @@
 """
 trace_writer.py
 
-Thread-safe JSONL trace writer for the agent loop.
+Thread-safe JSONL trace writer AND reader for the agent loop.
 Writes structured traces to data/traces/YYYY-MM-DD.jsonl.
 
 Each line is a JSON object with:
-  ts, run_id, session_id, tool, risk_level, args_summary,
-  permission_decision, outcome, cost_tokens, duration_ms
+  ts, run_id, session_id, kind
+plus, for kind == "tool":
+  tool, risk_level, args_summary, permission_decision, outcome,
+  cost_tokens, duration_ms
+or, for kind == "decision":
+  decision, verifier_reasons, drift_level, reverted, error
+
+The reader exists because a trail nobody can read is not an audit. It was
+added together with `write_decision` (Sprint 3 v5, item 9 / UC-12): before
+that, `write_trace` was the only public function of this module, so the
+145 KB of JSONL under data/traces/ were write-only — and the AUTOEVAL
+decision was not written at all, only streamed, so a client that
+disconnected lost it.
 """
 
 from __future__ import annotations
@@ -17,10 +28,17 @@ import logging
 import os
 import threading
 import uuid
+from collections import deque
 from datetime import UTC, datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Upper bound on how many records a single read may return. Applied server-side:
+# a limit the caller can raise past is not a limit. 500 keeps a full tool-heavy
+# day readable in one call while bounding the response.
+MAX_READ_LIMIT = 500
+DEFAULT_READ_LIMIT = 200
 
 # ---------------------------------------------------------------------------
 # run_id — correlation id shared by every trace/metric of a single run.
@@ -54,17 +72,47 @@ def _get_lock(path: str) -> threading.Lock:
 # ---------------------------------------------------------------------------
 
 
+def _jour_valide(day: str) -> bool:
+    """True only for a bare `YYYY-MM-DD` stem.
+
+    `strptime` alone is not enough: it would not be reached for a value like
+    `2024-01-01/../../x`, and a strict shape check costs nothing. The rule is
+    "a date, nothing else", so a separator, a dot and a letter are all refusals.
+    """
+    if not isinstance(day, str) or len(day) != 10:
+        return False
+    if day[4] != "-" or day[7] != "-":
+        return False
+    if not (day[:4] + day[5:7] + day[8:]).isdigit():
+        return False
+    try:
+        datetime.strptime(day, "%Y-%m-%d")
+    except ValueError:
+        return False
+    return True
+
+
 def _traces_dir() -> Path:
     """Return the traces directory, creating it if needed."""
+    traces = _traces_dir_path()
+    traces.mkdir(parents=True, exist_ok=True)
+    return traces
+
+
+def _traces_dir_path() -> Path:
+    """Return the traces directory WITHOUT creating it.
+
+    Split from `_traces_dir` on purpose: a read must not bring a directory
+    into existence. An audit route that creates what it inspects makes "the
+    trail is empty" indistinguishable from "the trail does not exist yet".
+    """
     try:
         from src.constants import DATA_DIR
 
         base = Path(DATA_DIR)
     except Exception:
         base = Path(__file__).parent.parent / "data"
-    traces = base / "traces"
-    traces.mkdir(parents=True, exist_ok=True)
-    return traces
+    return base / "traces"
 
 
 def _today_file() -> Path:
@@ -100,6 +148,7 @@ def write_trace(
             "ts": datetime.now(UTC).isoformat(),
             "run_id": _run_id_var.get(),
             "session_id": session_id or "",
+            "kind": "tool",
             "tool": tool,
             "risk_level": risk_level,
             "args_summary": args_summary,
@@ -114,11 +163,132 @@ def write_trace(
         line = json.dumps(record, ensure_ascii=False) + "\n"
         fpath = str(_today_file())
         lock = _get_lock(fpath)
-        with lock:
-            with open(fpath, "a", encoding="utf-8") as f:
-                f.write(line)
+        with lock, open(fpath, "a", encoding="utf-8") as f:
+            f.write(line)
     except Exception as exc:
         logger.warning("trace_writer: failed to write trace for tool=%s: %s", tool, exc)
+
+
+def write_decision(
+    *,
+    decision: str,
+    verifier_reasons: list | None = None,
+    drift_level=None,
+    reverted: bool = False,
+    error: str | None = None,
+    session_id: str | None = None,
+    reasons_omitted: str | None = None,
+) -> None:
+    """Record a KEEP/REVERT decision in the same trail as the tool traces.
+
+    Why this exists: `apply_autoeval` returns an `AutoevalDecision` that the loop
+    logs and puts in the SSE stream — and that is all. Once the client
+    disconnects the decision is gone, and no reader could have recovered it
+    because nothing was written. An audit trail that loses its own decisions is
+    not a trail.
+
+    `verifier_reasons` is the *why*, so it is stored, not summarised away: an
+    audit that records "revert" without a reason is indistinguishable from a
+    bug. `reverted` and `error` record what actually happened, which is a
+    strictly stronger claim than the decision itself — AUTOEVAL decides
+    "revert" by default while `ODYSSEUS_AUTOEVAL_ALLOW_RESET` stays OFF, so
+    "revert, not reverted" is the honest normal state and must be visible as
+    such.
+
+    Same guarantees as `write_trace`: thread-safe, never raises.
+
+    `reasons_omitted` is the honest way to record a withheld reason. When the
+    turn was classified PROTECTED (P17), the caller passes the reasons as
+    `None`-equivalent and names the reason here, so the audit reads "there was
+    a reason, withheld" instead of "there was no reason" — the two are very
+    different findings and only the second is a lie.
+    """
+    try:
+        record = {
+            "ts": datetime.now(UTC).isoformat(),
+            "run_id": _run_id_var.get(),
+            "session_id": session_id or "",
+            "kind": "decision",
+            "decision": decision,
+            "verifier_reasons": list(verifier_reasons or []),
+            "drift_level": getattr(drift_level, "value", drift_level),
+            "reverted": bool(reverted),
+            "error": error,
+            "reasons_omitted": reasons_omitted,
+        }
+        line = json.dumps(record, ensure_ascii=False) + "\n"
+        fpath = str(_today_file())
+        lock = _get_lock(fpath)
+        with lock, open(fpath, "a", encoding="utf-8") as f:
+            f.write(line)
+    except Exception as exc:
+        logger.warning("trace_writer: failed to write decision=%s: %s", decision, exc)
+
+
+def read_traces(
+    *,
+    run_id: str | None = None,
+    session_id: str | None = None,
+    kind: str | None = None,
+    limit: int = DEFAULT_READ_LIMIT,
+    day: str | None = None,
+) -> tuple[list[dict], int]:
+    """Read back the trail. Returns ``(records, malformed)``.
+
+    `records` is in chronological order and holds the **last** `limit` matching
+    records — the ones an audit actually wants. `limit` is clamped to
+    `MAX_READ_LIMIT`; a caller asking for more gets less, silently but safely.
+
+    `malformed` counts lines that could not be parsed. A JSONL file ends on a
+    half-written line whenever a process dies inside `f.write`, so this is the
+    *expected* case, not corruption — but it must be reported rather than
+    dropped: a reader that silently skips torn lines shows a cleaner audit than
+    reality, and the person relying on it is exactly the person an audit exists
+    for.
+
+    Only the traces directory is read. This function is not a file browser: it
+    resolves exactly one dated file under `DATA_DIR/traces` and never
+    interpolates a caller-supplied path. `day` is therefore validated as a bare
+    `YYYY-MM-DD` **here**, where the path is built — a stem carrying a
+    separator or a dot-dot would leave the traces directory, and the only
+    correct place to forbid that is next to the concatenation.
+    """
+    limit = max(1, min(int(limit), MAX_READ_LIMIT))
+    if day is not None and not _jour_valide(day):
+        raise ValueError(f"day must be YYYY-MM-DD, got {day!r}")
+    fichier = _traces_dir_path() / (f"{day}.jsonl" if day else f"{datetime.now(UTC).strftime('%Y-%m-%d')}.jsonl")
+
+    if not fichier.is_file():
+        return [], 0
+
+    malformes = 0
+    retenus: deque[dict] = deque(maxlen=limit)
+    try:
+        with open(fichier, encoding="utf-8") as f:
+            for brute in f:
+                ligne = brute.strip()
+                if not ligne:
+                    continue
+                try:
+                    record = json.loads(ligne)
+                except ValueError:
+                    malformes += 1
+                    continue
+                if not isinstance(record, dict):
+                    malformes += 1
+                    continue
+                if run_id and record.get("run_id") != run_id:
+                    continue
+                if session_id and record.get("session_id") != session_id:
+                    continue
+                if kind and record.get("kind") != kind:
+                    continue
+                retenus.append(record)
+    except OSError as exc:
+        logger.warning("trace_writer: failed to read %s: %s", fichier, exc)
+        return [], malformes
+
+    return list(retenus), malformes
 
 
 # ---------------------------------------------------------------------------

@@ -334,6 +334,12 @@ def register_all_routes(app: FastAPI):
 
     app.include_router(autoeval_router)
 
+    # Audit — read back what the loop decided (UC-12). Admin-gated: the records
+    # carry tool arguments and verifier reasons.
+    from routes.audit_routes import router as audit_router
+
+    app.include_router(audit_router)
+
     # Kill-switches dashboard
     from routes.killswitch_routes import router as killswitch_router
 

@@ -26,6 +26,11 @@ except ImportError:
     langfuse_context = None
 
 from services.observability.otel_setup import get_tracer
+
+# Top-level so the AUTOEVAL audit write below needs no lazy import. The module
+# has no import-time side effect (no directory is created until a write
+# happens), and this file already imports a dozen `src.*` modules the same way.
+from src import trace_writer
 from src.agent_tools import (
     FUNCTION_TOOL_SCHEMAS,
     MAX_AGENT_ROUNDS,
@@ -4404,6 +4409,37 @@ async def stream_agent_loop(
     except Exception:
         pass
 
+    # ── M6.5 (HOISTED) — DATA CLASSIFICATION (§5.19), P17 ─────────────────
+    #
+    # This block used to sit just above M6.2, the durable write it gates. Two
+    # durable writes now precede it, and both must be behind the classification:
+    # the AUTOEVAL audit record (below) and M6.2 itself. Hoisted for the same
+    # reason it was hoisted once already — the computation is pure and its
+    # inputs (`_last_user` at :2337, `session_id`, `max_rounds`) are all bound
+    # long before either write, so moving it earlier changes nothing but the
+    # number of writes it can actually stop.
+    #
+    # Without this, a PROTECTED turn's request could be echoed into the
+    # `verifier_reasons` of an audit record on disk, while the log claimed the
+    # content had not been persisted. That is the exact shape of the defect P17
+    # was opened for: a "not persisted" message printed next to a file that
+    # holds the payload. See tests/test_sprint3_v5_uc12_audit_traces.py.
+    _m65_level = None
+    try:
+        if os.environ.get("ODYSSEUS_DATA_CLASSIFICATION", "on").strip().lower() in ("1", "true", "yes", "on"):
+            from src.data_classification import get_classification_engine
+
+            _dclass = get_classification_engine()
+            if _last_user:
+                _m65_level = _dclass.classify(
+                    key=f"msg:{session_id}:{max_rounds}",
+                    content=str(_last_user)[:500],
+                    session_id=session_id,
+                )
+    except Exception as _m65_err:
+        logger.debug("[m6.5] data classification skipped: %s", _m65_err)
+    _m65_protected = bool(_m65_level is not None and _m65_level.value == "protected")
+
     # AUTOEVAL — keep/revert verifier (M3.3). Decides whether to KEEP or REVERT
     # (git reset --hard) the changes this run made, driven by the verifier
     # verdict and Observer drift. The destructive path is gated behind the
@@ -4451,6 +4487,38 @@ async def stream_agent_loop(
                 _ae.reverted,
                 _ae.error,
             )
+        # UC-12 — la décision est ÉCRITE, pas seulement journalisée et diffusée.
+        #
+        # Avant, elle n'existait que dans le flux SSE : un client qui se déconnectait
+        # avant la fin perdait la décision, et personne ne pouvait la relire — il n'y
+        # avait rien à relire. `write_decision` la range dans la même piste que les
+        # traces d'outils, donc `GET /api/audit/traces` rend ce qu'AUTOEVAL a décidé.
+        #
+        # PROTECTED (P17) : la décision elle-même est de la métadonnée — « keep » ou
+        # « revert », le drift, le fait que le reset ait eu lieu. Elle s'écrit toujours.
+        # Les `verifier_reasons`, eux, sont du texte **dérivé** de la demande : le
+        # vérificateur peut en citer un fragment, donc les faire atterrir sur disque
+        # sans la classification en amont réintroduirait exactement le défaut que P17
+        # sanctionne. On omet alors les motifs, et on le dit.
+        #
+        # `reasons_omitted` est marqué dès que le tour est PROTECTED, même si aucun motif
+        # n'a été produit : la trace doit porter la règle qui s'appliquait, sinon le lecteur
+        # ne peut pas distinguer « aucun motif » de « motif retenu ». C'est ce qui rend la
+        # protection vérifiable sans avoir à atteindre le vérificateur — voir
+        # tests/test_sprint3_v5_uc12_audit_traces.py.
+        _raisons = list(locals().get("_verifier_last_reasons") or [])
+        try:
+            trace_writer.write_decision(
+                decision=_ae.decision,
+                verifier_reasons=[] if _m65_protected else _raisons,
+                drift_level=locals().get("drift"),
+                reverted=_ae.reverted,
+                error=_ae.error,
+                session_id=session_id or "live",
+                reasons_omitted="protected" if _m65_protected else None,
+            )
+        except Exception as _audit_exc:
+            logger.warning("[autoeval] decision non enregistree dans la piste d'audit : %s", _audit_exc)
         # Live badge: verifier verdict (derived from the reasons the verifier left)
         try:
             yield f"data: {json.dumps(verifier_event(reasons=locals().get('_verifier_last_reasons')))}\n\n"
@@ -4516,29 +4584,10 @@ async def stream_agent_loop(
     # M6 — SFD MODULES (all gated behind kill-switches, default OFF)
     # ═══════════════════════════════════════════════════════════════════
 
-    # M6.5 (hoisted) — DATA CLASSIFICATION (§5.19), P17.
-    # This used to run *after* M6.2, which had already written the raw user
-    # text into data/memory-fs/profile.md. The PROTECTED branch only logged, so
-    # "classified PROTECTED — not persisted" was printed next to a file on disk
-    # holding the very payload it claimed not to persist (see
-    # tests/test_sprint3_p17_protected_persistence.py). Classification is pure
-    # computation and order-independent, so it is hoisted above the durable
-    # write it has to gate. The level is kept for M6.5's report below.
-    _m65_level = None
-    try:
-        if os.environ.get("ODYSSEUS_DATA_CLASSIFICATION", "on").strip().lower() in ("1", "true", "yes", "on"):
-            from src.data_classification import get_classification_engine
-
-            _dclass = get_classification_engine()
-            if _last_user:
-                _m65_level = _dclass.classify(
-                    key=f"msg:{session_id}:{max_rounds}",
-                    content=str(_last_user)[:500],
-                    session_id=session_id,
-                )
-    except Exception as _m65_err:
-        logger.debug("[m6.5] data classification skipped: %s", _m65_err)
-    _m65_protected = bool(_m65_level is not None and _m65_level.value == "protected")
+    # M6.5 (data classification, P17) is HOISTED above the durable writes it
+    # gates — see the block before AUTOEVAL, and M6.2 below, which reads
+    # `_m65_protected` from there. Nothing is left here on purpose: a second
+    # copy would classify twice and could disagree with the first.
 
     # M6.1 — PREFERENCES (§5.15): report what was actually injected upstream.
     # The resolution itself now happens before the system prompt is built
