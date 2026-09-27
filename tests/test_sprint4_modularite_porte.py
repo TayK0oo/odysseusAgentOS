@@ -84,7 +84,31 @@ def test_chaque_seuil_nomme_le_chantier_quil_protege():
     for cle, seuil in mod.SEUILS.items():
         assert seuil.get("chantier", "").strip(), f"le seuil {cle} ne nomme aucun chantier"
         assert seuil.get("raison", "").strip(), f"le seuil {cle} n'a aucune raison"
-        assert seuil["valeur"] > 0, f"le seuil {cle} est nul : une porte a 0 est une porte cassee"
+
+        # « Une porte a 0 est une porte cassee » reste vrai pour une grandeur
+        # qui doit DESCENDRE : a 0, aucune valeur ne peut jamais depasser le
+        # seuil, donc la garde ne peut jamais rougir et ne garde rien.
+        #
+        # La regle avait ete derivee de ce seul cas, puis ecrite comme si elle
+        # etait absolue. Elle ne l'est pas : pour une grandeur de CONFORMANCE,
+        # 0 est la cible, et le seuil le plus strict qui existe. Un seuil a 0
+        # n'est decoratif que si la mesure ne peut pas le depasser — et c'est
+        # precisement ce qu'il faut prouver, pas supposer. D'ou l'obligation
+        # supplementaire portee par `sens: conformance`, dont la non-vacuite
+        # est verifiee par un test qui construit un depassement.
+        #
+        # Elargir la regle sans cette preuve serait exactement l'assouplissement
+        # que MOD-11 pretend.hibernate : d'ou le test de non-vacuite en aval.
+        if seuil.get("sens") == "conformance":
+            assert seuil["valeur"] == 0, (
+                f"le seuil {cle} se declare conforme mais vaut {seuil['valeur']} : "
+                "une grandeur de conformance se gel e a 0, ou elle n'en est pas une."
+            )
+        else:
+            assert seuil["valeur"] > 0, (
+                f"le seuil {cle} est nul sans se declarer `sens: conformance` : "
+                "une porte a 0 est une porte cassee."
+            )
 
 
 def test_la_frontiere_du_seuil_des_aretes_est_exacte(tmp_path, monkeypatch):

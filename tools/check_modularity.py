@@ -71,6 +71,63 @@ SEUILS = {
         "raison": "La découverte dynamique remplacera ces 54 imports. Ici on gèle la hausse.",
         "releve_si": None,
     },
+    "paquets_sfd_non_tranches": {
+        "valeur": 9,
+        "chantier": "MOD-9 — statuer les 10 paquets @agentos/sfd-*",
+        "raison": (
+            "9 des 10 paquets TypeScript n'ont aucune reference resolue hors de "
+            "leur propre paquet. Le dixieme, sfd-eventbus, EST branche : "
+            "opencode.json le declare dans son tableau `plugin`. Un compte "
+            "precedent annoncait 10 en ne regardant que les fichiers Python — les "
+            "paquets etant TypeScript, cette mesure ne pouvait pas les voir. Ni "
+            "branches, ni archives pour les 9 autres : le pire etat, celui qui ne "
+            "permet ni de les effacer ni de s'appuyer dessus."
+        ),
+        "releve_si": None,
+    },
+    "globals_dans_src": {
+        "valeur": 46,
+        "chantier": "MOD-5 — AppContext au lieu des singletons globaux",
+        "raison": (
+            "Instructions `global` relevees par AST dans src/. Une mesure "
+            "textuelle compterait aussi les occurrences dans des commentaires "
+            "et des chaines — c'est l'erreur que la regle du v10 §2 interdit."
+        ),
+        "releve_si": None,
+    },
+    "fournisseurs_hors_interface": {
+        "valeur": 0,
+        "sens": "conformance",
+        "chantier": "MOD-7 — ABC MemoryProvider comme interface commune",
+        "raison": (
+            "Mesure : 3 classes *Provider dans src/, dont 2 heritent de "
+            "MemoryProvider. La troisieme EST l'interface. Le seuil est donc 0 — "
+            "c'est une garde forte, pas une porte vide : tout nouveau "
+            "fournisseur qui n'implemente pas l'ABC fait tomber le depot."
+        ),
+        "releve_si": None,
+    },
+    "modules_resolution_modele": {
+        "valeur": 12,
+        "chantier": "MOD-3 — source unique du routage modele",
+        "raison": (
+            "Modules de src/ exposant au niveau superieur un def ou une classe "
+            "dont le nom porte la resolution d'endpoint ou de modele. Noms de "
+            "symboles lus par AST, jamais par sous-chaine du fichier."
+        ),
+        "releve_si": None,
+    },
+    "imports_de_shim": {
+        "valeur": 78,
+        "chantier": "MOD-4 — supprimer les shims llm_core / agent_loop",
+        "raison": (
+            "Importations d'un shim resolues par AST, hors tests et hors "
+            "archive/ (archive EST le shim). 64 llm_core + 14 agent_loop. "
+            "C'est la grandeur la plus large du plan : 78 points de rupture, "
+            "pourquoi MOD-4 passe en dernier."
+        ),
+        "releve_si": None,
+    },
 }
 
 GOD_NODE = "core.database"
@@ -170,18 +227,200 @@ def route_loader_dynamique() -> bool:
     return "pkgutil" in t or "iter_modules" in t
 
 
+# ── Les cinq grandeurs de MOD-9, MOD-5, MOD-7, MOD-3 et MOD-4 ─────────────
+# Chacune est une mesure STRUCTURELLE : existence de fichier, resolution
+# d'import, noeud AST. Aucune ne compte une sous-chaine. La raison est dans
+# le seuil ; le pourquoi de la methode est ici.
+
+_SHIMS = {"llm_core", "agent_loop"}
+_RESOLUTION_MODELE = re.compile(
+    r"endpoint|model_route|select_model|get_model|resolve_model", re.IGNORECASE
+)
+_INTERFACE_MEMOIRE = "MemoryProvider"
+
+
+def _modules_arbre(racine: pathlib.Path):
+    for f in racine.rglob("*.py"):
+        if set(f.relative_to(racine).parts) & {"venv", "node_modules", ".git", "__pycache__"}:
+            continue
+        try:
+            yield f, ast.parse(f.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, SyntaxError):
+            continue
+
+
+def _references_paquets(root: pathlib.Path, paquets: list) -> set:
+    """Paquets dont une REFERENCE RESOLUE existe, hors de leur propre paquet.
+
+Resolue, pas devinee. Une sous-chaine `@agentos/sfd-visual` trouvee dans un
+commentaire, une chaine de documentation ou un fichier `.py` ne prouve rien :
+c'est exactement l'erreur de mesure que la regle du v10 §2 interdit.
+
+Trois sources, trois resolutions :
+
+    * un **JSON parse**, dont on parcourt les valeurs ET les cles : c'est ainsi
+      que `@agentos/sfd-eventbus` a ete trouve, dans le tableau `plugin` de
+      `opencode.json`. Le compter par sous-chaine dans les `.py` l'aurait rate —
+      les paquets sont TypeScript, et ma premiere mesure ne regardait que les
+      Python. Le compter par la presence du dossier l'aurait rate aussi.
+    * un **import TS/JS** dont le specifier est resolu ;
+    * un **import Python** dont le module est resolu.
+    """
+    noms = {q.name for q in paquets}
+    trouves: set = set()
+
+    def _marque(spec: str) -> None:
+        spec = spec.strip()
+        for nom in noms:
+            if spec in (f"@agentos/{nom}", nom):
+                trouves.add(nom)
+
+    def _parcourt(noeud) -> None:
+        if isinstance(noeud, str):
+            _marque(noeud)
+        elif isinstance(noeud, dict):
+            for cle, valeur in noeud.items():
+                _marque(cle)
+                _parcourt(valeur)
+        elif isinstance(noeud, list):
+            for valeur in noeud:
+                _parcourt(valeur)
+
+    for f in root.rglob("*.json"):
+        rel = f.relative_to(root)
+        if "node_modules" in rel.parts or (rel.parts and rel.parts[0] == "packages"):
+            continue
+        try:
+            _parcourt(json.loads(f.read_text(encoding="utf-8", errors="replace")))
+        except (OSError, ValueError):
+            continue
+
+    motifs = re.compile(r"""(?:from|import|require\()\s*['"]([^'"]+)['"]""")
+    for suffixe in ("*.ts", "*.tsx", "*.js"):
+        for f in root.rglob(suffixe):
+            rel = f.relative_to(root)
+            if "node_modules" in rel.parts:
+                continue
+            if rel.parts[0] == "packages" and len(rel.parts) > 1 and rel.parts[1] in noms:
+                continue
+            for m in motifs.finditer(f.read_text(encoding="utf-8", errors="replace")):
+                _marque(m.group(1))
+
+    for f in root.rglob("*.py"):
+        rel = f.relative_to(root)
+        if {"venv", "node_modules", ".git", "__pycache__"} & set(rel.parts):
+            continue
+        t = f.read_text(encoding="utf-8", errors="replace")
+        for nom in noms:
+            if re.search(rf"""^\s*(?:from|import)\s+{re.escape(nom)}\b""", t, re.M):
+                trouves.add(nom)
+
+    return trouves
+
+
+def paquets_sfd_non_tranches(root: pathlib.Path = REPO) -> int:
+    """Paquets `packages/sfd-*` dont rien, hors du paquet, ne les reference.
+
+    Un dossier sans reference resolue n'est pas une fonctionnalite, c'est un
+    fichier range — et « ni branche ni archive » est le pire etat : on ne peut
+    ni l'effacer ni s'appuyer dessus.
+    """
+    racine = root / "packages"
+    if not racine.is_dir():
+        return 0
+    paquets = sorted(racine.glob("sfd-*"))
+    if not paquets:
+        return 0
+    return len(paquets) - len(_references_paquets(root, paquets))
+
+
+def globals_dans_src(root: pathlib.Path = REPO) -> int:
+    """Instructions `global` de src/, comptees par AST.
+
+    Un `grep -c "global"` compterait les commentaires et les chaines. C'est la
+    meme famille d'erreur que les 16 chemins perimes de sfd_audit.py : une
+    mesure qui a l'air rigoureuse sans verifier ce qu'elle dit mesurer.
+    """
+    return sum(
+        1
+        for _, arbre in _modules_arbre(root / "src")
+        for n in ast.walk(arbre)
+        if isinstance(n, ast.Global)
+    )
+
+
+def fournisseurs_hors_interface(root: pathlib.Path = REPO) -> int:
+    """Fournisseurs memoire de src/ qui n'implementent pas l'ABC commun.
+
+    L'interface elle-meme n'est pas un viol : elle est designee par le
+    critere, donc exclue. Sans cette exclusion le seuil serait 1 au lieu de 0,
+    et un depot parfaitement conforme echouerait sa propre porte — un seuil
+    qu'on ne peut pas atteindre teaches a l'ignorer.
+    """
+    hors = 0
+    for _, arbre in _modules_arbre(root / "src"):
+        for n in arbre.body:
+            if not isinstance(n, ast.ClassDef) or not n.name.endswith("Provider"):
+                continue
+            if n.name == _INTERFACE_MEMOIRE:
+                continue
+            bases = [ast.unparse(b) for b in n.bases]
+            if not any(_INTERFACE_MEMOIRE in b for b in bases):
+                hors += 1
+    return hors
+
+
+def modules_resolution_modele(root: pathlib.Path = REPO) -> int:
+    """Modules de src/ exposant une resolution d'endpoint ou de modele."""
+    total = 0
+    for _, arbre in _modules_arbre(root / "src"):
+        for n in arbre.body:
+            if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            if _RESOLUTION_MODELE.search(n.name):
+                total += 1
+                break
+    return total
+
+
+def imports_de_shim(root: pathlib.Path = REPO) -> int:
+    """Importations d'un shim, resolues par AST, hors tests et hors archive/.
+
+    `archive/` est exclu parce qu'il EST le shim : le compter reviendrait a
+    dire que le shim s'importe lui-meme, ce qui n'est pas une mesure.
+    """
+    total = 0
+    for f, arbre in _modules_arbre(root):
+        rel = f.relative_to(root)
+        if rel.parts and rel.parts[0] in {"tests", "archive"}:
+            continue
+        for n in ast.walk(arbre):
+            noms: list = []
+            if isinstance(n, ast.ImportFrom) and n.module:
+                noms.append(n.module.split(".")[-1])
+            elif isinstance(n, ast.Import):
+                noms += [a.name.split(".")[-1] for a in n.names]
+            total += sum(1 for x in noms if x in _SHIMS)
+    return total
+
+
 def mesure(root: pathlib.Path = REPO) -> dict[str, int]:
     return {
         "core_database_importeurs": len(importeurs_de_god_node(root=root)),
         "aretes_src_vers_routes": aretes_src_vers_routes(root=root)[0],
         "route_loader_imports_statiques": imports_statiques_route_loader(),
+        "paquets_sfd_non_tranches": paquets_sfd_non_tranches(root=root),
+        "globals_dans_src": globals_dans_src(root=root),
+        "fournisseurs_hors_interface": fournisseurs_hors_interface(root=root),
+        "modules_resolution_modele": modules_resolution_modele(root=root),
+        "imports_de_shim": imports_de_shim(root=root),
     }
 
 
 def main(racine: pathlib.Path | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--json", action="store_true", help="compte machine, pour le rapport de gouvernance")
-    ap.add_argument("--explain", action="store_true", help="le détail des trois grandeurs")
+    ap.add_argument("--explain", action="store_true", help="le détail de chaque grandeur")
     ap.add_argument(
         "--update",
         action="store_true",

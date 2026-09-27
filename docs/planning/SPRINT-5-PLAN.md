@@ -15,6 +15,23 @@ mesuré. Le Sprint 4 item 4 a posé trois seuils **au niveau actuel** :
 | arêtes `src/* → routes.*` | 30 | 30 | MOD-2 |
 | imports statiques de `route_loader` | 54 | 54 | MOD-1 |
 
+**Résultat du point demandé par le v10 avant de commencer (fait) : les trois
+seuils ne suffisaient pas.** Ils couvrent quatre chantiers (MOD-1, MOD-2, MOD-6,
+MOD-8) ; **six chantiers agissaient sur une grandeur que rien ne surveille** —
+donc six chantiers pouvaient dériver en silence, ce qui est exactement ce que le
+point devait empêcher. Cinq seuils ont donc été ajoutés, à la valeur mesurée :
+
+| Seuil ajouté | Valeur | Chantier |
+|---|---:|---|
+| `paquets_sfd_non_tranches` | 9 | MOD-9 |
+| `globals_dans_src` | 46 | MOD-5 |
+| `fournisseurs_hors_interface` | 0 | MOD-7 |
+| `modules_resolution_modele` | 12 | MOD-3 |
+| `imports_de_shim` | 78 | MOD-4 |
+
+Les dix chantiers sont désormais couverts. Un seuil posé **au-dessus** de la
+mesure exige une justification écrite, sinon il n'est pas une porte.
+
 Trois conséquences, dont une contre-intuitive :
 
 1. **La porte gèle, elle ne juge pas.** Elle interdit la hausse. Faire
@@ -35,10 +52,10 @@ dépend. `src.constants` (86) et `src.auth_helpers` (69) viennent ensuite, puis
 
 | Ordre | Chantier | Ce qu'il déplace | Grandeur qui doit baisser | Dépend de |
 |---:|---|---|---|---|
-| 1 | **MOD-9** · statuer les 10 paquets `@agentos/sfd-*` | brancher ou archiver ; arbitrer le doublon du bus Python/TS | paquets branchés / 10 (aujourd'hui 0) | rien |
-| 2 | **MOD-11bis** · appliquer la porte à `packages/` | rien — c'est de la couverture | `packages/*/src/` comptés ou non | MOD-11 |
+| 1 | **MOD-9** · statuer les 10 paquets `@agentos/sfd-*` | brancher ou archiver ; arbitrer le doublon du bus Python/TS | paquets **non tranchés** / 10 — **aujourd'hui 9** | rien |
+| 2 | **MOD-11bis** ~~appliquer la porte à `packages/`~~ **retiré** — la porte y gèlerait un zéro | rien | `packages/` contient **13 fichiers `.ts` et 0 `.py`** : une porte d'arêtes Python y mesurerait 0, sur 0. Un seuil à 0 qui surveille du vide est pire que pas de seuil : il a l'air de couvrir. La couverture réelle passe par `paquets_sfd_non_tranches`, qui voit les TypeScript | MOD-11 |
 | 3 | **MOD-5** · `AppContext` au lieu des singletons globaux | les 3 singletons : `_fs`, `_guard`, caches | occurrences de `global` dans `src/` | rien |
-| 4 | **MOD-7** · ABC `MemoryProvider` | Letta, Mem0, Qdrant derrière une interface | 3 modules sans interface commune | rien |
+| 4 | **MOD-7** · étendre l'ABC `MemoryProvider` | les chemins mémoire qui ne l'implémentent pas | `fournisseurs_hors_interface` — **aujourd'hui 0** : la classe `MemoryProvider` existe déjà, 2 fournisseurs l'implémentent. Le chantier n'est donc pas « créer une interface » mais « rendre toute non-conformance rouge » | rien |
 | 5 | **MOD-6** · contrat DB sur `core.database` | 120 importeurs → façade | `core_database_importeurs` | MOD-5 |
 | 6 | **MOD-3** · source unique du routage modèle | dédoublonner `ModelEndpoint` | modules détenant une résolution modèle | rien |
 | 7 | **MOD-8** · outils découplés de `routes` | auto-enregistrement déclaratif | arêtes `src/* → routes.*` | MOD-5 |
@@ -52,7 +69,7 @@ seul qui ne dépend de rien et qui **retire du monde** au lieu d'y ajouter :
 statut « ni branchés ni archivés » est le pire des deux : ils ne sont ni dead
 code qu'on peut effacer, ni fonctionnalités qui servent.
 
-**Pourquoi MOD-4 en dernier ?** 85 fichiers importent un shim. Les supprimer
+**Pourquoi MOD-4 en dernier ?** **36 fichiers** importent un shim, pour **78 points d'import** (64 `llm_core`, 14 `agent_loop`, hors tests et hors `archive/` qui *est* le shim). Les supprimer
 avant d'avoir déplacé le métier (`MOD-2`) et la base (`MOD-6`) serait un
 refactor de 85 points de rupture simultanés — exactement le genre de chantier
 qui échoue silencieusement et se rattrape en réintroduisant le shim.
@@ -93,7 +110,10 @@ preuve de fin **comportementale** — un observable qui change, pas un log.
 MOD-1 à MOD-10 représentent **des dizaines de commits** et un risque de
 régression réel sur un dépôt de 5 000 tests. Deux des dix chantiers touchent des
 chemins d'authentification (`core.database` est derrière `auth_helpers`), et
-`MOD-4` touche 85 fichiers d'un coup.
+`MOD-4` touche 36 fichiers et 78 points d'import. Le plan annonçait 85 fichiers :
+c'était un compte, pas une résolution, et il était faux dans le sens rassurant —
+le chantier est plus petit qu'annoncé mais pas moins risqué, puisque chaque point
+d'import est une rupture distincte.
 
 La séquence proposée ne cherche pas à les faire vite. Elle cherche à ce que
 **chaque chantier soit réversible seul** : si l'item 7 casse quelque chose, les
