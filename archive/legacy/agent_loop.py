@@ -64,6 +64,13 @@ logger = logging.getLogger(__name__)
 # Domaine de provenance des reponses de l'agent (P16) : `topics/<domaine>.md`.
 _M62_OBSERVED_DOMAIN = "topics/agent-output.md"
 
+# Jetons de version retenus entre deux tours (P18). Au niveau du module, et
+# pas dans la boucle : c'est la circulation entre deux appels distincts qui
+# donne une route de production au controle de version. Un dict local au tour
+# serait vide a chaque fois, donc le jeton presenterserait toujours frais et le
+# refus ne se declencherait jamais.
+_M62_JETONS: dict[str, str] = {}
+
 # OTel tracer — no-op when ODYSSEUS_OTEL=off (zero overhead)
 _tracer = get_tracer("odysseus.agent_loop")
 
@@ -4681,12 +4688,38 @@ async def stream_agent_loop(
                         _m69_result.impact_score if _m69_result else 0.0,
                         _m69_result.threshold if _m69_result else 0.0,
                     )
-                if (
-                    full_response
-                    and len(full_response) > 50
-                    and _memfs.add_observed("agent-output", f"Agent responded ({len(full_response)} chars)")[0]
-                ):
-                    _m62_written.append("agent-output")
+                if full_response and len(full_response) > 50:
+                    # P18: le jeton de version CIRCULE. Jusque-là les quatre aides
+                    # de `MemoryFS` relisaient et écrivaient dans le même corps de
+                    # fonction : le jeton ne sortait jamais de l'appel, et la
+                    # branche de rejet du contrôle de version n'avait aucune route
+                    # de production — elle n'était atteignable que depuis un test.
+                    # On retient donc le jeton rendu par l'écriture précédente, au
+                    # niveau du module pour qu'il survive d'un tour à l'autre, et on
+                    # le présente à l'écriture suivante.
+                    _fait_62 = f"Agent responded ({len(full_response)} chars)"
+                    _jeton_tenu = _M62_JETONS.get(_M62_OBSERVED_DOMAIN)
+                    _ok62, _jeton62, _conflit62 = _memfs.add_observed_cas(
+                        "agent-output", _fait_62, if_version=_jeton_tenu
+                    )
+                    if _conflit62 is not None:
+                        # Un fait n'est pas « enregistré » parce qu'un `except
+                        # Exception: logger.debug` l'a avalé, et il n'est pas
+                        # « rejete » non plus si personne ne l'a su. Le refus est
+                        # donc RAPPORTÉ, avec les deux jetons : c'est la seule
+                        # version de cette histoire qui ne mente pas. L'écriture a
+                        # été réessayée sur un jeton frais (`append_cas`), donc le
+                        # fait n'est pas perdu non plus.
+                        yield f"data: {json.dumps({'type': 'memory_conflict', 'path': _M62_OBSERVED_DOMAIN, 'expected': _conflit62.expected, 'actual': _conflit62.actual, 'retried': _ok62})}\n\n"
+                        logger.warning(
+                            "[m6.2] ecriture refusee sur jeton perime (refute=%s, courant=%s), reessayee=%s",
+                            _conflit62.expected,
+                            _conflit62.actual,
+                            _ok62,
+                        )
+                    if _ok62:
+                        _M62_JETONS[_M62_OBSERVED_DOMAIN] = _jeton62
+                        _m62_written.append("agent-output")
                 logger.info(
                     "[m6.2] provenance memory: %d write(s) [%s]",
                     len(_m62_written),
