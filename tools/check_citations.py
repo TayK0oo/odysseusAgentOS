@@ -1,5 +1,30 @@
 """Vérifie que chaque citation `fichier:ligne` des docs de traçabilité existe.
 
+Ce que cet outil NE fait PAS — à lire avant de s'en servir
+-----------------------------------------------------------
+**Il vérifie la documentation du dépôt, pas les livrables.** `DOC_GLOBS` couvre
+`docs/traceability/*.md` et `docs/planning/*.md`. Rien d'autre n'est inspecté.
+
+C'est écrit ici parce que le risque est réel : le nom « check_citations » décrit
+exactement la fonctionnalité d'INT-10 de la vision — *grounding et citations dans
+les livrables de recherche* — et qui n'existe pas dans ce dépôt. Quelqu'un peut
+donc lire « les citations sont vérifiées » et conclure que le livrable d'une
+recherche est sourcé. Il ne l'est pas : rien ici n'ouvre un livrable produit par
+l'agent.
+
+Deux choses distinctes, à ne pas confondre :
+
+* **ce que l'outil vérifie** : qu'un `fichier:ligne` cité dans une fiche existe
+  réellement. Une citation fausse est pire qu'une absence de citation, parce
+  qu'elle donne l'apparence d'une preuve.
+* **ce qu'INT-10 demanderait** : qu'une réponse cite ses sources, et que ces
+  sources soient consultables. C'est une fonctionnalité, absente, et à ne pas
+  confondre avec le fait qu'un outil de documentation existe.
+
+`tests/test_sprint4_faux_amis.py` verrouille cette frontière : il échoue si
+`DOC_GLOBS` s'élargit au-delà de la documentation, ou si ce fichier cesse de dire
+ce qu'il ne fait pas.
+
 Pourquoi un outil plutôt qu'un coup de main
 -------------------------------------------
 Les docs de traçabilité citent des `file:line` pour *prouver* un statut. Une citation
