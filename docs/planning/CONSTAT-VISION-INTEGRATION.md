@@ -190,7 +190,7 @@ ci-dessus : **une vision sans fiches ne se contrôle pas, elle se raconte.**
 | ID | Apport | Mesure au `39fb47e` | État |
 |---|---|---|---|
 | **MOD-1** | `route_loader` dynamique | **54** imports `from routes.` statiques, `pkgutil=False` | non couvert |
-| **MOD-2** | Inverser les arêtes `src/* → routes.*` | **421 arêtes** dans 176 fichiers (`route_loader` 54, `builtin_actions` 11, `codex_routes` 10) | non couvert |
+| **MOD-2** | Inverser les arêtes `src/* → routes.*` | **30 arêtes**, dans 11 fichiers — dont `builtin_actions.py` pour 11 à lui seul. **Correction de ma part** : j'avais d'abord mesuré 421, qui comptait 275 arêtes depuis des **tests** (légitimes : un test de route importe sa route) et 54 depuis le **chargeur** (légitime par métier). Le « ~30 » de la vision était plus juste que mon propre relevé. | non couvert |
 | **MOD-3** | Source de vérité du routage modèle | 383 occurrences `ModelEndpoint`/`model-routing.json` | non couvert |
 | **MOD-4** | Éliminer les shims `llm_core`/`agent_loop` | **85** fichiers importent un shim | non couvert |
 | **MOD-5** | Injection au lieu de singletons | `provenance_memory._fs`, `content_security._guard`, caches module | non couvert |
