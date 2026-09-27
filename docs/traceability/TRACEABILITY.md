@@ -175,3 +175,6 @@ Cette table est conservée comme **post-mortem** : les quatre divergences de nom
 ---
 
 *Fin du document maître. Sous-documents : 00→04 (traceability), VEILLE-EXTRACTION/VEILLE-FEATURES (veille).*
+
+<!-- gouvernance:generee -->
+| Gouvernance — capacités non classées | **0** (variables lues hors registre et hors configuration) | Justifications de configuration mortes | **0** | Contradictoires (registre ET configuration) | **0** | Lecteurs sans importateur (`called=False`) | **6** | Registre | **65** entrées, **73** variables lues || Gouvernance — capacités non classées | **0** (variables lues hors registre et hors configuration) | Justifications de configuration mortes | **0** | Contradictoires (registre ET configuration) | **0** | Lecteurs sans importateur (`called=False`) | **9** | Registre | **65** entrées, **73** variables lues |
