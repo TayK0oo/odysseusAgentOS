@@ -3036,9 +3036,13 @@ async def stream_agent_loop(
             yield f"data: {json.dumps(_evt)}\n\n"
 
         try:
-            if _use_canonical and _canonical_loop is not None:
-                _canonical_loop.advance()
-            else:
+            # La boucle canonique n'avance PAS ici mais plus bas, après la lecture de
+            # la phase. Avancer d'abord faisait passer `CANONICAL_SEQUENCE[0]` (CLASSIFY)
+            # à `[1]` (KNOW) avant que `resolve_current_phase` ne regarde quoi que ce
+            # soit : la première phase de la séquence était donc du code mort, jamais
+            # courante sur un tour réel. Le chemin non-canonique n'a pas ce défaut —
+            # `infer_phase(round_num)` est une fonction pure du round, pas un curseur.
+            if not (_use_canonical and _canonical_loop is not None):
                 _phase_tracker.on_round_start(round_num, intent=_intent, plan_mode=plan_mode)
         except Exception:
             pass  # phase tracking must never break the loop
@@ -3054,6 +3058,14 @@ async def stream_agent_loop(
             intent=_intent,
             plan_mode=plan_mode,
         )
+        # Avance pour le round SUIVANT, après la lecture : c'est ce qui laisse
+        # `CANONICAL_SEQUENCE[0]` être la phase du round 1. `_canonical_loop` n'est lu
+        # par personne entre les deux points, donc l'ordre n'a pas d'autre effet.
+        if _use_canonical and _canonical_loop is not None:
+            try:
+                _canonical_loop.advance()
+            except Exception:
+                pass  # phase tracking must never break the loop
         if _agent_dispatcher is not None and _current_phase is not None:
             try:
                 _ctx = _last_user if isinstance(_last_user, str) else ""
