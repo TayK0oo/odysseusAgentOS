@@ -11,7 +11,7 @@
 | §5.3 Planification intelligente | 2/2 · ✅ | `ODYSSEUS_PLANNING_ENGINE`=off | 0 |
 | §5.4 Exécution contrôlée/sécurisée | 3/3 · ✅ | `ODYSSEUS_DESTRUCTIVE_GATE`=on | 0 |
 | §5.5 Exécution durable | 2/2 · ✅ | `ODYSSEUS_DURABLE_EXECUTION`=on 🔒P0, `ODYSSEUS_CHECKPOINT`=on 🔒P0 | 0 |
-| §5.6 Routage modèles | 3/3 · ✅ | `ODYSSEUS_MODEL_ROUTER`=on 🔒P0, `ODYSSEUS_ZEN_FROM_ENDPOINT`=off ⚠️non câblé | 0 |
+| §5.6 Routage modèles | 3/3 · ✅ | `ODYSSEUS_MODEL_ROUTER`=on 🔒P0, `ODYSSEUS_ZEN_FROM_ENDPOINT`=off | 0 |
 | §5.7 Mémoire boucle fermée | 5/5 · ✅ | `ODYSSEUS_PROVENANCE_MEMORY`=on 🔒P0, `ODYSSEUS_OBSIDIAN_MCP`=off, `ODYSSEUS_MEMORY_IMPACT`=on 🔒P0 | 0 |
 | §5.8 Communication multi-canal | 2/2 · ✅ | `ODYSSEUS_INPROCESS_DISCORD`=off ⚠️non câblé, `ODYSSEUS_INPROCESS_TELEGRAM`=off ⚠️non câblé, `ODYSSEUS_CHANNEL_AGENT_REPLY`=off ⚠️non câblé | 0 |
 | §5.9 Gouvernance & budgets | 3/3 · ✅ | `ODYSSEUS_GOVERNANCE_ANCESTRY`=off | 5 |
@@ -82,7 +82,7 @@
 | MCP/Services | `ODYSSEUS_SERENA_MCP` | `off` | `off` | oui | `src/serena_client.py:25` |
 | MCP/Services | `ODYSSEUS_SUPABASE` | `off` | `off` | **NON** | `(aucun lecteur dans le code)` |
 | MCP/Services | `ODYSSEUS_VAULTWARDEN` | `off` | `off` | **NON** | `(aucun lecteur dans le code)` |
-| MCP/Services | `ODYSSEUS_ZEN_FROM_ENDPOINT` | `off` | `off` | **NON** | `(aucun lecteur dans le code)` |
+| MCP/Services | `ODYSSEUS_ZEN_FROM_ENDPOINT` | `off` | `off` | oui | `src/zen_router.py:130` |
 | MCP/Services | `ODYSSEUS_N8N` | `off` | `off` | oui | `routes/n8n_routes.py:27` |
 | Orchestration | `ODYSSEUS_DESTRUCTIVE_GATE` | `on` | `on` | oui | `src/orchestrator/gate.py:26` |
 | Orchestration | `ODYSSEUS_MULTI_AGENT` | `off` | `off` | oui | `archive/legacy/agent_loop.py:3025` |
@@ -98,7 +98,7 @@
 | RAG | `ODYSSEUS_RRF_FUSION` | `off` | `off` | oui | `src/rag_vector.py:86` |
 | RAG | `ODYSSEUS_MEILISEARCH` | `off` | `off` | oui | `services/search/meilisearch_client.py:21` |
 
-**65 descripteurs · 17 ON par défaut · 9 non câblés · 14/14 P0 à `on`.**
+**65 descripteurs · 17 ON par défaut · 8 non câblés · 14/14 P0 à `on`.**
 
 - 🔒P0 = bascule à `on` par le **Palier 0** (2026-09-26), sur les 14 principes cœur.
 - ⚠️non câblé = aucun lecteur dans le code. Le registre l'affiche `off` et `wired=False` : il ne peut **pas** se présenter comme actif. Ces 9 descripteurs étaient présentés comme `on` avant le 2026-09-26.

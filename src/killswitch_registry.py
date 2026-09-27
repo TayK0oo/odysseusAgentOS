@@ -286,9 +286,16 @@ _SWITCHES: list[dict[str, Any]] = [    {
         "default": "off",
         "category": "MCP/Services",
         "timing": "runtime",
-        "wired": False,
-        "desc": "AUCUN LECTEUR dans le code : declarer ce switch est sans effet. Route Zen via un endpoint enregistre.",
-        "source": "(aucun lecteur dans le code)",
+        "desc": (
+            "Route Zen via un endpoint enregistre. LECTEUR REEL : "
+            "zen_router.py — teste avec `== \"1\"` quand OPENCODE_API_KEY est absente. "
+            "Declare `wired=False` jusqu'a l'item 2 du Sprint 4, sur la foi du verificateur "
+            "de `tests/test_killswitch_registry.py` : or ce verificateur ne voyait pas les "
+            "lectures SANS defaut litteral, que celle-ci est. Le drapeau avait donc pourri "
+            "sans bruit. Corrige ici en meme temps que le verificateur, sinon le mensonge "
+            "serait reintroduit au prochain nettoyage."
+        ),
+        "source": "src/zen_router.py:130",
     },
     {
         "name": "n8n integration",

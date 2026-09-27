@@ -20,7 +20,14 @@ logger = logging.getLogger(__name__)
 
 # Kill-switch: when OFF, OPAClient is bypassed and callers fall back to
 # the existing ToolRegistry (phase-lock.yaml) enforcement.
-_OPA_ENABLED = os.getenv("ODYSSEUS_OPA", "on").strip().lower()
+#
+# Default OFF (Sprint 4 item 2). It was `on`, and no production module imports
+# this file at all — so the switch reported itself active while nothing ever
+# consulted the policy. Cutting it in the *registry* alone would have changed
+# what the dashboard displays without changing what the code does, which is the
+# one thing a kill-switch table must never do. Both halves move together, and
+# `tests/test_killswitch_registry.py` fails if they ever disagree again.
+_OPA_ENABLED = os.getenv("ODYSSEUS_OPA", "off").strip().lower()
 OPA_ENABLED = _OPA_ENABLED not in {"off", "0", "false", "no"}
 
 # Default OPA endpoint (matches docker-compose profile "security")
