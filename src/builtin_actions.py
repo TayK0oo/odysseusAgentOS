@@ -22,6 +22,12 @@ from src.constants import (
 
 logger = logging.getLogger(__name__)
 
+# Interrupteur de l'exécution DISTANTE de scripts (v9 §1.1). Nommé ici pour que
+# le code et le registre ne puissent pas diverger sur l'orthographe : une
+# divergence donnerait un interrupteur au tableau et une porte au code, chacun
+# ignorant l'autre — c'est-à-dire aucune porte du tout.
+REMOTE_SSH_ENV = "ODYSSEUS_REMOTE_SSH"
+
 
 class TaskNoop(BaseException):
     """Raised by an action when it determined there's nothing to do.
@@ -376,6 +382,31 @@ async def action_run_script(owner: str, script: str = "", host: str = "", **kwar
         if IS_WINDOWS and find_bash():
             return await _run_subprocess([find_bash(), "-c", script], timeout=300, label="Script")
         return await _run_subprocess(script, shell=True, timeout=300, label="Script")
+
+    # P18 / v9 §1.1 — l'exécution DISTANTE avait une capacité sans interrupteur.
+    #
+    # Mesuré avant de fermer, comme le v9 l'exige : personne ne passe `host` à
+    # cette action, et son seul point d'entrée est la route de tâches, dont les
+    # actions d'exécution sont admin-only. Donc aucun chemin de code réel n'en
+    # profitait — et la seule façon de l'atteindre était de poser
+    # `ODYSSEUS_SCRIPT_HOST`, ce qu'un opérateur fait, pas un appelant.
+    #
+    # Le défaut est `off` et NON « refléter le comportement actuel » : une
+    # capacité d'exécution de code à distance n'a pas un comportement à
+    # préserver, elle a une exposition à fermer. C'est aussi pourquoi le refus
+    # nomme l'interrupteur — un refus muet laisse l'appelant croire qu'il a
+    # obtenu une exécution.
+    #
+    # La branche n'est pas SUPPRIMÉE : elle est une porte. La fermer définitivement
+    # rendrait la capacité non gouvernable — il faudrait la réécrire le jour où on
+    # la veut, au lieu de la déverrouiller.
+    if os.getenv(REMOTE_SSH_ENV, "off").strip().lower() not in {"1", "true", "yes", "on"}:
+        return (
+            f"Execution distante refusee : {REMOTE_SSH_ENV} est a off. "
+            f"Cible demandee : {target_host}. Cette capacite execute du code sur "
+            "une autre machine ; elle reste fermee par defaut.",
+            False,
+        )
     return await _run_subprocess(["ssh", target_host, script], timeout=300, label="Script")
 
 

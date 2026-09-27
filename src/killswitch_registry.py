@@ -571,6 +571,25 @@ _INTEGRATION_SWITCHES = [
         "source": "archive/legacy/agent_loop.py:3025",
     },
     {
+        "name": "Execution distante de scripts (SSH)",
+        "env_var": "ODYSSEUS_REMOTE_SSH",
+        "default": "off",
+        "category": "MCP/Services",
+        "timing": "runtime",
+        "desc": (
+            "Execution de code sur une AUTRE machine via ssh. Capacite sans "
+            "interrupteur jusqu'au Sprint 4 item 5 ; fermee par defaut. Mesure "
+            "prealable (v9) : aucun appelant ne passe `host`, et le seul point "
+            "d'entree de l'action est la route de taches, dont les actions "
+            "d'execution sont admin-only — donc aucun chemin de code reel n'en "
+            "profitait. Le defaut est `off` et NON « refleter le comportement "
+            "actuel » : une capacite d'execution a distance n'a pas de "
+            "comportement a preserver, elle a une exposition a fermer. La "
+            "branche n'est pas supprimee, elle est une porte."
+        ),
+        "source": "src/builtin_actions.py:381",
+    },
+    {
         "name": "Decouverte dynamique d'outils",
         "env_var": "ODYSSEUS_TOOL_DISCOVERY",
         "default": "off",
