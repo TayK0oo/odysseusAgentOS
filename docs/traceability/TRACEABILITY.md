@@ -159,7 +159,7 @@ Cette table est conservée comme **post-mortem** : les quatre divergences de nom
 1. **Boucle d'auto-amélioration fermée** (Génération→Réflexion→Curation + skills auto) — Axe 7, le plus grand écart.
 2. **Découverte dynamique d'outils** (`tool_search` + registre MCP + suggestion connecteurs) — §5.13.4.
 3. **Catalogue de skills à chargement obligatoire** — quick win fort.
-4. **Exécution durable intégrée** (workflows + saga + approbations longues) — codée, non branchée.
+4. **Exécution durable intégrée** — workflows, retry, reprise : **codés et câblés**. **Saga : échafaudage non armé** (`durable_execution.py:200` ; 0 construction ne fournit `compensation=`, et l'action n'est pas exécutée). Approbations longues : à établir.
 5. **Observabilité du budget tokens** (CodeBurn → UI + multiplicateur multi-agent) — Axe 6/8.
 
 ---

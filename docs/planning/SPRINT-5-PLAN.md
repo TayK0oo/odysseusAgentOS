@@ -4,6 +4,25 @@
 > Déclencheur : feu vert v9 §3.2 — « produire un plan borné avant d'écrire du code »
 > **Aucun code n'a été écrit pour ce plan.** Il est soumis, il n'est pas entamé.
 
+## 0. Confirmations demandées par le v11 (statut explicite, règle v6 §5)
+
+| Correction du v10 | Statut au `2c59704` | Vérifiable par |
+|---|---|---|
+| `paquets_sfd_non_tranches` = **9**, pas 10 | **FAIT** | `tools/check_modularity.py` : 9 paquets sans référence résolue, 1 branché (`opencode.json:5`) |
+| MOD-4 = **36 fichiers / 78 points d'import** | **FAIT** | seuil `imports_de_shim` = 78, par AST, hors tests et hors `archive/` |
+| **MOD-11bis retiré** | **FAIT** | l'item est rayé du tableau §2 ; `packages/` contient 13 `.ts` et 0 `.py` |
+| **MOD-7 reformulé** | **FAIT** | `fournisseurs_hors_interface` = 0 : `MemoryProvider` est déjà une ABC, 2 fournisseurs l'implémentent |
+| Seuils de modularité **3 → 8** | **FAIT** | `tools/check_modularity.py --explain` : 8 grandeurs, toutes à leur valeur mesurée |
+
+**Item proposé, non lancé** (v11 §2 — les 32 fiches booléennes) :
+
+| # | Geste | Preuve de fin comportementale | Dépend de | Statut |
+|---|---|---|---|---|
+| **P1** | Résoudre les **32 fiches booléennes** de `sfd_audit.py` : pour chacune, localiser le module réel par résolution structurelle, **vérifier l'affirmation elle-même**, puis nommer la preuve **ou** passer la fiche à `False` avec sa raison. Un passage à `False` est un résultat valide, pas un échec. | **0 booléen sans preuve nommée ou sans statut `False` motivé** — et `verifier()` ne rapporte plus aucun `SANS_PREUVE`. | après §1 du v11 et après l'arbitrage MOD-9 | **PROPOSÉ — pas lancé** |
+
+Le v11 est explicite : ce chantier passe **après** le dossier MOD-9. Il est
+écrit ici pour qu'il ne se perde pas, pas pour commencer.
+
 ## 1. Ce que MOD-11 a changé
 
 Dix chantiers de modularité étaient listés depuis le v1 sans qu'aucun ne soit
@@ -91,6 +110,14 @@ preuve de fin **comportementale** — un observable qui change, pas un log.
 | 8 | inversion des arêtes | `aretes_src_vers_routes` passe sous 30, sans qu'aucun `src/` n'importe `routes/` par une voie nouvelle |
 | 9 | `route_loader` dynamique | ajouter un fichier de route **n'exige aucune édition** de `route_loader` — la preuve est l'ajout d'un fichier |
 | 10 | suppression des shims | `fichiers important un shim` passe sous 85, idéalement à 0 ; `src/llm_core.py` n'est plus qu'un point d'entrée |
+
+## 3 bis. MOD-9 — le dossier est prêt, la décision ne l'est pas
+
+`docs/planning/MOD-9-DOSSIER.md` : dix paquets, dix lignes, avec rôle, référence résolue, coût et recommandation motivée. **Rien n'est exécuté** — brancher est une activation au-delà du Palier 0, archiver est un retrait de la SFD, et les deux sont des décisions de maintainership.
+
+Le fait qui domine le dossier : **8 des 9 paquets non tranchés doublent un système Python `on` et `wired=True`**, et le seul paquet déjà branché (`sfd-eventbus`) tourne **en plus** de `ODYSSEUS_UNIFIED_TOKENS`. Brancher la plupart n'ajouterait donc aucune capacité : cela créerait deux systèmes pour un rôle.
+
+En attendant l'arbitrage, les items **MOD-5, MOD-3, MOD-8, MOD-2, MOD-1 et MOD-4** restent conduisibles : aucun ne dépend de MOD-9. C'est par là que la suite s'enchaîne, conformément au v11 §4.3.
 
 ## 4. Ce que ce plan ne fait pas
 

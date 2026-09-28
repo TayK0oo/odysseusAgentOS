@@ -243,7 +243,7 @@
 
 - **sfd-classify** — SFD Classification — intent classification, event routing, content categorization
 - **sfd-discovery** — SFD Discovery — service registry, endpoint probing, connector detection
-- **sfd-durable** — SFD Durable Execution — idempotent step tracking with saga compensation
+- **sfd-durable** — SFD Durable Execution — idempotent step tracking with saga compensation (vérifié : `async compensate(id)` dans `packages/sfd-durable/src/index.ts`). **Le port Python `src/durable_execution.py` ne l'implémente pas** : crochet câblé, jamais armé, action non exécutée (v11 §1). Ne pas confondre les deux ports.
 - **sfd-eventbus** — SFD Central Event Bus — 15 families, 62 events, covers all 4 master reference files
 - **sfd-heartbeat** — SFD Heartbeat — health checking, uptime tracking, alerting
 - **sfd-memory** — SFD Memory — vector memory store with provenance tracking and consolidation hooks
