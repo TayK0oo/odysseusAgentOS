@@ -3,7 +3,11 @@
 Couche séparée du raisonnement qui garantit qu'une action survit à une panne :
   - Workflows avec état persistant
   - Politiques de retry (max attempts, backoff exponentiel)
-  - Compensation (pattern saga)
+  - Compensation (pattern saga) — **ECHAFAUDAGE, jamais arme** (v11 §1) :
+    le declencheur est cable (2 appelants), mais aucune construction de
+    WorkflowStep ne fournit `compensation=` (0 dans tout le depot, defaut
+    None a `:88`) et la branche journalise puis passe a COMPENSATED sans
+    rien executer. Ce n'est donc pas une capacite : c'est un crochet.
   - Points d'approbation humaine longue durée
 
 Gated behind ODYSSEUS_DURABLE_EXECUTION kill-switch (default OFF).
@@ -198,7 +202,21 @@ class DurableExecutor:
         return wf
 
     async def _handle_step_failure(self, wf: WorkflowState, failed_step: WorkflowStep) -> None:
-        """Déclenche la compensation (pattern saga) en cas d'échec."""
+        """Crochet de compensation (pattern saga) — **n'execute rien** (v11 §1).
+
+        La compensation d'un saga se declenche bien ici, sur deux appelants
+        reels (`:161`, `:188`). Ce que ce crochet ne fait pas : executer une
+        compensation. Il parcourt les etapes en sens inverse, journalise
+        `"Compensating step ..."` et passe le statut a `COMPENSATED`.
+
+        Et rien ne l'arme : `WorkflowStep.compensation` vaut `None` par defaut
+        (`:88`) et aucune construction du depot ne fournit `compensation=`.
+        La branche `if step.compensation:` n'est donc jamais prise.
+
+        Le nom de la methode dit son declencheur, pas son action — c'est
+        precisement pour cela qu'une recherche par nom de symbole conclut a
+        tort que la compensation est absente.
+        """
         wf.status = WorkflowStatus.COMPENSATING
         self._save(wf)
 

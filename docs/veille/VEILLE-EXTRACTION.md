@@ -260,7 +260,8 @@
 | Mode local / dégradé | Supporté (ModelEndpoint), peu exercé | Quick win (NF-06) |
 | Grounding + citations | Deep Research existe | Consolider (§5.11) |
 | Observabilité tokens | CodeBurn ON (P1) | Brancher l'indicateur budget UI (Axe 8) |
-| Exécution durable (saga) | Codée, non intégrée | Chantier (§5.5) |
+| Exécution durable — workflows, retry, reprise | Codés, câblés (P14 PARTIEL) | Intégration à l'auto-éval |
+| Exécution durable — saga (compensation) | **Échafaudage câblé, jamais armé** ; l'action n'est pas exécutée | Chantier (§5.5) — non implémenté |
 | Goal-ancestry live | Axe 6 : 30 % | Chantier (§5.3) |
 
 ---

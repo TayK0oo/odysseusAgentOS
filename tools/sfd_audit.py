@@ -44,13 +44,15 @@ AUDIT["principes"] = {
         "teste": True,
         "live": False,
         "code": "src/durable_execution.py, config/phase-lock.yaml",
-        "note": "† Saga compensation : ABSENTE. src/durable_execution.py"
-        " définit DurableExecutor, WorkflowStep et RetryPolicy, mais ni"
-        " classe Saga ni fonction de compensation (vérifié par AST)."
-        " La note l'affirmait ; elle était fausse. La compensation"
-        " n'est pas ce qui tient P2 de toute façon : c'est la denylist"
-        " du mode plan (archive/legacy/agent_loop.py). Pas de workflow"
-        " complet testé live.",
+        "note": "† Compensation saga : ECHAFAUDAGE, jamais arme. Le declencheur est cable "
+        "(DurableExecutor._handle_step_failure, 2 appelants reels), mais 0 construction du "
+        "depot fournit WorkflowStep.compensation= (defaut None a :88) et la branche journalise "
+        "puis passe a COMPENSATED sans rien executer. Il n existe pas de classe Saga : le motif "
+        "est inline, par etape. Une premiere correction avait conclu ABSENTE : c etait faux, et "
+        "faux de la maniere que la regle du v11 §3.1 interdit — verifier le chemin puis deduire "
+        "le contenu d un NOM. La methode porte le nom de son declencheur, pas de son action. "
+        "La compensation n est pas ce qui tient P2 de toute facon : c est la denylist du mode "
+        "plan (archive/legacy/agent_loop.py). Pas de workflow complet testé live.",
     },
     "P3 - Contexte construit": {
         "implemente": True,
