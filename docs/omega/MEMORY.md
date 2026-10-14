@@ -97,7 +97,7 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] **W5 — fiches RE** : `RE-OPENCLAW-HERMES.md` (975 l.) · `RE-GOOSE-CODEX.md` (695 l.) · `RE-OPENCODE-CLAUDECODE.md` (396 l.)
 - [x] **W5 — consolidation** : `FEATURE-MATRIX.md` (96 features) · `OMEGA-BLUEPRINT.md` (18 crates) · `features.json`
 - [x] **W2 — incrément 1** : workspace `omega/` + crates `types/ports/config/registry/plugin-api`, 13 tests verts, clippy propre
-- [ ] W2 — incrément 2 : `omega-core` (boucle d'agent), `omega-protocol` (types TS générés), test de graphe de dépendances (item f)
+- [x] **W2 — incrément 2** : crates `omega-core` (boucle d'agent) + `omega-protocol` (wire types), `omega/scripts/check_dep_graph.py` (graphe + garde-fou), 25 tests verts, clippy/fmt propre
 - [ ] Décomposition détaillée en workstreams + estimation
 - [ ] Obtenir credentials (déposer dans `.env` puis `python3 scripts/omega_check_env.py`)
 

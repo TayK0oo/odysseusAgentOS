@@ -23,9 +23,11 @@ Crates créés dans cette étape :
 | `omega-config` | Config à couches + `precedence()` | `types` |
 | `omega-registry` | Registres, slots (slot/ensemble), manifestes, quarantaine | `types` |
 | `omega-plugin-api` | Contributeurs, fabriques, chargement de manifestes | `types`, `registry` |
+| `omega-core` | Boucle d'agent agnostique : `Operation`, `Inference`, `Effect`, event-bus, annulation | `types`, `ports` |
+| `omega-protocol` | Wire types serde (JSON) server→UI, `schema_version` | `types` |
 
-Crates suivants (Phase 1 complète, à venir) : `omega-protocol`, `omega-core`, `omega-context`,
-`omega-tools`, `omega-providers`, `omega-app`, `omega-cli`.
+Crates suivants (Phase 1 complète, à venir) : `omega-context`, `omega-tools`, `omega-providers`,
+`omega-app`, `omega-cli`.
 
 ## 3. Modèle
 
@@ -45,7 +47,12 @@ Crates suivants (Phase 1 complète, à venir) : `omega-protocol`, `omega-core`, 
 | (c) | Isolation d'échec : quarantaine → repli sur la suivante | ✅ |
 | (d) | Précédence config : user < projet < session | ✅ |
 | (e) | Object-safety : usage des ports via `Arc<dyn Port>` | ✅ |
-| (f) | Zéro cycle de dépendances | `[todo]` (test de graphe à ajouter) |
+| (f) | Zéro cycle de dépendances + arêtes interdites | ✅ (`omega/scripts/check_dep_graph.py` + test) |
+| (g) | `omega-core` : ordre des opérations respecté | ✅ |
+| (h) | `omega-core` : annulation coopérative → `Cancelled`, pas d'op suivante | ✅ |
+| (i) | `omega-core` : event-bus journalise chaque étape | ✅ |
+| (j) | `omega-core` : échec isolé vs critique | ✅ |
+| (k) | `omega-protocol` : round-trip serde des wire types | ✅ |
 
 ## 5. Commandes
 
