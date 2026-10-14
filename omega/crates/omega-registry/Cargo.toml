@@ -1,0 +1,17 @@
+[package]
+name = "omega-registry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Omega — registre de capacites : regimes slot/ensemble, manifestes, quarantaine."
+
+[dependencies]
+omega-types = { workspace = true }
+indexmap = { workspace = true }
+
+[dev-dependencies]
+omega-ports = { workspace = true }
+async-trait = { workspace = true }
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+serde_json = { workspace = true }

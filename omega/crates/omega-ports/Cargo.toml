@@ -1,0 +1,15 @@
+[package]
+name = "omega-ports"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Omega — ports (traits) fins uniquement. Aucune implementation."
+
+[dependencies]
+omega-types = { workspace = true }
+async-trait = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
