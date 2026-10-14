@@ -98,12 +98,11 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] **W5 — consolidation** : `FEATURE-MATRIX.md` (96 features) · `OMEGA-BLUEPRINT.md` (18 crates) · `features.json`
 - [x] **W2 — incrément 1** : workspace `omega/` + crates `types/ports/config/registry/plugin-api`, 13 tests verts, clippy propre
 - [x] **W2 — incrément 2** : crates `omega-core` (boucle d'agent) + `omega-protocol` (wire types), `omega/scripts/check_dep_graph.py` (graphe + garde-fou), 25 tests verts, clippy/fmt propre
-- [ ] Décomposition détaillée en workstreams + estimation
-- [ ] Obtenir credentials (déposer dans `.env` puis `python3 scripts/omega_check_env.py`)
-
-### Blocage de facturation
-Le compte des **subagents** est à sec (`Insufficient account funds`, 2026-10-15). Le travail
-parallèle par subagents est suspendu ; l'orchestrateur exécute lui-même en attendant.
+- [ ] W2 — revue indépendante (en cours)
+- [ ] W2 — incrément 3 : `omega-app` (assemblage) + 1ᵉʳ adaptateur réel (provider `/v1/models`)
+- [x] Décomposition W0-W10 (`docs/omega/02-WORKSTREAMS.md`)
+- [x] Credentials déposés et validés (`.env`, non versionné)
+- [x] Subagents routés sur l'abonnement Go (`opencode-go/*`, 24 modèles)
 
 ### Clones de travail (nettoyables)
 `/tmp/opencode/re/` : codex (131M), goose (646M), hermes-agent (344M), openclaw (939M), opencode (230M).
@@ -113,8 +112,8 @@ parallèle par subagents est suspendu ; l'orchestrateur exécute lui-même en at
 | Sujet | Fichier |
 |---|---|
 | Règles session | `docs/omega/rules/RULES-OMEGA.md` |
-| Vision (à écrire) | `docs/omega/00-VISION-OMEGA.md` |
-| Workstreams | `docs/omega/workstreams/` |
+| Vision cible | `docs/omega/00-VISION-OMEGA.md` |
+| Workstreams | `docs/omega/02-WORKSTREAMS.md` |
 | Reverse-engineering | `docs/omega/reverse-eng/` |
 | Recherche | `docs/omega/research/` |
 | ADR | `docs/omega/adr/` |
