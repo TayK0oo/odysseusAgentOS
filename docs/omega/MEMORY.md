@@ -95,10 +95,15 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] ADR-0001 (Rust) · ADR-0002 (UI React) · ADR-0003 (architecture plugin)
 - [x] `00-VISION-OMEGA.md` (vision cible)
 - [x] **W5 — fiches RE** : `RE-OPENCLAW-HERMES.md` (975 l.) · `RE-GOOSE-CODEX.md` (695 l.) · `RE-OPENCODE-CLAUDECODE.md` (396 l.)
-- [ ] **W5 — consolidation** : `FEATURE-MATRIX.md` + `OMEGA-BLUEPRINT.md` + `features.json` (en cours)
-- [ ] W2 — ports + registre de plugins (crates Rust)
+- [x] **W5 — consolidation** : `FEATURE-MATRIX.md` (96 features) · `OMEGA-BLUEPRINT.md` (18 crates) · `features.json`
+- [x] **W2 — incrément 1** : workspace `omega/` + crates `types/ports/config/registry/plugin-api`, 13 tests verts, clippy propre
+- [ ] W2 — incrément 2 : `omega-core` (boucle d'agent), `omega-protocol` (types TS générés), test de graphe de dépendances (item f)
 - [ ] Décomposition détaillée en workstreams + estimation
 - [ ] Obtenir credentials (déposer dans `.env` puis `python3 scripts/omega_check_env.py`)
+
+### Blocage de facturation
+Le compte des **subagents** est à sec (`Insufficient account funds`, 2026-10-15). Le travail
+parallèle par subagents est suspendu ; l'orchestrateur exécute lui-même en attendant.
 
 ### Clones de travail (nettoyables)
 `/tmp/opencode/re/` : codex (131M), goose (646M), hermes-agent (344M), openclaw (939M), opencode (230M).
