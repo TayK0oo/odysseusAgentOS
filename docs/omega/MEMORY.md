@@ -92,11 +92,16 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] Enrichir les 78 vidéos (dates, counts, hashtags)
 - [x] Classification riche + vault Obsidian
 - [x] Paysage des harnais + benchmarks/routing
-- [ ] **W5 — reverse-engineering des harnais** (en cours)
-- [ ] ADR-0001 (Rust) · ADR-0002 (UI React) · ADR-0003 (architecture plugin)
-- [ ] `00-VISION-OMEGA.md` + `01-ARCHITECTURE-PLUGIN.md`
+- [x] ADR-0001 (Rust) · ADR-0002 (UI React) · ADR-0003 (architecture plugin)
+- [x] `00-VISION-OMEGA.md` (vision cible)
+- [x] **W5 — fiches RE** : `RE-OPENCLAW-HERMES.md` (975 l.) · `RE-GOOSE-CODEX.md` (695 l.) · `RE-OPENCODE-CLAUDECODE.md` (396 l.)
+- [ ] **W5 — consolidation** : `FEATURE-MATRIX.md` + `OMEGA-BLUEPRINT.md` + `features.json` (en cours)
+- [ ] W2 — ports + registre de plugins (crates Rust)
 - [ ] Décomposition détaillée en workstreams + estimation
-- [ ] Obtenir credentials (déposer dans `.env`)
+- [ ] Obtenir credentials (déposer dans `.env` puis `python3 scripts/omega_check_env.py`)
+
+### Clones de travail (nettoyables)
+`/tmp/opencode/re/` : codex (131M), goose (646M), hermes-agent (344M), openclaw (939M), opencode (230M).
 
 ## 9. Pointeurs utiles
 
