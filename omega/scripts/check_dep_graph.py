@@ -147,7 +147,12 @@ def detect_cycles(graph: Dict[str, Set[str]]) -> List[List[str]]:
 
 
 def main() -> int:
-    start = Path.cwd()
+    # Par defaut : la racine du workspace = dossier parent du dossier du script
+    # (independant du repertoire courant). Un chemin explicite peut etre passe en argv[1].
+    if len(sys.argv) > 1:
+        start = Path(sys.argv[1])
+    else:
+        start = Path(__file__).resolve().parent.parent
     root = find_workspace_root(start)
     if root is None:
         print(f"ERREUR : aucun workspace Cargo trouvé depuis {start}", file=sys.stderr)
