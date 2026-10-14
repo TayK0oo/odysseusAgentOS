@@ -15,10 +15,12 @@ import json
 import logging
 
 from src import bg_jobs
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
-_monitor_task = None
+app_context.caches.monitor_task = None
 POLL_INTERVAL_S = 5
 # The follow-up agent run is allowed a few rounds to actually continue the task
 # (e.g. after `pip install` finishes, run the transcription).
@@ -164,9 +166,8 @@ async def _loop():
 
 def start_bg_monitor():
     """Idempotent — start the always-on background-job monitor."""
-    global _monitor_task
-    if _monitor_task and not _monitor_task.done():
-        return _monitor_task
-    _monitor_task = asyncio.create_task(_loop())
+    if app_context.caches.monitor_task and not app_context.caches.monitor_task.done():
+        return app_context.caches.monitor_task
+    app_context.caches.monitor_task = asyncio.create_task(_loop())
     logger.info("Background-job monitor started (poll %ds)", POLL_INTERVAL_S)
-    return _monitor_task
+    return app_context.caches.monitor_task

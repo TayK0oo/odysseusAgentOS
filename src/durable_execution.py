@@ -26,6 +26,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -510,11 +512,10 @@ class DurableExecutor:
 
 # ─── Singleton ───────────────────────────────────────────────────────────
 
-_executor: DurableExecutor | None = None
+app_context.caches.executor: DurableExecutor | None = None
 
 
 def get_durable_executor() -> DurableExecutor:
-    global _executor
-    if _executor is None:
-        _executor = DurableExecutor()
-    return _executor
+    if app_context.caches.executor is None:
+        app_context.caches.executor = DurableExecutor()
+    return app_context.caches.executor

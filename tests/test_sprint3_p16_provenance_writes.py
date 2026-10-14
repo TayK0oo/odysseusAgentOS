@@ -61,7 +61,9 @@ def memfs(tmp_path, monkeypatch):
     ordre-dépendant, et écrit dans le dépôt.
     """
     fs = MemoryFS(tmp_path / "memory-fs")
-    monkeypatch.setattr(pm, "_fs", fs)
+    # Migration MOD-5 : _fs est maintenant dans AppContext.caches.fs
+    from src.app_context import app_context
+    monkeypatch.setattr(app_context.caches, "fs", fs)
     return fs
 
 

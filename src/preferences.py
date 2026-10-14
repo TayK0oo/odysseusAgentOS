@@ -32,6 +32,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -316,26 +318,24 @@ class PreferenceResolution:
 
 # ─── Singleton ───────────────────────────────────────────────────────────
 
-_store: PreferenceStore | None = None
-_resolution: PreferenceResolution | None = None
+app_context.caches.store: PreferenceStore | None = None
+app_context.caches.resolution: PreferenceResolution | None = None
 
 
 def get_preference_store() -> PreferenceStore:
-    global _store
-    if _store is None:
-        _store = PreferenceStore()
-        _store.load()
-    return _store
+    if app_context.caches.store is None:
+        app_context.caches.store = PreferenceStore()
+        app_context.caches.store.load()
+    return app_context.caches.store
 
 
 def get_preference_resolution(request_instruction: str | None = None) -> PreferenceResolution:
-    global _resolution
-    _resolution = PreferenceResolution(
+    app_context.caches.resolution = PreferenceResolution(
         store=get_preference_store(),
         request_instruction=request_instruction,
         user_style=_load_user_style(),
     )
-    return _resolution
+    return app_context.caches.resolution
 
 
 def _load_user_style() -> str | None:

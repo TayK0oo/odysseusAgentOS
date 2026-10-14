@@ -20,6 +20,8 @@ import time
 import uuid
 
 from src.constants import GENERATED_IMAGES_DIR
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -28,21 +30,20 @@ MAX_DEBATE_ROUNDS = 5
 MAX_PIPELINE_STEPS = 10
 
 # ---------------------------------------------------------------------------
-# Global managers (set from app.py, same pattern as _mcp_manager)
-# _session_manager is kept as a local cache for performance (avoiding
+# Global managers (set from app.py, same pattern as app_context.caches.mcp_manager)
+# app_context.caches.session_manager is kept as a local cache for performance (avoiding
 # repeated get_session_manager_instance() calls). It's synced with
 # the authoritative singleton in core.models.
-_session_manager = None
-_memory_manager = None
-_memory_vector = None
-_rag_manager = None
-_personal_docs_manager = None
+app_context.caches.session_manager = None
+app_context.caches.memory_manager = None
+app_context.caches.memory_vector = None
+app_context.caches.rag_manager = None
+app_context.caches.personal_docs_manager = None
 
 
 def set_session_manager(mgr):
     """Set the global session manager. Syncs local cache + core singleton."""
-    global _session_manager
-    _session_manager = mgr
+    app_context.caches.session_manager = mgr
     from core.models import set_session_manager_instance
 
     set_session_manager_instance(mgr)
@@ -50,19 +51,17 @@ def set_session_manager(mgr):
 
 def get_session_manager():
     """Get the global session manager."""
-    return _session_manager
+    return app_context.caches.session_manager
 
 
 def set_memory_manager(mgr, vector=None):
-    global _memory_manager, _memory_vector
-    _memory_manager = mgr
-    _memory_vector = vector
+    app_context.caches.memory_manager = mgr
+    app_context.caches.memory_vector = vector
 
 
 def set_rag_manager(rag_mgr, personal_docs_mgr=None):
-    global _rag_manager, _personal_docs_manager
-    _rag_manager = rag_mgr
-    _personal_docs_manager = personal_docs_mgr
+    app_context.caches.rag_manager = rag_mgr
+    app_context.caches.personal_docs_manager = personal_docs_mgr
 
 
 # ---------------------------------------------------------------------------
@@ -304,7 +303,7 @@ async def do_manage_memory(content: str, session_id: str | None = None, owner: s
       delete                  — line 2: memory_id
       search                  — line 2: query
     """
-    if not _memory_manager:
+    if not app_context.caches.memory_manager:
         return {"error": "Memory manager not available"}
 
     lines = content.strip().split("\n")
@@ -315,7 +314,7 @@ async def do_manage_memory(content: str, session_id: str | None = None, owner: s
 
     if action == "list":
         category_filter = lines[1].strip().lower() if len(lines) > 1 and lines[1].strip() else None
-        memories = _memory_manager.load(owner=owner)
+        memories = app_context.caches.memory_manager.load(owner=owner)
         if category_filter:
             memories = [m for m in memories if m.get("category", "").lower() == category_filter]
         if not memories:
@@ -341,15 +340,15 @@ async def do_manage_memory(content: str, session_id: str | None = None, owner: s
         if not text:
             return {"error": "Memory text cannot be empty"}
 
-        entry = _memory_manager.add_entry(text, source="ai_agent", category=category, owner=owner)
-        memories = _memory_manager.load_all()
+        entry = app_context.caches.memory_manager.add_entry(text, source="ai_agent", category=category, owner=owner)
+        memories = app_context.caches.memory_manager.load_all()
         memories.append(entry)
-        _memory_manager.save(memories)
+        app_context.caches.memory_manager.save(memories)
 
         # Update vector index if available
-        if _memory_vector and hasattr(_memory_vector, "healthy") and _memory_vector.healthy:
+        if app_context.caches.memory_vector and hasattr(app_context.caches.memory_vector, "healthy") and app_context.caches.memory_vector.healthy:
             try:
-                _memory_vector.add(entry["id"], text)
+                app_context.caches.memory_vector.add(entry["id"], text)
             except Exception:
                 pass
         try:
@@ -369,7 +368,7 @@ async def do_manage_memory(content: str, session_id: str | None = None, owner: s
         if not new_text:
             return {"error": "New text cannot be empty"}
 
-        memories = _memory_manager.load_all()
+        memories = app_context.caches.memory_manager.load_all()
         found = False
         for m in memories:
             if m.get("id", "").startswith(memory_id):
@@ -383,12 +382,12 @@ async def do_manage_memory(content: str, session_id: str | None = None, owner: s
                 break
         if not found:
             return {"error": f"Memory '{memory_id}' not found"}
-        _memory_manager.save(memories)
+        app_context.caches.memory_manager.save(memories)
 
         # Update vector index
-        if _memory_vector and hasattr(_memory_vector, "healthy") and _memory_vector.healthy:
+        if app_context.caches.memory_vector and hasattr(app_context.caches.memory_vector, "healthy") and app_context.caches.memory_vector.healthy:
             try:
-                _memory_vector.add(full_id, new_text)
+                app_context.caches.memory_vector.add(full_id, new_text)
             except Exception:
                 pass
 
@@ -399,7 +398,7 @@ async def do_manage_memory(content: str, session_id: str | None = None, owner: s
             return {"error": "Delete needs line 2: memory_id"}
         memory_id = lines[1].strip()
 
-        memories = _memory_manager.load_all()
+        memories = app_context.caches.memory_manager.load_all()
         original_len = len(memories)
         full_id = None
         delete_id = None
@@ -414,12 +413,12 @@ async def do_manage_memory(content: str, session_id: str | None = None, owner: s
         memories = [m for m in memories if m.get("id") != delete_id]
         if len(memories) == original_len:
             return {"error": f"Memory '{memory_id}' not found"}
-        _memory_manager.save(memories)
+        app_context.caches.memory_manager.save(memories)
 
         # Remove from vector index
-        if _memory_vector and full_id and hasattr(_memory_vector, "healthy") and _memory_vector.healthy:
+        if app_context.caches.memory_vector and full_id and hasattr(app_context.caches.memory_vector, "healthy") and app_context.caches.memory_vector.healthy:
             try:
-                _memory_vector.remove(full_id)
+                app_context.caches.memory_vector.remove(full_id)
             except Exception:
                 pass
 
@@ -429,10 +428,10 @@ async def do_manage_memory(content: str, session_id: str | None = None, owner: s
         if len(lines) < 2:
             return {"error": "Search needs line 2: query"}
         query = lines[1].strip()
-        memories = _memory_manager.load(owner=owner)
+        memories = app_context.caches.memory_manager.load(owner=owner)
 
-        if hasattr(_memory_manager, "get_relevant_memories"):
-            results = _memory_manager.get_relevant_memories(query, memories, threshold=0.05, max_items=20)
+        if hasattr(app_context.caches.memory_manager, "get_relevant_memories"):
+            results = app_context.caches.memory_manager.get_relevant_memories(query, memories, threshold=0.05, max_items=20)
         else:
             # Fallback: simple text search
             query_lower = query.lower()
@@ -470,15 +469,15 @@ async def do_manage_rag(content: str, session_id: str | None = None) -> dict:
     action = lines[0].strip().lower()
 
     if action == "list":
-        if not _personal_docs_manager:
+        if not app_context.caches.personal_docs_manager:
             return {"results": "Personal docs manager not available. RAG may not be configured."}
         try:
             files = []
-            if hasattr(_personal_docs_manager, "index"):
-                files = _personal_docs_manager.index or []
+            if hasattr(app_context.caches.personal_docs_manager, "index"):
+                files = app_context.caches.personal_docs_manager.index or []
             dirs = []
-            if hasattr(_personal_docs_manager, "get_indexed_directories"):
-                dirs = _personal_docs_manager.get_indexed_directories()
+            if hasattr(app_context.caches.personal_docs_manager, "get_indexed_directories"):
+                dirs = app_context.caches.personal_docs_manager.get_indexed_directories()
 
             result_lines = []
             if dirs:
@@ -510,11 +509,11 @@ async def do_manage_rag(content: str, session_id: str | None = None) -> dict:
         if not os.path.isdir(directory):
             return {"error": f"Directory not found: {directory}"}
 
-        if not _rag_manager:
+        if not app_context.caches.rag_manager:
             return {"error": "RAG manager not available"}
 
         try:
-            result = _rag_manager.index_personal_documents(directory)
+            result = app_context.caches.rag_manager.index_personal_documents(directory)
             indexed = result.get("indexed", 0) if isinstance(result, dict) else 0
             return {
                 "action": "add_directory",
@@ -529,16 +528,16 @@ async def do_manage_rag(content: str, session_id: str | None = None) -> dict:
             return {"error": "remove_directory needs line 2: directory path"}
         directory = lines[1].strip()
 
-        if not _personal_docs_manager:
+        if not app_context.caches.personal_docs_manager:
             return {"error": "Personal docs manager not available"}
 
         try:
-            if hasattr(_personal_docs_manager, "remove_directory"):
+            if hasattr(app_context.caches.personal_docs_manager, "remove_directory"):
                 # Performs a targeted per-directory delete (#1660). The previous
-                # unconditional _rag_manager.rebuild_index() here wiped the whole
+                # unconditional app_context.caches.rag_manager.rebuild_index() here wiped the whole
                 # collection on every remove (even for untracked dirs) and has
                 # been removed.
-                _personal_docs_manager.remove_directory(directory)
+                app_context.caches.personal_docs_manager.remove_directory(directory)
             return {
                 "action": "remove_directory",
                 "directory": directory,
@@ -636,7 +635,7 @@ async def do_ui_control(content: str, session_id: str | None = None, owner: str 
             return {"error": str(e)}
 
         # Update current session's model if we have a session
-        if session_id and _session_manager:
+        if session_id and app_context.caches.session_manager:
             from src.database import Session as DbSess2
             from src.database import SessionLocal as SL2
 
@@ -650,7 +649,7 @@ async def do_ui_control(content: str, session_id: str | None = None, owner: str 
             finally:
                 db2.close()
 
-            sess = _session_manager.get_session(session_id)
+            sess = app_context.caches.session_manager.get_session(session_id)
             if sess:
                 sess.endpoint_url = url
                 sess.model = model_id

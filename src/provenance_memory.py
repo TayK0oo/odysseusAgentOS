@@ -34,6 +34,8 @@ from pathlib import Path
 from typing import Literal
 
 from src.content_security import content_security_enabled, get_content_security
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -615,11 +617,10 @@ class MemoryFS:
 
 # ─── Singleton ───────────────────────────────────────────────────────────
 
-_fs: MemoryFS | None = None
+app_context.caches.fs: MemoryFS | None = None
 
 
 def get_memory_fs() -> MemoryFS:
-    global _fs
-    if _fs is None:
-        _fs = MemoryFS()
-    return _fs
+    if app_context.caches.fs is None:
+        app_context.caches.fs = MemoryFS()
+    return app_context.caches.fs

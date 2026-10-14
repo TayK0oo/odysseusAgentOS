@@ -19,6 +19,8 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -239,11 +241,10 @@ class DataClassificationEngine:
 
 # ─── Singleton ───────────────────────────────────────────────────────────
 
-_engine: DataClassificationEngine | None = None
+app_context.caches.planning_engine: DataClassificationEngine | None = None
 
 
 def get_classification_engine() -> DataClassificationEngine:
-    global _engine
-    if _engine is None:
-        _engine = DataClassificationEngine()
-    return _engine
+    if app_context.caches.planning_engine is None:
+        app_context.caches.planning_engine = DataClassificationEngine()
+    return app_context.caches.planning_engine

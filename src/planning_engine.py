@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -379,11 +381,10 @@ class PlanningEngine:
 
 # ─── Singleton ───────────────────────────────────────────────────────────
 
-_engine: PlanningEngine | None = None
+app_context.caches.planning_engine: PlanningEngine | None = None
 
 
 def get_planning_engine() -> PlanningEngine:
-    global _engine
-    if _engine is None:
-        _engine = PlanningEngine()
-    return _engine
+    if app_context.caches.planning_engine is None:
+        app_context.caches.planning_engine = PlanningEngine()
+    return app_context.caches.planning_engine

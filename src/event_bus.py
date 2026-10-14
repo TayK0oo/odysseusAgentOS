@@ -18,21 +18,22 @@ from datetime import UTC, datetime
 from fnmatch import fnmatch
 
 from src.constants import AUTH_FILE
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
-_task_scheduler = None
+app_context.caches.task_scheduler = None
 
 
 def set_task_scheduler(scheduler):
     """Wire up the scheduler reference (called from app.py on startup)."""
-    global _task_scheduler
-    _task_scheduler = scheduler
+    app_context.caches.task_scheduler = scheduler
 
 
 def get_task_scheduler():
     """Return the current task scheduler instance."""
-    return _task_scheduler
+    return app_context.caches.task_scheduler
 
 
 def fire_event(event_name: str, owner: str | None = None):
@@ -109,9 +110,9 @@ async def _handle_event(event_name: str, owner: str | None = None):
                 task.next_run = datetime.utcnow()
                 db.commit()
                 # Fire the task
-                if _task_scheduler:
+                if app_context.caches.task_scheduler:
                     logger.info(f"Event '{event_name}' triggered task '{task.name}' (every {threshold})")
-                    await _task_scheduler.run_task_now(task.id)
+                    await app_context.caches.task_scheduler.run_task_now(task.id)
                 else:
                     logger.warning(f"Event triggered task '{task.name}' but no scheduler available")
             else:
@@ -268,18 +269,17 @@ class EventBus:
 
 # ── Singleton ────────────────────────────────────────────────────────────────
 
-_bus: EventBus | None = None
+app_context.caches.bus: EventBus | None = None
 _bus_lock = threading.Lock()
 
 
 def get_event_bus() -> EventBus:
     """Return the process-wide singleton EventBus."""
-    global _bus
-    if _bus is None:
+    if app_context.caches.bus is None:
         with _bus_lock:
-            if _bus is None:
-                _bus = EventBus()
-    return _bus
+            if app_context.caches.bus is None:
+                app_context.caches.bus = EventBus()
+    return app_context.caches.bus
 
 
 def list_families() -> list[str]:

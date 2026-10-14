@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
+from src.app_context import app_context
+
 
 
 @dataclass
@@ -441,13 +443,12 @@ class AcontextMemoryProvider(MemoryProvider):
 # Mirrors the channel_gateway ``get_gateway`` pattern: the app builds one
 # registry at startup and stashes it here so free functions (e.g. the streaming
 # agent loop) can fan session-end out without threading it through every call.
-_active_registry: MemoryProviderRegistry | None = None
+app_context.caches.active_registry: MemoryProviderRegistry | None = None
 
 
 def set_active_registry(registry: MemoryProviderRegistry | None) -> None:
-    global _active_registry
-    _active_registry = registry
+    app_context.caches.active_registry = registry
 
 
 def get_active_registry() -> MemoryProviderRegistry | None:
-    return _active_registry
+    return app_context.caches.active_registry

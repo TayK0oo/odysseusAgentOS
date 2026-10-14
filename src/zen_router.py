@@ -20,12 +20,14 @@ import time
 from pathlib import Path
 
 import httpx
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
 _ROUTING_CONFIG_PATH = Path(__file__).parent.parent / "model-routing.json"
-_routing_config: dict | None = None
-_routing_config_mtime: float = 0.0
+app_context.caches.routing_config: dict | None = None
+app_context.caches.routing_config_mtime: float = 0.0
 
 # Last-resort model id when a config tier omits `model_id`. Must be a CONFIRMED
 # catalog id (model-routing.json, tested on /zen/go/v1) — never a phantom like
@@ -40,17 +42,16 @@ _zen_fail_counts: dict[str, int] = {}
 
 def _load_routing_config() -> dict:
     """Charge model-routing.json, rechargé si modifié sur disque."""
-    global _routing_config, _routing_config_mtime
     try:
         mtime = _ROUTING_CONFIG_PATH.stat().st_mtime
-        if _routing_config is None or mtime > _routing_config_mtime:
+        if app_context.caches.routing_config is None or mtime > app_context.caches.routing_config_mtime:
             with open(_ROUTING_CONFIG_PATH, encoding="utf-8") as f:
-                _routing_config = json.load(f)
-            _routing_config_mtime = mtime
+                app_context.caches.routing_config = json.load(f)
+            app_context.caches.routing_config_mtime = mtime
     except Exception as e:
         logger.warning(f"[ZenRouter] Cannot load model-routing.json: {e}")
-        _routing_config = {}
-    return _routing_config or {}
+        app_context.caches.routing_config = {}
+    return app_context.caches.routing_config or {}
 
 
 def _resolve_zen_endpoint_row():

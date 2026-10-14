@@ -17,6 +17,8 @@ from typing import Any
 
 from src.orchestrator.phases import Phase
 from src.risk_classifier import RiskLevel
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -193,11 +195,10 @@ class ProgressiveDisclosure:
         }
 
 
-_disclosure: ProgressiveDisclosure | None = None
+app_context.caches.disclosure: ProgressiveDisclosure | None = None
 
 
 def get_progressive_disclosure() -> ProgressiveDisclosure:
-    global _disclosure
-    if _disclosure is None:
-        _disclosure = ProgressiveDisclosure()
-    return _disclosure
+    if app_context.caches.disclosure is None:
+        app_context.caches.disclosure = ProgressiveDisclosure()
+    return app_context.caches.disclosure
