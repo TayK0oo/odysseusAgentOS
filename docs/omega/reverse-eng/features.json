@@ -1,0 +1,1541 @@
+[
+  {
+    "id": "CTX-01",
+    "feature": "Context Engine enfichable : cycle de vie `ingest → assemble → compact → afterTurn` (+ `bootstrap`, `maintain`), flag `ownsCompaction`, projection `thread_bootstrap` + `epoch`",
+    "sources": [
+      "OpenClaw",
+      "OpenCode",
+      "Goose"
+    ],
+    "contract": "`trait ContextEngine { ingest/assemble/compact/afterTurn/maintain/dispose }` + `ContextEngineInfo.ownsCompaction` + allowlist `acceptedHostParams`",
+    "value": 3,
+    "difficulty": "L",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:136-223,695-713",
+      "RE-OC:302",
+      "RE-GC:488-493"
+    ]
+  },
+  {
+    "id": "CTX-02",
+    "feature": "Compaction en **décorateur de Provider** (rattrape `ContextLengthExceeded` et retente) + seuils doubles (0.8 relatif / 225k absolu) + suppression milieu→extérieur",
+    "sources": [
+      "Goose",
+      "Claude Code"
+    ],
+    "contract": "`trait CompactionModel`, `trait TokenEstimator`, `CompactingProvider`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:240-261,488-493",
+      "HL:190-194"
+    ]
+  },
+  {
+    "id": "CTX-03",
+    "feature": "Compaction **structurée** + rechargement ciblé (résumé structuré, ≤N fichiers relus, skills réinjectées ≤5000 tok, anti-thrash)",
+    "sources": [
+      "Claude Code",
+      "OpenCode"
+    ],
+    "contract": "résumé structuré (`Objective/Requirements/Work State/Next Move`), `SHRINK_STEPS`, `keep`/`buffer`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "RE-OC:134-141,306",
+      "HL:57"
+    ]
+  },
+  {
+    "id": "CTX-04",
+    "feature": "Prompt caching par préfixe : ≤4 breakpoints, ordre canonique `tools → system → messages`, TTL 5m/1h, affinité `parent/fork/self`",
+    "sources": [
+      "OpenCode",
+      "Claude Code"
+    ],
+    "contract": "`trait PromptCachePolicy { plan(request)->[Breakpoint]; affinity(session)->CacheKey }`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "RE-OC:243-246,307",
+      "HL:190-194"
+    ]
+  },
+  {
+    "id": "CTX-05",
+    "feature": "Télémétrie **prompt-cache typée** + codes de rupture (`historyRewrite/compaction/pruning/systemPrompt/tools/…`)",
+    "sources": [
+      "OpenClaw"
+    ],
+    "contract": "`ContextEnginePromptCacheInfo` + `ChangeCode`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:229-246,681"
+    ]
+  },
+  {
+    "id": "CTX-06",
+    "feature": "Découverte `AGENTS.md` remontante (racine par marqueurs, concat racine→cwd, override local, plafond octets, project trust)",
+    "sources": [
+      "Codex"
+    ],
+    "contract": "`DEFAULT_AGENTS_MD_FILENAME`, `AGENTS.override.md`, `find_nearest_ancestor_with_markers`",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:400-414,555-559"
+    ]
+  },
+  {
+    "id": "CTX-07",
+    "feature": "Budget de contexte **avant action** : `estimate → plafond → arrêt` (dépassement = arrêt, pas de dérive)",
+    "sources": [
+      "OpenCode",
+      "Goose",
+      "Hermes"
+    ],
+    "contract": "`trait ContextBudget { estimate(request)->tokens; compact(trigger,keep,buffer)->Outcome }`",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W6",
+    "status": "améliore",
+    "refs": [
+      "RE-OC:248-252",
+      "rules/RULES-OMEGA.md:58"
+    ]
+  },
+  {
+    "id": "CTX-08",
+    "feature": "Spill / résumé des sorties verbeuses + trim des vieux résultats d'outils (head/tail + chemin)",
+    "sources": [
+      "Goose",
+      "Hermes",
+      "OpenClaw",
+      "Claude Code"
+    ],
+    "contract": "`output_spill`, `tool_output.max_bytes`, trim du milieu",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "HL:267",
+      "RE-OH:44"
+    ]
+  },
+  {
+    "id": "CTX-09",
+    "feature": "Progressive disclosure des skills (3 niveaux : index → corps → `references/`/`templates/`)",
+    "sources": [
+      "Hermes",
+      "Claude Code",
+      "Codex",
+      "OpenCode"
+    ],
+    "contract": "`skills_list`/`skill_view`; descriptions ≤1536 car.",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:780-788",
+      "RE-OC:162-169",
+      "RE-GC:549-553"
+    ]
+  },
+  {
+    "id": "CTX-10",
+    "feature": "Tool search : 3 passerelles + **BM25 + stemming + rarest-token gate + coverage** + listing byte-stable budgeté",
+    "sources": [
+      "Hermes",
+      "Claude Code",
+      "OpenClaw",
+      "Codex"
+    ],
+    "contract": "outils `tool_search`/`tool_describe`/`tool_call`; `search_catalog()`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:430-508,766-778",
+      "RE-OC:153-160"
+    ]
+  },
+  {
+    "id": "CTX-11",
+    "feature": "Repo map / index structurel **déterministe** (tree-sitter + ranking de graphe, tronqué au budget)",
+    "sources": [
+      "Aider",
+      "Plandex"
+    ],
+    "contract": "`--map-tokens`; PageRank fichiers=noeuds",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "HL:91,265"
+    ]
+  },
+  {
+    "id": "CTX-12",
+    "feature": "Règles **path-scoped** chargées à l'usage (activation par glob sur le fichier touché)",
+    "sources": [
+      "Claude Code"
+    ],
+    "contract": "`.claude/rules/` + `paths:`",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "HL:271,55"
+    ]
+  },
+  {
+    "id": "CTX-13",
+    "feature": "Recherche code déterministe locale (Instant Grep / grep indexé, pas d'upload)",
+    "sources": [
+      "Cursor"
+    ],
+    "contract": "index local + regex/word-boundary",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "HL:23,74"
+    ]
+  },
+  {
+    "id": "PLG-01",
+    "feature": "Manifeste déclaratif schema-validé + **policy-par-code** (lu **sans exécuter** le code du plugin)",
+    "sources": [
+      "OpenClaw"
+    ],
+    "contract": "`openclaw.plugin.json {configSchema, activation, contracts}`, `definePluginEntry`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W2",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:725-735"
+    ]
+  },
+  {
+    "id": "PLG-02",
+    "feature": "**Slots** : une seule implémentation active par capacité exclusive (+ owner implicite, repli `legacy`)",
+    "sources": [
+      "OpenClaw"
+    ],
+    "contract": "`PluginSlotKey`, `resolveSlotSelection`, `applyExclusiveSlotSelection`",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W2",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:271-301,715-723"
+    ]
+  },
+  {
+    "id": "PLG-03",
+    "feature": "Registre de plugins multi-source (`builtin/package/local/sdk`) + capacités par surface + `update/check` + état `failed` non fatal",
+    "sources": [
+      "OpenCode"
+    ],
+    "contract": "`Source`/`Features`/`State`; `plugin.list/check/update`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W2",
+    "status": "reprend",
+    "refs": [
+      "RE-OC:46-66,303"
+    ]
+  },
+  {
+    "id": "PLG-04",
+    "feature": "Registre de **contributeurs typés par cycle de vie** (builder → registre immuable, défauts vides, chaîne de responsabilité)",
+    "sources": [
+      "Codex"
+    ],
+    "contract": "`ExtensionRegistryBuilder`/`ExtensionRegistry`; ~15 traits réduits à ~8-10",
+    "value": 3,
+    "difficulty": "L",
+    "workstream": "W2",
+    "status": "reprend/améliore",
+    "refs": [
+      "RE-GC:282-331,509-514"
+    ]
+  },
+  {
+    "id": "PLG-05",
+    "feature": "Registre runtime **à constructeurs** + `ProviderType`",
+    "sources": [
+      "Goose"
+    ],
+    "contract": "`ProviderConstructor = Arc<dyn Fn(..)->BoxFuture<Result<Arc<dyn Provider>>>>`",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W2",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:199-209"
+    ]
+  },
+  {
+    "id": "PLG-06",
+    "feature": "Registre **ordonné et déterministe** (IndexMap + priorité explicite) au lieu d'un `HashMap`",
+    "sources": [
+      "Goose (amélioré)"
+    ],
+    "contract": "ordre déterministe des contributeurs",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W2",
+    "status": "améliore",
+    "refs": [
+      "RE-GC:623"
+    ]
+  },
+  {
+    "id": "PLG-07",
+    "feature": "**Deux verbes d'extension** : `transform` (état rejouable) + `hook` (live) + `reload`",
+    "sources": [
+      "OpenCode"
+    ],
+    "contract": "`transform(domain, cb)` / `hook(domain, event, cb)` / `reload`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W2",
+    "status": "reprend",
+    "refs": [
+      "RE-OC:68-78"
+    ]
+  },
+  {
+    "id": "PLG-08",
+    "feature": "**Superposition par Scope** (dernière inscription gagne ; fermeture révèle la précédente)",
+    "sources": [
+      "OpenCode"
+    ],
+    "contract": "`Registration` + `Scope`; loi d'overlay",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W2",
+    "status": "reprend",
+    "refs": [
+      "RE-OC:82-87"
+    ]
+  },
+  {
+    "id": "PLG-09",
+    "feature": "Découverte **idempotente** (empreinte sha256 + cache d'échec d'import + watch)",
+    "sources": [
+      "OpenCode"
+    ],
+    "contract": "`createPluginSources(watch)`",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W2",
+    "status": "reprend",
+    "refs": [
+      "RE-OC:62"
+    ]
+  },
+  {
+    "id": "PLG-10",
+    "feature": "Surface d'enregistrement ~60 `register*` / 179 extensions",
+    "sources": [
+      "OpenClaw"
+    ],
+    "contract": "`plugin-api.types.ts` `register*`",
+    "value": 2,
+    "difficulty": "L",
+    "workstream": "W2",
+    "status": "écarte (coeur réduit ~8-10)",
+    "refs": [
+      "RE-OH:347-366,881"
+    ]
+  },
+  {
+    "id": "PLG-11",
+    "feature": "**Plugin override policy** (opt-in opérateur pour écraser un outil natif)",
+    "sources": [
+      "Hermes"
+    ],
+    "contract": "`_PluginOverridePolicy`, `allow_tool_override`",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W2",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:834-840"
+    ]
+  },
+  {
+    "id": "PLG-12",
+    "feature": "**Isolation d'échec** : un plugin peut `failed(cause)` sans arrêter le noyau ; quarantaine + repli déterministe",
+    "sources": [
+      "OpenClaw",
+      "OpenCode"
+    ],
+    "contract": "`State.failed(cause, ref)`; repli `legacy`",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W2",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:703",
+      "HL:158",
+      "RE-OC:286"
+    ]
+  },
+  {
+    "id": "PLG-13",
+    "feature": "Feature staging & cycle de vie (`UnderDevelopment → Experimental → Stable → Deprecated → Removed` + registre)",
+    "sources": [
+      "Codex"
+    ],
+    "contract": "`enum Stage`, `FEATURES`",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W2",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:591-595"
+    ]
+  },
+  {
+    "id": "PLG-14",
+    "feature": "Injection de dépendances **sans service locator** (par constructeur + `Option<Arc<dyn Trait>>`)",
+    "sources": [
+      "Goose",
+      "Codex"
+    ],
+    "contract": "`OmegaRegistry<T: Port>`, `PortContext`",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W2",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:445-453"
+    ]
+  },
+  {
+    "id": "PLG-15",
+    "feature": "Marketplace de plugins (catalogue + scopes + namespacing)",
+    "sources": [
+      "Claude Code"
+    ],
+    "contract": "`marketplace.json`; scopes `user/project/local`",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W2",
+    "status": "écarte/encadre (résolveur seul)",
+    "refs": [
+      "RE-OC:179-184,351"
+    ]
+  },
+  {
+    "id": "PLG-16",
+    "feature": "Distribution personnalisée (re-branding + preset providers/extensions sans fork)",
+    "sources": [
+      "Goose"
+    ],
+    "contract": "`config.yaml` + `goose serve` (ACP)",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W2",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:585-589"
+    ]
+  },
+  {
+    "id": "PLG-17",
+    "feature": "**Trust & provenance des plugins** + policy d'installation (allow/deny, quarantaine, manifeste signé)",
+    "sources": [
+      "OpenClaw",
+      "Claude Code",
+      "Codex"
+    ],
+    "contract": "`security.installPolicy`, `plugin.json`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W2",
+    "status": "améliore",
+    "refs": [
+      "HL:124,160",
+      "RE-OC:345"
+    ]
+  },
+  {
+    "id": "ENG-01",
+    "feature": "Boucle d'agent abstraite : étapes `Operation`/`Inference` **ordonnées** (ordre = priorité), effets différés, réparation post-annulation, meta par message",
+    "sources": [
+      "Goose"
+    ],
+    "contract": "`trait Operation`, `trait Inference`, `trait EffectHandler`, `Emitter`, `RunStatus`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:89-152,481-486,652-676"
+    ]
+  },
+  {
+    "id": "ENG-02",
+    "feature": "Port Provider (méthode primaire `stream`, `complete` par défaut, `manages_own_context`, `retry_config`, capacités)",
+    "sources": [
+      "Goose",
+      "Codex"
+    ],
+    "contract": "`trait Provider` / `trait ModelProvider`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:154-197,333-357"
+    ]
+  },
+  {
+    "id": "ENG-03",
+    "feature": "Tool executor & **exposure** (`spec`/`handle` séparés ; `Direct/Deferred/CodeModeOnly/Hidden` ; `search_info`)",
+    "sources": [
+      "Codex"
+    ],
+    "contract": "`trait ToolExecutor { tool_name, spec, exposure, search_info, handle }`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:333-359,567-571"
+    ]
+  },
+  {
+    "id": "ENG-04",
+    "feature": "Registre d'outils (`schema`, `check_fn`, timeouts, `dynamic_schema_overrides`, cap de taille de résultat)",
+    "sources": [
+      "Hermes"
+    ],
+    "contract": "`ToolEntry`, `ToolRegistry.get_definitions`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:510-537"
+    ]
+  },
+  {
+    "id": "ENG-05",
+    "feature": "Hooks typés de cycle de vie (sémantique **Gate/Modify/Observe/Claim** + budgets + matcher + décision structurée abortable)",
+    "sources": [
+      "OpenClaw",
+      "Claude Code",
+      "Codex",
+      "Goose"
+    ],
+    "contract": "`HookResult{FailedContinue,FailedAbort}`, `HookEvent`, `api.on`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:368-389,737-746",
+      "RE-GC:361-380,543-547"
+    ]
+  },
+  {
+    "id": "ENG-06",
+    "feature": "Hooks de sous-agents (`prepareSubagentSpawn` + `rollback`, `contextMode isolated/fork`, `onSubagentEnded`)",
+    "sources": [
+      "OpenClaw"
+    ],
+    "contract": "`prepareSubagentSpawn`, `onSubagentEnded`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:757-764"
+    ]
+  },
+  {
+    "id": "ENG-07",
+    "feature": "Config à couches + profils + `precedence()` **testable** + schéma JSON + `deny_unknown_fields`",
+    "sources": [
+      "Codex",
+      "OpenClaw",
+      "Goose"
+    ],
+    "contract": "`ConfigLayerSource::precedence`, `merge_toml_values`, `ConfigProfile`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:382-398,516-521",
+      "RE-OH:248-269"
+    ]
+  },
+  {
+    "id": "ENG-08",
+    "feature": "Erreurs de port **typées** (`thiserror` ; récupérable/fatale ; connues des décorateurs)",
+    "sources": [
+      "Goose",
+      "Codex"
+    ],
+    "contract": "`ProviderError::ContextLengthExceeded`, `CodexErr`, `map_api_error`",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:428-434"
+    ]
+  },
+  {
+    "id": "ENG-09",
+    "feature": "**Annulation coopérative** (`CancellationToken` propagé partout, jamais d'`abort` brutal)",
+    "sources": [
+      "Goose",
+      "Codex"
+    ],
+    "contract": "`OrCancelExt::or_cancel`, `Emitter.cancel_token`",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:436-443"
+    ]
+  },
+  {
+    "id": "ENG-10",
+    "feature": "Frontière **protocole source unique** + exports TS générés (`ts-rs`) + fixtures de schéma",
+    "sources": [
+      "Codex",
+      "Goose"
+    ],
+    "contract": "`protocol`/`app-server-protocol`; `export.rs`",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W3/W7",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:468-473,579-583"
+    ]
+  },
+  {
+    "id": "ENG-11",
+    "feature": "Extensions **MCP** (client, transports stdio/HTTP/builtin, cache tools versionné, préfixage `ext__tool`, `${VAR}`)",
+    "sources": [
+      "Goose"
+    ],
+    "contract": "`McpClientTrait`, `ExtensionManager`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:221-238,502-507"
+    ]
+  },
+  {
+    "id": "ENG-12",
+    "feature": "Interop **MCP serveur + ACP** (agents/harnais externes traités comme plugins)",
+    "sources": [
+      "landscape",
+      "Goose",
+      "OpenClaw"
+    ],
+    "contract": "serveur ACP; adaptateurs de harnais",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W3",
+    "status": "améliore",
+    "refs": [
+      "HL:152,127",
+      "RE-GC:280"
+    ]
+  },
+  {
+    "id": "ENG-13",
+    "feature": "Agents déclaratifs (frontmatter YAML + permissions + `mode subagent/primary`, découverte multi-source)",
+    "sources": [
+      "OpenCode",
+      "Claude Code"
+    ],
+    "contract": "`schema/agent.ts {id, model, permissions, mode}`",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-OC:92,304"
+    ]
+  },
+  {
+    "id": "ENG-14",
+    "feature": "Sous-agents **déclarés porteurs de leur config** (+ built-ins, profondeur limitée, foreground/background)",
+    "sources": [
+      "Codex",
+      "Claude Code",
+      "Hermes"
+    ],
+    "contract": "`agent-roles` TOML, `TaskConfig`, outil `subagent`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:561-565",
+      "RE-OC:107,171-177"
+    ]
+  },
+  {
+    "id": "ENG-15",
+    "feature": "Skills store moteur (découverte, catalogue, **sélection dynamique**, invocation implicite, alias/host-roots)",
+    "sources": [
+      "Codex",
+      "OpenCode"
+    ],
+    "contract": "`dynamic_skill_selector`, `detect_implicit_skill_invocation`",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:549-553"
+    ]
+  },
+  {
+    "id": "ENG-16",
+    "feature": "Plan/Act + agent de planification (mode read-only ; rappel de mode **ré-apposé près de la queue** pour préserver le cache)",
+    "sources": [
+      "OpenCode",
+      "Cline",
+      "Windsurf"
+    ],
+    "contract": "agent `plan` read-only; hook `session.context`",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "RE-OC:106",
+      "HL:208-212"
+    ]
+  },
+  {
+    "id": "ENG-17",
+    "feature": "Code Mode (le modèle appelle les outils via du **code sandboxé** ; schémas rendus en types)",
+    "sources": [
+      "OpenCode",
+      "smolagents"
+    ],
+    "contract": "`codemode/tool-schema.ts`, `MAX_RENDER_DEPTH=8`",
+    "value": 2,
+    "difficulty": "L",
+    "workstream": "W3",
+    "status": "écarte/diffère",
+    "refs": [
+      "RE-OC:122,314",
+      "RE-GC:633"
+    ]
+  },
+  {
+    "id": "ENG-18",
+    "feature": "Hooks **JS in-process** (« mods »)",
+    "sources": [
+      "Claude Code"
+    ],
+    "contract": "hooks JS embarqués",
+    "value": 1,
+    "difficulty": "L",
+    "workstream": "W3",
+    "status": "écarte (hors noyau Rust)",
+    "refs": [
+      "RE-OC:182,318,350"
+    ]
+  },
+  {
+    "id": "MEM-01",
+    "feature": "Mémoire **bornée** (caractères) + **snapshot gelé** au chargement (préserve le prefix-cache)",
+    "sources": [
+      "Hermes",
+      "Claude Code",
+      "Codex"
+    ],
+    "contract": "`MemoryStore.format_for_system_prompt` (snapshot figé ≠ état vivant)",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:539-575,790-797"
+    ]
+  },
+  {
+    "id": "MEM-02",
+    "feature": "Table mémoire **transactionnelle** (`add/replace/patch/remove/apply_batch` all-or-nothing + garde-fous drift/injection/patch ambigu)",
+    "sources": [
+      "Hermes"
+    ],
+    "contract": "`MemoryStore.{add,replace,patch,remove,apply_batch}`",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:539-575"
+    ]
+  },
+  {
+    "id": "MEM-03",
+    "feature": "Contrat mémoire enfichable + **autorisation/origine des hits**",
+    "sources": [
+      "OpenClaw"
+    ],
+    "contract": "`MemoryPluginRuntime.authorizeSearchHits`, `classifyWorkspaceMemoryPaths`",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:303-345"
+    ]
+  },
+  {
+    "id": "MEM-04",
+    "feature": "`session_search` **FTS5** (forme unique, 4 modes inférés, dédup lineage, démotion source, bornes ISO/relatives)",
+    "sources": [
+      "Hermes"
+    ],
+    "contract": "`session_search()`; schéma FTS5 + trigram",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:577-597,799-805"
+    ]
+  },
+  {
+    "id": "MEM-05",
+    "feature": "Memories locales **générées** (pipeline d'écriture 2 phases sandboxé, citations, budget)",
+    "sources": [
+      "Codex"
+    ],
+    "contract": "`memories/write/{phase1,phase2,guard}`",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:573-577"
+    ]
+  },
+  {
+    "id": "MEM-06",
+    "feature": "Boucle d'**auto-amélioration** (background review post-tour + curator d'inactivité ; archive **jamais** supprimer, skills pinned)",
+    "sources": [
+      "Hermes"
+    ],
+    "contract": "`prepare_background_review_run`, `maybe_run_curator`",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W6",
+    "status": "reprend (opt-in, budget plafonné)",
+    "refs": [
+      "RE-OH:644-666,825-832"
+    ]
+  },
+  {
+    "id": "MEM-07",
+    "feature": "Mémoire **cross-harness** partagée",
+    "sources": [
+      "gptme"
+    ],
+    "contract": "mémoire partagée inter-harnais",
+    "value": 1,
+    "difficulty": "M",
+    "workstream": "W6",
+    "status": "reprend",
+    "refs": [
+      "HL:33"
+    ]
+  },
+  {
+    "id": "RTR-01",
+    "feature": "Registre de capacités modèles (par **variante d'effort** : qualités par axe, coût, vitesse, TTFT, contexte, capacités, santé)",
+    "sources": [
+      "MODEL-ROUTING"
+    ],
+    "contract": "`ModelRecord`; `trait ModelRegistry { records(q); health(id) }`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "MRB:282-286,524-556"
+    ]
+  },
+  {
+    "id": "RTR-02",
+    "feature": "Providers **déclaratifs JSON** + `KeyResolver` injecté",
+    "sources": [
+      "Goose"
+    ],
+    "contract": "`include_dir!`, `expose_declarative_provider!`, `definitions/*.json`",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:211-219,495-500"
+    ]
+  },
+  {
+    "id": "RTR-03",
+    "feature": "Catalogue communautaire **rejouable** (config/auth comme transforms)",
+    "sources": [
+      "OpenCode"
+    ],
+    "contract": "catalog transforms",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "RE-OC:124,312"
+    ]
+  },
+  {
+    "id": "RTR-04",
+    "feature": "Sources catalogue en **adaptateurs** (OpenRouter, models.dev, Ollama, HF, `/v1/models`) → `ModelRecord`",
+    "sources": [
+      "MODEL-ROUTING"
+    ],
+    "contract": "`trait CatalogSource { fetch()->Vec<RawModel> }`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "MRB:295-311,383"
+    ]
+  },
+  {
+    "id": "RTR-05",
+    "feature": "**Classifieur de tâche déterministe** (T1..T14 ; regex + longueur + pièces ; **zéro LLM**)",
+    "sources": [
+      "MODEL-ROUTING"
+    ],
+    "contract": "`trait TaskClassifier { classify(req)->TaskType }`",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "MRB:231-260,385"
+    ]
+  },
+  {
+    "id": "RTR-06",
+    "feature": "Moteur de **scoring composite** multi-axes + profils de pondération par type de tâche",
+    "sources": [
+      "MODEL-ROUTING"
+    ],
+    "contract": "`trait ScoringPolicy { weights(t); score(t,m) }`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "MRB:156-192,384"
+    ]
+  },
+  {
+    "id": "RTR-07",
+    "feature": "Sélecteur + **filtres de capacités dures** + frontière de Pareto (qualité/prix) + tie-break coût/latence/self-host",
+    "sources": [
+      "MODEL-ROUTING"
+    ],
+    "contract": "`trait Selector { pick(t, candidates)->Decision }`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "MRB:194-203,387"
+    ]
+  },
+  {
+    "id": "RTR-08",
+    "feature": "Politique de **fallback** (même tier → tier sup. → self-hosted → file/backoff) + circuit breaker (half-open)",
+    "sources": [
+      "MODEL-ROUTING",
+      "OpenClaw",
+      "Hermes"
+    ],
+    "contract": "`trait FallbackPolicy { next(failed, state) }`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "MRB:360-368,388"
+    ]
+  },
+  {
+    "id": "RTR-09",
+    "feature": "Boucle de feedback **bandit** (UCB1/Thompson ; reward = qualité − λ·coût − μ·latence)",
+    "sources": [
+      "MODEL-ROUTING"
+    ],
+    "contract": "`trait FeedbackStore { record(ev); priors(m) }`",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "MRB:369-375,390"
+    ]
+  },
+  {
+    "id": "RTR-10",
+    "feature": "**Cache de décision** de routage (clé `hash(tâche, profil, version registre)` + invalidation sur changement de santé)",
+    "sources": [
+      "MODEL-ROUTING"
+    ],
+    "contract": "cache de décision",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "MRB:358"
+    ]
+  },
+  {
+    "id": "RTR-11",
+    "feature": "Scoring **communautaire multi-axes** daté et sourcé (AA, ECI, SWE-bench, Terminal-Bench, Aider, LiveBench, HF, LMArena)",
+    "sources": [
+      "MODEL-ROUTING"
+    ],
+    "contract": "benchmarks datés par source",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "MRB:24-93,397-489"
+    ]
+  },
+  {
+    "id": "RTR-12",
+    "feature": "**Garde budgétaire** (plafond par appel et par session ; refus/escalade contrôlée)",
+    "sources": [
+      "MODEL-ROUTING",
+      "RULES"
+    ],
+    "contract": "contrainte dure budget (best-score Pareto-compatible)",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "MRB:201-202",
+      "rules/RULES-OMEGA.md:58"
+    ]
+  },
+  {
+    "id": "RTR-13",
+    "feature": "**Changement de modèle en cours de tâche** sans markup",
+    "sources": [
+      "Kilo"
+    ],
+    "contract": "switch mid-task",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "HL:25,203"
+    ]
+  },
+  {
+    "id": "RTR-14",
+    "feature": "**Harness emulation** (profils de harnais par modèle : `claude-code/native/swe-agent/minimal`)",
+    "sources": [
+      "Open Interpreter"
+    ],
+    "contract": "`/harness` profils",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W4",
+    "status": "reprend",
+    "refs": [
+      "HL:48"
+    ]
+  },
+  {
+    "id": "OBS-01",
+    "feature": "**Event-bus** : événements **durables** vs **éphémères** + manifeste durable",
+    "sources": [
+      "OpenCode"
+    ],
+    "contract": "`durable()`/`ephemeral()`; `event-manifest`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W8",
+    "status": "reprend",
+    "refs": [
+      "RE-OC:123,315"
+    ]
+  },
+  {
+    "id": "OBS-02",
+    "feature": "**OpenTelemetry nommé** + cibles `log-only` vs `trace-safe` (contrôle PII) + gates de redaction fail-closed",
+    "sources": [
+      "Codex",
+      "Claude Code",
+      "Goose"
+    ],
+    "contract": "`otel/metrics/names.rs` (`codex.<domaine>.<objet>`), `OTEL_LOG_*`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W8",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:537-541,592",
+      "RE-OC:192-201,313"
+    ]
+  },
+  {
+    "id": "OBS-03",
+    "feature": "**Provenance native** (`[stated]/[observed]/[inferred]`) + source sur tout artefact/événement",
+    "sources": [
+      "RULES/Omega"
+    ],
+    "contract": "tag de provenance obligatoire",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W8",
+    "status": "améliore",
+    "refs": [
+      "rules/RULES-OMEGA.md:67-71"
+    ]
+  },
+  {
+    "id": "OBS-04",
+    "feature": "**Replay** d'une session depuis les traces (sans ré-exécuter les effets)",
+    "sources": [
+      "Omega vision"
+    ],
+    "contract": "journal append-only + replay déterministe",
+    "value": 3,
+    "difficulty": "L",
+    "workstream": "W8",
+    "status": "reprend/améliore",
+    "refs": [
+      "00-VISION-OMEGA.md:190"
+    ]
+  },
+  {
+    "id": "OBS-05",
+    "feature": "Traçabilité de la **décision de routage** (modèle, effort, provider, coût, latence, issue)",
+    "sources": [
+      "MODEL-ROUTING"
+    ],
+    "contract": "trace de décision",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W8",
+    "status": "reprend",
+    "refs": [
+      "MRB:377-379"
+    ]
+  },
+  {
+    "id": "OBS-06",
+    "feature": "**Métadonnées de message** notées par opération (`set_message_meta`) pour reconstruction déterministe",
+    "sources": [
+      "Goose"
+    ],
+    "contract": "`set_message_meta`/`message_meta`",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W8",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:152"
+    ]
+  },
+  {
+    "id": "OBS-07",
+    "feature": "**Provenance de la couche de config** (`layer_source` + version) exposée sur chaque décision",
+    "sources": [
+      "Codex (amélioré)"
+    ],
+    "contract": "`ConfigLayer {name, version, disabled_reason}`",
+    "value": 2,
+    "difficulty": "S",
+    "workstream": "W8",
+    "status": "améliore",
+    "refs": [
+      "RE-GC:386-389,625"
+    ]
+  },
+  {
+    "id": "SUB-01",
+    "feature": "**Sous-agents isolés parallèles** (contexte propre, seul un résumé remonte, profondeur limitée, foreground/background)",
+    "sources": [
+      "Claude Code",
+      "Codex",
+      "Hermes",
+      "Cursor"
+    ],
+    "contract": "`spawn/resume`; contexte isolé",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "HL:196-200",
+      "RE-OC:309"
+    ]
+  },
+  {
+    "id": "SUB-02",
+    "feature": "Isolation par **git worktree** du sous-agent (`isolation: worktree`)",
+    "sources": [
+      "Claude Code",
+      "Zed"
+    ],
+    "contract": "`isolation: worktree`",
+    "value": 3,
+    "difficulty": "L",
+    "workstream": "W9",
+    "status": "reprend",
+    "refs": [
+      "RE-OC:174,309",
+      "HL:216"
+    ]
+  },
+  {
+    "id": "SUB-03",
+    "feature": "**Équipe persistante** (coordinateur + spécialistes, état conservé entre sessions)",
+    "sources": [
+      "Cline"
+    ],
+    "contract": "`cline --team-name`",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W3",
+    "status": "reprend",
+    "refs": [
+      "HL:84"
+    ]
+  },
+  {
+    "id": "SUB-04",
+    "feature": "**Orchestration durable** + human-in-the-loop (journal append-only, replay déterministe, `interrupts`)",
+    "sources": [
+      "LangGraph",
+      "CrewAI"
+    ],
+    "contract": "durable execution; interrupts",
+    "value": 3,
+    "difficulty": "L",
+    "workstream": "W8",
+    "status": "reprend",
+    "refs": [
+      "HL:238-242"
+    ]
+  },
+  {
+    "id": "SBX-01",
+    "feature": "Port d'exécution **multi-backend** (local/docker/ssh/singularity/modal/daytona/vercel) + spawn-per-call + snapshot de session",
+    "sources": [
+      "Hermes"
+    ],
+    "contract": "`BaseEnvironment`; `TERMINAL_ENV`; backends plugin",
+    "value": 3,
+    "difficulty": "L",
+    "workstream": "W9",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:393-428,807-814"
+    ]
+  },
+  {
+    "id": "SBX-02",
+    "feature": "**Politique de sandbox typée** (read-only/workspace-write/danger-full-access/external, `writable_roots`, network, exclusions)",
+    "sources": [
+      "Codex"
+    ],
+    "contract": "`SandboxMode`/`SandboxPolicy`; `WritableRoot`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W9",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:523-528"
+    ]
+  },
+  {
+    "id": "SBX-03",
+    "feature": "Backends Linux (**Landlock+seccomp**, bubblewrap) + réécriture d'`argv`",
+    "sources": [
+      "Codex"
+    ],
+    "contract": "`SandboxManager::transform`",
+    "value": 3,
+    "difficulty": "L",
+    "workstream": "W9",
+    "status": "reprend (Linux-first)",
+    "refs": [
+      "RE-GC:524-528,632"
+    ]
+  },
+  {
+    "id": "SBX-04",
+    "feature": "**Approbations granulaires** (`UnlessTrusted/OnRequest/Granular/Never` + sous-types) + chaîne de décision",
+    "sources": [
+      "Codex"
+    ],
+    "contract": "`AskForApproval`, `ApprovalReviewContributor.decide`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W9",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:525,523-528"
+    ]
+  },
+  {
+    "id": "SBX-05",
+    "feature": "**Execpolicy** (DSL de règles préfixes/réseau `Allow/Prompt/Forbidden`, amendable)",
+    "sources": [
+      "Codex"
+    ],
+    "contract": "`PolicyParser`, `Policy::evaluate`, `Rule`",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W9",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:530-535"
+    ]
+  },
+  {
+    "id": "SBX-06",
+    "feature": "**Policy/permissions** `allow/ask/deny` (provider/tool/integration ; règles ordonnées)",
+    "sources": [
+      "OpenCode"
+    ],
+    "contract": "`Permission.Ruleset`, `Permission.evaluate`",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W9",
+    "status": "reprend",
+    "refs": [
+      "RE-OC:97-98,311"
+    ]
+  },
+  {
+    "id": "SBX-07",
+    "feature": "**Checkpoints / worktrees / rollback** (snapshot + revert nommé, aires protégées, `/rewind` vers préfixe caché)",
+    "sources": [
+      "Zed",
+      "Windsurf",
+      "Claude Code",
+      "Plandex",
+      "Cline"
+    ],
+    "contract": "checkpoints; sandbox de diff",
+    "value": 3,
+    "difficulty": "L",
+    "workstream": "W9",
+    "status": "reprend",
+    "refs": [
+      "RE-OC:316",
+      "HL:214-218"
+    ]
+  },
+  {
+    "id": "SBX-08",
+    "feature": "**Trust de projet / entrée non fiable** (policy par code ; projet non-trusté court-circuite la lecture)",
+    "sources": [
+      "Codex",
+      "Claude Code",
+      "OpenClaw"
+    ],
+    "contract": "project trust; `is_untrusted()`",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W9",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:414",
+      "HL:160"
+    ]
+  },
+  {
+    "id": "SBX-09",
+    "feature": "Sécurité **supply-chain** (pins exacts, veille worm, identité de plugin)",
+    "sources": [
+      "Hermes"
+    ],
+    "contract": "`pyproject` pins; plugin identity",
+    "value": 1,
+    "difficulty": "S",
+    "workstream": "W9",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:839"
+    ]
+  },
+  {
+    "id": "ECO-01",
+    "feature": "**Déterminisme au système** (parser/scoring/index/diff = scripts/outils, **jamais** un tour LLM)",
+    "sources": [
+      "Aider",
+      "Cursor",
+      "Hermes",
+      "OpenClaw"
+    ],
+    "contract": "règle d'architecture",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W10",
+    "status": "reprend",
+    "refs": [
+      "HL:164,266",
+      "rules/RULES-OMEGA.md:55-57"
+    ]
+  },
+  {
+    "id": "ECO-02",
+    "feature": "**Self-hosted first + souveraineté** (sujet bloqué → modèle self-hosted)",
+    "sources": [
+      "RULES/Omega",
+      "Hermes"
+    ],
+    "contract": "fallback self-hosted",
+    "value": 3,
+    "difficulty": "M",
+    "workstream": "W10",
+    "status": "reprend",
+    "refs": [
+      "00-VISION-OMEGA.md:194-199",
+      "rules/RULES-OMEGA.md:61-63"
+    ]
+  },
+  {
+    "id": "ECO-03",
+    "feature": "**Comptabilité de coût** (tokens par type, cache read/write, coût par run, plafond)",
+    "sources": [
+      "Codex",
+      "Claude Code"
+    ],
+    "contract": "`codex.turn.cost_microusd`, `cache_read_tokens`",
+    "value": 3,
+    "difficulty": "S",
+    "workstream": "W10",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:537-541",
+      "RE-OC:197"
+    ]
+  },
+  {
+    "id": "ECO-04",
+    "feature": "**Cron + scheduler sans démon** + job schema (champs *authored* vs état scheduler)",
+    "sources": [
+      "Hermes",
+      "Goose",
+      "Cline"
+    ],
+    "contract": "`SchedulerTrait`, `JOB_DEFINITION_FIELDS`",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W10",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:599-615,816-823"
+    ]
+  },
+  {
+    "id": "ECO-05",
+    "feature": "**Gateway messagerie** + registre de plateformes (path plugin, zéro modification du core)",
+    "sources": [
+      "Hermes",
+      "OpenClaw"
+    ],
+    "contract": "`PlatformRegistry.register/create_adapter`",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W10",
+    "status": "reprend",
+    "refs": [
+      "RE-OH:617-642"
+    ]
+  },
+  {
+    "id": "ECO-06",
+    "feature": "**Automations déclenchées** (schedule + webhooks/événements, sessions distantes)",
+    "sources": [
+      "OpenHands",
+      "Cline",
+      "Claude Code"
+    ],
+    "contract": "automations trigger",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W10",
+    "status": "reprend",
+    "refs": [
+      "HL:244-248"
+    ]
+  },
+  {
+    "id": "UI-01",
+    "feature": "**UI interchangeable** par protocole (TUI/desktop/web + serveur ACP/client)",
+    "sources": [
+      "Goose",
+      "OpenCode",
+      "OpenHands",
+      "Zed"
+    ],
+    "contract": "`goose serve` (ACP); SDK/client",
+    "value": 2,
+    "difficulty": "M",
+    "workstream": "W7",
+    "status": "reprend",
+    "refs": [
+      "RE-GC:585-589",
+      "HL:111,136"
+    ]
+  }
+]
