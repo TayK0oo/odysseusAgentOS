@@ -8,16 +8,17 @@ notifications, and results in the assistant's unified activity feed.
 
 import logging
 import re
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
 # Session manager reference — set by app.py after initialization
-_session_manager = None
+app_context.caches.session_manager = None
 
 
 def set_session_manager(sm):
-    global _session_manager
-    _session_manager = sm
+    app_context.caches.session_manager = sm
 
 
 # Pattern callers use to embed a category in the content (legacy):

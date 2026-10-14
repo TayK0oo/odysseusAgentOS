@@ -12,6 +12,8 @@ import os
 import re
 from dataclasses import dataclass, field
 from typing import Any
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -200,11 +202,10 @@ class AgentSealRunner:
         }
 
 
-_agentseal_instance: AgentSealRunner | None = None
+app_context.caches.agentseal_instance: AgentSealRunner | None = None
 
 
 def get_agentseal() -> AgentSealRunner:
-    global _agentseal_instance
-    if _agentseal_instance is None:
-        _agentseal_instance = AgentSealRunner()
-    return _agentseal_instance
+    if app_context.caches.agentseal_instance is None:
+        app_context.caches.agentseal_instance = AgentSealRunner()
+    return app_context.caches.agentseal_instance

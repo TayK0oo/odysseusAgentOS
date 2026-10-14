@@ -12,6 +12,8 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -287,19 +289,17 @@ class ToolDiscovery:
 # SINGLETONS
 # ═══════════════════════════════════════════════════════════════════════════
 
-_guard: ContentSecurityGuard | None = None
-_discovery: ToolDiscovery | None = None
+app_context.caches.guard: ContentSecurityGuard | None = None
+app_context.caches.discovery: ToolDiscovery | None = None
 
 
 def get_content_security() -> ContentSecurityGuard:
-    global _guard
-    if _guard is None:
-        _guard = ContentSecurityGuard()
-    return _guard
+    if app_context.caches.guard is None:
+        app_context.caches.guard = ContentSecurityGuard()
+    return app_context.caches.guard
 
 
 def get_tool_discovery() -> ToolDiscovery:
-    global _discovery
-    if _discovery is None:
-        _discovery = ToolDiscovery()
-    return _discovery
+    if app_context.caches.discovery is None:
+        app_context.caches.discovery = ToolDiscovery()
+    return app_context.caches.discovery

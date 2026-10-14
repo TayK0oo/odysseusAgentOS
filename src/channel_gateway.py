@@ -15,6 +15,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -178,11 +180,10 @@ class ChannelGateway:
 
 
 # Singleton
-_gateway_instance: ChannelGateway | None = None
+app_context.caches.gateway_instance: ChannelGateway | None = None
 
 
 def get_gateway() -> ChannelGateway:
-    global _gateway_instance
-    if _gateway_instance is None:
-        _gateway_instance = ChannelGateway()
-    return _gateway_instance
+    if app_context.caches.gateway_instance is None:
+        app_context.caches.gateway_instance = ChannelGateway()
+    return app_context.caches.gateway_instance

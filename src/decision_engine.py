@@ -26,6 +26,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.constants import DATA_DIR
 from src.opencode_engine import get_event_bus
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -503,7 +505,7 @@ class DecisionEngine:
     def __init__(self) -> None:
         self._workflows: dict[str, WorkflowDefinition] = {}
         self._running = False
-        self._bus = get_event_bus()
+        self.app_context.caches.bus = get_event_bus()
         self._scheduler: AsyncIOScheduler | None = None
         self._cron_jobs: dict[str, str] = {}
         self._webhook_router: Any | None = None
@@ -640,7 +642,7 @@ class DecisionEngine:
     async def _register_trigger(self, wf: WorkflowDefinition, trigger: WorkflowTrigger) -> None:
         tt = trigger.type
         if tt == TriggerType.EVENT.value and trigger.pattern:
-            self._bus.on(trigger.pattern, _event_handler(self, wf.name, trigger))
+            self.app_context.caches.bus.on(trigger.pattern, _event_handler(self, wf.name, trigger))
             logger.debug("WF %r: event on %r", wf.name, trigger.pattern)
         elif tt == TriggerType.CRON.value and trigger.cron and self._scheduler:
             jid = f"wf_cron_{wf.name}"
@@ -657,7 +659,7 @@ class DecisionEngine:
             await self._register_webhook(wf, trigger)
         elif tt == TriggerType.HEALTH_CHANGE.value and trigger.health_service:
             pat = f"health.{trigger.health_service}.{trigger.health_direction or 'both'}"
-            self._bus.on(pat, _event_handler(self, wf.name, trigger))
+            self.app_context.caches.bus.on(pat, _event_handler(self, wf.name, trigger))
             logger.debug("WF %r: health on %r", wf.name, pat)
 
     async def _register_webhook(self, wf: WorkflowDefinition, trigger: WorkflowTrigger) -> None:
@@ -743,11 +745,10 @@ def _cron_job(engine: DecisionEngine, workflow_name: str, trigger: WorkflowTrigg
 
 
 # ── Singleton ───────────────────────────────────────────────────────────────
-_decision_engine: DecisionEngine | None = None
+app_context.caches.decision_engine: DecisionEngine | None = None
 
 
 def get_decision_engine() -> DecisionEngine:
-    global _decision_engine
-    if _decision_engine is None:
-        _decision_engine = DecisionEngine()
-    return _decision_engine
+    if app_context.caches.decision_engine is None:
+        app_context.caches.decision_engine = DecisionEngine()
+    return app_context.caches.decision_engine

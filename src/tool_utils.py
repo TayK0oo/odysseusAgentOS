@@ -7,8 +7,10 @@ will reintroduce the circular dependency that this module exists to break.
 import json
 
 from src.constants import MAX_OUTPUT_CHARS
+from src.app_context import app_context
 
-_mcp_manager = None
+
+app_context.caches.mcp_manager = None
 
 # ---------------------------------------------------------------------------
 # MCP Manager singleton
@@ -17,13 +19,12 @@ _mcp_manager = None
 
 def set_mcp_manager(manager):
     """Set the global MCP manager instance."""
-    global _mcp_manager
-    _mcp_manager = manager
+    app_context.caches.mcp_manager = manager
 
 
 def get_mcp_manager():
     """Get the global MCP manager instance."""
-    return _mcp_manager
+    return app_context.caches.mcp_manager
 
 
 # ---------------------------------------------------------------------------

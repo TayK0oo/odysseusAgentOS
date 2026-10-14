@@ -6,12 +6,14 @@ These handle the actual execution logic for each tool type.
 """
 
 import logging
+from src.app_context import app_context
 
 # System-domain tools were extracted to src/tools/system.py (slice 1,
 # #4082/#4071); the admin manage_* tools live in src/agent_tools/admin_tools
 # after the upstream registry migration (#3629). Re-imported here so this
 # module stays a working facade.
 from src.tools.system import (  # noqa: F401
+
     _APP_API_BLOCKLIST_METHOD_PATH,
     _APP_API_BLOCKLIST_PREFIXES,
     _skill_dump,
@@ -120,7 +122,7 @@ logger = logging.getLogger(__name__)
 # When the user has an email reader window open, the frontend tells the
 # backend about it on each chat submit. Email tools can resolve "this email"
 # without guessing a UID. Cleared between requests by chat_routes.
-_active_email_ref: dict[str, str] | None = None
+app_context.caches.active_email_ref: dict[str, str] | None = None
 
 
 def set_active_email(
@@ -131,11 +133,10 @@ def set_active_email(
     sender: str | None = None,
 ) -> None:
     """Stash the email currently open in the UI. None clears it."""
-    global _active_email_ref
     if not uid:
-        _active_email_ref = None
+        app_context.caches.active_email_ref = None
         return
-    _active_email_ref = {
+    app_context.caches.active_email_ref = {
         "uid": str(uid),
         "folder": str(folder or "INBOX"),
         "account": str(account or ""),
@@ -145,9 +146,8 @@ def set_active_email(
 
 
 def get_active_email() -> dict[str, str] | None:
-    return _active_email_ref
+    return app_context.caches.active_email_ref
 
 
 def clear_active_email() -> None:
-    global _active_email_ref
-    _active_email_ref = None
+    app_context.caches.active_email_ref = None

@@ -5,6 +5,8 @@ Sources : BudgetEnforcer (budgets), CodeBurn (one-shot rate, waste), traces JSON
 
 import logging
 from enum import Enum
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -44,21 +46,20 @@ class DriftLevel(Enum):
 # Persistent inter-run state — shared across Observer instances so drift
 # accumulates over multiple runs instead of resetting each time.
 _MAX_REPORTS = 100  # cap to bound memory
-_persistent_reports: list[dict] = []
-_persistent_harness_touched: bool = False
+app_context.caches.persistent_reports: list[dict] = []
+app_context.caches.persistent_harness_touched: bool = False
 
 
 def reset_observer_state() -> None:
     """Reset persistent state — used in tests to avoid cross-test contamination."""
-    global _persistent_reports, _persistent_harness_touched
-    _persistent_reports = []
-    _persistent_harness_touched = False
+    app_context.caches.persistent_reports = []
+    app_context.caches.persistent_harness_touched = False
 
 
 class Observer:
     """Agrège les signaux et calcule le drift score global.
 
-    Uses module-level persistent state (_persistent_reports, _persistent_harness_touched)
+    Uses module-level persistent state (app_context.caches.persistent_reports, app_context.caches.persistent_harness_touched)
     so that drift accumulates across runs — a harness touch in run N is visible in run N+1.
     """
 
@@ -67,26 +68,24 @@ class Observer:
 
     @property
     def _codeburn_reports(self) -> list[dict]:
-        return _persistent_reports
+        return app_context.caches.persistent_reports
 
     @property
     def _harness_touched(self) -> bool:
-        return _persistent_harness_touched
+        return app_context.caches.persistent_harness_touched
 
     @_harness_touched.setter
     def _harness_touched(self, value: bool) -> None:
-        global _persistent_harness_touched
-        _persistent_harness_touched = value
+        app_context.caches.persistent_harness_touched = value
 
     def record_codeburn_report(self, report: dict) -> None:
         """Ingère un rapport CodeBurn (one_shot_rate, waste_patterns, cost_vs_commits)."""
-        global _persistent_reports
         if not isinstance(report, dict):
             logger.warning("Observer.record_codeburn_report: expected dict, got %s", type(report))
             return
-        _persistent_reports.append(report)
-        if len(_persistent_reports) > _MAX_REPORTS:
-            _persistent_reports = _persistent_reports[-_MAX_REPORTS:]  # cap
+        app_context.caches.persistent_reports.append(report)
+        if len(app_context.caches.persistent_reports) > _MAX_REPORTS:
+            app_context.caches.persistent_reports = app_context.caches.persistent_reports[-_MAX_REPORTS:]  # cap
 
         # Check if harness files were touched
         touched_files: list[str] = report.get("touched_files", [])

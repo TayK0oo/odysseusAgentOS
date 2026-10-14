@@ -2,6 +2,7 @@
 
 import importlib.util
 import os
+import pytest
 import sys
 import types
 from unittest.mock import MagicMock
@@ -104,7 +105,7 @@ def pytest_collection_modifyitems(config, items):
     reorder, or deselect tests, mutate fixtures or the environment, or import any
     production module. See ``tests/_taxonomy.py`` for the classification rules.
     """
-    import pytest
+    
 
     from tests._taxonomy import markers_for_path
 
@@ -112,3 +113,14 @@ def pytest_collection_modifyitems(config, items):
         path = getattr(item, "path", None) or item.fspath
         for marker_name in markers_for_path(path):
             item.add_marker(getattr(pytest.mark, marker_name))
+
+
+# Reset AppContext singleton before each test to ensure isolation.
+# AppContext is a singleton that holds global state (caches, guards, etc.).
+# Without reset, state leaks between tests causing flaky failures.
+@pytest.fixture(autouse=True)
+def _reset_appcontext():
+    from src.app_context import AppContext
+    AppContext._reset_for_tests()
+    yield
+    AppContext._reset_for_tests()

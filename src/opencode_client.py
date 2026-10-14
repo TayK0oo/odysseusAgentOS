@@ -18,6 +18,8 @@ from enum import Enum
 from typing import Any
 
 import httpx
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +66,7 @@ class OpenCodeDaemonClient:
         self.timeout = timeout
         pw = password or DAEMON_PASSWORD
         self._auth_encoded = base64.b64encode(f"opencode:{pw}".encode()).decode()
-        self._client = httpx.AsyncClient(
+        self.app_context.caches.chroma_client = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout),
             headers=self._headers(),
         )
@@ -76,7 +78,7 @@ class OpenCodeDaemonClient:
         }
 
     async def close(self):
-        await self._client.aclose()
+        await self.app_context.caches.chroma_client.aclose()
 
     # ====================================================================
     # Health & Status
@@ -85,7 +87,7 @@ class OpenCodeDaemonClient:
     async def health(self) -> dict:
         """GET /api/health — état du daemon."""
         try:
-            r = await self._client.get(f"{self.base_url}/api/health")
+            r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/health")
             return r.json() if r.status_code == 200 else {"status": "error", "code": r.status_code}
         except httpx.ConnectError:
             return {"status": "unreachable", "host": self.base_url}
@@ -93,7 +95,7 @@ class OpenCodeDaemonClient:
     async def ping(self) -> bool:
         """Vérification rapide : le daemon répond-il ?"""
         try:
-            r = await self._client.get(f"{self.base_url}/api/health", timeout=5.0)
+            r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/health", timeout=5.0)
             return r.status_code == 200
         except Exception:
             return False
@@ -104,19 +106,19 @@ class OpenCodeDaemonClient:
 
     async def list_providers(self) -> dict:
         """GET /api/provider — tous les providers configurés."""
-        r = await self._client.get(f"{self.base_url}/api/provider")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/provider")
         r.raise_for_status()
         return r.json()
 
     async def get_provider(self, provider_id: str) -> dict:
         """GET /api/provider/{providerID} — détail d'un provider."""
-        r = await self._client.get(f"{self.base_url}/api/provider/{provider_id}")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/provider/{provider_id}")
         r.raise_for_status()
         return r.json()
 
     async def list_models(self) -> dict:
         """GET /api/model — tous les modèles disponibles."""
-        r = await self._client.get(f"{self.base_url}/api/model")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/model")
         r.raise_for_status()
         return r.json()
 
@@ -143,42 +145,42 @@ class OpenCodeDaemonClient:
         if session_id:
             payload["sessionId"] = session_id
 
-        r = await self._client.post(f"{self.base_url}/api/session", json=payload)
+        r = await self.app_context.caches.chroma_client.post(f"{self.base_url}/api/session", json=payload)
         r.raise_for_status()
         return r.json()
 
     async def get_session(self, session_id: str) -> dict:
         """GET /api/session/{sessionID} — récupère une session."""
-        r = await self._client.get(f"{self.base_url}/api/session/{session_id}")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/session/{session_id}")
         r.raise_for_status()
         return r.json()
 
     async def list_sessions(self) -> dict:
         """GET /api/session — toutes les sessions (data + cursor)."""
-        r = await self._client.get(f"{self.base_url}/api/session")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/session")
         r.raise_for_status()
         return r.json()
 
     async def delete_session(self, session_id: str) -> bool:
         """DELETE /api/session/{sessionID} — supprime une session."""
-        r = await self._client.delete(f"{self.base_url}/api/session/{session_id}")
+        r = await self.app_context.caches.chroma_client.delete(f"{self.base_url}/api/session/{session_id}")
         return r.status_code in (200, 204)
 
     async def get_active_sessions(self) -> dict:
         """GET /api/session/active — sessions actives."""
-        r = await self._client.get(f"{self.base_url}/api/session/active")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/session/active")
         r.raise_for_status()
         return r.json()
 
     async def get_session_history(self, session_id: str) -> dict:
         """GET /api/session/{sessionID}/history — historique complet."""
-        r = await self._client.get(f"{self.base_url}/api/session/{session_id}/history")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/session/{session_id}/history")
         r.raise_for_status()
         return r.json()
 
     async def get_session_messages(self, session_id: str) -> dict:
         """GET /api/session/{sessionID}/message — messages de la session."""
-        r = await self._client.get(f"{self.base_url}/api/session/{session_id}/message")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/session/{session_id}/message")
         r.raise_for_status()
         return r.json()
 
@@ -209,7 +211,7 @@ class OpenCodeDaemonClient:
         import asyncio as _asyncio
 
         # 1. Admission du prompt
-        admit = await self._client.post(
+        admit = await self.app_context.caches.chroma_client.post(
             f"{self.base_url}/api/session/{session_id}/prompt",
             json={"prompt": {"text": message}},
         )
@@ -222,7 +224,7 @@ class OpenCodeDaemonClient:
         last_count = 0
         while _asyncio.get_event_loop().time() < deadline:
             await _asyncio.sleep(0.3)
-            msgs_resp = await self._client.get(
+            msgs_resp = await self.app_context.caches.chroma_client.get(
                 f"{self.base_url}/api/session/{session_id}/message",
             )
             if msgs_resp.status_code != 200:
@@ -244,19 +246,19 @@ class OpenCodeDaemonClient:
 
     async def compact_session(self, session_id: str) -> dict:
         """POST /api/session/{sessionID}/compact — compacte l'historique."""
-        r = await self._client.post(f"{self.base_url}/api/session/{session_id}/compact")
+        r = await self.app_context.caches.chroma_client.post(f"{self.base_url}/api/session/{session_id}/compact")
         r.raise_for_status()
         return r.json()
 
     async def interrupt_session(self, session_id: str) -> dict:
         """POST /api/session/{sessionID}/interrupt — interrompt la session."""
-        r = await self._client.post(f"{self.base_url}/api/session/{session_id}/interrupt")
+        r = await self.app_context.caches.chroma_client.post(f"{self.base_url}/api/session/{session_id}/interrupt")
         r.raise_for_status()
         return r.json()
 
     async def wait_session(self, session_id: str) -> dict:
         """POST /api/session/{sessionID}/wait — attend la fin de l'exec."""
-        r = await self._client.post(f"{self.base_url}/api/session/{session_id}/wait")
+        r = await self.app_context.caches.chroma_client.post(f"{self.base_url}/api/session/{session_id}/wait")
         r.raise_for_status()
         return r.json()
 
@@ -266,7 +268,7 @@ class OpenCodeDaemonClient:
 
     async def get_session_context(self, session_id: str) -> dict:
         """GET /api/session/{sessionID}/context — contexte de session."""
-        r = await self._client.get(f"{self.base_url}/api/session/{session_id}/context")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/session/{session_id}/context")
         r.raise_for_status()
         return r.json()
 
@@ -276,7 +278,7 @@ class OpenCodeDaemonClient:
 
     async def set_session_model(self, session_id: str, model: str) -> dict:
         """POST /api/session/{sessionID}/model — change le modèle."""
-        r = await self._client.post(
+        r = await self.app_context.caches.chroma_client.post(
             f"{self.base_url}/api/session/{session_id}/model",
             json={"model": model},
         )
@@ -289,19 +291,19 @@ class OpenCodeDaemonClient:
 
     async def revert_stage(self, session_id: str) -> dict:
         """POST /api/session/{sessionID}/revert/stage — stage revert."""
-        r = await self._client.post(f"{self.base_url}/api/session/{session_id}/revert/stage")
+        r = await self.app_context.caches.chroma_client.post(f"{self.base_url}/api/session/{session_id}/revert/stage")
         r.raise_for_status()
         return r.json()
 
     async def revert_clear(self, session_id: str) -> dict:
         """POST /api/session/{sessionID}/revert/clear — clear revert."""
-        r = await self._client.post(f"{self.base_url}/api/session/{session_id}/revert/clear")
+        r = await self.app_context.caches.chroma_client.post(f"{self.base_url}/api/session/{session_id}/revert/clear")
         r.raise_for_status()
         return r.json()
 
     async def revert_commit(self, session_id: str) -> dict:
         """POST /api/session/{sessionID}/revert/commit — commit revert."""
-        r = await self._client.post(f"{self.base_url}/api/session/{session_id}/revert/commit")
+        r = await self.app_context.caches.chroma_client.post(f"{self.base_url}/api/session/{session_id}/revert/commit")
         r.raise_for_status()
         return r.json()
 
@@ -311,7 +313,7 @@ class OpenCodeDaemonClient:
 
     async def session_event_stream(self, session_id: str) -> AsyncGenerator[str, None]:
         """GET /api/session/{sessionID}/event — flux SSE d'événements session."""
-        async with self._client.stream(
+        async with self.app_context.caches.chroma_client.stream(
             "GET",
             f"{self.base_url}/api/session/{session_id}/event",
         ) as response:
@@ -326,13 +328,13 @@ class OpenCodeDaemonClient:
 
     async def list_agents(self) -> dict:
         """GET /api/agent — tous les agents disponibles."""
-        r = await self._client.get(f"{self.base_url}/api/agent")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/agent")
         r.raise_for_status()
         return r.json()
 
     async def set_session_agent(self, session_id: str, agent_id: str) -> dict:
         """POST /api/session/{sessionID}/agent — change l'agent de session."""
-        r = await self._client.post(
+        r = await self.app_context.caches.chroma_client.post(
             f"{self.base_url}/api/session/{session_id}/agent",
             json={"agentId": agent_id},
         )
@@ -345,25 +347,25 @@ class OpenCodeDaemonClient:
 
     async def list_permissions(self) -> dict:
         """GET /api/permission/request — permissions en attente."""
-        r = await self._client.get(f"{self.base_url}/api/permission/request")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/permission/request")
         r.raise_for_status()
         return r.json()
 
     async def list_saved_permissions(self) -> dict:
         """GET /api/permission/saved — permissions sauvegardées."""
-        r = await self._client.get(f"{self.base_url}/api/permission/saved")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/permission/saved")
         r.raise_for_status()
         return r.json()
 
     async def session_permissions(self, session_id: str) -> dict:
         """GET /api/session/{sessionID}/permission — permissions session."""
-        r = await self._client.get(f"{self.base_url}/api/session/{session_id}/permission")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/session/{session_id}/permission")
         r.raise_for_status()
         return r.json()
 
     async def reply_permission(self, session_id: str, request_id: str, allow: bool) -> dict:
         """POST /api/session/{sessionID}/permission/{requestID}/reply."""
-        r = await self._client.post(
+        r = await self.app_context.caches.chroma_client.post(
             f"{self.base_url}/api/session/{session_id}/permission/{request_id}/reply",
             json={"allow": allow},
         )
@@ -376,13 +378,13 @@ class OpenCodeDaemonClient:
 
     async def session_questions(self, session_id: str) -> dict:
         """GET /api/session/{sessionID}/question — questions en attente."""
-        r = await self._client.get(f"{self.base_url}/api/session/{session_id}/question")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/session/{session_id}/question")
         r.raise_for_status()
         return r.json()
 
     async def reply_question(self, session_id: str, request_id: str, answers: list[list[str]]) -> dict:
         """POST /api/session/{sessionID}/question/{requestID}/reply."""
-        r = await self._client.post(
+        r = await self.app_context.caches.chroma_client.post(
             f"{self.base_url}/api/session/{session_id}/question/{request_id}/reply",
             json={"answers": answers},
         )
@@ -391,7 +393,7 @@ class OpenCodeDaemonClient:
 
     async def reject_question(self, session_id: str, request_id: str) -> dict:
         """POST /api/session/{sessionID}/question/{requestID}/reject."""
-        r = await self._client.post(f"{self.base_url}/api/session/{session_id}/question/{request_id}/reject")
+        r = await self.app_context.caches.chroma_client.post(f"{self.base_url}/api/session/{session_id}/question/{request_id}/reject")
         r.raise_for_status()
         return r.json()
 
@@ -401,7 +403,7 @@ class OpenCodeDaemonClient:
 
     async def fs_list(self, path: str) -> dict:
         """GET /api/fs/list — liste un répertoire."""
-        r = await self._client.get(f"{self.base_url}/api/fs/list", params={"path": path})
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/fs/list", params={"path": path})
         r.raise_for_status()
         return r.json()
 
@@ -410,13 +412,13 @@ class OpenCodeDaemonClient:
         params: dict[str, str] = {"pattern": pattern}
         if path:
             params["path"] = path
-        r = await self._client.get(f"{self.base_url}/api/fs/find", params=params)
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/fs/find", params=params)
         r.raise_for_status()
         return r.json()
 
     async def fs_read(self, path: str) -> str:
         """GET /api/fs/read/{path} — lit un fichier."""
-        r = await self._client.get(f"{self.base_url}/api/fs/read/{path.lstrip('/')}")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/fs/read/{path.lstrip('/')}")
         r.raise_for_status()
         return r.text
 
@@ -426,7 +428,7 @@ class OpenCodeDaemonClient:
 
     async def list_commands(self) -> dict:
         """GET /api/command — commandes disponibles."""
-        r = await self._client.get(f"{self.base_url}/api/command")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/command")
         r.raise_for_status()
         return r.json()
 
@@ -436,7 +438,7 @@ class OpenCodeDaemonClient:
 
     async def list_skills(self) -> dict:
         """GET /api/skill — skills disponibles."""
-        r = await self._client.get(f"{self.base_url}/api/skill")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/skill")
         r.raise_for_status()
         return r.json()
 
@@ -446,13 +448,13 @@ class OpenCodeDaemonClient:
 
     async def list_integrations(self) -> dict:
         """GET /api/integration — intégrations disponibles."""
-        r = await self._client.get(f"{self.base_url}/api/integration")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/integration")
         r.raise_for_status()
         return r.json()
 
     async def get_integration(self, integration_id: str) -> dict:
         """GET /api/integration/{integrationID} — détail intégration."""
-        r = await self._client.get(f"{self.base_url}/api/integration/{integration_id}")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/integration/{integration_id}")
         r.raise_for_status()
         return r.json()
 
@@ -462,7 +464,7 @@ class OpenCodeDaemonClient:
 
     async def get_credential(self, credential_id: str) -> dict:
         """GET /api/credential/{credentialID} — credential."""
-        r = await self._client.get(f"{self.base_url}/api/credential/{credential_id}")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/credential/{credential_id}")
         r.raise_for_status()
         return r.json()
 
@@ -472,7 +474,7 @@ class OpenCodeDaemonClient:
 
     async def list_references(self) -> dict:
         """GET /api/reference — références du projet."""
-        r = await self._client.get(f"{self.base_url}/api/reference")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/reference")
         r.raise_for_status()
         return r.json()
 
@@ -482,7 +484,7 @@ class OpenCodeDaemonClient:
 
     async def get_location(self) -> dict:
         """GET /api/location — localisation courante."""
-        r = await self._client.get(f"{self.base_url}/api/location")
+        r = await self.app_context.caches.chroma_client.get(f"{self.base_url}/api/location")
         r.raise_for_status()
         return r.json()
 
@@ -492,7 +494,7 @@ class OpenCodeDaemonClient:
 
     async def event_stream(self) -> AsyncGenerator[str, None]:
         """GET /api/event — flux SSE d'événements globaux du daemon."""
-        async with self._client.stream(
+        async with self.app_context.caches.chroma_client.stream(
             "GET",
             f"{self.base_url}/api/event",
         ) as response:
@@ -533,20 +535,18 @@ class OpenCodeDaemonClient:
 # ============================================================================
 # Instance globale (singleton)
 # ============================================================================
-_daemon_client: OpenCodeDaemonClient | None = None
+app_context.caches.daemon_client: OpenCodeDaemonClient | None = None
 
 
 def get_daemon_client() -> OpenCodeDaemonClient:
     """Retourne l'instance unique du client daemon."""
-    global _daemon_client
-    if _daemon_client is None:
-        _daemon_client = OpenCodeDaemonClient()
-    return _daemon_client
+    if app_context.caches.daemon_client is None:
+        app_context.caches.daemon_client = OpenCodeDaemonClient()
+    return app_context.caches.daemon_client
 
 
 async def close_daemon_client():
     """Ferme l'instance du client (appelé à l'arrêt)."""
-    global _daemon_client
-    if _daemon_client:
-        await _daemon_client.close()
-        _daemon_client = None
+    if app_context.caches.daemon_client:
+        await app_context.caches.daemon_client.close()
+        app_context.caches.daemon_client = None

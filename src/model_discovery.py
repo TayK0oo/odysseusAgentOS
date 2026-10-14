@@ -8,12 +8,14 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
 # Cache for discovered hosts
-_hosts_cache: list[str] = []
-_hosts_cache_time: float = 0
+app_context.caches.hosts_cache: list[str] = []
+app_context.caches.hosts_cache_time: float = 0
 _HOSTS_CACHE_TTL = 60  # seconds
 
 
@@ -36,11 +38,10 @@ def _first_tailscale_ipv4(value: Any) -> str | None:
 
 def discover_tailscale_hosts() -> list[str]:
     """Discover online Tailscale peers, returning their IPv4 addresses."""
-    global _hosts_cache, _hosts_cache_time
 
     now = time.time()
-    if _hosts_cache and (now - _hosts_cache_time) < _HOSTS_CACHE_TTL:
-        return list(_hosts_cache)
+    if app_context.caches.hosts_cache and (now - app_context.caches.hosts_cache_time) < _HOSTS_CACHE_TTL:
+        return list(app_context.caches.hosts_cache)
 
     hosts = []
     try:
@@ -77,8 +78,8 @@ def discover_tailscale_hosts() -> list[str]:
             if peer_ip:
                 hosts.append(peer_ip)
 
-        _hosts_cache = hosts
-        _hosts_cache_time = now
+        app_context.caches.hosts_cache = hosts
+        app_context.caches.hosts_cache_time = now
         logger.info(f"Tailscale discovery found {len(hosts)} hosts: {hosts}")
     except FileNotFoundError:
         logger.debug("tailscale command not found")

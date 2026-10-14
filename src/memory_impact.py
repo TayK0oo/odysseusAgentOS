@@ -19,6 +19,8 @@ from dataclasses import dataclass
 # acyclic here. Kept at module level (rather than inside the function) so the
 # store contract is resolved once, at import, like every other dependency.
 from src.provenance_memory import get_memory_fs
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -241,11 +243,10 @@ def _token_set_hash(text: str, n: int = NGRAM) -> set[int] | None:
     return result
 
 
-_verifier: MemoryImpactVerifier | None = None
+app_context.caches.verifier: MemoryImpactVerifier | None = None
 
 
 def get_memory_impact_verifier(threshold: float = DEFAULT_IMPACT_THRESHOLD) -> MemoryImpactVerifier:
-    global _verifier
-    if _verifier is None:
-        _verifier = MemoryImpactVerifier(threshold=threshold)
-    return _verifier
+    if app_context.caches.verifier is None:
+        app_context.caches.verifier = MemoryImpactVerifier(threshold=threshold)
+    return app_context.caches.verifier

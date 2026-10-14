@@ -17,6 +17,8 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -336,11 +338,10 @@ class OutputRouter:
 
 # ─── Singleton ───────────────────────────────────────────────────────────
 
-_router: OutputRouter | None = None
+app_context.caches.router: OutputRouter | None = None
 
 
 def get_output_router() -> OutputRouter:
-    global _router
-    if _router is None:
-        _router = OutputRouter()
-    return _router
+    if app_context.caches.router is None:
+        app_context.caches.router = OutputRouter()
+    return app_context.caches.router

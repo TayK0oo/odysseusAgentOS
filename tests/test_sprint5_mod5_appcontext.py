@@ -1,0 +1,67 @@
+"""MOD-5 — AppContext : plus de `global` dans src/.
+
+PREUVE 1 : le compteur de `global` dans src/ est à zéro.
+PREUVE 2 : AppContext existe et expose les trois catégories citées dans le plan.
+PREUVE 3 : les modules qui avaient un `global` sont importables sans erreur.
+"""
+
+import ast
+import importlib
+import pathlib
+
+from src.app_context import AppContext
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+EXCLUS = {"venv", "node_modules", ".git", "__pycache__", "tests", "archive"}
+
+
+def _compter_globals(src_root: pathlib.Path) -> dict[str, list[str]]:
+    """-> {fichier_relatif: [noms_globals]}."""
+    res = {}
+    for p in src_root.rglob("*.py"):
+        rel = p.relative_to(REPO)
+        if set(rel.parts) & EXCLUS:
+            continue
+        if rel.parts[0] != "src":
+            continue
+        try:
+            a = ast.parse(p.read_text(encoding="utf-8", errors="replace"))
+        except SyntaxError:
+            continue
+        noms = [n for node in ast.walk(a) if isinstance(node, ast.Global) for n in node.names]
+        if noms:
+            res[str(rel)] = noms
+    return res
+
+
+def test_aucun_global_dans_src():
+    """PREUVE 1 : zéro `global` dans src/."""
+    globaux = _compter_globals(REPO)
+    total = sum(len(v) for v in globaux.values())
+    assert total == 0, (
+        f"{total} occurrences de `global` dans {len(globaux)} fichiers de src/ :\n"
+        + "\n".join(f"  {f}: {g}" for f, g in sorted(globaux.items()))
+    )
+
+
+def test_appcontext_existe_et_expose_trois_categories():
+    """PREUVE 2 : AppContext existe et expose fs, guard, caches."""
+    
+    ctx = AppContext()
+    assert hasattr(ctx, "fs"), "AppContext.fs manquant (remplace _fs de provenance_memory)"
+    assert hasattr(ctx, "guard"), "AppContext.guard manquant (remplace _guard de content_security)"
+    assert hasattr(ctx, "caches"), "AppContext.caches manquant (remplace les caches globaux)"
+
+
+def test_anciens_modules_importables():
+    """PREUVE 3 : les modules qui avaient un `global` s'importent sans erreur."""
+    for nom in (
+        "src.provenance_memory",
+        "src.content_security",
+        "src.settings",
+        "src.durable_execution",
+        "src.memory_provider",
+        "src.tool_index",
+        "src.preferences",
+    ):
+        importlib.import_module(nom)

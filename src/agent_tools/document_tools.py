@@ -4,6 +4,8 @@ from datetime import UTC
 
 from src.constants import MAX_READ_CHARS
 from src.tool_utils import _parse_tool_args
+from src.app_context import app_context
+
 
 logger = logging.getLogger(__name__)
 
@@ -11,24 +13,22 @@ logger = logging.getLogger(__name__)
 # Active document state
 # ---------------------------------------------------------------------------
 
-_active_document_id: str | None = None
-_active_model: str | None = None
+app_context.caches.active_document_id: str | None = None
+app_context.caches.active_model: str | None = None
 
 
 def set_active_document(doc_id: str | None):
     """Set the active document ID for document tool execution."""
-    global _active_document_id
-    _active_document_id = doc_id
+    app_context.caches.active_document_id = doc_id
 
 
 def set_active_model(model: str | None):
     """Set the current model name for version summaries."""
-    global _active_model
-    _active_model = model
+    app_context.caches.active_model = model
 
 
 def get_active_document():
-    return _active_document_id
+    return app_context.caches.active_document_id
 
 
 def clear_active_document(doc_id: str | None = None) -> bool:
@@ -42,9 +42,8 @@ def clear_active_document(doc_id: str | None = None) -> bool:
     path re-surface a closed document in a later, unrelated chat — even one whose
     session no longer matches — because an unlinked doc has session_id NULL (#1160).
     """
-    global _active_document_id
-    if doc_id is None or _active_document_id == doc_id:
-        _active_document_id = None
+    if doc_id is None or app_context.caches.active_document_id == doc_id:
+        app_context.caches.active_document_id = None
         return True
     return False
 
@@ -319,7 +318,7 @@ class CreateDocumentTool:
                 document_id=doc_id,
                 version_number=1,
                 content=content,
-                summary=f"Created by {_active_model or 'AI'}",
+                summary=f"Created by {app_context.caches.active_model or 'AI'}",
                 source="ai",
             )
             db.add(doc)
@@ -356,7 +355,7 @@ class UpdateDocumentTool:
 
         from src.database import Document, DocumentVersion, SessionLocal
 
-        target_id = ctx.get("doc_id") or _active_document_id
+        target_id = ctx.get("doc_id") or app_context.caches.active_document_id
         owner = ctx.get("owner")
 
         db = SessionLocal()
@@ -388,7 +387,7 @@ class UpdateDocumentTool:
                 document_id=target_id,
                 version_number=new_ver,
                 content=new_content,
-                summary=f"Updated by {_active_model or 'AI'}",
+                summary=f"Updated by {app_context.caches.active_model or 'AI'}",
                 source="ai",
             )
             doc.current_content = new_content
@@ -418,7 +417,7 @@ class EditDocumentTool:
 
         from src.database import Document, DocumentVersion, SessionLocal
 
-        target_id = ctx.get("doc_id") or _active_document_id
+        target_id = ctx.get("doc_id") or app_context.caches.active_document_id
         owner = ctx.get("owner")
 
         edits = parse_edit_blocks(content)
@@ -476,7 +475,7 @@ class EditDocumentTool:
                 document_id=target_id,
                 version_number=new_ver,
                 content=updated_content,
-                summary=f"Edited by {_active_model or 'AI'} ({applied} edit(s))",
+                summary=f"Edited by {app_context.caches.active_model or 'AI'} ({applied} edit(s))",
                 source="ai",
             )
             doc.current_content = updated_content
@@ -506,7 +505,7 @@ class SuggestDocumentTool:
         """Create inline suggestions for the active document WITHOUT modifying it."""
         from src.database import Document, SessionLocal
 
-        target_id = ctx.get("doc_id") or _active_document_id
+        target_id = ctx.get("doc_id") or app_context.caches.active_document_id
         owner = ctx.get("owner")
 
         if not target_id:
@@ -640,7 +639,7 @@ class ManageDocumentTool:
                 }
 
             elif action == "delete":
-                doc_id = args.get("document_id") or args.get("id") or args.get("uid") or _active_document_id
+                doc_id = args.get("document_id") or args.get("id") or args.get("uid") or app_context.caches.active_document_id
                 doc = None
                 if doc_id:
                     doc = _get_owned_document(db, Document, doc_id, owner)
@@ -652,7 +651,7 @@ class ManageDocumentTool:
                 title = doc.title
                 doc.is_active = False
                 db.commit()
-                if _active_document_id == doc.id:
+                if app_context.caches.active_document_id == doc.id:
                     set_active_document(None)
                 return {"response": f"Deleted document '{title}'", "exit_code": 0}
 

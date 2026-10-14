@@ -11,6 +11,7 @@ import logging
 import re
 import time
 
+from src.app_context import app_context
 from src.embedding_lanes import (
     LANE_CUSTOM,
     LANE_FASTEMBED,
@@ -946,35 +947,33 @@ class ToolIndex:
 
 # ── Singleton ──
 
-_tool_index: ToolIndex | None = None
-_last_attempt = 0.0
+app_context.caches.tool_index: ToolIndex | None = None
+app_context.caches.rag_last_attempt = 0.0
 _RETRY_INTERVAL = 30.0
 
 
 def get_tool_index() -> ToolIndex | None:
     """Get or create the singleton ToolIndex. Returns None if unavailable."""
-    global _tool_index, _last_attempt
 
-    if _tool_index is not None and _tool_index.healthy:
-        return _tool_index
+    if app_context.caches.tool_index is not None and app_context.caches.tool_index.healthy:
+        return app_context.caches.tool_index
 
     now = time.monotonic()
-    if now - _last_attempt < _RETRY_INTERVAL:
+    if now - app_context.caches.rag_last_attempt < _RETRY_INTERVAL:
         return None
-    _last_attempt = now
+    app_context.caches.rag_last_attempt = now
 
     try:
-        _tool_index = ToolIndex()
-        _tool_index.index_builtin_tools()
-        return _tool_index
+        app_context.caches.tool_index = ToolIndex()
+        app_context.caches.tool_index.index_builtin_tools()
+        return app_context.caches.tool_index
     except Exception as e:
         logger.warning(f"ToolIndex init failed (will retry in {_RETRY_INTERVAL}s): {e}")
-        _tool_index = None
+        app_context.caches.tool_index = None
         return None
 
 
 def reset_tool_index() -> None:
     """Clear the singleton so embedding endpoint changes rebuild tool lanes."""
-    global _tool_index, _last_attempt
-    _tool_index = None
-    _last_attempt = 0.0
+    app_context.caches.tool_index = None
+    app_context.caches.rag_last_attempt = 0.0

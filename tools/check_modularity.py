@@ -86,7 +86,8 @@ SEUILS = {
         "releve_si": None,
     },
     "globals_dans_src": {
-        "valeur": 46,
+        "valeur": 0,
+        "sens": "conformance",
         "chantier": "MOD-5 — AppContext au lieu des singletons globaux",
         "raison": (
             "Instructions `global` relevees par AST dans src/. Une mesure "
