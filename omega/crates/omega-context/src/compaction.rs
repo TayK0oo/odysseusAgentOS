@@ -16,7 +16,8 @@ pub fn compaction_marker(omitted: usize) -> String {
 /// - insere un marqueur `…[compacted k messages omis]…` si `k > 0`.
 ///
 /// Deterministe et sans LLM (RULES-OMEGA §3.2). La garantie de budget vaut pour un budget
-/// superieur a `systeme + marqueur` ; sinon le systeme (intouchable) est preserve tel quel.
+/// superieur a `systeme + marqueur` ; sinon le systeme (intouchable) est preserve tel quel,
+/// **sans marqueur mensonger** (aucun marqueur n'est insere quand il ne tient pas).
 pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
     let estimator = TokenEstimator::new();
     if estimator.estimate_messages(messages) <= budget {
@@ -33,6 +34,13 @@ pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
 
     // Reserve la place du marqueur (borne superieure = pire cas : omitted = tail.len()).
     let marker_reserve = estimator.estimate(&compaction_marker(tail.len()));
+
+    // Budget trop etroit pour le systeme + marqueur : pas de marqueur mensonger, on
+    // preserve le systeme tel quel (primaute du systeme, W6 §4.6). Le depassement est
+    // assume et documente (le systeme est intouchable).
+    if system_tokens + marker_reserve > budget {
+        return system.to_vec();
+    }
 
     // Suffixe maximal des messages recents tenant dans le budget restant.
     let mut kept: Vec<Message> = Vec::new();
@@ -118,5 +126,17 @@ mod tests {
         let a = truncate_compact(&msgs, 28);
         let b = truncate_compact(&msgs, 28);
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn system_alone_over_budget_preserves_system_without_lying_marker() {
+        // Non-regression REVIEW-W6 M3 : budget (5) < systeme seul (10 tokens). Aucun
+        // marqueur mensonger n'est insere ; le systeme est preserve tel quel (W6 §4.6).
+        let system = Message::new(Role::System, "s".repeat(40)); // 10 tokens
+        let user = Message::new(Role::User, "u".repeat(8)); // 2 tokens
+        let out = truncate_compact(&[system.clone(), user], 5);
+
+        assert_eq!(out, vec![system]);
+        assert!(out.iter().all(|m| !m.content.starts_with("…[compacted")));
     }
 }

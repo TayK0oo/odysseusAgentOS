@@ -155,3 +155,22 @@ table §2.1 et/ou poser un ADR dédié à l'arête `adapters → plugin-api`.
   `ContextContributor` enregistre via `register_dyn` résolu par `App::context_engine()`
   (contrat W3 validé, `contributor.rs:122-144`). Garde-fou élargi **minimalement** et
   avec commentaire de justification (`check_dep_graph.py:39-42`).
+
+---
+
+## §6 Résolution (exécuteur SFD, 2026-10-15)
+
+> **Statut final :** B1 corrigé, M1/M2/M3 corrigés, M4 documenté en dette. 39 tests
+> `omega-context` (dont 10 nouveaux), clippy/fmt/dep-graph verts.
+
+| Constat | Correctif | Vérification |
+|---|---|---|
+| **B1** `TokenEstimator::default()` panique (division par zéro) | `impl Default` manuel → `Self::new()` (canonique `ceil(chars/4)`), dérive retirée | `token::tests::default_ne_panique_pas` + `estimate_counts_chars_not_bytes` + `estimate_long_input_does_not_overflow` |
+| **M1** `assemble` hors budget silencieux (système seul > plafond) | `AssembleReport.over_budget` (signal sync) + `assemble` renvoie `BudgetExceeded` | `engine::tests::assemble_system_alone_over_budget_is_signaled` + `assemble_returns_typed_error_when_system_alone_over_budget` |
+| **M2** gate rarest-token tie-break « premier token » fragile | départage déterministe : plus haut IDF (`df` minimal) puis **ordre lexical croissant**, indépendant de la position | `tool_surface::tests::gate_tie_break_is_lexical_and_position_independent` + `open_file_for_writing_gate_is_deterministic_phase1` (repro §3 verrouillée) |
+| **M3** `truncate_compact` insère un marqueur mensonger si `budget < système` | retour système « tel quel » sans marqueur quand `système + marqueur > budget` | `compaction::tests::system_alone_over_budget_preserves_system_without_lying_marker` |
+| **M4** blueprint §2.1 (`omega-context → config`) incohérent | documenté en dette (dépendance réelle `types, ports, registry, plugin-api`) dans `W6-contexte.md` §6.1/§8 — table blueprint hors périmètre du correctif | — |
+
+Réserves résiduelles (dette, cf. `W6-contexte.md` §8) : rappel lexical sans stemming
+(M2, inc2), table blueprint §2.1 (M4), config silencieuse (`contributor.rs`), i18n du
+marqueur de compaction.

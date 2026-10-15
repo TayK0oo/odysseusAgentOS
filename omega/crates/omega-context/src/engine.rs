@@ -4,7 +4,7 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use omega_ports::ContextEngine;
-use omega_types::{Message, OmegaResult, Role};
+use omega_types::{Message, OmegaError, OmegaResult, Role};
 
 use crate::budget::ContextBudget;
 use crate::token::TokenEstimator;
@@ -15,6 +15,11 @@ pub struct AssembleReport {
     pub kept: usize,
     pub dropped: usize,
     pub estimated_tokens: usize,
+    /// Vrai si le resultat depasse le budget (systeme seul plus grand que le plafond).
+    ///
+    /// Le prefixe systeme est toujours preserve (primaute du systeme, cf. W6 §4.6) ;
+    /// ce drapeau rend le depassement **explicite** au lieu de le laisser silencieux.
+    pub over_budget: bool,
     /// Apercus des messages non-systeme coupes (contenu tronque), dans l'ordre.
     pub dropped_previews: Vec<String>,
 }
@@ -60,6 +65,10 @@ impl DefaultContextEngine {
     }
 
     /// Assemble en mode synchrone (coeur deterministe, testable sans runtime).
+    ///
+    /// Le prefixe systeme est toujours preserve. Si le systeme seul depasse deja le
+    /// budget, le depassement est journalise via `AssembleReport.over_budget` (le
+    /// resultat n'est jamais coupe au-dela du systeme, qui est intouchable).
     pub fn assemble_sync(&self, messages: &[Message]) -> Vec<Message> {
         let total = self.estimator.estimate_messages(messages);
         if total <= self.budget.max_tokens() {
@@ -67,6 +76,7 @@ impl DefaultContextEngine {
                 kept: messages.len(),
                 dropped: 0,
                 estimated_tokens: total,
+                over_budget: false,
                 dropped_previews: Vec::new(),
             };
             *self.last_report.lock().expect("rapport empoisonne") = report;
@@ -103,10 +113,12 @@ impl DefaultContextEngine {
         let mut result = system;
         result.extend(kept);
 
+        let estimated_tokens = self.estimator.estimate_messages(&result);
         let report = AssembleReport {
             kept: result.len(),
             dropped,
-            estimated_tokens: self.estimator.estimate_messages(&result),
+            estimated_tokens,
+            over_budget: estimated_tokens > self.budget.max_tokens(),
             dropped_previews,
         };
         *self.last_report.lock().expect("rapport empoisonne") = report;
@@ -125,7 +137,18 @@ impl ContextEngine for DefaultContextEngine {
     }
 
     async fn assemble(&self, messages: Vec<Message>) -> OmegaResult<Vec<Message>> {
-        Ok(self.assemble_sync(&messages))
+        let result = self.assemble_sync(&messages);
+        let report = self.last_report();
+        if report.over_budget {
+            // Le systeme seul depasse le budget : signal type, jamais de resultat
+            // hors contrat silencieux (REVIEW-W6 M1).
+            return Err(OmegaError::BudgetExceeded {
+                max: self.max_tokens(),
+                used: report.estimated_tokens,
+                additional: 0,
+            });
+        }
+        Ok(result)
     }
 }
 
@@ -186,6 +209,39 @@ mod tests {
         assert_eq!(out, vec![sys("SSSSSSSS")]);
         let report = e.last_report();
         assert_eq!(report.dropped, 2);
+        assert!(!report.over_budget);
+    }
+
+    #[test]
+    fn assemble_system_alone_over_budget_is_signaled() {
+        // Non-regression REVIEW-W6 M1 : systeme seul (10 tokens) > budget (5).
+        // Le systeme est preserve (primaute), mais le depassement est explicite.
+        let e = DefaultContextEngine::new(5);
+        let msgs = vec![sys(&"S".repeat(40))]; // 40 caracteres -> 10 tokens
+        let out = e.assemble_sync(&msgs);
+
+        assert_eq!(out, msgs);
+        let report = e.last_report();
+        assert!(report.over_budget);
+        assert_eq!(report.estimated_tokens, 10);
+        assert_eq!(report.dropped, 0);
+    }
+
+    #[tokio::test]
+    async fn assemble_returns_typed_error_when_system_alone_over_budget() {
+        // Le port async expose le depassement en `BudgetExceeded` (jamais de `Ok`
+        // hors budget).
+        let e = DefaultContextEngine::new(5);
+        let msgs = vec![sys(&"S".repeat(40))];
+        let err = e.assemble(msgs).await.unwrap_err();
+        assert!(matches!(
+            err,
+            OmegaError::BudgetExceeded {
+                max: 5,
+                used: 10,
+                ..
+            }
+        ));
     }
 
     #[tokio::test]

@@ -10,9 +10,20 @@ use omega_types::Message;
 pub const CHARS_PER_TOKEN: u32 = 4;
 
 /// Estimateur de tokens deterministe et sans dependance reseau.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+///
+/// `Default` est implemente **manuellement** (pas `#[derive(Default)]`) pour renvoyer
+/// l'estimateur canonique `ceil(chars / 4)`. La derive aurait produit
+/// `chars_per_token = 0`, rendant `estimate()` impossible (division par zero).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TokenEstimator {
     chars_per_token: u32,
+}
+
+impl Default for TokenEstimator {
+    /// Estimateur canonique `ceil(chars / 4)` — jamais un ratio nul.
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TokenEstimator {
@@ -73,5 +84,35 @@ mod tests {
             Message::new(Role::User, "12345"),
         ];
         assert_eq!(est.estimate_messages(&msgs), 3);
+    }
+
+    #[test]
+    fn default_ne_panique_pas() {
+        // Non-regression REVIEW-W6 B1 : `Default` derive posait `chars_per_token = 0`
+        // et `estimate("x")` paniquait (division par zero). `default()` doit renvoyer
+        // l'estimateur canonique `ceil(chars / 4)`.
+        let est = TokenEstimator::default();
+        assert_eq!(est, TokenEstimator::new());
+        assert_eq!(est.estimate("x"), 1);
+        assert_eq!(est.estimate("1234"), 1);
+        assert_eq!(est.estimate("12345"), 2);
+    }
+
+    #[test]
+    fn estimate_counts_chars_not_bytes() {
+        // Entree multi-octets / CJK / emoji : le decompte porte sur les caracteres
+        // Unicode, pas sur les octets (determinisme et pas de sur-estimation).
+        let est = TokenEstimator::new();
+        assert_eq!(est.estimate("你好"), 1); // 2 caracteres -> ceil(2/4) = 1
+        assert_eq!(est.estimate("你好世界"), 1); // 4 caracteres -> 1
+        assert_eq!(est.estimate("🙂🙂🙂🙂🙂"), 2); // 5 emojis -> ceil(5/4) = 2
+        assert_eq!(est.estimate("é"), 1); // 1 caractere (2 octets) -> 1
+    }
+
+    #[test]
+    fn estimate_long_input_does_not_overflow() {
+        let est = TokenEstimator::new();
+        let text = "a".repeat(100_000);
+        assert_eq!(est.estimate(&text), 25_000);
     }
 }

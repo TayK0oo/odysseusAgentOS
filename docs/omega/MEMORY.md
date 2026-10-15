@@ -78,6 +78,7 @@
 | D12 | W3 moteur + exécution durable : `omega-app`, `EventStore` (mem+fichier JSONL), reprise idempotente, loader config — 103 tests | 2026-10-15 | ✅ `[observed]` | — |
 | D13 | Correction REVIEW-W3 : ids uniques par opération (B1), exclusivité slot cross-voies (B2), `FileEventStore` synchronisé (B3), `TypeMismatch` dyn (M1), tri global `active_ids` (M2), contrat ports=dyn documenté (M3) — 109 tests | 2026-10-15 | ✅ `[observed]` | — |
 | D14 | W6 incrément 1 : crate `omega-context` (estimateur, budget, moteur par défaut, tool search BM25 + rarest-token gate, skills 3 niveaux, compaction) + variante `OmegaError::BudgetExceeded` + garde-fou `adapters → registry/plugin-api` — 29 tests | 2026-10-15 | ✅ `[observed]` | — |
+| D15 | Correction REVIEW-W6 : `Default` de `TokenEstimator` sûr (B1), `over_budget` + `BudgetExceeded` sur `assemble` (M1), départage lexical de la gate (M2), pas de marqueur mensonger en compaction (M3), M4 (blueprint §2.1) documenté en dette — 39 tests `omega-context` | 2026-10-15 | ✅ `[observed]` | — |
 
 ## 7. Credentials & accès
 
@@ -110,6 +111,7 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] **W3 inc1 — moteur + exécution durable** : `omega-app` (App, run/reprise idempotente), `EventStore` (mem + JSONL), loader config — 109 tests
 - [x] **W3 — revue + correctifs + re-vérification** : `REVIEW-W3.md` (NO-GO 5/10 → GO avec réserves 7/10, B1/B2/B3/M1/M2/M3 corrigés, N1-N4 notés)
 - [x] **W6 — incrément 1** : crate `omega-context` (estimateur, budget, `DefaultContextEngine`, tool search BM25 + rarest-token gate, skills 3 niveaux, compaction) + `ContextContributor` — 29 tests
+- [x] **W6 — revue + correctifs** : `REVIEW-W6.md` (GO avec réserves 7/10 → B1/M1/M2/M3 corrigés, M4 documenté en dette) — 39 tests
 - [ ] **W6 — incrément 2** : stemming, prompt caching, compaction structurée branchée sur `ContextEngine::compact`, découverte `AGENTS.md`
 - [ ] W2 — incrément 3 : 1ᵉʳ adaptateur réel (provider `/v1/models`)
 - [x] Décomposition W0-W10 (`docs/omega/02-WORKSTREAMS.md`)

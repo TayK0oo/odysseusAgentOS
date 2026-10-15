@@ -36,8 +36,12 @@ struct IndexedDoc {
 /// la requete presents dans le document) avec **gate par le token le plus rare**.
 ///
 /// Admission d'un outil pour une requete :
-/// - il contient le token de plus haut IDF de la requete (le mot qui nomme l'intention), ou
+/// - il contient le token le plus rare de la requete (plus haut IDF == df minimal ; le mot
+///   qui nomme l'intention), ou
 /// - (`min_score > 0`) son score atteint le seuil `min_score` (le « OU depasse un seuil »).
+///
+/// Departage du token de gate : ordre lexical croissant (deterministe, independant de la
+/// position des tokens dans la requete).
 ///
 /// Deterministe : aucun LLM, tri stable (score decroissant, nom croissant).
 #[derive(Default)]
@@ -95,24 +99,27 @@ impl ToolSurfaceIndex {
         }
     }
 
-    /// Token de plus haut IDF de la requete, parmi ceux presents dans le corpus.
-    /// Egalite -> premier dans l'ordre de la requete (determinisme).
+    /// Token le plus discriminant de la requete : celui de **plus haut IDF**, c'est-a-dire
+    /// de **frequence documentaire minimale** (`df` minimal — IDF est strictement
+    /// decroissante en `df`).
+    ///
+    /// Departage (egalite de `df`, donc d'IDF) : **ordre lexical croissant**. Cette regle
+    /// est deterministe et **independante de la position** des tokens dans la requete
+    /// (l'ancien « premier token de la requete » etait fragile : un mot vide ou un
+    /// reordonnancement changeait la gate).
     fn gate_token(&self, query_tokens: &[String]) -> Option<String> {
-        let mut best: Option<(f64, usize, String)> = None;
-        for (i, t) in query_tokens.iter().enumerate() {
-            if let Some(&idf) = self.idf.get(t) {
-                let replace = match &best {
-                    None => true,
-                    Some((best_idf, best_i, _)) => {
-                        idf > *best_idf || (idf == *best_idf && i < *best_i)
-                    }
-                };
-                if replace {
-                    best = Some((idf, i, t.clone()));
-                }
+        let mut best: Option<(usize, String)> = None; // (df, token)
+        for t in query_tokens {
+            let Some(&df) = self.df.get(t) else { continue };
+            let replace = match &best {
+                None => true,
+                Some((best_df, best_tok)) => df < *best_df || (df == *best_df && t < best_tok),
+            };
+            if replace {
+                best = Some((df, t.clone()));
             }
         }
-        best.map(|(_, _, t)| t)
+        best.map(|(_, t)| t)
     }
 
     /// Recherche les `top_k` outils pertinents pour une requete.
@@ -227,5 +234,58 @@ mod tests {
     fn unknown_query_returns_empty() {
         let idx = ToolSurfaceIndex::from_docs(vec![tool("a", "alpha")]);
         assert!(idx.search("inconnu", 10).is_empty());
+    }
+
+    #[test]
+    fn gate_tie_break_is_lexical_and_position_independent() {
+        // "rare_a" et "rare_b" ont le meme df (1) donc le meme IDF. Departage lexical :
+        // "rare_a" < "rare_b" -> gate = "rare_a", quel que soit l'ordre de la requete.
+        // (L'ancien tie-break « premier token » aurait choisi "rare_b" pour la requete
+        // dans l'ordre inverse.)
+        let idx = ToolSurfaceIndex::from_docs(vec![tool("aaa", "rare_a"), tool("bbb", "rare_b")]);
+        let forward: Vec<&str> = idx
+            .search("rare_b rare_a", 10)
+            .iter()
+            .map(|d| d.name.as_str())
+            .collect();
+        let reversed: Vec<&str> = idx
+            .search("rare_a rare_b", 10)
+            .iter()
+            .map(|d| d.name.as_str())
+            .collect();
+        assert_eq!(forward, vec!["aaa"]);
+        assert_eq!(reversed, vec!["aaa"]);
+    }
+
+    #[test]
+    fn open_file_for_writing_gate_is_deterministic_phase1() {
+        // Non-regression REVIEW-W6 M2. "open" (df=1, unique a openssl) est le token le
+        // plus rare ; "writing" n'apparait pas dans le corpus (pas de stemming en
+        // Phase 1), donc file_write/file_read ne partagent aucun token rare avec la
+        // requete et sont exclus par la gate stricte. Le resultat est deterministe ;
+        // le rappel de file_write viendra du stemming (W6 inc2, cf. W6-contexte §7).
+        let idx = ToolSurfaceIndex::from_docs(vec![
+            tool("file_write", "write data to a file"),
+            tool("file_read", "read data from a file"),
+            tool("openssl", "open ssl certificate"),
+        ]);
+        let names: Vec<&str> = idx
+            .search("open file for writing", 10)
+            .iter()
+            .map(|d| d.name.as_str())
+            .collect();
+        assert_eq!(names, vec!["openssl"]);
+    }
+
+    #[test]
+    fn empty_query_returns_empty() {
+        let idx = ToolSurfaceIndex::from_docs(vec![tool("a", "alpha")]);
+        assert!(idx.search("", 10).is_empty());
+    }
+
+    #[test]
+    fn top_k_zero_returns_empty() {
+        let idx = ToolSurfaceIndex::from_docs(vec![tool("a", "alpha beta")]);
+        assert!(idx.search("alpha", 0).is_empty());
     }
 }

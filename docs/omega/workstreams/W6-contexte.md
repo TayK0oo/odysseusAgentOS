@@ -38,19 +38,24 @@ Cinq leviers (blueprint §5.2), tous **déterministes côté système** — jama
   sur-consommation en cas d'échec).
 - **`DefaultContextEngine::assemble`** : concatène les messages `System` + non-`System`
   **en respectant le budget** ; tronque les plus anciens **non-`System`** ; le préfixe
-  `System` est **toujours préservé** ; ce qui est coupé est journalisé dans
-  `AssembleReport` (payload de test).
+  `System` est **toujours préservé** (primauté du système, cf. §4.6). Si le système
+  seul dépasse déjà le budget, le dépassement est **explicite** : `AssembleReport.over_budget = true`
+  (voie synchrone) et `assemble` renvoie `BudgetExceeded` (voie port). Jamais de
+  résultat hors contrat silencieux.
 - **`ToolSurfaceIndex::search(query, top_k)`** : tokenisation lowercase + split non-
   alphanum ; IDF lissé BM25 `ln((N+1)/(df+1)) + 1` ; score = somme des IDF des termes de
-  la requête présents ; **admission** : l'outil contient le token de plus haut IDF de la
-  requête (le « mot de l'intention ») **ou** (si `min_score > 0`) son score atteint le
-  seuil. Tri stable : score décroissant puis nom croissant.
+  la requête présents ; **admission** : l'outil contient le token le plus discriminant de la
+  requête (plus haut IDF = `df` minimal, le « mot de l'intention ») **ou** (si `min_score > 0`)
+  son score atteint le seuil. Départage du token de gate (égalité de `df`) : **ordre
+  lexical croissant**, déterministe et indépendant de la position des tokens. Tri stable :
+  score décroissant puis nom croissant.
 - **`SkillIndex`** : `list()` = noms + descriptions (niveau 1, corps non chargé) ;
   `view(id)` = corps (niveau 2), **mis en cache par signature** (FNV-1a du corps) ;
   `asset(id, name)` = fichier lié (niveau 3).
 - **`truncate_compact(messages, budget)`** : préserve le préfixe `System`, garde le
   suffixe maximal des messages récents qui tient (marqueur inclus), insère le marqueur si
-  `k > 0`. Déterministe, sans LLM.
+  `k > 0`. Si `budget < système + marqueur`, **aucun marqueur n'est inséré** : le système
+  est préservé tel quel (pas de marqueur mensonger). Déterministe, sans LLM.
 - **Câblage** : `ContextContributor` enregistre `Arc<dyn ContextEngine>` via
   `register_dyn` (résolvable par `App::context_engine()` — contrat W3), et les index via
   `register_typed` (capacités `tool-surface` / `skill-store`).
@@ -60,10 +65,12 @@ Cinq leviers (blueprint §5.2), tous **déterministes côté système** — jama
 1. Estimation, recherche, compaction : **déterministes** (zéro aléa, zéro LLM).
 2. Budget : un dépassement produit une erreur **typée** (`BudgetExceeded`), jamais un
    silence ni une sur-consommation.
-3. Assemble : le résultat **respecte le budget** et **préserve le système**.
+3. Assemble : le résultat **respecte le budget** **et préserve le système** ; si le
+   système seul dépasse le budget, le dépassement est **signalé** (jamais silencieux).
 4. Tool search : un outil qui ne partage que des tokens communs avec la requête est
    **exclu** par la gate (cas Hermes « send gmail email »).
-5. Compaction : le résultat tient dans le budget (pour un budget ≥ système + marqueur).
+5. Compaction : le résultat tient dans le budget (pour un budget ≥ système + marqueur) ;
+   sinon le système est préservé **tel quel**, sans marqueur mensonger.
 
 ## 5. Tests d'acceptation
 
@@ -93,6 +100,26 @@ Cinq leviers (blueprint §5.2), tous **déterministes côté système** — jama
 - **Cache par signature FNV-1a** : déterministe, sans horodatage (pas de dépendance FS en
   Phase 1) ; l'invalidation est testée en remplaçant un skill de même id.
 
+### 6.1 Correctifs post-revue (REVIEW-W6, 2026-10-15)
+
+- **B1 — `TokenEstimator::default()`** : `Default` implémenté manuellement (et non dérivé)
+  pour renvoyer l'estimateur canonique `ceil(chars/4)` — la dérive produisait
+  `chars_per_token = 0` et faisait paniquer `estimate()` (division par zéro). Test
+  `default_ne_panique_pas`.
+- **M1 — `assemble` hors budget** : ajout de `AssembleReport.over_budget` (signal
+  explicite, voie synchrone) + `assemble` (port) renvoie `BudgetExceeded` quand le système
+  seul dépasse le plafond. Primaute du système documentée.
+- **M2 — gate rarest-token** : départage déterministe et robuste (plus haut IDF = `df`
+  minimal, puis **ordre lexical croissant**), indépendant de la position des tokens dans la
+  requête. Le rappel de l'outil « évident » pour des flexions non couvertes (`writing` vs
+  `write`) reste une dette **stemming** (cf. §7).
+- **M3 — `truncate_compact`** : si `budget < système + marqueur`, aucun marqueur n'est
+  inséré (pas de marqueur mensonger) ; le système est préservé tel quel. Test dédié.
+- **M4 — blueprint §2.1** : dépendances réelles d'`omega-context` = `types, ports,
+  registry, plugin-api` (pas `config`). La table `OMEGA-BLUEPRINT.md` §2.1 (l.83) liste
+  encore `config` et omet `plugin-api` → **dette documentaire** à corriger (hors périmètre
+  de ce correctif, cf. §8).
+
 ## 7. Reste (incrément 2)
 
 - Stemming (Snowball, `rust-stemmers`) pour un rappel lexical supérieur.
@@ -100,3 +127,15 @@ Cinq leviers (blueprint §5.2), tous **déterministes côté système** — jama
 - Compaction **structurée** branchée sur `ContextEngine::compact` (résumé + rechargement
   ciblé), décorateur de `Provider` rattrapant `ContextLengthExceeded`.
 - Découverte `AGENTS.md` remontante + budget en caractères (mémoire bornée, W6↔W8).
+
+## 8. Dette documentée (non bloquante, incrément 2+)
+
+- **Stemming** : `search("open file for writing")` sur `{file_write, file_read, openssl}`
+  renvoie `["openssl"]` (gate = `open`, token rare unique à `openssl`) ; `file_write` n'est
+  récupéré que par couverture minimale/stemming. Comportement **déterministe** verrouillé
+  par un test de non-régression (`open_file_for_writing_gate_is_deterministic_phase1`).
+- **Blueprint §2.1** : corriger la dépendance d'`omega-context` (`config` → `plugin-api`).
+- **Config silencieuse** (`contributor.rs`) : `context.max_tokens` non numérique retombe
+  sur le défaut sans signal (à logger/typer).
+- **i18n du marqueur** : `…[compacted k messages omis]…` est une chaîne française codée en
+  dur injectée dans le prompt (à versionner/configurer).
