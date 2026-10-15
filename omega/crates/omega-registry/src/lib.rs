@@ -8,9 +8,10 @@
 //!   l'implementation suivante (in fine la `legacy`).
 //!
 //! Phase 1 : stockage type-efface (`Arc<dyn Any + Send + Sync>`) + `resolve::<T>()`.
-//! Une sous-registre type par capacite viendra en Phase 2 si necessaire.
+//! Chaque entree memorise le `TypeId` attendu pour detecter les erreurs de cablage
+//! (`TypeMismatch`) des l'enregistrement (`register_typed`) ou a la resolution.
 
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::sync::Arc;
 
 use indexmap::IndexMap;
@@ -45,6 +46,8 @@ impl Manifest {
 struct Entry {
     manifest: Manifest,
     instance: Arc<dyn Any + Send + Sync>,
+    /// TypeId attendu pour la resolution (TypeId::of::<T>() pour register_typed).
+    expected_type_id: TypeId,
     quarantined: bool,
 }
 
@@ -59,16 +62,18 @@ impl Registry {
         Self::default()
     }
 
-    /// Enregistre une implementation. En regime `Slot`, une seconde implementation
-    /// non quarantainee est refusee (`SlotConflict`) : il faut retirer/remplacer la
-    /// precedente explicitement.
-    pub fn register(
+    fn register_inner(
         &mut self,
         manifest: Manifest,
         instance: Arc<dyn Any + Send + Sync>,
+        expected_type_id: TypeId,
     ) -> OmegaResult<()> {
         let cap = manifest.capability;
         let list = self.entries.entry(cap).or_default();
+
+        if list.iter().any(|e| e.manifest.id == manifest.id) {
+            return Err(OmegaError::DuplicateId(cap, manifest.id));
+        }
 
         if cap.regime() == Regime::Slot {
             if let Some(owner) = list.iter().find(|e| !e.quarantined) {
@@ -79,6 +84,7 @@ impl Registry {
         list.push(Entry {
             manifest,
             instance,
+            expected_type_id,
             quarantined: false,
         });
         // Determinisme : tri par priorite decroissante, puis par id croissant.
@@ -91,9 +97,72 @@ impl Registry {
         Ok(())
     }
 
-    /// Met un plugin en quarantaine (il n'est plus resolu ; on replie sur le suivant).
-    pub fn quarantine(&mut self, id: &str) {
-        for list in self.entries.values_mut() {
+    /// Enregistre une implementation type-effacee.
+    ///
+    /// Le `TypeId` attendu est celui du type concret encapsule. En regime `Slot`, une
+    /// seconde implementation non quarantainee est refusee (`SlotConflict`) : il faut
+    /// retirer/remplacer la precedente explicitement via [`Self::unregister`] /
+    /// [`Self::replace`].
+    pub fn register(
+        &mut self,
+        manifest: Manifest,
+        instance: Arc<dyn Any + Send + Sync>,
+    ) -> OmegaResult<()> {
+        let expected = Any::type_id(&*instance);
+        self.register_inner(manifest, instance, expected)
+    }
+
+    /// Enregistre une implementation en fixant le type attendu a `TypeId::of::<T>()`.
+    ///
+    /// C'est la forme recommandee : elle lie explicitement la capacite au port concret
+    /// et permet a la resolution de renvoyer `TypeMismatch` si le cablage est incorrect.
+    pub fn register_typed<T: 'static + Send + Sync>(
+        &mut self,
+        manifest: Manifest,
+        instance: Arc<T>,
+    ) -> OmegaResult<()> {
+        let expected = TypeId::of::<T>();
+        let any_instance: Arc<dyn Any + Send + Sync> = instance;
+        self.register_inner(manifest, any_instance, expected)
+    }
+
+    /// Retire toutes les entrees `(cap, id)` — qu'elles soient actives ou quarantinees.
+    pub fn unregister(&mut self, cap: Capability, id: &str) {
+        if let Some(list) = self.entries.get_mut(&cap) {
+            list.retain(|e| e.manifest.id != id);
+        }
+    }
+
+    /// Remplace l'entree `(cap, id)` par une nouvelle implementation type-effacee.
+    pub fn replace(
+        &mut self,
+        cap: Capability,
+        id: &str,
+        manifest: Manifest,
+        instance: Arc<dyn Any + Send + Sync>,
+    ) -> OmegaResult<()> {
+        self.unregister(cap, id);
+        self.register(manifest, instance)
+    }
+
+    /// Remplace l'entree `(cap, id)` par une nouvelle implementation typee.
+    pub fn replace_typed<T: 'static + Send + Sync>(
+        &mut self,
+        cap: Capability,
+        id: &str,
+        manifest: Manifest,
+        instance: Arc<T>,
+    ) -> OmegaResult<()> {
+        self.unregister(cap, id);
+        self.register_typed(manifest, instance)
+    }
+
+    /// Met un plugin en quarantaine : il n'est plus resolu ; on replie sur le suivant.
+    ///
+    /// La quarantaine est **scopée par capacite** : `quarantine(cap, id)` n'affecte pas
+    /// un meme `id` sous une autre capacite.
+    pub fn quarantine(&mut self, cap: Capability, id: &str) {
+        if let Some(list) = self.entries.get_mut(&cap) {
             for e in list.iter_mut() {
                 if e.manifest.id == id {
                     e.quarantined = true;
@@ -116,17 +185,31 @@ impl Registry {
     }
 
     /// Resout la premiere implementation active du type demande.
+    ///
+    /// - `NoImplementation` si la capacite n'existe pas ou si toutes ses entrees sont
+    ///   quarantinees.
+    /// - `TypeMismatch` si des entrees actives existent mais aucune ne correspond au
+    ///   type demande.
     pub fn resolve<T: 'static + Send + Sync>(&self, cap: Capability) -> OmegaResult<Arc<T>> {
         let list = self
             .entries
             .get(&cap)
             .ok_or(OmegaError::NoImplementation(cap))?;
-        for e in list.iter().filter(|e| !e.quarantined) {
-            if let Ok(t) = e.instance.clone().downcast::<T>() {
-                return Ok(t);
+
+        let active: Vec<&Entry> = list.iter().filter(|e| !e.quarantined).collect();
+        if active.is_empty() {
+            return Err(OmegaError::NoImplementation(cap));
+        }
+
+        let expected = TypeId::of::<T>();
+        for e in active {
+            if e.expected_type_id == expected {
+                if let Ok(t) = e.instance.clone().downcast::<T>() {
+                    return Ok(t);
+                }
             }
         }
-        Err(OmegaError::NoImplementation(cap))
+        Err(OmegaError::TypeMismatch(cap))
     }
 }
 
@@ -154,6 +237,38 @@ impl RegistryBuilder {
         instance: Arc<dyn Any + Send + Sync>,
     ) -> OmegaResult<()> {
         self.registry.register(manifest, instance)
+    }
+
+    pub fn register_typed<T: 'static + Send + Sync>(
+        &mut self,
+        manifest: Manifest,
+        instance: Arc<T>,
+    ) -> OmegaResult<()> {
+        self.registry.register_typed(manifest, instance)
+    }
+
+    pub fn unregister(&mut self, cap: Capability, id: &str) {
+        self.registry.unregister(cap, id);
+    }
+
+    pub fn replace(
+        &mut self,
+        cap: Capability,
+        id: &str,
+        manifest: Manifest,
+        instance: Arc<dyn Any + Send + Sync>,
+    ) -> OmegaResult<()> {
+        self.registry.replace(cap, id, manifest, instance)
+    }
+
+    pub fn replace_typed<T: 'static + Send + Sync>(
+        &mut self,
+        cap: Capability,
+        id: &str,
+        manifest: Manifest,
+        instance: Arc<T>,
+    ) -> OmegaResult<()> {
+        self.registry.replace_typed(cap, id, manifest, instance)
     }
 
     /// Gele le registre (immuable en usage).
@@ -199,22 +314,18 @@ mod tests {
         }
     }
 
-    fn as_any<T: 'static + Send + Sync>(v: T) -> Arc<dyn Any + Send + Sync> {
-        Arc::new(v)
-    }
-
     #[test]
     fn ensemble_allows_many() {
         // (b) regime ensemble : N implementations coexistent.
         let mut r = Registry::new();
-        r.register(
+        r.register_typed(
             Manifest::new("openai", Capability::LlmProvider, "1"),
-            as_any(FakeProvider("openai")),
+            Arc::new(FakeProvider("openai")),
         )
         .unwrap();
-        r.register(
+        r.register_typed(
             Manifest::new("ollama", Capability::LlmProvider, "1"),
-            as_any(FakeProvider("ollama")),
+            Arc::new(FakeProvider("ollama")),
         )
         .unwrap();
         assert_eq!(
@@ -227,15 +338,15 @@ mod tests {
     fn slot_rejects_second_owner() {
         // (a) exclusivite slot : une seconde implementation non arbitree est refusee.
         let mut r = Registry::new();
-        r.register(
+        r.register_typed(
             Manifest::new("default", Capability::ContextEngine, "1"),
-            as_any(FakeEngine("default")),
+            Arc::new(FakeEngine("default")),
         )
         .unwrap();
         let err = r
-            .register(
+            .register_typed(
                 Manifest::new("other", Capability::ContextEngine, "1"),
-                as_any(FakeEngine("other")),
+                Arc::new(FakeEngine("other")),
             )
             .unwrap_err();
         assert!(matches!(
@@ -252,14 +363,14 @@ mod tests {
     fn failure_is_isolated_and_falls_back() {
         // (c) isolation d'echec : quarantaine du 1er -> resolution sur le suivant.
         let mut r = Registry::new();
-        r.register(
+        r.register_typed(
             Manifest::new("a", Capability::LlmProvider, "1").with_priority(10),
-            as_any(FakeProvider("a")),
+            Arc::new(FakeProvider("a")),
         )
         .unwrap();
-        r.register(
+        r.register_typed(
             Manifest::new("b", Capability::LlmProvider, "1").with_priority(5),
-            as_any(FakeProvider("b")),
+            Arc::new(FakeProvider("b")),
         )
         .unwrap();
 
@@ -267,7 +378,7 @@ mod tests {
         let first = r.resolve::<FakeProvider>(Capability::LlmProvider).unwrap();
         assert_eq!(first.id(), "a");
 
-        r.quarantine("a");
+        r.quarantine(Capability::LlmProvider, "a");
         assert_eq!(r.active_ids(Capability::LlmProvider), vec!["b".to_string()]);
         let second = r.resolve::<FakeProvider>(Capability::LlmProvider).unwrap();
         assert_eq!(second.id(), "b");
@@ -285,12 +396,115 @@ mod tests {
     #[test]
     fn builder_freezes() {
         let mut b = RegistryBuilder::new();
-        b.register(
+        b.register_typed(
             Manifest::new("p", Capability::LlmProvider, "1"),
-            as_any(FakeProvider("p")),
+            Arc::new(FakeProvider("p")),
         )
         .unwrap();
         let r = b.build();
         assert_eq!(r.active_ids(Capability::LlmProvider).len(), 1);
+    }
+
+    #[test]
+    fn quarantine_is_scoped_by_capability() {
+        // (§4.3) quarantaine d'un id sur une capacite ne neutralise pas l'autre.
+        let mut r = Registry::new();
+        r.register_typed(
+            Manifest::new("x", Capability::LlmProvider, "1"),
+            Arc::new(FakeProvider("x")),
+        )
+        .unwrap();
+        r.register_typed(
+            Manifest::new("x", Capability::Tool, "1"),
+            Arc::new(FakeProvider("x-tool")),
+        )
+        .unwrap();
+
+        r.quarantine(Capability::LlmProvider, "x");
+
+        assert!(r.active_ids(Capability::LlmProvider).is_empty());
+        assert_eq!(r.active_ids(Capability::Tool), vec!["x"]);
+
+        // La resolution sous Tool fonctionne toujours.
+        let tool = r.resolve::<FakeProvider>(Capability::Tool).unwrap();
+        assert_eq!(tool.id(), "x-tool");
+    }
+
+    #[test]
+    fn type_mismatch_is_reported() {
+        // (§4.4) enregistrer un Provider sous ContextEngine -> TypeMismatch.
+        let mut r = Registry::new();
+        r.register_typed(
+            Manifest::new("bad", Capability::ContextEngine, "1"),
+            Arc::new(FakeProvider("bad")),
+        )
+        .unwrap();
+
+        let err = r
+            .resolve::<FakeEngine>(Capability::ContextEngine)
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            OmegaError::TypeMismatch(Capability::ContextEngine)
+        ));
+    }
+
+    #[test]
+    fn slot_replace_after_quarantine() {
+        // (§4.5) quarantaine du proprietaire d'un Slot puis re-enregistrement d'un successeur.
+        let mut r = Registry::new();
+        r.register_typed(
+            Manifest::new("v1", Capability::ContextEngine, "1"),
+            Arc::new(FakeEngine("v1")),
+        )
+        .unwrap();
+
+        r.quarantine(Capability::ContextEngine, "v1");
+        assert!(r.active_ids(Capability::ContextEngine).is_empty());
+
+        r.register_typed(
+            Manifest::new("v2", Capability::ContextEngine, "2"),
+            Arc::new(FakeEngine("v2")),
+        )
+        .unwrap();
+
+        let resolved = r.resolve::<FakeEngine>(Capability::ContextEngine).unwrap();
+        assert_eq!(resolved.name(), "v2");
+    }
+
+    #[test]
+    fn duplicate_id_is_rejected() {
+        let mut r = Registry::new();
+        r.register_typed(
+            Manifest::new("dup", Capability::LlmProvider, "1"),
+            Arc::new(FakeProvider("dup")),
+        )
+        .unwrap();
+        let err = r
+            .register_typed(
+                Manifest::new("dup", Capability::LlmProvider, "2"),
+                Arc::new(FakeProvider("dup2")),
+            )
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            OmegaError::DuplicateId(Capability::LlmProvider, _)
+        ));
+    }
+
+    #[test]
+    fn unregister_removes_entry() {
+        let mut r = Registry::new();
+        r.register_typed(
+            Manifest::new("gone", Capability::LlmProvider, "1"),
+            Arc::new(FakeProvider("gone")),
+        )
+        .unwrap();
+        r.unregister(Capability::LlmProvider, "gone");
+        assert!(r.active_ids(Capability::LlmProvider).is_empty());
+        let err = r
+            .resolve::<FakeProvider>(Capability::LlmProvider)
+            .unwrap_err();
+        assert!(matches!(err, OmegaError::NoImplementation(_)));
     }
 }
