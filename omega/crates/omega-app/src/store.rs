@@ -84,6 +84,20 @@ impl FileEventStore {
     }
 }
 
+/// Identifiant de run sûr pour un nom de fichier : `[A-Za-z0-9_-]+`, 1–128 caractères.
+///
+/// `path_for` interpole le `run_id` dans un chemin : sans validation, un `run_id`
+/// fourni par l'extérieur (`GET /api/trace/../../secret` décodé) sort du répertoire
+/// des journaux (path traversal). `FileEventStore` refuse les identifiants invalides
+/// (erreur typée, jamais de repli silencieux) ; le serveur les rejette en 400.
+pub fn is_valid_run_id(run_id: &str) -> bool {
+    !run_id.is_empty()
+        && run_id.len() <= 128
+        && run_id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+}
+
 impl EventStore for FileEventStore {
     fn name(&self) -> &str {
         "file"
@@ -91,6 +105,13 @@ impl EventStore for FileEventStore {
 
     fn append(&self, event: DurableEvent) -> OmegaResult<u64> {
         let _guard = self.lock.lock().expect("journal empoisonné");
+
+        if !is_valid_run_id(&event.run_id) {
+            return Err(OmegaError::Config(format!(
+                "identifiant de run invalide : {:?}",
+                event.run_id
+            )));
+        }
 
         fs::create_dir_all(&self.dir)
             .map_err(|e| OmegaError::Io(format!("création {} : {e}", self.dir.display())))?;
@@ -137,6 +158,12 @@ impl EventStore for FileEventStore {
 
     fn read_run(&self, run_id: &str) -> OmegaResult<Vec<DurableEvent>> {
         let _guard = self.lock.lock().expect("journal empoisonné");
+
+        if !is_valid_run_id(run_id) {
+            return Err(OmegaError::Config(format!(
+                "identifiant de run invalide : {run_id:?}"
+            )));
+        }
 
         let path = self.path_for(run_id);
         if !path.exists() {
@@ -210,6 +237,40 @@ mod tests {
         assert_eq!(journal[1].seq, 1);
 
         let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn run_id_validation_rejects_traversal_and_junk() {
+        // (traversal) `..`, `/`, encodages décodés (`../`), vide, trop long.
+        for bad in [
+            "",
+            "..",
+            "../secret",
+            "..\\secret",
+            "a/b",
+            "a b",
+            "run;rm",
+            &"x".repeat(129),
+        ] {
+            assert!(!is_valid_run_id(bad), "{bad:?}");
+        }
+        for ok in ["run-1", "live_1", "ABC123", "pipe-1", "route-trace-1"] {
+            assert!(is_valid_run_id(ok), "{ok:?}");
+        }
+    }
+
+    #[test]
+    fn file_store_rejects_invalid_run_id_without_touching_disk() {
+        use omega_ports::EventStore;
+        let dir = temp_dir("badid");
+        let store = FileEventStore::new(&dir);
+        let err = store.append(ev("../evil", "a")).unwrap_err();
+        assert!(matches!(err, OmegaError::Config(_)));
+        let err = store.read_run("../../etc").unwrap_err();
+        assert!(matches!(err, OmegaError::Config(_)));
+        // Aucun fichier créé hors du répertoire (ni dedans).
+        assert!(std::fs::read_dir(&dir).unwrap().next().is_none());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

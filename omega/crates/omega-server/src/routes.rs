@@ -119,6 +119,13 @@ async fn run(
     Json(req): Json<ApiRunRequest>,
 ) -> Result<Json<RunResponse>, ApiError> {
     let messages = req.to_messages().map_err(ApiError::bad_request)?;
+    if let Some(id) = &req.run_id {
+        if !omega_app::is_valid_run_id(id) {
+            return Err(ApiError::bad_request(format!(
+                "run_id invalide : {id:?} ([A-Za-z0-9_-]{{1,128}})"
+            )));
+        }
+    }
     let resp = execute_run(&state, messages, req.run_id)
         .await
         .map_err(ApiError::from_domain)?;
@@ -129,6 +136,11 @@ async fn trace(
     State(state): State<Arc<AppState>>,
     Path(run_id): Path<String>,
 ) -> Result<Json<TraceResponse>, ApiError> {
+    if !omega_app::is_valid_run_id(&run_id) {
+        return Err(ApiError::bad_request(format!(
+            "run_id invalide : {run_id:?} ([A-Za-z0-9_-]{{1,128}})"
+        )));
+    }
     let journal = state
         .store
         .read_run(&run_id)
@@ -201,6 +213,25 @@ mod tests {
             run_id: None,
         };
         let err = run(state_arg(&state), Json(req)).await.unwrap_err();
+        assert_eq!(err.status, StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn run_and_trace_reject_traversal_run_id() {
+        // (traversal) `../` ne doit jamais atteindre le store : 400, pas de journal.
+        let (state, _) = test_state("routes-run-traversal");
+        let req = ApiRunRequest {
+            messages: vec![crate::dto::ApiMessage {
+                role: "user".to_string(),
+                content: "bonjour".to_string(),
+            }],
+            run_id: Some("../evil".to_string()),
+        };
+        let err = run(state_arg(&state), Json(req)).await.unwrap_err();
+        assert_eq!(err.status, StatusCode::BAD_REQUEST);
+        let err = trace(state_arg(&state), Path("..%2Fevil".to_string()))
+            .await
+            .unwrap_err();
         assert_eq!(err.status, StatusCode::BAD_REQUEST);
     }
 

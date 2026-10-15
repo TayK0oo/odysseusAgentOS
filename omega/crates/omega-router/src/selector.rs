@@ -14,6 +14,59 @@ impl<S: omega_ports::ScoringPolicy> ParetoSelector<S> {
     pub fn new(scoring: S) -> Self {
         Self { scoring }
     }
+
+    /// Sélection + préférence self-hosted (W10) : après `select`, si le gagnant
+    /// n'est pas local et qu'un candidat `SelfHosted` éligible existe, applique
+    /// la règle `self_hosted_first` (marge `SELF_HOST_MARGIN`). Le local ne gagne
+    /// que sur quasi-égalité — jamais sur un écart de qualité réel.
+    pub fn select_with_local_preference(
+        &self,
+        task: TaskType,
+        required_capabilities: Capabilities,
+        required_context: u32,
+        candidates: &[ModelRecord],
+    ) -> Result<RouterDecision, RouterError> {
+        let decision = self.select(task, required_capabilities, required_context, candidates)?;
+        let winner = candidates.iter().find(|m| m.id == decision.model_id);
+        let Some(winner) = winner else {
+            return Ok(decision);
+        };
+        if matches!(winner.tier, ModelTier::SelfHosted) {
+            return Ok(decision);
+        }
+        let mut best_local: Option<(&ModelRecord, f64)> = None;
+        for m in candidates
+            .iter()
+            .filter(|m| matches!(m.tier, ModelTier::SelfHosted))
+        {
+            let s = self.scoring.score(task, required_context, candidates, m);
+            if best_local.map(|(_, bs)| s > bs).unwrap_or(true) {
+                best_local = Some((m, s));
+            }
+        }
+        let Some((local, local_score)) = best_local else {
+            return Ok(decision);
+        };
+        if omega_providers::ollama_catalog::self_hosted_first(
+            local,
+            local_score,
+            winner,
+            decision.score,
+            required_capabilities,
+            required_context,
+        ) {
+            Ok(RouterDecision::new(
+                local.id.clone(),
+                local_score,
+                format!(
+                    "self-host-first: {} (score {local_score:.4} + marge, cout nul)",
+                    local.id
+                ),
+            ))
+        } else {
+            Ok(decision)
+        }
+    }
 }
 
 impl<S: omega_ports::ScoringPolicy> Selector for ParetoSelector<S> {
@@ -477,5 +530,143 @@ mod tests {
             .select(TaskType::Chat, Capabilities::default(), 0, &[b, a])
             .unwrap();
         assert_eq!(d1.model_id, d2.model_id);
+    }
+
+    fn local_candidate() -> ModelRecord {
+        model(
+            "ollama/qwen2.5-coder:7b",
+            ModelTier::SelfHosted,
+            0.0,
+            0.0,
+            40.0,
+            32_768,
+            Capabilities::default(),
+            QualityAxes {
+                reasoning: 50,
+                code: 65,
+                ..Default::default()
+            },
+        )
+    }
+
+    fn remote_candidate() -> ModelRecord {
+        model(
+            "cloud-elite",
+            ModelTier::Elite,
+            5.0,
+            15.0,
+            60.0,
+            200_000,
+            Capabilities::default(),
+            QualityAxes {
+                reasoning: 95,
+                code: 95,
+                ..Default::default()
+            },
+        )
+    }
+
+    /// Scoring bouché à scores fixes : rend la préférence locale déterministe,
+    /// indépendamment des poids du composite.
+    struct FixedScoring {
+        scores: std::collections::HashMap<String, f64>,
+    }
+
+    impl omega_ports::ScoringPolicy for FixedScoring {
+        fn weights(&self, _task: TaskType) -> omega_types::Weights {
+            omega_types::Weights {
+                reasoning: 0.2,
+                code: 0.2,
+                agentic: 0.1,
+                knowledge: 0.1,
+                chat: 0.1,
+                vision: 0.0,
+                speed: 0.1,
+                cost: 0.1,
+                context: 0.1,
+            }
+        }
+
+        fn score(
+            &self,
+            _task: TaskType,
+            _required_context: u32,
+            _candidates: &[ModelRecord],
+            model: &ModelRecord,
+        ) -> f64 {
+            *self.scores.get(&model.id).unwrap_or(&0.0)
+        }
+
+        fn effective_quality(&self, _task: TaskType, model: &ModelRecord) -> f64 {
+            *self.scores.get(&model.id).unwrap_or(&0.0)
+        }
+    }
+
+    fn fixed_selector(local_score: f64, remote_score: f64) -> ParetoSelector<FixedScoring> {
+        let mut scores = std::collections::HashMap::new();
+        scores.insert("ollama/qwen2.5-coder:7b".to_string(), local_score);
+        scores.insert("cloud-elite".to_string(), remote_score);
+        ParetoSelector::new(FixedScoring { scores })
+    }
+
+    #[test]
+    fn local_preference_wins_at_close_score() {
+        // (W10) scores bouchés 0.70 vs 0.74 (écart < marge 0.05) : le brut
+        // choisit le cloud, la préférence le renverse vers le local.
+        let selector = fixed_selector(0.70, 0.74);
+        let candidates = vec![local_candidate(), remote_candidate()];
+        let raw = selector
+            .select(TaskType::Chat, Capabilities::default(), 0, &candidates)
+            .unwrap();
+        assert_eq!(raw.model_id, "cloud-elite");
+        let d = selector
+            .select_with_local_preference(TaskType::Chat, Capabilities::default(), 0, &candidates)
+            .unwrap();
+        assert_eq!(d.model_id, "ollama/qwen2.5-coder:7b");
+        assert!(d.reason.contains("self-host-first"));
+    }
+
+    #[test]
+    fn local_preference_keeps_remote_on_large_gap() {
+        // (W10) écart de qualité réel → le distant reste (la marge ne renverse pas).
+        let selector = ParetoSelector::new(CompositeScoringPolicy::new());
+        let local = model(
+            "ollama/tiny",
+            ModelTier::SelfHosted,
+            0.0,
+            0.0,
+            40.0,
+            32_768,
+            Capabilities::default(),
+            QualityAxes {
+                reasoning: 5,
+                code: 5,
+                ..Default::default()
+            },
+        );
+        let d = selector
+            .select_with_local_preference(
+                TaskType::LongReasoning,
+                Capabilities::default(),
+                4000,
+                &[local, remote_candidate()],
+            )
+            .unwrap();
+        assert_eq!(d.model_id, "cloud-elite");
+    }
+
+    #[test]
+    fn local_preference_noop_on_single_or_local_winner() {
+        // (W10) un seul candidat ou gagnant déjà local → décision inchangée.
+        let selector = ParetoSelector::new(CompositeScoringPolicy::new());
+        let d = selector
+            .select_with_local_preference(
+                TaskType::Chat,
+                Capabilities::default(),
+                0,
+                &[local_candidate()],
+            )
+            .unwrap();
+        assert_eq!(d.model_id, "ollama/qwen2.5-coder:7b");
     }
 }

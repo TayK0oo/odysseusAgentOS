@@ -8,40 +8,20 @@
 use omega_app::RunInput;
 use omega_otel::TraceReplayer;
 use omega_ports::EventStore;
+use omega_providers::local_record;
 use omega_router::selector::ParetoSelector;
-use omega_router::{CompositeScoringPolicy, HeuristicTaskClassifier, Selector, TaskClassifier};
-use omega_types::{
-    Capabilities, Message, ModelId, ModelRecord, ModelTier, OmegaError, OmegaResult, QualityAxes,
-    RoutingRequest,
-};
+use omega_router::{CompositeScoringPolicy, HeuristicTaskClassifier, TaskClassifier};
+use omega_types::{Capabilities, Message, ModelId, OmegaError, OmegaResult, RoutingRequest};
 
 use crate::config::REQUIRED_CONTEXT;
 use crate::dto::RunResponse;
 use crate::state::AppState;
 
-/// Candidat local (self-hosted, cout nul) : miroir du `local_record()` de
-/// l'exemple `live_ollama` d'`omega-app`. L'identifiant suit le provider
-/// (`ollama/<modele>`) pour que la decision refere l'inference reelle.
-pub fn local_candidate(model: &str) -> ModelRecord {
-    ModelRecord {
-        id: format!("ollama/{model}"),
-        provider: "ollama".to_string(),
-        context_length: 32768,
-        cost_input_per_1m: 0.0,
-        cost_output_per_1m: 0.0,
-        tokens_per_second: 40.0,
-        ttft_ms: 500,
-        axes: QualityAxes {
-            reasoning: 55,
-            code: 70,
-            agentic: 40,
-            knowledge: 50,
-            chat: 60,
-            vision: 0,
-        },
-        capabilities: Capabilities::default(),
-        tier: ModelTier::SelfHosted,
-    }
+/// Candidat local (self-hosted, coût nul) : le record canonique W10
+/// (`omega_providers::local_record`, contexte 32k). L'identifiant suit le
+/// provider (`ollama/<modèle>`) pour que la décision réfère l'inférence réelle.
+pub fn local_candidate(model: &str) -> omega_types::ModelRecord {
+    local_record(model, Some(32768))
 }
 
 /// Execute un run complet et retourne la reponse d'API.
@@ -64,11 +44,13 @@ pub async fn execute_run(
         .join("\n");
     let task = HeuristicTaskClassifier::new().classify(&RoutingRequest::new(&text));
 
-    // 2. Selection Pareto sur le seul candidat local (cout nul garanti).
+    // 2. Sélection Pareto sur le seul candidat local (cout nul garanti).
+    // `select_with_local_preference` : sans effet à un seul candidat, mais
+    // contrat homogène avec les flux multi-candidats (W10).
     let selector = ParetoSelector::new(CompositeScoringPolicy::new());
     let candidates = [local_candidate(&state.model)];
     let decision = selector
-        .select(task, Capabilities::default(), REQUIRED_CONTEXT, &candidates)
+        .select_with_local_preference(task, Capabilities::default(), REQUIRED_CONTEXT, &candidates)
         .map_err(|e| OmegaError::Config(format!("selection : {e:?}")))?;
 
     // 3. Assemble (ContextEngine du registre) + infere (Provider du registre).
@@ -216,6 +198,7 @@ pub mod tests {
 
     #[test]
     fn local_candidate_is_self_hosted_free() {
+        use omega_types::ModelTier;
         let c = local_candidate("qwen2.5-coder:7b");
         assert_eq!(c.id, "ollama/qwen2.5-coder:7b");
         assert_eq!(c.tier, ModelTier::SelfHosted);

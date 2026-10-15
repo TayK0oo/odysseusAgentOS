@@ -17,7 +17,7 @@ use omega_plugin_api::{Contributor, InstallContext};
 use omega_ports::{EventStore, Provider};
 use omega_registry::{Manifest, RegistryBuilder};
 use omega_router::selector::ParetoSelector;
-use omega_router::{CompositeScoringPolicy, HeuristicTaskClassifier, Selector, TaskClassifier};
+use omega_router::{CompositeScoringPolicy, HeuristicTaskClassifier, TaskClassifier};
 use omega_types::{
     Capabilities, Capability, Message, ModelId, ModelRecord, ModelTier, OmegaResult, QualityAxes,
     Role, RoutingRequest,
@@ -57,25 +57,27 @@ impl Contributor for StoreContributor {
     }
 }
 
-fn local_record() -> ModelRecord {
+fn remote_decoy() -> ModelRecord {
+    // Distant synthétique légèrement meilleur : la préférence self-hosted
+    // (marge) doit quand même faire gagner le local coût nul.
     ModelRecord {
-        id: "ollama/qwen2.5-coder:7b".to_string(),
-        provider: "ollama".to_string(),
-        context_length: 32768,
-        cost_input_per_1m: 0.0,
-        cost_output_per_1m: 0.0,
-        tokens_per_second: 40.0,
-        ttft_ms: 500,
+        id: "cloud/flash".to_string(),
+        provider: "cloud".to_string(),
+        context_length: 128_000,
+        cost_input_per_1m: 0.27,
+        cost_output_per_1m: 0.40,
+        tokens_per_second: 45.0,
+        ttft_ms: 960,
         axes: QualityAxes {
-            reasoning: 55,
-            code: 70,
-            agentic: 40,
-            knowledge: 50,
-            chat: 60,
+            reasoning: 50,
+            code: 65,
+            agentic: 35,
+            knowledge: 45,
+            chat: 55,
             vision: 0,
         },
         capabilities: Capabilities::default(),
-        tier: ModelTier::SelfHosted,
+        tier: ModelTier::FastCheap,
     }
 }
 
@@ -113,9 +115,19 @@ async fn run() -> OmegaResult<()> {
 
     // 2. Sélection (Pareto + score composite).
     let selector = ParetoSelector::new(CompositeScoringPolicy::new());
+    // Préférence self-hosted câblée : le local gagne sur quasi-égalité.
     let decision = selector
-        .select(task, Capabilities::default(), 4000, &[local_record()])
+        .select_with_local_preference(
+            task,
+            Capabilities::default(),
+            4000,
+            &[
+                omega_providers::local_record("qwen2.5-coder:7b", Some(32768)),
+                remote_decoy(),
+            ],
+        )
         .map_err(|e| omega_types::OmegaError::Config(format!("selection : {e:?}")))?;
+    assert_eq!(decision.model_id, "ollama/qwen2.5-coder:7b");
     println!(
         "decision : {} (score {:.3}) — {}",
         decision.model_id, decision.score, decision.reason

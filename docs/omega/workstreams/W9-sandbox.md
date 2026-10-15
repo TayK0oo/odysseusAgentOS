@@ -63,3 +63,9 @@ Aucune commande ne s'exécute sans décision de politique **typée et tracée** 
 - Kill par PID : Linux-only assumé Phase 1 (documenté dans le code).
 
 ## 6. Reste (incrément 3)
+
+- Backends Docker/SSH (adaptateurs du port `SandboxBackend`).
+- Isolation renforcée Linux (Landlock/seccomp, bubblewrap, cgroup pour le kill
+  de groupe — mitige N1 `setsid`).
+- `prune_denied()` : les refus sont purgés explicitement (pas d'accumulation
+  silencieuse) — déjà implémenté + testé.

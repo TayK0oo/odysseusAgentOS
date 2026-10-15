@@ -40,8 +40,11 @@ un run interrompu **reprend sans ré-exécuter** les opérations déjà complét
 1. Un run coupé au step *k* reprend au step *k+1* et se termine (test `crash_after_k_steps_...`).
 2. Chaque opération s'exécute **exactement une fois** (idempotence par `operation_id`).
 3. La reprise est **déterministe** (reprise répétée → même résultat, 0 ré-exécution).
-4. Une capacité absente → erreur **typée** (`NoImplementation`) au build ou au run.
-5. La quarantaine s'applique aussi aux trait objects (repli sur l'implémentation suivante).
+4. **Garde anti-dérive (N1 résolu)** : le plan (`name#index` ordonnés) est figé dans le
+   journal (`plan.defined`) ; une reprise avec un plan différent est **refusée**
+   (`Config`), jamais silencieusement sautée. Journaux antérieurs sans plan : admis.
+5. Une capacité absente → erreur **typée** (`NoImplementation`) au build ou au run.
+6. La quarantaine s'applique aussi aux trait objects (repli sur l'implémentation suivante).
 
 ## 5. Tests d'acceptation
 

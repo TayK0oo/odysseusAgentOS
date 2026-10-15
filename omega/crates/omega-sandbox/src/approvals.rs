@@ -117,6 +117,18 @@ impl ApprovalQueue {
         out
     }
 
+    /// Supprime les demandes `Denied` (historique inutile : un refus n'est jamais
+    /// consommé). Sans appel, les refus s'accumulent — fuite mémoire sur runs longs.
+    /// Rend le nombre d'entrées supprimées.
+    pub fn prune_denied(&self) -> usize {
+        let mut inner = self.inner.lock().expect("approval queue poisoned");
+        let before = inner.entries.len();
+        inner
+            .entries
+            .retain(|_, e| e.state != ApprovalState::Denied);
+        before - inner.entries.len()
+    }
+
     /// Consomme (supprime, usage unique) la plus ancienne approbation `Approved`
     /// pour la **commande exacte**. Rend `true` si une approbation a été
     /// consommée, `false` sinon (aucune, refusée, commande différente ou déjà
@@ -191,5 +203,17 @@ mod tests {
         assert!(!q.approve(999));
         assert!(!q.deny(999));
         assert!(!q.consume_for("sudo ls"));
+    }
+
+    #[test]
+    fn prune_denied_reaps_refusals_only() {
+        let q = ApprovalQueue::new();
+        let a = q.request("sudo a", "x");
+        let b = q.request("sudo b", "x");
+        assert!(q.deny(a));
+        assert!(q.approve(b));
+        assert_eq!(q.prune_denied(), 1);
+        assert!(q.consume_for("sudo b"));
+        assert_eq!(q.prune_denied(), 0);
     }
 }

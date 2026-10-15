@@ -34,7 +34,7 @@ use omega_types::{
 
 mod store;
 
-pub use store::{FileEventStore, InMemoryEventStore};
+pub use store::{is_valid_run_id, FileEventStore, InMemoryEventStore};
 
 /// Application assemblee : registre gele (quarantaine possible a chaud) + config effective.
 ///
@@ -123,11 +123,53 @@ impl App {
         let event_store = self.event_store()?;
         let run_id = input.run_id.unwrap_or_else(generate_run_id);
 
-        let completed = if input.resume {
-            completed_operation_ids(event_store.as_ref(), &run_id)?
-        } else {
-            HashSet::new()
-        };
+        // Identifiants d'idempotence du plan courant (uniques par position).
+        let all_ids: Vec<String> = input
+            .operations
+            .iter()
+            .enumerate()
+            .map(|(index, op)| format!("{}#{}", op.name(), index))
+            .collect();
+
+        // Lecture unique du journal : opérations complétées + plan enregistré.
+        let journal = event_store.read_run(&run_id)?;
+        let completed: HashSet<String> = journal
+            .iter()
+            .filter(|e| e.name == "step.completed")
+            .filter_map(|e| e.operation_id.clone())
+            .collect();
+        let recorded_plan: Option<Vec<String>> = journal
+            .iter()
+            .rev()
+            .filter(|e| e.name == "plan.defined")
+            .find_map(|e| {
+                e.payload
+                    .get("operations")?
+                    .as_array()?
+                    .iter()
+                    .map(|v| v.as_str().map(str::to_string))
+                    .collect::<Option<Vec<String>>>()
+            });
+
+        if input.resume {
+            // Garde anti-dérive (N1) : reprendre un plan différent sauterait des
+            // opérations au contenu différent. Refus typé, jamais de saut silencieux.
+            // (Journaux antérieurs sans `plan.defined` : admis sans contrôle.)
+            if let Some(recorded) = recorded_plan {
+                if recorded != all_ids {
+                    return Err(OmegaError::Config(format!(
+                        "reprise impossible : le plan a changé (run {run_id})"
+                    )));
+                }
+            }
+        } else if recorded_plan.is_none() {
+            // Premier run : fige le plan dans le journal (référence des reprises).
+            event_store.append(DurableEvent::new(
+                &run_id,
+                "plan.defined",
+                serde_json::json!({"operations": all_ids}),
+            ))?;
+        }
 
         let mut skipped = 0usize;
         let mut pending: Vec<Box<dyn Operation>> = Vec::with_capacity(input.operations.len());
@@ -136,7 +178,8 @@ impl App {
             // `name()` (ex. deux « infer ») sont distinctes et ne sont jamais confondues
             // a la reprise (pas de saut silencieux).
             let id = format!("{}#{}", op.name(), index);
-            if completed.contains(&id) {
+            debug_assert_eq!(id, all_ids[index]);
+            if input.resume && completed.contains(&id) {
                 skipped += 1;
             } else {
                 pending.push(Box::new(TaggedOperation { id, inner: op }));
@@ -257,16 +300,6 @@ impl AppBuilder {
         app.context_engine()?;
         Ok(app)
     }
-}
-
-/// Identifiants des operations deja completes d'un run (cle d'idempotence).
-fn completed_operation_ids(store: &dyn EventStore, run_id: &str) -> OmegaResult<HashSet<String>> {
-    let events = store.read_run(run_id)?;
-    Ok(events
-        .into_iter()
-        .filter(|e| e.name == "step.completed")
-        .filter_map(|e| e.operation_id)
-        .collect())
 }
 
 static RUN_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -424,7 +457,8 @@ mod tests {
     use omega_ports::{ContextEngine, EventStore, Provider};
     use omega_registry::{Manifest, RegistryBuilder};
     use omega_types::{
-        Capability, ChatRequest, ChatResponse, Message, ModelId, OmegaError, OmegaResult, Role,
+        Capability, ChatRequest, ChatResponse, DurableEvent, Message, ModelId, OmegaError,
+        OmegaResult, Role,
     };
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering};
     use std::sync::{Arc, Mutex};
@@ -851,6 +885,80 @@ mod tests {
 
         // Chaque operation executee exactement une fois au total.
         assert_eq!(*trace.lock().unwrap(), vec!["a", "b"]);
+    }
+
+    #[tokio::test]
+    async fn resume_rejects_changed_plan() {
+        // (N1) run [a, b] complet, puis reprise avec un plan différent [a, c] :
+        // refus typé, jamais de saut silencieux de `c`.
+        let store = Arc::new(InMemoryEventStore::new());
+        let app = base_app(store.clone());
+        let trace = Arc::new(Mutex::new(Vec::new()));
+        let plan_ab = || -> Vec<Box<dyn Operation>> {
+            vec![
+                Box::new(CountingOp {
+                    id: "a",
+                    trace: trace.clone(),
+                }),
+                Box::new(CountingOp {
+                    id: "b",
+                    trace: trace.clone(),
+                }),
+            ]
+        };
+        let first = app
+            .run(RunInput::new(plan_ab()).with_run_id("run-plan"))
+            .await
+            .unwrap();
+        assert_eq!(first.status, RunStatus::Ok);
+
+        let plan_ac = || -> Vec<Box<dyn Operation>> {
+            vec![
+                Box::new(CountingOp {
+                    id: "a",
+                    trace: trace.clone(),
+                }),
+                Box::new(CountingOp {
+                    id: "c",
+                    trace: trace.clone(),
+                }),
+            ]
+        };
+        let err = app
+            .run(RunInput::new(plan_ac()).with_run_id("run-plan").resume())
+            .await
+            .unwrap_err();
+        assert!(matches!(err, OmegaError::Config(_)));
+        // `c` ne s'est jamais exécutée, `a`/`b` une fois chacun.
+        assert_eq!(*trace.lock().unwrap(), vec!["a", "b"]);
+    }
+
+    #[tokio::test]
+    async fn resume_without_recorded_plan_stays_allowed() {
+        // (N1) journaux antérieurs sans `plan.defined` : reprise admise sans contrôle.
+        let store = Arc::new(InMemoryEventStore::new());
+        store
+            .append(
+                DurableEvent::new("legacy", "step.completed", serde_json::json!(null))
+                    .with_operation_id(Some("a#0".to_string())),
+            )
+            .unwrap();
+        let app = base_app(store.clone());
+        let trace = Arc::new(Mutex::new(Vec::new()));
+        let out = app
+            .run(
+                RunInput::new(vec![Box::new(CountingOp {
+                    id: "a",
+                    trace: trace.clone(),
+                })])
+                .with_run_id("legacy")
+                .resume(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(out.status, RunStatus::Ok);
+        assert_eq!(out.skipped_operations, 1);
+        assert!(trace.lock().unwrap().is_empty());
     }
 
     #[tokio::test]

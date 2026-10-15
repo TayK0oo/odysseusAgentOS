@@ -71,6 +71,11 @@ extrême (~200 crates, `RE-GC:622`).
 
 ### 2.1 Liste des crates (18 + plugins + ui)
 
+> **Note de maintenance (2026-10-15) :** la colonne « Dépendances internes » reflète
+> l'état **réel vérifié** (`Cargo.toml`, garde-fou `check_dep_graph.py` vert) —
+> les adaptateurs dépendent aussi de `registry`/`plugin-api` pour leurs
+> `Contributor`s (leçon du câblage `omega-context`, revue W6).
+
 | Crate | Responsabilité | Dépendances internes |
 |---|---|---|
 | `omega-types` | **Types purs** : `Message`, `Conversation`, `ModelConfig`, `Usage`, IDs, **erreurs de domaine**. Zéro logique applicative, zéro dépendance interne. | — (feuille) |
@@ -80,15 +85,15 @@ extrême (~200 crates, `RE-GC:622`).
 | `omega-core` | **Boucle d'agent** : `Operation`/`Inference`/`Effect`/`Emitter`, `EffectHandler`, `RunStatus`, **event-bus interne**, **annulation coopérative**. Ne connaît ni provider ni extension. | `types`, `ports` |
 | `omega-registry` | **Registres ordonnés et déterministes** (IndexMap + priorité) + **slots** (exclusif/ensemble) + manifestes + DI par constructeur + quarantaine/repli. | `types`, `ports`, `config` |
 | `omega-plugin-api` | **Traits contributeurs** de cycle de vie (builder → registre immuable, défauts vides, chaîne de responsabilité) ; chargeur de manifestes + policy d'installation. | `types`, `ports`, `registry` |
-| `omega-context` | **Context Engine** (port + `ownsCompaction`), compaction (décorateur + structurée), prompt caching, **tool search BM25**, progressive disclosure des skills, découverte `AGENTS.md`, budget de contexte. | `types`, `ports`, `config`, `registry` |
+| `omega-context` | **Context Engine** (port + `ownsCompaction`), compaction (décorateur + structurée), prompt caching, **tool search BM25**, progressive disclosure des skills, découverte `AGENTS.md`, budget de contexte. | `types`, `ports`, `registry`, `plugin-api` |
 | `omega-memory` | **Mémoire bornée + snapshot gelé**, table transactionnelle, **FTS5 session search**, mémoire auto générée. | `types`, `ports`, `config` |
 | `omega-tools` | **Registre d'outils** + tool executor/exposure (`spec`/`handle` séparés) + index de recherche. | `types`, `ports`, `config` |
-| `omega-providers` | **Providers déclaratifs JSON** + adaptateurs par API + **catalog sources** (OpenRouter, models.dev, Ollama, HF, `/v1/models`). | `types`, `ports`, `config` |
-| `omega-router` | **Registre de modèles**, classifieur de tâche déterministe, scoring composite, sélecteur/Pareto, fallback + circuit breaker, feedback bandit, cache de décision. | `types`, `ports`, `config`, `providers` |
-| `omega-sandbox` | **Politiques de sandbox typées** + backends Linux (Landlock+seccomp, bubblewrap) + execpolicy + approbations + checkpoints/worktrees. | `types`, `ports`, `config` |
-| `omega-otel` | **Télémétrie nommée** + cibles log-only/trace-safe + **provenance** + event store durable + **replay**. | `types`, `ports` |
-| `omega-app` | **Assemble** : enregistre les plugins/capacités, câble les adaptateurs, expose le daemon/runtime. | tout ce qui précède |
-| `omega-server` | **Adaptateur de bord** : API HTTP/WS pour l'UI (schéma versionné). | `app`, `protocol` |
+| `omega-providers` | **Providers déclaratifs JSON** + adaptateurs par API + **catalog sources** (OpenRouter, models.dev, Ollama, HF, `/v1/models`). | `types`, `ports` |
+| `omega-router` | **Registre de modèles**, classifieur de tâche déterministe, scoring composite, sélecteur/Pareto (+ préférence self-hosted), fallback + circuit breaker, feedback bandit, cache de décision. | `types`, `ports`, `providers` |
+| `omega-sandbox` | **Politiques de sandbox typées** + backends Linux (Landlock+seccomp, bubblewrap) + execpolicy + approbations + checkpoints/worktrees. | `types`, `ports`, `registry`, `plugin-api` |
+| `omega-otel` | **Télémétrie nommée** + cibles log-only/trace-safe + **provenance** + event store durable + **replay**. | `types`, `ports`, `registry`, `plugin-api` |
+| `omega-app` | **Assemble** : enregistre les plugins/capacités, câble les adaptateurs, expose le daemon/runtime. | `types`, `ports`, `config`, `registry`, `plugin-api`, `core` |
+| `omega-server` | **Adaptateur de bord** : API HTTP/WS pour l'UI (schéma versionné). | `app`, `protocol` (+ `types`, `ports`, `registry`, `plugin-api`, `core`, `context`, `otel`, `router`, `providers` pour le câblage) |
 | `omega-cli` | Binaire CLI. | `app` |
 | `omega-ui-bindings` | Frontière Rust↔React/TS (générée depuis `protocol`). | `protocol` |
 | `plugins/` | Un crate par capacité (ex. `harness-*`, `skills`, `hooks`, `memories`, `subagents`, `tools-*`). | `ports` (+ `types`, `registry`) — **jamais** `core`/`app` |
