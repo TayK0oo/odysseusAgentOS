@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 use omega_providers::Capabilities;
+use omega_types::TaskType;
 
 use crate::selector::RouterDecision;
-use crate::task::TaskType;
 
 /// Cache de decisions.
 #[derive(Debug, Default)]

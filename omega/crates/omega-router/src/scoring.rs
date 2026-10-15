@@ -1,8 +1,7 @@
 //! Politique de scoring composite multi-criteres.
 
 use omega_providers::ModelRecord;
-
-use crate::task::TaskType;
+use omega_types::TaskType;
 
 /// Poids d'un profil de tache. Tous les champs somment a 1.
 #[derive(Debug, Clone, Copy, PartialEq)]

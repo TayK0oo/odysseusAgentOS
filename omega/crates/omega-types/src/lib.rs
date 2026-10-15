@@ -84,6 +84,29 @@ pub struct RawModel {
     pub context_length: Option<u32>,
 }
 
+/// Capacites operationnelles binaires requises pour l'execution d'une tache.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Capabilities {
+    /// Function-calling / tool use.
+    pub function_calling: bool,
+    /// Entree ou sortie image/audio/video.
+    pub multimodal: bool,
+    /// JSON schema / response_format.
+    pub structured_output: bool,
+    /// Modele de raisonnement pilotable (thinking).
+    pub reasoning: bool,
+}
+
+impl Capabilities {
+    /// True si ce modele satisfait toutes les capacites demandees.
+    pub fn covers(self, required: Capabilities) -> bool {
+        (!required.function_calling || self.function_calling)
+            && (!required.multimodal || self.multimodal)
+            && (!required.structured_output || self.structured_output)
+            && (!required.reasoning || self.reasoning)
+    }
+}
+
 /// Specification d'un outil (exposee au modele).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolSpec {
@@ -202,23 +225,37 @@ impl Capability {
     }
 }
 
-/// Type de tache (T1..T14) pour le routeur — voir `MODEL-ROUTING-BENCHMARKS.md`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Type de tache (T1..T14) pour le routeur — voir `MODEL-ROUTING-BENCHMARKS.md` §3.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum TaskType {
+    /// T1 — Completion triviale / small-talk.
     TrivialCompletion,
-    TargetedEdit,
-    Refactor,
-    Implementation,
-    LongReasoning,
-    Math,
-    Research,
-    AgenticTerminal,
-    Vision,
-    Audio,
-    Embedding,
-    MediaGeneration,
+    /// T2 — Resume / reformatage.
     Summarization,
+    /// T3 — Edition ciblee (1 fichier, patch simple).
+    TargetedEdit,
+    /// T4 — Refactor / multi-fichiers.
+    Refactor,
+    /// T5 — Implementation from scratch.
+    Implementation,
+    /// T6 — Raisonnement long / plan.
+    LongReasoning,
+    /// T7 — Maths / sciences dures.
+    Math,
+    /// T8 — Recherche / synthese web.
+    Research,
+    /// T9 — Agentique terminal / ops.
+    AgenticTerminal,
+    /// T10 — Vision / OCR / UI.
+    Vision,
+    /// T11 — Transcription / audio.
+    Audio,
+    /// T12 — Embeddings / RAG.
+    Embedding,
+    /// T13 — Generation media (image/video/audio).
+    MediaGeneration,
+    /// T14 — Chat generaliste.
     Chat,
 }
 
@@ -228,19 +265,78 @@ impl TaskType {
         use TaskType::*;
         match self {
             TrivialCompletion => "T1",
-            TargetedEdit => "T2",
-            Refactor => "T3",
-            Implementation => "T4",
-            LongReasoning => "T5",
-            Math => "T6",
-            Research => "T7",
-            AgenticTerminal => "T8",
-            Vision => "T9",
-            Audio => "T10",
-            Embedding => "T11",
-            MediaGeneration => "T12",
-            Summarization => "T13",
+            Summarization => "T2",
+            TargetedEdit => "T3",
+            Refactor => "T4",
+            Implementation => "T5",
+            LongReasoning => "T6",
+            Math => "T7",
+            Research => "T8",
+            AgenticTerminal => "T9",
+            Vision => "T10",
+            Audio => "T11",
+            Embedding => "T12",
+            MediaGeneration => "T13",
             Chat => "T14",
         }
+    }
+}
+
+/// Type d'une piece jointe en entree de classifieur.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AttachmentKind {
+    Image,
+    Audio,
+    Video,
+    Other,
+}
+
+/// Piece jointe detectee dans la requete de routage.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Attachment {
+    pub kind: AttachmentKind,
+}
+
+/// Requete a classifier pour le routeur.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoutingRequest {
+    pub text: String,
+    pub attachments: Vec<Attachment>,
+    pub required_context: u32,
+    pub required_capabilities: Capabilities,
+}
+
+impl RoutingRequest {
+    pub fn new(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            attachments: Vec::new(),
+            required_context: 0,
+            required_capabilities: Capabilities::default(),
+        }
+    }
+
+    pub fn with_attachment(mut self, kind: AttachmentKind) -> Self {
+        self.attachments.push(Attachment { kind });
+        self
+    }
+
+    pub fn with_required_context(mut self, ctx: u32) -> Self {
+        self.required_context = ctx;
+        self
+    }
+
+    pub fn with_required_capabilities(mut self, caps: Capabilities) -> Self {
+        self.required_capabilities = caps;
+        self
+    }
+
+    pub fn lower(&self) -> String {
+        self.text.to_lowercase()
+    }
+
+    pub fn word_count(&self) -> usize {
+        self.text.split_whitespace().count()
     }
 }

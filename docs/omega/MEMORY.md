@@ -73,6 +73,7 @@
 | D7 | **Premier chantier de code : W5 reverse-engineering** | 2026-10-15 | ✅ `[stated]` | — |
 | D8 | Isolation du travail Omega via git worktree (concurrence) | 2026-10-15 | ✅ `[observed]` | — |
 | D9 | Correction `REVIEW-W2` : garde-fou durci + quarantaine scopée + type↔capacité + factory câblée + annulation intra-étape | 2026-10-15 | ✅ `[observed]` | ADR-0003 |
+| D10 | Réconciliation dette W4 : `TaskType`/`RoutingRequest`/`Capabilities` dans `omega-types`, port `TaskClassifier` dans `omega-ports`, `omega-router` implémente et ré-exporte | 2026-10-15 | ✅ `[observed]` | — |
 
 ## 7. Credentials & accès
 
@@ -104,6 +105,15 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] Décomposition W0-W10 (`docs/omega/02-WORKSTREAMS.md`)
 - [x] Credentials déposés et validés (`.env`, non versionné)
 - [x] Subagents routés sur l'abonnement Go (`opencode-go/*`, 24 modèles)
+
+### Dettes architecturales résolues
+
+- [x] W4 — doublon `TaskType` (`omega-types` vs `omega-router`) et `TaskClassifier`
+  défini dans `omega-router` au lieu de `omega-ports` : réconcilié ; source unique
+  `omega-types`, port dans `omega-ports`, implémentation dans `omega-router`.
+  Preuves : `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`,
+  `cargo fmt --all --check`, `python3 omega/scripts/check_dep_graph.py` et `--self-test`
+  tous verts (`[observed]`).
 
 ### Clones de travail (nettoyables)
 `/tmp/opencode/re/` : codex (131M), goose (646M), hermes-agent (344M), openclaw (939M), opencode (230M).

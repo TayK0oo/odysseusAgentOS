@@ -3,10 +3,10 @@
 use std::collections::HashMap;
 
 use omega_providers::{Capabilities, ModelRecord, ModelTier};
+use omega_types::TaskType;
 
 use crate::scoring::ScoringPolicy;
 use crate::selector::RouterDecision;
-use crate::task::TaskType;
 
 /// Port de la politique de fallback.
 pub trait FallbackPolicy {

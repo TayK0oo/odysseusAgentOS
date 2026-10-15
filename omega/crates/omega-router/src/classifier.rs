@@ -1,77 +1,12 @@
 //! Classifieur de tache 100 % deterministe (regex + longueur + pieces jointes).
 //!
-//! Aucun LLM n'est implique. Le trait `TaskClassifier` devrait idealement vivre dans
-//! `omega-ports` ; il est defini ici pour respecter la contrainte de ne pas modifier
-//! les crates existants lors de cet increment.
+//! Aucun LLM n'est implique. Le trait `TaskClassifier` vit desormais dans
+//! `omega-ports` ; `HeuristicTaskClassifier` en est l'implementation par defaut.
 
 use regex::Regex;
 
-use omega_providers::Capabilities;
-
-use crate::task::TaskType;
-
-/// Type d'une piece jointe.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AttachmentKind {
-    Image,
-    Audio,
-    Video,
-    Other,
-}
-
-/// Piece jointe detectee dans la requete.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Attachment {
-    pub kind: AttachmentKind,
-}
-
-/// Requete a classifier.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RoutingRequest {
-    pub text: String,
-    pub attachments: Vec<Attachment>,
-    pub required_context: u32,
-    pub required_capabilities: Capabilities,
-}
-
-impl RoutingRequest {
-    pub fn new(text: impl Into<String>) -> Self {
-        Self {
-            text: text.into(),
-            attachments: Vec::new(),
-            required_context: 0,
-            required_capabilities: Capabilities::default(),
-        }
-    }
-
-    pub fn with_attachment(mut self, kind: AttachmentKind) -> Self {
-        self.attachments.push(Attachment { kind });
-        self
-    }
-
-    pub fn with_required_context(mut self, ctx: u32) -> Self {
-        self.required_context = ctx;
-        self
-    }
-
-    pub fn with_required_capabilities(mut self, caps: Capabilities) -> Self {
-        self.required_capabilities = caps;
-        self
-    }
-
-    fn lower(&self) -> String {
-        self.text.to_lowercase()
-    }
-
-    fn word_count(&self) -> usize {
-        self.text.split_whitespace().count()
-    }
-}
-
-/// Port du classifieur de tache.
-pub trait TaskClassifier {
-    fn classify(&self, req: &RoutingRequest) -> TaskType;
-}
+use omega_ports::TaskClassifier;
+use omega_types::{AttachmentKind, RoutingRequest, TaskType};
 
 /// Classifieur heuristique deterministe.
 pub struct HeuristicTaskClassifier {

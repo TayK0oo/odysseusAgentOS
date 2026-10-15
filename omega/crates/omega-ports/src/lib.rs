@@ -7,7 +7,7 @@
 use async_trait::async_trait;
 use omega_types::{
     ChatRequest, ChatResponse, CommandOutput, Message, ModelId, OmegaResult, PermissionEffect,
-    RawModel, TaskType, TelemetryEvent, ToolSpec,
+    RawModel, RoutingRequest, TaskType, TelemetryEvent, ToolSpec,
 };
 
 /// Fournit de l'inference. Regime : *ensemble*.
@@ -58,6 +58,12 @@ pub trait RouterPolicy: Send + Sync {
     fn name(&self) -> &str;
     /// Choisit un modele parmi les candidats pour un type de tache donne.
     async fn choose(&self, task: TaskType, candidates: &[ModelId]) -> OmegaResult<ModelId>;
+}
+
+/// Classifieur de tache. Regime : *slot exclusif*.
+pub trait TaskClassifier: Send + Sync {
+    /// Determine le type de tache (T1..T14) a partir d'une requete de routage.
+    fn classify(&self, req: &RoutingRequest) -> TaskType;
 }
 
 /// Source de catalogue de modeles. Regime : *ensemble*.

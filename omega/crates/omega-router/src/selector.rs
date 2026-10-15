@@ -3,9 +3,9 @@
 use std::fmt::Write;
 
 use omega_providers::{Capabilities, ModelRecord, ModelTier};
+use omega_types::TaskType;
 
 use crate::scoring::ScoringPolicy;
-use crate::task::TaskType;
 
 /// Decision de routage.
 #[derive(Debug, Clone, PartialEq)]

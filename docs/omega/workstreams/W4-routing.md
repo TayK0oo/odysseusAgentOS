@@ -24,11 +24,18 @@ réseau ni LLM. Les données de catalogue sont en dur dans les tests.
 - `ModelRecord` et les types catalogue vont dans **`omega-providers`** pour rester
   cohérent avec le blueprint (`OMEGA-BLUEPRINT.md` §2.1) et permettre leur réutilisation
   par les futurs adaptateurs `CatalogSource`.
-- `TaskType` T1..T14, `RoutingRequest`, `TaskClassifier`, `ScoringPolicy`, etc. vont dans
-  **`omega-router`** car ils sont spécifiques à la politique de routing.
-- Le port `TaskClassifier` n'existe pas encore dans `omega-ports` ; il est défini dans
-  `omega-router` et sera remonté dans `omega-ports` au prochain cycle W2/W3
-  (`[inferred]` — contrainte de ne pas modifier les crates existants).
+- `TaskType` T1..T14, `RoutingRequest`, `Attachment`/`AttachmentKind` et `Capabilities`
+  sont des **types purs** ; ils vivent dans **`omega-types`** (source unique, aucune
+  dépendance interne).
+- Le port `TaskClassifier` est un **trait** ; il vit dans **`omega-ports`**
+  (`OMEGA-BLUEPRINT.md` §3, capacité `task-classifier`).
+- `omega-router` implémente `TaskClassifier` (`HeuristicTaskClassifier`) et consomme
+  `TaskType`/`RoutingRequest` depuis `omega-types`, conformément au graphe de
+  dépendances `router → {types, ports, providers}`.
+- La dette architecturale W4 (doublon `TaskType` dans `omega-types` et `omega-router`,
+  trait `TaskClassifier` dans `omega-router`) a été résolue au cours de cette
+  réconciliation (`[observed]` — `cargo test`, `clippy`, `fmt` et `check_dep_graph.py`
+  verts).
 
 ### Taxonomie T1..T14
 
