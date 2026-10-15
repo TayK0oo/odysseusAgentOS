@@ -9,7 +9,8 @@
 //! - câbler `omega-core::AgentLoop` avec ces ports et exposer `run(...) -> RunOutcome`
 //!   qui **émet les événements durables vers l'`EventStore`** ;
 //! - offrir la **reprise idempotente** : un run interrompu reprend sans ré-exécuter les
-//!   opérations déjà complétées (identifiant d'opération = `Operation::name()`).
+//!   opérations déjà complétées (identifiant d'opération = `Operation::operation_id()`,
+//!   rendu **unique par position** dans le plan).
 //!
 //! Garantie d'idempotence : une opération est considérée « complétée » si et seulement
 //! si le journal durable contient un événement `step.completed` portant son identifiant
@@ -130,11 +131,15 @@ impl App {
 
         let mut skipped = 0usize;
         let mut pending: Vec<Box<dyn Operation>> = Vec::with_capacity(input.operations.len());
-        for op in input.operations {
-            if completed.contains(op.name()) {
+        for (index, op) in input.operations.into_iter().enumerate() {
+            // Identifiant d'idempotence **unique par position** : deux operations de meme
+            // `name()` (ex. deux « infer ») sont distinctes et ne sont jamais confondues
+            // a la reprise (pas de saut silencieux).
+            let id = format!("{}#{}", op.name(), index);
+            if completed.contains(&id) {
                 skipped += 1;
             } else {
-                pending.push(op);
+                pending.push(Box::new(TaggedOperation { id, inner: op }));
             }
         }
         let executed = pending.len();
@@ -167,8 +172,9 @@ pub struct RunInput {
     pub run_id: Option<String>,
     /// Si vrai, reprend depuis le journal durable (idempotence par identifiant d'operation).
     pub resume: bool,
-    /// Operations ordonnees (l'ordre encode la priorite). `name()` est l'identifiant
-    /// d'idempotence : il doit etre **unique** au sein d'un run.
+    /// Operations ordonnees (l'ordre encode la priorite). L'identifiant d'idempotence
+    /// est rendu **unique par position** (`name#index`) : deux operations de meme nom
+    /// sont distinctes et chacune s'execute exactement une fois.
     pub operations: Vec<Box<dyn Operation>>,
 }
 
@@ -332,6 +338,32 @@ fn to_durable_event(run_id: &str, event: &Event) -> DurableEvent {
     };
     DurableEvent::new(run_id, event.name.clone(), event.payload.clone())
         .with_operation_id(operation_id)
+}
+
+/// Enveloppe une operation avec un identifiant d'idempotence **unique par position**.
+///
+/// Deux operations de meme `name()` (ex. deux « infer ») recoivent des ids distincts
+/// (`name#0`, `name#1`...) : la reprise ne saute plus silencieusement une operation
+/// homonyme. `name()` et `operation_id()` renvoient cet id unique ; `run` est delegue
+/// a l'operation interne (y compris `is_critical`).
+struct TaggedOperation {
+    id: String,
+    inner: Box<dyn Operation>,
+}
+
+#[async_trait]
+impl Operation for TaggedOperation {
+    fn name(&self) -> &str {
+        &self.id
+    }
+
+    fn is_critical(&self) -> bool {
+        self.inner.is_critical()
+    }
+
+    async fn run(&self, ctx: &mut RunContext<'_>) -> OmegaResult<()> {
+        self.inner.run(ctx).await
+    }
 }
 
 /// Operation canonique : assemble le contexte via le `ContextEngine` resolu.
@@ -695,7 +727,7 @@ mod tests {
             .filter(|e| e.name == "step.completed")
             .filter_map(|e| e.operation_id.as_deref())
             .collect();
-        assert_eq!(completed, vec!["assemble", "infer"]);
+        assert_eq!(completed, vec!["assemble#0", "infer#1"]);
     }
 
     #[tokio::test]
@@ -819,6 +851,47 @@ mod tests {
 
         // Chaque operation executee exactement une fois au total.
         assert_eq!(*trace.lock().unwrap(), vec!["a", "b"]);
+    }
+
+    #[tokio::test]
+    async fn duplicate_operation_names_each_run_once_and_resume() {
+        // (B1) deux operations de meme `name()` -> chacune s'execute exactement une fois ;
+        // la reprise ne re-execute ni ne saute silencieusement aucune des deux.
+        let store = Arc::new(InMemoryEventStore::new());
+        let app = base_app(store.clone());
+
+        let trace = Arc::new(Mutex::new(Vec::new()));
+        let plan = || -> Vec<Box<dyn Operation>> {
+            vec![
+                Box::new(CountingOp {
+                    id: "dup",
+                    trace: trace.clone(),
+                }),
+                Box::new(CountingOp {
+                    id: "dup",
+                    trace: trace.clone(),
+                }),
+            ]
+        };
+
+        let first = app
+            .run(RunInput::new(plan()).with_run_id("run-dup"))
+            .await
+            .unwrap();
+        assert_eq!(first.status, RunStatus::Ok);
+        assert_eq!(first.executed_operations, 2);
+        assert_eq!(first.skipped_operations, 0);
+
+        let second = app
+            .run(RunInput::new(plan()).with_run_id("run-dup").resume())
+            .await
+            .unwrap();
+        assert_eq!(second.status, RunStatus::Ok);
+        assert_eq!(second.skipped_operations, 2);
+        assert_eq!(second.executed_operations, 0);
+
+        // Les deux operations homonymes ont chacune ete executee exactement une fois.
+        assert_eq!(*trace.lock().unwrap(), vec!["dup", "dup"]);
     }
 
     #[test]

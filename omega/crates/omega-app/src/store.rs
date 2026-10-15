@@ -60,11 +60,18 @@ impl EventStore for InMemoryEventStore {
 /// ce qui rend la reprise robuste à un crash en cours d'écriture.
 pub struct FileEventStore {
     dir: PathBuf,
+    /// Serre-file : `append` et `read_run` relisent/recalculent l'etat du fichier
+    /// (read-modify-write). Sans verrou, deux appends concurrents sur le meme `run_id`
+    /// attribueraient le meme `seq`. Serialise l'acces au fichier par store.
+    lock: Mutex<()>,
 }
 
 impl FileEventStore {
     pub fn new(dir: impl Into<PathBuf>) -> Self {
-        Self { dir: dir.into() }
+        Self {
+            dir: dir.into(),
+            lock: Mutex::new(()),
+        }
     }
 
     /// Répertoire racine des journaux (un fichier par run).
@@ -83,6 +90,8 @@ impl EventStore for FileEventStore {
     }
 
     fn append(&self, event: DurableEvent) -> OmegaResult<u64> {
+        let _guard = self.lock.lock().expect("journal empoisonné");
+
         fs::create_dir_all(&self.dir)
             .map_err(|e| OmegaError::Io(format!("création {} : {e}", self.dir.display())))?;
 
@@ -127,6 +136,8 @@ impl EventStore for FileEventStore {
     }
 
     fn read_run(&self, run_id: &str) -> OmegaResult<Vec<DurableEvent>> {
+        let _guard = self.lock.lock().expect("journal empoisonné");
+
         let path = self.path_for(run_id);
         if !path.exists() {
             return Ok(Vec::new());
@@ -222,6 +233,44 @@ mod tests {
         assert_eq!(journal[0].name, "a");
         assert_eq!(journal[1].name, "c");
         assert_eq!(journal[1].seq, 1);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn file_store_seq_is_unique_under_concurrency() {
+        // (B3) N threads × M appends sur le meme run_id -> seq uniques et monotones.
+        use std::thread;
+
+        let dir = temp_dir("concurrent");
+        let store = Arc::new(FileEventStore::new(&dir));
+        let mut handles = Vec::new();
+        for _ in 0..8 {
+            let store = store.clone();
+            handles.push(thread::spawn(move || {
+                for i in 0..50 {
+                    store
+                        .append(ev("run-c", &format!("op-{i}")))
+                        .expect("append concurrent");
+                }
+            }));
+        }
+        for handle in handles {
+            handle.join().expect("thread d'append");
+        }
+
+        let journal = store.read_run("run-c").unwrap();
+        assert_eq!(journal.len(), 400);
+
+        let seqs: Vec<u64> = journal.iter().map(|e| e.seq).collect();
+        let mut unique = seqs.clone();
+        unique.sort_unstable();
+        unique.dedup();
+        assert_eq!(unique.len(), 400, "seq doivent etre uniques");
+
+        for w in seqs.windows(2) {
+            assert!(w[0] < w[1], "seq doit etre strictement croissant");
+        }
 
         let _ = fs::remove_dir_all(&dir);
     }
