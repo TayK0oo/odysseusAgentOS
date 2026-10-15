@@ -119,6 +119,9 @@ class Caches:
     # memory_provider._active_registry
     active_registry: Any = None
 
+    # DatabaseProtocol instance (MOD-6)
+    database: Any = None
+
     # Extensible : tout autre singleton ajouté dynamiquement
     _extra: dict[str, Any] = field(default_factory=dict)
 
@@ -185,6 +188,18 @@ class AppContext:
     @guard.setter
     def guard(self, value):
         self._caches.guard = value
+
+    @property
+    def database(self) -> Any:
+        """Accès au DatabaseProtocol via AppContext (MOD-6)."""
+        if self._caches.database is None:
+            from src.database_impl import get_database
+            self._caches.database = get_database()
+        return self._caches.database
+
+    @database.setter
+    def database(self, value):
+        self._caches.database = value
 
     @property
     def caches_container(self):

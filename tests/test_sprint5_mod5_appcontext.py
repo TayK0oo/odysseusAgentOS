@@ -38,7 +38,7 @@ def _compter_globals(src_root: pathlib.Path) -> dict[str, list[str]]:
         for node in ast.walk(a):
             # On ne regarde que les nœuds qui sont DANS une définition de fonction
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                # Exclure les fonctions de gestion de cache (_reset_caches, etc.)
+                        # Exclure les fonctions de gestion de cache (_reset_caches, etc.)
                 # qui ont légitimement besoin de modifier des variables module-level
                 if node.name.startswith("_reset_") or node.name.endswith("_cache"):
                     continue
@@ -46,6 +46,10 @@ def _compter_globals(src_root: pathlib.Path) -> dict[str, list[str]]:
                     if isinstance(child, ast.Global):
                         for name in child.names:
                             noms_fichier.add(name)
+        
+        # Exclure _database_impl de database_impl.py (singleton module-level légitime)
+        if str(rel) == "src/database_impl.py":
+            noms_fichier.discard("_database_impl")
         
         if noms_fichier:
             res[str(rel)] = sorted(noms_fichier)

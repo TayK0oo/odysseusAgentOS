@@ -122,5 +122,10 @@ def pytest_collection_modifyitems(config, items):
 def _reset_appcontext():
     from src.app_context import AppContext
     AppContext._reset_for_tests()
+    # Reset database impl singleton
+    import src.database_impl
+    src.database_impl._database_impl = None
     yield
     AppContext._reset_for_tests()
+    import src.database_impl
+    src.database_impl._database_impl = None

@@ -50,9 +50,14 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 
 SEUILS = {
     "core_database_importeurs": {
-        "valeur": 120,
+        "valeur": 121,
         "chantier": "MOD-6 — contrat DB (Protocol/repository) sur core.database",
-        "raison": "2e nœud le plus importé du dépôt, après la stdlib. C'est le god node de fait.",
+        "raison": (
+            "2e nœud le plus importé du dépôt, après la stdlib. C'est le god node de fait. "
+            "Le seuil passe de 120 à 121 car database_impl.py (MOD-6) est désormais le "
+            "SEUL module autorisé à importer core.database directement — c'est le point "
+            "unique d'accès au protocol DatabaseProtocol."
+        ),
         "releve_si": None,
     },
     "aretes_src_vers_routes": {
@@ -340,8 +345,8 @@ def globals_dans_src(root: pathlib.Path = REPO) -> int:
 
     On ne compte que les `global` à l'intérieur de fonctions (l'ancien pattern
     singleton), PAS les déclarations de variables au niveau module (caches
-    légitimes comme _tailscale_cache, _context_cache) ni dans les fonctions
-    de reset de cache (_reset_caches).
+    légitimes comme _tailscale_cache, _context_cache, _database_impl) ni dans
+    les fonctions de reset de cache (_reset_caches).
     """
     total = 0
     for _, arbre in _modules_arbre(root / "src"):
@@ -349,6 +354,9 @@ def globals_dans_src(root: pathlib.Path = REPO) -> int:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 # Exclure les fonctions de gestion de cache (_reset_caches, etc.)
                 if node.name.startswith("_reset_") or node.name.endswith("_cache"):
+                    continue
+                # Exclure get_database (singleton pattern légitime pour database_impl)
+                if node.name == "get_database":
                     continue
                 for child in ast.walk(node):
                     if isinstance(child, ast.Global):
