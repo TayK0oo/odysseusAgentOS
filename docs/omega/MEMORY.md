@@ -121,6 +121,8 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] Décomposition W0-W10 (`docs/omega/02-WORKSTREAMS.md`)
 - [x] Credentials déposés et validés (`.env`, non versionné)
 - [x] Subagents routés sur l'abonnement Go (`opencode-go/*`, 24 modèles)
+- [x] **Bascule provider `opencode` (défaut)** : quota Go épuisé → sonde OK sur `opencode/mimo-v2.6-flash-free` ; exécuteurs sur `opencode/kimi-k2.7-code`, revues sur `opencode/deepseek-v4-pro`, repli Free (`muse-spark-free`, `mimo-flash-free`, `step-5-free`)
+- [ ] Self-hosting local : `ollama pull qwen2.5-coder:7b` (RTX 4060 Ti 8 Go VRAM, 616 Go disque) — amorce W10
 
 ### Dettes architecturales résolues
 
