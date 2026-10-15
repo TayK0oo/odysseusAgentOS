@@ -38,7 +38,17 @@ Aucune commande ne s'exécute sans décision de politique **typée et tracée** 
 | (d) | Timeout → processus tué + `CommandTimeout` | ✅ |
 | (e) | Contributeur : politique + backend résolvables | ✅ |
 
-## 5. Reste (incrément 2)
+## 5. Auto-revue (revue indépendante en attente du quota Go)
+
+- **Dette (inc2) — matching par préfixe aveugle aux subshells** : `echo $(rm -rf /)`
+  matche une règle `Allow echo` alors qu'un `rm` s'exécute en subshell. Mitigation
+  Phase 1 : deny-by-default + règles `Allow` étroites. Inc2 : parse shell (ou allowlist
+  stricte + interdiction des substitutions `$(...)`/backticks).
+- **Dette (inc2) — casse** : `EcHo` ne matche pas `echo` (refusé par défaut → sûr, mais
+  fragile). Inc2 : normaliser en minuscules avant matching.
+- Kill par PID : Linux-only assumé Phase 1 (documenté dans le code).
+
+## 6. Reste (incrément 2)
 
 - File d'approbations humaines + `ApprovalReviewContributor` (lever `Prompt`).
 - Backends Docker/SSH (adaptateurs du port `SandboxBackend`).
