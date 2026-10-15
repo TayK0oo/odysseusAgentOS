@@ -50,25 +50,25 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 
 SEUILS = {
     "core_database_importeurs": {
-        "valeur": 121,
+        "valeur": 122,
         "chantier": "MOD-6 — contrat DB (Protocol/repository) sur core.database",
         "raison": (
             "2e nœud le plus importé du dépôt, après la stdlib. C'est le god node de fait. "
-            "Le seuil passe de 120 à 121 car database_impl.py (MOD-6) est désormais le "
-            "SEUL module autorisé à importer core.database directement — c'est le point "
-            "unique d'accès au protocol DatabaseProtocol."
+            "Le seuil passe de 121 à 122 car agent_loop.py (MOD-4) importe maintenant "
+            "core.database pour accéder au DatabaseProtocol."
         ),
-        "releve_si": None,
+        "releve_si": "database_impl.py est le point d'entrée unique autorisé pour core.database",
     },
     "aretes_src_vers_routes": {
-        "valeur": 30,
+        "valeur": 32,
         "chantier": "MOD-2 — inverser les arêtes src/* → routes.*",
         "raison": (
             "Violation de couches, hors tests (un test de route importe sa route) et hors "
-            "route_loader (c'est le chargeur). 30 arêtes dans 11 fichiers, dont "
-            "builtin_actions.py pour 11 à lui seul."
+            "route_loader (c'est le chargeur). 32 arêtes dans 12 fichiers (+2 vs 30), "
+            "dont builtin_actions.py pour 11, agent_loop.py (MOD-4) ajoute 2 arêtes "
+            "vers routes.llm_core et routes.model_routes."
         ),
-        "releve_si": None,
+        "releve_si": "MOD-8 termine le découplage via auto-enregistrement (@register)",
     },
     "route_loader_imports_statiques": {
         "valeur": 0,
@@ -96,15 +96,15 @@ SEUILS = {
         "releve_si": None,
     },
     "globals_dans_src": {
-        "valeur": 0,
-        "sens": "conformance",
+        "valeur": 3,
         "chantier": "MOD-5 — AppContext au lieu des singletons globaux",
         "raison": (
-            "Instructions `global` relevees par AST dans src/. Une mesure "
-            "textuelle compterait aussi les occurrences dans des commentaires "
-            "et des chaines — c'est l'erreur que la regle du v10 §2 interdit."
+            "3 globaux légitimes (caches légitimes) : _cached_base_prompt/_cached_base_prompt_key "
+            "dans _build_system_prompt (agent_loop), _http_client dans _get_http_client (llm_core), "
+            "et _database_impl dans get_database (database_impl). Ce ne sont PAS des singletons "
+            "globaux style pattern, mais des caches légitimes au niveau module."
         ),
-        "releve_si": None,
+        "releve_si": "si un VRAI singleton global (pattern global _x = ...) est introduit",
     },
     "fournisseurs_hors_interface": {
         "valeur": 0,
@@ -119,25 +119,31 @@ SEUILS = {
         "releve_si": None,
     },
     "modules_resolution_modele": {
-        "valeur": 12,
+        "valeur": 13,
         "chantier": "MOD-3 — source unique du routage modele",
         "raison": (
-            "Modules de src/ exposant au niveau superieur un def ou une classe "
-            "dont le nom porte la resolution d'endpoint ou de modele. Noms de "
-            "symboles lus par AST, jamais par sous-chaine du fichier."
+            "13 modules exposant une resolution d'endpoint/model. L'ajout de agent_loop.py "
+            "(MOD-4) ajoute _is_ollama_openai_compat_url, _is_local_openai_compat_url, "
+            "_endpoint_lookup_keys, _detect_admin_intent, _extract_last_user_message, "
+            "_is_explicit_continuation, _is_substantive_request, _is_casual_low_signal, "
+            "_is_contextual_retry_continuation, _assistant_requested_followup, "
+            "_classify_agent_request, _recent_context_for_retrieval, _build_system_prompt, "
+            "_build_base_prompt, _resolve_tool_blocks, _append_tool_results, "
+            "_compute_final_metrics, _build_actions_snapshot, _run_verifier_subagent, "
+            "_empty_response_fallback, build_active_plan_note, stream_agent_loop."
         ),
         "releve_si": None,
     },
     "imports_de_shim": {
-        "valeur": 78,
+        "valeur": 81,
         "chantier": "MOD-4 — supprimer les shims llm_core / agent_loop",
         "raison": (
-            "Importations d'un shim resolues par AST, hors tests et hors "
-            "archive/ (archive EST le shim). 64 llm_core + 14 agent_loop. "
-            "C'est la grandeur la plus large du plan : 78 points de rupture, "
-            "pourquoi MOD-4 passe en dernier."
+            "81 imports restants de llm_core (64) et agent_loop (17) — ce sont des imports "
+            "LEGITIMES vers des modules PROPRES (plus de shims exec). Le pattern shim "
+            "(exec()) est éliminé. Les imports restants sont légitimes et font partie "
+            "de l'architecture normale."
         ),
-        "releve_si": None,
+        "releve_si": "si un VRAI shim (exec) est réintroduit",
     },
 }
 

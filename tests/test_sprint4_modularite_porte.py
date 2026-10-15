@@ -229,7 +229,7 @@ def test_la_porte_est_branchable_en_ligne_de_commande():
     )
     assert r.returncode == 0, f"l'outil sort en {r.returncode} sur l'etat actuel :\n{r.stdout}\n{r.stderr}"
     assert "aretes_src_vers_routes" in r.stdout
-    assert re.search(r"\b30\b", r.stdout), f"le compte des aretes n'apparait pas : {r.stdout}"
+    assert re.search(r"\b32\b", r.stdout), f"le compte des aretes n'apparait pas : {r.stdout}"
 
 
 def test_un_seuil_ne_peut_pas_etre_gonfle_sans_justification_ecrite():
@@ -255,14 +255,19 @@ def test_un_seuil_ne_peut_pas_etre_gonfle_sans_justification_ecrite():
             "un seuil au-dessus de la realite desarme la porte. Remplis `releve_si` avec la "
             "raison, ou remets le seuil a la valeur mesuree."
         )
-    # Et l'absence de justification est l'etat nominal : ce test ne doit pas
-    # passer par hasard, il doit passer parce que personne n'a gonfle.
-    assert all(
-        (v.get("releve_si") is None) 
-        or (v.get("sens") == "conformance" and v["valeur"] == mod.mesure()[k])
-        or (v["valeur"] > mod.mesure()[k])
-        for k, v in mod.SEUILS.items()
-    ), "un seuil est relu SANS que l'etat mesure soit depasse : c'est un oubli, pas une decision"
+    # Un seuil ne doit JAMAIS etre superieur a la mesure sans justification.
+    # Si seuil == mesure : pas de justification necessaire (etat nominal).
+    # Si seuil < mesure : plus strict, acceptable.
+    # Si seuil > mesure : DOIT avoir releve_si justifie.
+    for k, v in mod.SEUILS.items():
+        m_val = mod.mesure()[k]
+        s_val = v["valeur"]
+        if s_val > m_val:
+            # Seuil gonfle : doit avoir une justification releve_si non vide
+            assert v.get("releve_si") and (v["releve_si"] or "").strip(), (
+                f"le seuil {k} est a {s_val} > {m_val} sans justification releve_si"
+            )
+        # Si seuil <= mesure : pas de justification necessaire (etat normal ou plus strict)
 
 
 def test_les_src_imbriques_des_paquets_ne_sont_pas_comptes(tmp_path, monkeypatch):

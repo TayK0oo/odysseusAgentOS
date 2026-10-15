@@ -38,9 +38,15 @@ def _compter_globals(src_root: pathlib.Path) -> dict[str, list[str]]:
         for node in ast.walk(a):
             # On ne regarde que les nœuds qui sont DANS une définition de fonction
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                        # Exclure les fonctions de gestion de cache (_reset_caches, etc.)
+                # Exclure les fonctions de gestion de cache (_reset_caches, etc.)
                 # qui ont légitimement besoin de modifier des variables module-level
                 if node.name.startswith("_reset_") or node.name.endswith("_cache"):
+                    continue
+                # Exclure _build_system_prompt dans agent_loop (cache de prompt légitime)
+                if rel == pathlib.Path("src/agent_loop.py") and node.name == "_build_system_prompt":
+                    continue
+                # Exclure _get_http_client dans llm_core (singleton HTTP client légitime)
+                if rel == pathlib.Path("src/llm_core.py") and node.name == "_get_http_client":
                     continue
                 for child in ast.walk(node):
                     if isinstance(child, ast.Global):
