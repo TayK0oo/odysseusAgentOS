@@ -111,13 +111,24 @@ def test_la_frontiere_de_chaque_seuil_est_exacte(cle, monkeypatch):
     qu'à 61 la porte ne rougit plus. C'est le signal à surveiller, et il n'existe
     que si la frontière est testée.
     """
+    # Charger un module frais pour chaque test pour isolation
+    mod = _charge()
+    
     sys.argv = ["check_modularity.py"]
+    
+    # Mocker TOUTES les fonctions de mesure à leur valeur de seuil
+    # pour que main() ne voie que des valeurs à leur seuil exact
+    for c, f in MESURES.items():
+        monkeypatch.setattr(mod, f, lambda root=None, v=mod.SEUILS[c]["valeur"]: v)
+    
     valeur = mod.SEUILS[cle]["valeur"]
-
+    
+    # Maintenant tester la frontière pour CE seuil seulement
     monkeypatch.setattr(mod, MESURES[cle], lambda root=None: valeur)
     assert mod.mesure()[cle] == valeur
     assert mod.main() == 0, f"{cle} a {valeur}, son seuil est {valeur} : rien n'est franchi"
 
+    # Maintenant pousser ce seuil au-delà
     monkeypatch.setattr(mod, MESURES[cle], lambda root=None: valeur + 1)
     assert mod.mesure()[cle] == valeur + 1
     assert mod.main() == 1, f"{cle} a {valeur + 1} et ne fait pas tomber la porte"

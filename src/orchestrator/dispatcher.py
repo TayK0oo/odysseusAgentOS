@@ -82,3 +82,12 @@ def dispatch(
 
     result.completed = True
     return result
+
+
+
+def _reset_caches() -> None:
+    """Vide les caches de ce module. Pour l'isolation des tests (MOD-3).
+
+    Ce module n'a pas de cache propre (il délègue à endpoint_resolver),
+    mais la fonction existe pour l'isolation des tests (MOD-3)."""
+    pass

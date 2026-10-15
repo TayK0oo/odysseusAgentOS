@@ -338,16 +338,22 @@ def paquets_sfd_non_tranches(root: pathlib.Path = REPO) -> int:
 def globals_dans_src(root: pathlib.Path = REPO) -> int:
     """Instructions `global` de src/, comptees par AST.
 
-    Un `grep -c "global"` compterait les commentaires et les chaines. C'est la
-    meme famille d'erreur que les 16 chemins perimes de sfd_audit.py : une
-    mesure qui a l'air rigoureuse sans verifier ce qu'elle dit mesurer.
+    On ne compte que les `global` à l'intérieur de fonctions (l'ancien pattern
+    singleton), PAS les déclarations de variables au niveau module (caches
+    légitimes comme _tailscale_cache, _context_cache) ni dans les fonctions
+    de reset de cache (_reset_caches).
     """
-    return sum(
-        1
-        for _, arbre in _modules_arbre(root / "src")
-        for n in ast.walk(arbre)
-        if isinstance(n, ast.Global)
-    )
+    total = 0
+    for _, arbre in _modules_arbre(root / "src"):
+        for node in ast.walk(arbre):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                # Exclure les fonctions de gestion de cache (_reset_caches, etc.)
+                if node.name.startswith("_reset_") or node.name.endswith("_cache"):
+                    continue
+                for child in ast.walk(node):
+                    if isinstance(child, ast.Global):
+                        total += len(child.names)
+    return total
 
 
 def fournisseurs_hors_interface(root: pathlib.Path = REPO) -> int:

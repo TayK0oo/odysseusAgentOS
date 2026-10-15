@@ -10,6 +10,7 @@ import socket
 import subprocess
 from urllib.parse import urlparse, urlunparse
 
+import uuid
 from core.database import ModelEndpoint, SessionLocal
 from src.llm_core import KIMI_CODE_USER_AGENT, _detect_provider, _host_match, _is_kimi_code_url, _ollama_api_root
 
@@ -473,3 +474,60 @@ def _resolve_fallback_candidates(setting_key: str, owner: str | None = None) -> 
         if resolved:
             out.append(resolved)
     return out
+
+# ============================================================================
+# MOD-3 — Infrastructure cache unifiée
+# ============================================================================
+
+
+
+def register_endpoint(name: str, config: dict) -> None:
+    """Enregistre un nouvel endpoint via l'API unifiée (MOD-3).
+    
+    C'est LE point unique pour enregistrer un endpoint. Tous les modules
+    doivent déléguer à cette fonction pour éviter la duplication de logique.
+    
+    Args:
+        name: Nom d'affichage de l'endpoint
+        config: Dict avec keys: type, base_url, model, api_key (optionnel), 
+                is_enabled (default True), owner (optionnel)
+    """
+    from core.database import ModelEndpoint, SessionLocal
+    from src.auth_helpers import owner_filter
+    
+    db = SessionLocal()
+    try:
+        # Check if already exists (by name)
+        existing = db.query(ModelEndpoint).filter(
+            ModelEndpoint.name == name,
+            ModelEndpoint.is_enabled == True
+        ).first()
+        if existing:
+            # Update existing
+            ep = existing
+        else:
+            ep = ModelEndpoint()
+            db.add(ep)
+        
+        ep.id = str(uuid.uuid4())
+        ep.name = name
+        ep.base_url = config.get("base_url", "")
+        ep.api_key = config.get("api_key", "")
+        ep.cached_models = config.get("model", "")
+        ep.is_enabled = config.get("is_enabled", True)
+        ep.provider = config.get("type", "local")
+        
+        if "owner" in config:
+            from src.auth_helpers import get_owner_id
+            ep.owner_id = get_owner_id(config["owner"])
+        
+        db.commit()
+        # Invalider les caches
+        _reset_caches()
+    finally:
+        db.close()
+
+def _reset_caches() -> None:
+    """Vide tous les caches de ce module. Appelé par les tests pour isoler."""
+    global _tailscale_cache
+    _tailscale_cache.clear()

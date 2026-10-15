@@ -1172,6 +1172,15 @@ async def do_generate_image(content: str, session_id: str | None = None, owner: 
 # ---------------------------------------------------------------------------
 
 
+
+
+
+def _reset_caches() -> None:
+    """Vide les caches de ce module. Pour l'isolation des tests (MOD-3).
+
+    Ce module n'a pas de cache propre (la résolution est déléguée à endpoint_resolver),
+    mais la fonction existe pour l'isolation des tests (MOD-3)."""
+
 async def dispatch_ai_tool(
     tool: str, content: str, session_id: str | None = None, owner: str | None = None
 ) -> tuple[str, dict]:

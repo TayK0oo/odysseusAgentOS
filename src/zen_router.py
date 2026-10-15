@@ -107,6 +107,10 @@ def _reset_zen_endpoint_cache() -> None:
     _ZEN_ENDPOINT_CACHE["ts"] = 0.0
 
 
+def _reset_caches() -> None:
+    """Vide les caches de ce module. Pour l'isolation des tests (MOD-3)."""
+    _reset_zen_endpoint_cache()
+
 def zen_endpoint_registered() -> bool:
     """Cached: is a native opencode.ai ModelEndpoint registered? Used by the
     live gate so a stream call does not hit the DB every time. Best-effort —
