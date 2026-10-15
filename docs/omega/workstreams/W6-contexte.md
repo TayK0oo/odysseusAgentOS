@@ -43,7 +43,7 @@ Cinq leviers (blueprint §5.2), tous **déterministes côté système** — jama
   (voie synchrone) et `assemble` renvoie `BudgetExceeded` (voie port). Jamais de
   résultat hors contrat silencieux.
 - **`ToolSurfaceIndex::search(query, top_k)`** : tokenisation lowercase + split non-
-  alphanum ; IDF lissé BM25 `ln((N+1)/(df+1)) + 1` ; score = somme des IDF des termes de
+  alphanum + **stemming déterministe R0–R7** (des deux côtés, cf. §8) ; IDF lissé BM25 `ln((N+1)/(df+1)) + 1` ; score = somme des IDF des termes de
   la requête présents ; **admission** : l'outil contient le token le plus discriminant de la
   requête (plus haut IDF = `df` minimal, le « mot de l'intention ») **ou** (si `min_score > 0`)
   son score atteint le seuil. Départage du token de gate (égalité de `df`) : **ordre
@@ -122,7 +122,8 @@ Cinq leviers (blueprint §5.2), tous **déterministes côté système** — jama
 
 ## 7. Reste (incrément 2)
 
-- Stemming (Snowball, `rust-stemmers`) pour un rappel lexical supérieur.
+- Stemming (Snowball, `rust-stemmers`) pour un rappel lexical supérieur : **remplacé
+  par un stemming déterministe maison** (inc2, sans dépendance — YAGNI), cf. §8.
 - Prompt caching par préfixe (≤4 breakpoints, affinité) — `CTX-04/05`.
 - Compaction **structurée** branchée sur `ContextEngine::compact` (résumé + rechargement
   ciblé), décorateur de `Provider` rattrapant `ContextLengthExceeded`.
@@ -130,10 +131,26 @@ Cinq leviers (blueprint §5.2), tous **déterministes côté système** — jama
 
 ## 8. Dette documentée (non bloquante, incrément 2+)
 
-- **Stemming** : `search("open file for writing")` sur `{file_write, file_read, openssl}`
-  renvoie `["openssl"]` (gate = `open`, token rare unique à `openssl`) ; `file_write` n'est
-  récupéré que par couverture minimale/stemming. Comportement **déterministe** verrouillé
-  par un test de non-régression (`open_file_for_writing_gate_is_deterministic_phase1`).
+- **Stemming** : ✅ résolu (inc2, 2026-10-15) — `stem()` déterministe sans dépendance
+  dans `tool_surface.rs`, appliqué des deux côtés (docs ET requêtes). Règles
+  explicites et ordonnées (première qui correspond gagne, une transformation max
+  par token) : R0 minuscule (défensif) · R1 exceptions `writing → writ`,
+  `write → writ` (conflation : sans R1, `writing − ing = writ ≠ write`) ·
+  R2 `ing → ""` (garde `len ≥ 5`, reste `≥ 2` : `playing → play`, `sing` intact) ·
+  R3 `ed → ""` (garde `len ≥ 4` : `watched → watch`, `red`/`read` intacts) ·
+  R4 `es → ""` après sibilante uniquement (`sses|zes|xes|ches|shes|oes` :
+  `boxes → box`, `passes → pass` ; `files`/`writes` tombent en R5) ·
+  R5 `s → ""` final (`files → file`, `writes → write`) ·
+  R6 `eaux → eau` (`bureaux → bureau`) · R7 `x → ""` final (`chevaux → chevau`,
+  limite : pas de `al → ail`). Limites assumées : `need → ne`, `travaux → travau`
+  (pas de Porter complet : YAGNI, testé).
+  `search("open file for writing")` sur `{file_write, file_read, openssl}` :
+  gate stricte toujours `["openssl"]` (test de non-régression conservé —
+  l'égalité `open`/`writ` en `df=1` se départage au lexical, `open < writ`) ;
+  avec `with_min_score(2.0)` → `["file_write", "openssl"]` (`file_write` rappelé
+  et classé premier : `file` + `writ` ≈ 2.98 ≥ 2.0 ; sans stemming il ne scorerait
+  que `idf(file)` ≈ 1.29 et resterait exclu). Tests : table `stem` (27 cas),
+  conflation `write`, déterminisme, rappel via seuil.
 - **Blueprint §2.1** : corriger la dépendance d'`omega-context` (`config` → `plugin-api`).
 - **Config silencieuse** (`contributor.rs`) : `context.max_tokens` non numérique retombe
   sur le défaut sans signal (à logger/typer).
