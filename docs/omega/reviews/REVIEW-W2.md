@@ -255,3 +255,95 @@ garantissent que les faux négatifs ne régresseront pas.
 | n5 | typo « asynchche » corrigée |
 
 Commandes de validation : `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --all --check`, `python3 omega/scripts/check_dep_graph.py --self-test`.
+
+---
+
+## §7 — Résolution — re-vérification indépendante (Reviewer, 2026-10-15)
+
+Re-vérification **indépendante** des commits `7853bf4`, `5e9abcc`, `7eeec2e`, `7d06c32`,
+`808951b`, `12c58d9` (≠ auto-certification de l'exécuteur au §6). Preuves exécutées :
+
+- `cargo test --workspace` → **33/33 OK** (types 0, ports 2, config 3, registry 10, plugin-api 5, core 8, protocol 5)
+- `cargo clippy --workspace --all-targets -- -D warnings` → **EXIT 0**
+- `cargo fmt --all --check` → **EXIT 0**
+- `python3 omega/scripts/check_dep_graph.py --self-test` → **4/4 cas adversariaux détectés**
+- `python3 omega/scripts/check_dep_graph.py` → `Graphe de dépendances valide (7 crates, 0 cycle, 0 arête interdite)`
+
+### Verdict par constat
+
+| Constat | Statut | Preuve |
+|---|---|---|
+| **B1** (faux négatifs garde-fou) | **CORRIGÉ** | `check_dep_graph.py:188-223` parse `dev-dependencies`/`build-dependencies`/`target.*.*` ; `_resolve_dep_name` résout `package=`, `workspace=true`, `path=` ; `--self-test` 4/4 OK. Mes 4 reproductions §3 échouent désormais (EXIT 1). |
+| **B2** (test victoire prématurée) | **CORRIGÉ** | `check_dep_graph.py:325-418` (`self_test()` construit des fixtures invalides et exige EXIT≠0) + test Rust `omega-core/src/lib.rs:574-592` (`dependency_graph_guard_self_test_passes`). |
+| **M1** (quarantaine non scopée) | **CORRIGÉ** | `omega-registry/src/lib.rs:164-172` `quarantine(cap, id)` ; test `quarantine_is_scoped_by_capability` (l.409) : quarantiner `x` sous `LlmProvider` ne neutralise pas `x` sous `Tool`. |
+| **M2** (TypeMismatch mort) | **CORRIGÉ** | `omega-registry/src/lib.rs:193-213` : `resolve` renvoie `TypeMismatch` quand des entrées actives existent mais d'un autre `TypeId` ; test `type_mismatch_is_reported` (l.434). |
+| **M3** (lien type↔capacité) | **PARTIEL** | `register_typed` mémorise `TypeId::of::<T>()` — cela lie le type *d'enregistrement* au type *de résolution* (M2 réglé). **Mais** aucune borne ne lie `T` au *trait* du port de la capacité : `register_typed::<FakeProvider>(Manifest{cap:ContextEngine}, …)` puis `resolve::<FakeProvider>(ContextEngine)` **réussit et renvoie un Provider cohérent**. Le type-erasure Phase 1 (documenté W2 §6) ne garantit pas la conformité trait↔capacité. Suivi Phase 2 (sous-registres typés). |
+| **M4** (interchangeabilité) | **CORRIGÉ (Phase 1)** | `omega-plugin-api/src/lib.rs:44-59` : `PluginFactory::Instance` + `install()` → `instantiate` → `register_typed` ; `FactoryContributor` pour `compose`. Test `install_factory_registers_typed_context_engine` (l.185). Le noyau n'est pas à recompiler. Limite assumée : la fabrique reste du Rust compilé (pas de chargement dynamique `.so`/WASM) — W2 §6 l'assume. |
+| **m1** (remove/replace) | **CORRIGÉ** | `unregister`/`replace`/`replace_typed` (`omega-registry/src/lib.rs:130-158`) + tests `unregister_removes_entry`, `slot_replace_after_quarantine`. → **mais** cf. N2 (non-atomicité). |
+| **m2** (annulation intra-étape) | **CORRIGÉ** | `omega-core/src/lib.rs:289-300` : `tokio::select! { biased; _ = token.cancelled() => … r = fut => r }` ; test `cancellation_interrupts_long_operation` (l.451) interrompt une op de 60 s. |
+| **m3** (`Cancelled` manquant) | **CORRIGÉ** | `omega-types/src/error.rs:28` `OmegaError::Cancelled` ; `CancellationToken::check` le renvoie ; branche dédiée `omega-core/src/lib.rs:309-312`. |
+| **m4** (config < blueprint) | **CORRIGÉ** | Documenté : `W2-plugin-ports.md:40` et `:82-84` (« JSON-only Phase 1, TOML/schemars différés Phase 2 »). Code inchangé, assumé. |
+| **n1** (`Path.glob` 3.13+) | **CORRIGÉ** | `discover_crates` utilise `base.iterdir()` (`check_dep_graph.py:117`), plus de `Path.glob`. Compatible 3.11+. |
+| **n2** (clé = nom de dossier) | **CORRIGÉ** | `read_package_name()` (`check_dep_graph.py:97-101`) lit `[package] name`. |
+| **n3** (faux positifs crates externes `omega-*`) | **CORRIGÉ** | `_resolve_dep_name` retourne `None` pour toute clé absente de `crates` (l.167/169/182/185). |
+| **n4** (immutabilité non typée) | **NON CORRIGÉ** | `Registry` expose toujours `register`/`unregister`/`replace`/`quarantine` publics (`&mut self`) ; le « gel » reste conventionnel. NIT, sans impact. |
+| **n5** (typo) | **CORRIGÉ** | `omega-core/src/lib.rs:165` « Émetteur asynchrone ». |
+
+### Nouveaux constats (reproduits)
+
+**N1 — Garde-fou : dépendance `path` vers un crate NON-membre invisible (faux négatif résiduel).**
+`_resolve_dep_name` ne reconnaît une cible `path` que si `name in crates`, où `crates` est
+construit uniquement depuis `[workspace] members`. Une arête interdite vers un crate présent
+dans le dépôt mais **hors `members`** est ignorée. Repro (workspace `/tmp/opencode/depguard_v2`, cas B) :
+
+```toml
+# omega-core/Cargo.toml (membre) — cible hors members :
+omega-registry = { path = "../hidden/omega-registry" }
+# hidden/omega-registry/Cargo.toml  -> name = "omega-registry"  (NON membre)
+```
+
+Résultat : `Graphe de dépendances valide (2 crates, 0 cycle, 0 arête interdite)` — **EXIT 0**
+alors que `core → registry` est interdit. Sévérité : **MINEUR** (disposition de workspace
+inhabituelle, mais c'est exactement le type de faille que le garde-fou doit neutraliser).
+Correctif : si un `path` pointe sous la racine du workspace mais que la cible n'est pas un
+membre découvert, **refuser/alerter** plutôt que traiter comme externe.
+
+**N2 — `replace`/`replace_typed` non atomiques.**
+`replace` fait `unregister(cap, id)` puis `register(...)` (`omega-registry/src/lib.rs:136-146`).
+Si `register` échoue (ex. `SlotConflict` parce qu'un autre `id` actif existe, ou `DuplicateId`),
+l'entrée `id` a **déjà été retirée** : l'ancienne implémentation est perdue sans être remplacée.
+Sévérité : **MINEUR**. Correctif : vérifier les préconditions avant de retirer, ou
+register-then-rollback.
+
+**N3 — `register_typed` n'empêche pas un port incohérent (résidu de M3).**
+Complément du statut M3 ci-dessus : l'invariant « le type implémente le port de la capacité »
+n'est vérifié nulle part. Aucune borne de trait sur `register_typed::<T>` ni sur
+`PluginFactory::Instance`. Une fabrique peut déclarer `capability = ContextEngine` et
+instancier un type sans rapport ; `resolve` le restitue sans erreur. Documenté Phase 2,
+mais à sécuriser (sous-registres typés par capacité, ou borne `T: ContextEnginePort` par mapping).
+
+### Cas adversariaux re-testés (garde-fou)
+
+| Cas | Statut |
+|---|---|
+| §3-1 dev-dependency interdite | **détecté** (self-test + repro manuel) |
+| §3-2 renommage `package=` | **détecté** (self-test) |
+| §3-3 `target.*.dependencies` | **détecté** (self-test) |
+| §3-4 cycle via dev-deps | **détecté** (self-test) |
+| Nouveau A : `[workspace.dependencies]` renommée (`stealth = { package="omega-registry", workspace=true }`) | **détecté** (EXIT 1) |
+| Nouveau B : arête vers crate non-membre (path hors members) | **NON détecté** (EXIT 0) → N1 |
+| Nouveau C : `optional = true` | **détecté** (EXIT 1, `optional` ne contourne pas) |
+| Nouveau D : cycle via crates `other` (`omega-foo ⇄ omega-bar`) | **détecté** (EXIT 1, cycle + arêtes) |
+
+### Verdict mis à jour
+
+**GO** — score **9/10** (précédent : GO avec réserves 7/10).
+
+Les deux BLOQUANTS et les MAJEURS sont réellement résolus (preuves ci-dessus), et les 4
+faux négatifs d'origine sont désormais couverts par un auto-test qui ne peut pas régresser
+silencieusement. Restent trois suivis **non bloquants** : N1 (garde-fou aveugle aux
+dépendances `path` hors `members`), N2 (`replace` non atomique), N3 (résidu M3 : pas de
+lien trait↔capacité — assumé Phase 2). Aucun d'eux ne remet en cause la mise en service du
+socle pour W3/W4, mais N1 mérite correction avant d'ajouter les crates adaptateurs
+(`omega-context`, `omega-providers`, etc.) qui vivront hors `crates/` si `plugins/*` n'est
+pas immédiatement membre du workspace.
