@@ -75,6 +75,8 @@
 | D9 | Correction `REVIEW-W2` : garde-fou durci + quarantaine scopée + type↔capacité + factory câblée + annulation intra-étape | 2026-10-15 | ✅ `[observed]` | ADR-0003 |
 | D10 | Réconciliation dette W4 : `TaskType`/`RoutingRequest`/`Capabilities` dans `omega-types`, port `TaskClassifier` dans `omega-ports`, `omega-router` implémente et ré-exporte | 2026-10-15 | ✅ `[observed]` | — |
 | D11 | Correction REVIEW-W4 : normalisation Unicode (B1), priorité du classifieur (B2), fallback sans ping-pong (M1), cache versionné (M2), ports `ScoringPolicy`/`Selector`/`FallbackPolicy` dans `omega-ports` (M3), M4 documenté comme non-objectif | 2026-10-15 | ✅ `[observed]` | — |
+| D12 | W3 moteur + exécution durable : `omega-app`, `EventStore` (mem+fichier JSONL), reprise idempotente, loader config — 103 tests | 2026-10-15 | ✅ `[observed]` | — |
+| D13 | Correction REVIEW-W3 : ids uniques par opération (B1), exclusivité slot cross-voies (B2), `FileEventStore` synchronisé (B3), `TypeMismatch` dyn (M1), tri global `active_ids` (M2), contrat ports=dyn documenté (M3) — 109 tests | 2026-10-15 | ✅ `[observed]` | — |
 
 ## 7. Credentials & accès
 
@@ -83,12 +85,12 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 
 | Ressource | Variable | Statut | Usage |
 |---|---|---|---|
-| OpenCode ZenRouter | `OPENCODE_API_KEY` | `[blocked]` annoncé | Routage moteur principal |
-| GitHub | `GITHUB_TOKEN` | `[blocked]` annoncé | Clones, reverse-eng, rate-limit |
-| HuggingFace | `HF_TOKEN` | `[blocked]` annoncé | Benchmarks, modèles |
-| TikTok (session) | cookies `sessionid` | `[blocked]` annoncé | Transcription / scraping profond |
-| Compute élastique | `MODAL_TOKEN` / SSH | `[blocked]` annoncé | Exécution à la demande |
-| Clés LLM multi-fournisseurs | `OPENAI/ANTHROPIC/…` | `[todo]` non fourni | Registre routeur (non requis au démarrage) |
+| OpenCode ZenRouter | `OPENCODE_API_KEY` | ✅ déposé + validé `[observed]` | Routage moteur principal |
+| GitHub | `GITHUB_TOKEN` | ✅ déposé + validé `[observed]` | Clones, reverse-eng, rate-limit |
+| HuggingFace | `HF_TOKEN` | ✅ déposé + validé `[observed]` | Benchmarks, modèles |
+| TikTok (session) | cookies `sessionid` | `[todo]` non fourni | Transcription / scraping profond |
+| Compute élastique | `MODAL_TOKEN` / SSH | `[todo]` non fourni | Exécution à la demande |
+| Clés LLM multi-fournisseurs | `OPENAI/ANTHROPIC/…` | `[todo]` non fourni (abonnement Go utilisé) | Registre routeur |
 
 ## 8. Prochaines étapes (backlog vivant)
 
@@ -102,7 +104,12 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] **W2 — incrément 1** : workspace `omega/` + crates `types/ports/config/registry/plugin-api`, 13 tests verts, clippy propre
 - [x] **W2 — incrément 2** : crates `omega-core` (boucle d'agent) + `omega-protocol` (wire types), `omega/scripts/check_dep_graph.py` (graphe + garde-fou), 25 tests verts, clippy/fmt propre
 - [x] **W2 — revue indépendante** : `REVIEW-W2.md` (B1/B2/M1-M4/m1-m5/n1-n5) corrigée — 33 tests verts, `--self-test` OK
-- [ ] W2 — incrément 3 : `omega-app` (assemblage) + 1ᵉʳ adaptateur réel (provider `/v1/models`)
+- [x] **W4 inc1 — routeur logique pure** : `omega-providers` + `omega-router` (classifieur déterministe, scoring, Pareto, fallback, cache) — 86 tests, ports réconciliés
+- [x] **W4 — revue + correctifs + re-vérification** : `REVIEW-W4.md` (NO-GO 5/10 → GO avec réserves 7/10, N1/N2/N3 corrigés)
+- [x] **W3 inc1 — moteur + exécution durable** : `omega-app` (App, run/reprise idempotente), `EventStore` (mem + JSONL), loader config — 109 tests
+- [x] **W3 — revue + correctifs + re-vérification** : `REVIEW-W3.md` (NO-GO 5/10 → GO avec réserves 7/10, B1/B2/B3/M1/M2/M3 corrigés, N1-N4 notés)
+- [ ] **W6 — économie de contexte** : Context Engine branché, tool search, compaction, mémoire (EN COURS)
+- [ ] W2 — incrément 3 : 1ᵉʳ adaptateur réel (provider `/v1/models`)
 - [x] Décomposition W0-W10 (`docs/omega/02-WORKSTREAMS.md`)
 - [x] Credentials déposés et validés (`.env`, non versionné)
 - [x] Subagents routés sur l'abonnement Go (`opencode-go/*`, 24 modèles)
