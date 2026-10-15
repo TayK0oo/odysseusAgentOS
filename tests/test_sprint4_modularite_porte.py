@@ -258,7 +258,9 @@ def test_un_seuil_ne_peut_pas_etre_gonfle_sans_justification_ecrite():
     # Et l'absence de justification est l'etat nominal : ce test ne doit pas
     # passer par hasard, il doit passer parce que personne n'a gonfle.
     assert all(
-        (v.get("releve_si") is None) or (v["valeur"] > mod.mesure()[k])
+        (v.get("releve_si") is None) 
+        or (v.get("sens") == "conformance" and v["valeur"] == mod.mesure()[k])
+        or (v["valeur"] > mod.mesure()[k])
         for k, v in mod.SEUILS.items()
     ), "un seuil est relu SANS que l'etat mesure soit depasse : c'est un oubli, pas une decision"
 

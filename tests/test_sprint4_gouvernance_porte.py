@@ -188,6 +188,7 @@ def test_les_modules_appeles_ne_sont_pas_annonces_comme_jamais_appeles():
     attendus = {
         "ODYSSEUS_AGENTSEAL",
         "ODYSSEUS_CBM",
+        "ODYSSEUS_N8N",
         "ODYSSEUS_OPA",
         "ODYSSEUS_PREFECT",
         "ODYSSEUS_SERENA_MCP",
