@@ -38,18 +38,28 @@ Aucune commande ne s'exécute sans décision de politique **typée et tracée** 
 | (d) | Timeout → processus tué + `CommandTimeout` | ✅ |
 | (e) | Contributeur : politique + backend résolvables | ✅ |
 
-## 5. Auto-revue (revue indépendante en attente du quota Go)
+## 5. Auto-revue (incrément 2 livré)
 
-- **Dette (inc2) — matching par préfixe aveugle aux subshells** : `echo $(rm -rf /)`
-  matche une règle `Allow echo` alors qu'un `rm` s'exécute en subshell. Mitigation
-  Phase 1 : deny-by-default + règles `Allow` étroites. Inc2 : parse shell (ou allowlist
-  stricte + interdiction des substitutions `$(...)`/backticks).
-- **Dette (inc2) — casse** : `EcHo` ne matche pas `echo` (refusé par défaut → sûr, mais
-  fragile). Inc2 : normaliser en minuscules avant matching.
+- **Dette résolue (inc2) — matching par préfixe aveugle aux subshells** :
+  `RuleBasedExecPolicy::strict()` (ou `.with_strict(true)`) interdit les
+  substitutions `$(...)`, backticks et `<(...)` **même quotées** (en doubles
+  quotes elles s'exécutent) → `Forbidden("substitution interdite en mode
+  strict")`. En mode non-strict (défaut) : comportement inchangé (`Prompt` via
+  la garde anti-composition du backend). `[observed]` (tests
+  `strict_mode_forbids_substitutions_quoted_or_not`,
+  `substitution_detector_fires_even_quoted`).
+- **Dette résolue (inc2) — casse** : le **nom de commande** (premier mot) est
+  normalisé en minuscules avant matching (`EcHo` matche `echo`) ; les
+  **arguments gardent leur casse**. `[observed]` (test
+  `command_name_case_is_normalized_but_not_args`).
+- **File d'approbations (inc2, lève le `Prompt`)** : `ApprovalQueue`
+  (`request(command, reason) -> ApprovalId`, `approve(id)`, `deny(id)`,
+  `pending()`, consommation à usage unique via `consume_for(commande exacte)`).
+  `LocalSandboxBackend::with_approvals(queue)` : devant un `Prompt`, une
+  approbation `Approved` pour la commande exacte est consommée puis la commande
+  s'exécute ; sinon `ApprovalRequired` sans fork. `Forbidden` ne consulte jamais
+  la file. `[observed]` (tests `approval_queue_runs_once_then_asks_again`
+  — exécute une fois puis re-demande — et `denied_approval_never_executes`).
 - Kill par PID : Linux-only assumé Phase 1 (documenté dans le code).
 
-## 6. Reste (incrément 2)
-
-- File d'approbations humaines + `ApprovalReviewContributor` (lever `Prompt`).
-- Backends Docker/SSH (adaptateurs du port `SandboxBackend`).
-- Isolation renforcée Linux (Landlock/seccomp, bubblewrap).
+## 6. Reste (incrément 3)
