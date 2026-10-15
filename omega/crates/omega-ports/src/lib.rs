@@ -6,8 +6,9 @@
 
 use async_trait::async_trait;
 use omega_types::{
-    ChatRequest, ChatResponse, CommandOutput, Message, ModelId, OmegaResult, PermissionEffect,
-    RawModel, RoutingRequest, TaskType, TelemetryEvent, ToolSpec,
+    ChatRequest, ChatResponse, CommandOutput, Message, ModelRecord, OmegaResult, PermissionEffect,
+    RawModel, RouterDecision, RouterError, RoutingRequest, TaskType, TelemetryEvent, ToolSpec,
+    Weights,
 };
 
 /// Fournit de l'inference. Regime : *ensemble*.
@@ -52,18 +53,61 @@ pub trait SandboxBackend: Send + Sync {
     async fn run(&self, command: &str) -> OmegaResult<CommandOutput>;
 }
 
-/// Politique de selection de modele. Regime : *slot exclusif*.
-#[async_trait]
-pub trait RouterPolicy: Send + Sync {
-    fn name(&self) -> &str;
-    /// Choisit un modele parmi les candidats pour un type de tache donne.
-    async fn choose(&self, task: TaskType, candidates: &[ModelId]) -> OmegaResult<ModelId>;
-}
-
 /// Classifieur de tache. Regime : *slot exclusif*.
 pub trait TaskClassifier: Send + Sync {
     /// Determine le type de tache (T1..T14) a partir d'une requete de routage.
     fn classify(&self, req: &RoutingRequest) -> TaskType;
+}
+
+/// Moteur de scoring composite. Regime : *slot exclusif* (capacite `router-policy`).
+pub trait ScoringPolicy: Send + Sync {
+    /// Poids associes a un type de tache.
+    fn weights(&self, task: TaskType) -> Weights;
+
+    /// Score composite d'un modele pour une tache donnee.
+    /// Les normalisations se font relativement a `candidates`.
+    fn score(
+        &self,
+        task: TaskType,
+        required_context: u32,
+        candidates: &[ModelRecord],
+        model: &ModelRecord,
+    ) -> f64;
+
+    /// Qualite effective Q_eff(m) = melange des axes pour la tache.
+    fn effective_quality(&self, task: TaskType, model: &ModelRecord) -> f64;
+}
+
+/// Selecteur de modele. Regime : *slot exclusif* (capacite `router-policy`).
+pub trait Selector: Send + Sync {
+    fn select(
+        &self,
+        task: TaskType,
+        required_capabilities: omega_types::Capabilities,
+        required_context: u32,
+        candidates: &[ModelRecord],
+    ) -> Result<RouterDecision, RouterError>;
+}
+
+/// Politique de fallback + circuit breaker. Regime : *slot exclusif* (capacite `router-policy`).
+pub trait FallbackPolicy: Send + Sync {
+    /// Enregistre un echec pour un modele.
+    fn record_failure(&mut self, model_id: &str);
+
+    /// Indique si le modele est disponible (circuit breaker ferme).
+    fn is_available(&self, model_id: &str) -> bool;
+
+    /// Choisit le prochain modele de fallback pour une decision echouee.
+    /// L'implementation doit memoriser les modeles deja essayes pour eviter
+    /// le ping-pong (cf. REVIEW-W4 M1).
+    fn next_fallback(
+        &mut self,
+        task: TaskType,
+        required_capabilities: omega_types::Capabilities,
+        required_context: u32,
+        candidates: &[ModelRecord],
+        failed: &RouterDecision,
+    ) -> Option<RouterDecision>;
 }
 
 /// Source de catalogue de modeles. Regime : *ensemble*.
@@ -100,6 +144,7 @@ pub trait SubagentRunner: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use omega_types::ModelId;
     use std::sync::Arc;
 
     struct EchoProvider;
@@ -138,5 +183,88 @@ mod tests {
         };
         let resp = p.complete(req).await.unwrap();
         assert_eq!(resp.message.content, "hi");
+    }
+
+    #[test]
+    fn task_classifier_is_object_safe() {
+        struct Dummy;
+        impl TaskClassifier for Dummy {
+            fn classify(&self, _req: &RoutingRequest) -> TaskType {
+                TaskType::Chat
+            }
+        }
+        let _c: Arc<dyn TaskClassifier> = Arc::new(Dummy);
+    }
+
+    #[test]
+    fn scoring_policy_is_object_safe() {
+        struct Dummy;
+        impl ScoringPolicy for Dummy {
+            fn weights(&self, _task: TaskType) -> Weights {
+                Weights {
+                    reasoning: 1.0,
+                    code: 0.0,
+                    agentic: 0.0,
+                    knowledge: 0.0,
+                    chat: 0.0,
+                    vision: 0.0,
+                    speed: 0.0,
+                    cost: 0.0,
+                    context: 0.0,
+                }
+            }
+            fn score(
+                &self,
+                _task: TaskType,
+                _required_context: u32,
+                _candidates: &[ModelRecord],
+                _model: &ModelRecord,
+            ) -> f64 {
+                0.0
+            }
+            fn effective_quality(&self, _task: TaskType, _model: &ModelRecord) -> f64 {
+                0.0
+            }
+        }
+        let _s: Arc<dyn ScoringPolicy> = Arc::new(Dummy);
+    }
+
+    #[test]
+    fn selector_is_object_safe() {
+        struct Dummy;
+        impl Selector for Dummy {
+            fn select(
+                &self,
+                _task: TaskType,
+                _required_capabilities: omega_types::Capabilities,
+                _required_context: u32,
+                _candidates: &[ModelRecord],
+            ) -> Result<RouterDecision, RouterError> {
+                Ok(RouterDecision::new("m", 0.0, "dummy"))
+            }
+        }
+        let _s: Arc<dyn Selector> = Arc::new(Dummy);
+    }
+
+    #[test]
+    fn fallback_policy_is_object_safe() {
+        struct Dummy;
+        impl FallbackPolicy for Dummy {
+            fn record_failure(&mut self, _model_id: &str) {}
+            fn is_available(&self, _model_id: &str) -> bool {
+                true
+            }
+            fn next_fallback(
+                &mut self,
+                _task: TaskType,
+                _required_capabilities: omega_types::Capabilities,
+                _required_context: u32,
+                _candidates: &[ModelRecord],
+                _failed: &RouterDecision,
+            ) -> Option<RouterDecision> {
+                None
+            }
+        }
+        let _f: Arc<dyn FallbackPolicy> = Arc::new(Dummy);
     }
 }
