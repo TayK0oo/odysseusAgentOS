@@ -122,7 +122,7 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] **W9 inc2 — parse strict + file d'approbations** : casse normalisée, `strict()` (substitutions→Forbidden), `ApprovalQueue` à usage unique, backend `with_approvals` (mergé, paragraphe parallèle)
 - [x] **W10 inc1 — catalogue local + self-host-first** : `OllamaCatalogSource` (`/api/tags`→records), `local_record` (coût 0, tier SelfHosted), règle `score_local + 0.05 >= score_distant` (mergé, paragraphe parallèle)
 - [x] Branche publiée sur `origin/feat/agentos-omega`
-- [ ] **W7 inc2 — omega-server + UI branchée** (paragraphe parallèle, en cours)
+- [x] **W7 inc2 — omega-server + UI branchée** (mergé, paragraphe parallèle) : axum (health, plugins, run, trace), UI sur `/api` (loading/erreur + repli fixtures), **LIVE vérifié** : `POST /api/run`→T14→local 0.685→2/2 OK→replay cohérent — **238 tests**, 14 crates
 - [x] **W4 inc3 — circuit breaker à états** : Closed→Open→HalfOpen→Closed, `record_success` (M4 implémenté), horloge injectable, sonde unique par run (mergé, paragraphe parallèle)
 - [x] **W6 inc2 — stemming déterministe** : règles R0–R7 commentées, appliqué docs+requêtes, `file_write` rappelé via seuil (gate stricte inchangée, prouvé) (mergé, paragraphe parallèle)
 - [x] Décomposition W0-W10 (`docs/omega/02-WORKSTREAMS.md`)
