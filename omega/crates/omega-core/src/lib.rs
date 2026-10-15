@@ -188,6 +188,15 @@ pub enum RunStatus {
 pub trait Operation: Send + Sync {
     fn name(&self) -> &str;
 
+    /// Identifiant d'idempotence de l'operation (cle de reprise durable).
+    ///
+    /// Par defaut, c'est `name()`. Peut etre surcharge (ex. par `omega-app`) pour
+    /// garantir l'unicite **par position** quand plusieurs operations partagent le
+    /// meme nom : la reprise ne doit jamais sauter silencieusement une operation.
+    fn operation_id(&self) -> String {
+        self.name().to_string()
+    }
+
     /// Si `true`, une erreur arrête le run avec `RunStatus::Failed`.
     fn is_critical(&self) -> bool {
         false
@@ -259,7 +268,7 @@ impl AgentLoop {
 
             bus.publish(Event::new(
                 "step.started",
-                json!({ "operation": op.name() }),
+                json!({ "operation": op.operation_id() }),
             ));
 
             let mut ctx = RunContext {
@@ -285,7 +294,7 @@ impl AgentLoop {
                 Ok(()) => {
                     bus.publish(Event::new(
                         "step.completed",
-                        json!({ "operation": op.name() }),
+                        json!({ "operation": op.operation_id() }),
                     ));
                 }
                 Err(omega_types::OmegaError::Cancelled) => {
@@ -294,7 +303,7 @@ impl AgentLoop {
                 }
                 Err(e) => {
                     let payload = json!({
-                        "operation": op.name(),
+                        "operation": op.operation_id(),
                         "error": format!("{e:?}"),
                         "critical": op.is_critical() || self.fail_fast,
                     });
@@ -540,6 +549,40 @@ mod tests {
         let events = bus.events();
         let names: Vec<_> = events.iter().map(|e| e.name.as_str()).collect();
         assert!(names.contains(&"run.failed"));
+    }
+
+    struct IdOverrideOp(&'static str);
+
+    #[async_trait]
+    impl Operation for IdOverrideOp {
+        fn name(&self) -> &str {
+            self.0
+        }
+
+        fn operation_id(&self) -> String {
+            format!("{}#0", self.0)
+        }
+
+        async fn run(&self, _ctx: &mut RunContext<'_>) -> OmegaResult<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn step_events_carry_operation_id_not_name() {
+        // (B1) `step.started`/`step.completed` portent `operation_id` (pas `name`) :
+        // la cle d'idempotence peut etre rendue unique sans changer `name()`.
+        let bus = InMemoryBus::new();
+        let (token, _handle) = cancellation_pair();
+        let loop_ = AgentLoop::new().push(IdOverrideOp("dup"));
+        let status = loop_.run(&bus, &token, RunState::default()).await;
+        assert_eq!(status, RunStatus::Ok);
+
+        let events = bus.events();
+        let started = events.iter().find(|e| e.name == "step.started").unwrap();
+        let completed = events.iter().find(|e| e.name == "step.completed").unwrap();
+        assert_eq!(started.payload["operation"], "dup#0");
+        assert_eq!(completed.payload["operation"], "dup#0");
     }
 
     #[test]
