@@ -123,8 +123,8 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] **W10 inc1 — catalogue local + self-host-first** : `OllamaCatalogSource` (`/api/tags`→records), `local_record` (coût 0, tier SelfHosted), règle `score_local + 0.05 >= score_distant` (mergé, paragraphe parallèle)
 - [x] Branche publiée sur `origin/feat/agentos-omega`
 - [ ] **W7 inc2 — omega-server + UI branchée** (paragraphe parallèle, en cours)
-- [ ] **W4 inc3 — circuit breaker à états** (paragraphe parallèle, en cours)
-- [ ] **W6 inc2 — stemming** (paragraphe parallèle, en cours)
+- [x] **W4 inc3 — circuit breaker à états** : Closed→Open→HalfOpen→Closed, `record_success` (M4 implémenté), horloge injectable, sonde unique par run (mergé, paragraphe parallèle)
+- [x] **W6 inc2 — stemming déterministe** : règles R0–R7 commentées, appliqué docs+requêtes, `file_write` rappelé via seuil (gate stricte inchangée, prouvé) (mergé, paragraphe parallèle)
 - [x] Décomposition W0-W10 (`docs/omega/02-WORKSTREAMS.md`)
 - [x] Credentials déposés et validés (`.env`, non versionné)
 - [x] Subagents : Go épuisé puis `opencode/*` payants épuisés → **routage 100% Free** (`muse-spark-1.3-contributor-free`, `mimo-v2.6-flash-free`, replis `step-5`/`space-bunny`)
