@@ -7,6 +7,7 @@ modular tool brick discovery (config/tool-decision-tree.yaml).
 
 import logging
 import socket
+from typing import Callable
 import threading
 from pathlib import Path
 
@@ -342,3 +343,41 @@ class ToolRegistry:
 
     def __repr__(self):
         return f"ToolRegistry(tools={len(self.tools)}, available={len(self.get_all_available())})"
+
+
+# ─── Décorateur d'auto-enregistrement (MOD-8) ───────────────
+
+_registered_functions: dict[str, callable] = {}
+
+
+def register(name: str):
+    """Décorateur pour auto-enregistrer une fonction comme outil.
+    
+    Usage :
+        @register("mon_outil")
+        def mon_outil():
+            return "ok"
+    
+    L'outil est enregistré dans le registre central (ToolRegistry.get_instance())
+    SANS qu'il soit nécessaire d'importer routes.*.
+    """
+    def decorator(fn):
+        registry = ToolRegistry.get_instance()
+        registry.tools[name] = ToolBrick(name, {
+            "type": "function",
+            "phase": ["BUILD"],
+            "provides": [name],
+        })
+        _registered_functions[name] = fn
+        return fn
+    return decorator
+
+
+def get_registered_function(name: str) -> Callable | None:
+    """Récupère une fonction enregistrée par @register."""
+    return _registered_functions.get(name)
+
+
+def get_all_registered() -> dict:
+    """Retourne toutes les fonctions enregistrées via @register."""
+    return dict(_registered_functions)
