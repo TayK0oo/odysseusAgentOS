@@ -43,7 +43,16 @@ ARCH_RULES = {
     "plugins": {"types", "ports", "config", "registry"},
     "app": {"types", "ports", "config", "protocol", "core", "registry",
             "plugin-api", "adapters", "plugins", "router"},
-    "app-edge": {"types", "app", "protocol"},
+    # `omega-server` (W7 inc2) est une racine de composition comme `app`, mais
+    # au bord (HTTP) : il cable les adaptateurs via le registre (ports,
+    # registry, plugin-api), execute via `app`/`core` (Operation, RunStatus),
+    # route en deterministe (`router`), rejoue les journaux (`adapters` :
+    # otel/context/providers) et expose les wire types (`protocol`).
+    # Justification detaillee : `docs/omega/workstreams/W7-cockpit.md` (§5).
+    # `config` est reserve au cablage futur de `ServerConfig` sur les couches
+    # (profils/port) ; `app` autorise la composition sur l'assemblage existant.
+    "app-edge": {"types", "ports", "config", "protocol", "core", "registry",
+                 "plugin-api", "adapters", "router", "app"},
     "other": set(),  # pas de regle specifique, seulement l'absence de cycle
 }
 

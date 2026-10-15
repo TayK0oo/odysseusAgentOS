@@ -1,0 +1,33 @@
+[package]
+name = "omega-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Omega — adaptateur de bord HTTP : API typée pour l'UI (santé, plugins, run, trace rejouée)."
+
+[dependencies]
+omega-types = { workspace = true }
+omega-ports = { workspace = true }
+omega-registry = { workspace = true }
+omega-plugin-api = { workspace = true }
+omega-core = { workspace = true }
+omega-protocol = { workspace = true }
+omega-app = { workspace = true }
+omega-context = { workspace = true }
+omega-otel = { workspace = true }
+omega-router = { path = "../omega-router" }
+omega-providers = { path = "../omega-providers" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+axum = { version = "0.7" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync"] }
+
+[[bin]]
+name = "omega-server"
+path = "src/main.rs"
+
+[lib]
+name = "omega_server"
+path = "src/lib.rs"
