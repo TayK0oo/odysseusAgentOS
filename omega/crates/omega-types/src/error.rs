@@ -43,6 +43,18 @@ pub enum OmegaError {
     #[error("erreur d'entree/sortie : {0}")]
     Io(String),
 
+    /// Commande interdite par l'`ExecPolicy` (refusée avant tout fork).
+    #[error("commande interdite '{command}' : {reason}")]
+    ForbiddenCommand { command: String, reason: String },
+
+    /// Commande soumise à approbation humaine (file d'approbations, incrément 2).
+    #[error("approbation requise pour '{command}' : {reason}")]
+    ApprovalRequired { command: String, reason: String },
+
+    /// Commande tuée après dépassement du timeout.
+    #[error("timeout ({timeout_ms} ms) pour '{command}'")]
+    CommandTimeout { command: String, timeout_ms: u64 },
+
     /// Le type concret demande ne correspond pas a l'instance enregistree.
     #[error("capacite {0:?} : type demande incompatible avec l'instance enregistree")]
     TypeMismatch(Capability),

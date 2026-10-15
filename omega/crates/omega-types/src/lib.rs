@@ -167,6 +167,18 @@ pub enum PermissionEffect {
     Deny,
 }
 
+/// Décision d'une politique d'exécution de commande (DSL préfixes/réseau).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ExecDecision {
+    /// Exécution autorisée.
+    Allow,
+    /// Exécution soumise à approbation humaine (motif).
+    Prompt(String),
+    /// Exécution interdite (motif).
+    Forbidden(String),
+}
+
 /// Evenement de telemetrie (nom + champs), emis par un `TelemetrySink`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TelemetryEvent {

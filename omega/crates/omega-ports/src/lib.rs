@@ -6,8 +6,8 @@
 
 use async_trait::async_trait;
 use omega_types::{
-    ChatRequest, ChatResponse, CommandOutput, DurableEvent, Message, ModelRecord, OmegaResult,
-    PermissionEffect, RawModel, RouterDecision, RouterError, RoutingRequest, TaskType,
+    ChatRequest, ChatResponse, CommandOutput, DurableEvent, ExecDecision, Message, ModelRecord,
+    OmegaResult, PermissionEffect, RawModel, RouterDecision, RouterError, RoutingRequest, TaskType,
     TelemetryEvent, ToolSpec, Weights,
 };
 
@@ -153,6 +153,12 @@ pub trait EventStore: Send + Sync {
 /// Hook de cycle de vie. Regime : *ensemble*.
 pub trait Hook: Send + Sync {
     fn name(&self) -> &str;
+}
+
+/// Politique d'exécution des commandes (DSL préfixes/réseau). Regime : *slot exclusif*.
+pub trait ExecPolicy: Send + Sync {
+    fn name(&self) -> &str;
+    fn evaluate(&self, command: &str) -> ExecDecision;
 }
 
 /// Politique de permission (policy par code). Regime : *slot exclusif*.
