@@ -9,4 +9,4 @@ mod policy;
 
 pub use backend::LocalSandboxBackend;
 pub use contributor::SandboxContributor;
-pub use policy::{ExecRule, RuleBasedExecPolicy};
+pub use policy::{has_unquoted_metachars, ExecRule, RuleBasedExecPolicy};

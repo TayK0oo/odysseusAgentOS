@@ -38,6 +38,12 @@ pub struct ReplayedRun {
     pub run_id: String,
     pub steps: Vec<ReplayedStep>,
     pub outcome: ReplayedOutcome,
+    /// Étapes `step.*` sans `operation_id` : ignorées du séquençage mais COMPTÉES
+    /// (jamais de perte silencieuse — REVIEW-W8-W9 B3).
+    pub ignored_events: usize,
+    /// Vrai si le journal contient à la fois `run.completed` et `run.failed`.
+    /// L'issue retenue est alors celle du **premier** marqueur (déterministe).
+    pub outcome_conflict: bool,
 }
 
 /// Résumé déterministe d'un journal.
@@ -48,6 +54,8 @@ pub struct RunSummary {
     pub steps_completed: usize,
     pub steps_failed: usize,
     pub outcome: ReplayedOutcome,
+    pub ignored_events: usize,
+    pub outcome_conflict: bool,
 }
 
 /// Rejoue un journal : trie par `seq`, extrait les étapes, détecte l'issue.
@@ -59,29 +67,46 @@ impl TraceReplayer {
     pub fn replay(run_id: &str, mut journal: Vec<DurableEvent>) -> ReplayedRun {
         journal.sort_by_key(|e| e.seq);
         let mut steps = Vec::new();
+        let mut ignored_events = 0usize;
         let mut outcome = ReplayedOutcome::Unknown;
+        let mut seen_terminal: Option<ReplayedOutcome> = None;
+        let mut outcome_conflict = false;
         for e in &journal {
             match e.name.as_str() {
-                "step.completed" => {
-                    if let Some(op) = e.operation_id.clone() {
-                        steps.push(ReplayedStep {
-                            operation_id: op,
-                            status: ReplayedStepStatus::Completed,
-                            seq: e.seq,
-                        });
+                "step.completed" | "step.failed" => {
+                    let Some(op) = e.operation_id.clone() else {
+                        ignored_events += 1;
+                        continue;
+                    };
+                    steps.push(ReplayedStep {
+                        operation_id: op,
+                        status: if e.name == "step.completed" {
+                            ReplayedStepStatus::Completed
+                        } else {
+                            ReplayedStepStatus::Failed
+                        },
+                        seq: e.seq,
+                    });
+                }
+                "run.completed" | "run.failed" => {
+                    let marker = if e.name == "run.completed" {
+                        ReplayedOutcome::Completed
+                    } else {
+                        ReplayedOutcome::Failed
+                    };
+                    match seen_terminal {
+                        None => {
+                            seen_terminal = Some(marker);
+                            outcome = marker;
+                        }
+                        Some(first) if first != marker => {
+                            // Double marqueur contradictoire : le PREMIER gagne
+                            // (déterministe), le conflit est signalé.
+                            outcome_conflict = true;
+                        }
+                        _ => {}
                     }
                 }
-                "step.failed" => {
-                    if let Some(op) = e.operation_id.clone() {
-                        steps.push(ReplayedStep {
-                            operation_id: op,
-                            status: ReplayedStepStatus::Failed,
-                            seq: e.seq,
-                        });
-                    }
-                }
-                "run.completed" => outcome = ReplayedOutcome::Completed,
-                "run.failed" => outcome = ReplayedOutcome::Failed,
                 _ => {}
             }
         }
@@ -89,6 +114,8 @@ impl TraceReplayer {
             run_id: run_id.to_string(),
             steps,
             outcome,
+            ignored_events,
+            outcome_conflict,
         }
     }
 
@@ -110,6 +137,8 @@ impl TraceReplayer {
                 .filter(|s| s.status == ReplayedStepStatus::Failed)
                 .count(),
             outcome: replayed.outcome,
+            ignored_events: replayed.ignored_events,
+            outcome_conflict: replayed.outcome_conflict,
         }
     }
 }
@@ -175,5 +204,34 @@ mod tests {
         assert_eq!(a.steps_completed, 2);
         assert_eq!(a.steps_failed, 0);
         assert_eq!(a.outcome, ReplayedOutcome::Completed);
+        assert_eq!(a.ignored_events, 0);
+        assert!(!a.outcome_conflict);
+    }
+
+    #[test]
+    fn steps_without_operation_id_are_counted_not_lost() {
+        // (B3) une étape sans `operation_id` est comptée, pas perdue en silence.
+        let mut j = journal();
+        j.push(ev(4, "step.completed", None));
+        let r = TraceReplayer::replay("run-1", j);
+        assert_eq!(r.steps.len(), 2);
+        assert_eq!(r.ignored_events, 1);
+        let full = TraceReplayer::summarize("run-1", {
+            let mut jj = journal();
+            jj.push(ev(4, "step.completed", None));
+            jj
+        });
+        assert_eq!(full.total_events, 5);
+        assert_eq!(full.ignored_events, 1);
+    }
+
+    #[test]
+    fn conflicting_terminal_markers_first_wins_and_conflict_flagged() {
+        // (B3) double marqueur contradictoire : le premier gagne, conflit signalé.
+        let mut j = journal();
+        j.push(ev(4, "run.failed", None));
+        let r = TraceReplayer::replay("run-1", j);
+        assert_eq!(r.outcome, ReplayedOutcome::Completed);
+        assert!(r.outcome_conflict);
     }
 }

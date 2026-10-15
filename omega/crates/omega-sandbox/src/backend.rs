@@ -30,7 +30,16 @@ impl SandboxBackend for LocalSandboxBackend {
     }
 
     async fn run(&self, command: &str) -> OmegaResult<CommandOutput> {
-        match self.policy.evaluate(command) {
+        // Garde anti-composition (REVIEW-W8-W9 B1) : une règle `Allow` par préfixe
+        // (`echo`) ne doit pas autoriser silencieusement une commande composée
+        // (`echo hi; rm -rf /`). Les métacaractères hors quotes escaladent en `Prompt`.
+        let decision = match self.policy.evaluate(command) {
+            ExecDecision::Allow if crate::has_unquoted_metachars(command) => {
+                ExecDecision::Prompt("commande composée : approbation requise".to_string())
+            }
+            other => other,
+        };
+        match decision {
             ExecDecision::Forbidden(reason) => {
                 return Err(OmegaError::ForbiddenCommand {
                     command: command.to_string(),
@@ -46,9 +55,13 @@ impl SandboxBackend for LocalSandboxBackend {
             ExecDecision::Allow => {}
         }
 
-        let child = tokio::process::Command::new("sh")
-            .arg("-c")
-            .arg(command)
+        let mut cmd = tokio::process::Command::new("sh");
+        cmd.arg("-c").arg(command);
+        // Groupe de processus dédié (leader = `sh`) : au timeout, on tue le groupe
+        // entier (`kill -9 -pgid`), pas le seul `sh` — sinon les petits-enfants
+        // (`sleep` en arrière-plan) survivent (REVIEW-W8-W9 B2). Linux-only, Phase 1.
+        cmd.process_group(0);
+        let child = cmd
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()
@@ -58,12 +71,11 @@ impl SandboxBackend for LocalSandboxBackend {
         let output = tokio::time::timeout(self.timeout, child.wait_with_output()).await;
         match output {
             Err(_) => {
-                // `wait_with_output` a consommé `child` : on tue par PID (Linux).
-                // Le processus peut déjà avoir terminé entre-temps : on ignore l'échec du kill.
+                // Tue le groupe entier via le PGID (= PID du leader).
                 if let Some(pid) = pid {
                     let _ = std::process::Command::new("kill")
                         .arg("-9")
-                        .arg(pid.to_string())
+                        .arg(format!("-{pid}"))
                         .output();
                 }
                 Err(OmegaError::CommandTimeout {
@@ -129,5 +141,61 @@ mod tests {
         let b = LocalSandboxBackend::new(policy, Duration::from_millis(200));
         let err = b.run("sleep 30").await.unwrap_err();
         assert!(matches!(err, OmegaError::CommandTimeout { .. }));
+    }
+
+    #[tokio::test]
+    async fn compound_command_escalates_to_prompt_and_never_executes() {
+        // (B1) `echo hi; touch <temoin>` matche `echo` mais doit escalader en `Prompt`
+        // au lieu d'autoriser : le fichier témoin ne doit jamais être créé.
+        let dir =
+            std::env::temp_dir().join(format!("omega-sandbox-compound-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let witness = dir.join("ne-doit-pas-exister");
+        let _ = std::fs::remove_file(&witness);
+        let cmd = format!("echo hi; touch {}", witness.display());
+        let err = backend().run(&cmd).await.unwrap_err();
+        assert!(
+            matches!(err, OmegaError::ApprovalRequired { .. }),
+            "attendu ApprovalRequired, obtenu : {err:?}"
+        );
+        assert!(!witness.exists(), "la commande composée a été exécutée !");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn timeout_kills_grandchildren_not_just_sh() {
+        // (B2) petit-fils en arrière-plan : la commande externe `sh <script>` ne
+        // contient aucun métacaractère (→ `Allow`), mais le script lance `sleep 57`
+        // en tâche de fond. Après timeout, aucun `sleep 57` ne doit survivre
+        // (kill du groupe, pas du seul PID).
+        let dir =
+            std::env::temp_dir().join(format!("omega-sandbox-grandchild-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let script = dir.join("bg.sh");
+        std::fs::write(&script, "sleep 57 & wait\n").unwrap();
+        let policy: Arc<dyn ExecPolicy> =
+            Arc::new(RuleBasedExecPolicy::new("t").rule("sh", ExecDecision::Allow));
+        let b = LocalSandboxBackend::new(policy, Duration::from_millis(300));
+        let err = b
+            .run(&format!("sh {}", script.display()))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, OmegaError::CommandTimeout { .. }));
+        // Boucle courte : le SIGKILL de groupe est quasi-synchrone, on tolère 2 s.
+        let mut survived = true;
+        for _ in 0..20 {
+            let out = std::process::Command::new("pgrep")
+                .arg("-f")
+                .arg("sleep 57")
+                .output()
+                .expect("pgrep indisponible");
+            if out.stdout.is_empty() {
+                survived = false;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(!survived, "un petit-fils `sleep 57` a survécu au timeout !");
     }
 }

@@ -5,6 +5,7 @@
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use omega_ports::TelemetrySink;
@@ -40,6 +41,9 @@ impl TelemetrySink for StdoutSink {
 pub struct FileSink {
     path: PathBuf,
     lock: Mutex<()>,
+    /// Émissions ayant échoué (création/écriture). Le port `TelemetrySink::emit`
+    /// étant `void`, les erreurs sont **comptées, pas silencieuses** (REVIEW-W8-W9).
+    emit_errors: AtomicU64,
 }
 
 impl FileSink {
@@ -47,7 +51,13 @@ impl FileSink {
         Self {
             path: path.into(),
             lock: Mutex::new(()),
+            emit_errors: AtomicU64::new(0),
         }
+    }
+
+    /// Nombre d'émissions ayant échoué depuis la création.
+    pub fn emit_errors(&self) -> u64 {
+        self.emit_errors.load(Ordering::Relaxed)
     }
 
     pub fn path(&self) -> &std::path::Path {
@@ -74,17 +84,18 @@ impl TelemetrySink for FileSink {
         let mut line = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_string());
         line.push('\n');
         if let Some(parent) = self.path.parent() {
-            if !parent.as_os_str().is_empty() {
-                let _ = std::fs::create_dir_all(parent);
+            if !parent.as_os_str().is_empty() && std::fs::create_dir_all(parent).is_err() {
+                self.emit_errors.fetch_add(1, Ordering::Relaxed);
+                return;
             }
         }
-        if let Ok(mut f) = OpenOptions::new()
+        let written = OpenOptions::new()
             .create(true)
             .append(true)
             .open(&self.path)
-        {
-            let _ = f.write_all(line.as_bytes());
-            let _ = f.flush();
+            .and_then(|mut f| f.write_all(line.as_bytes()).and_then(|_| f.flush()));
+        if written.is_err() {
+            self.emit_errors.fetch_add(1, Ordering::Relaxed);
         }
     }
 }
@@ -126,5 +137,13 @@ mod tests {
     #[test]
     fn file_sink_is_object_safe() {
         let _s: std::sync::Arc<dyn TelemetrySink> = std::sync::Arc::new(StdoutSink::new());
+    }
+
+    #[test]
+    fn file_sink_counts_io_errors_instead_of_silence() {
+        // (M) chemin non créable (/proc) : l'échec est compté, pas silencieux.
+        let sink = FileSink::new("/proc/omega-test-impossible/otel.jsonl");
+        sink.emit(ev("omega.run.step"));
+        assert!(sink.emit_errors() >= 1);
     }
 }

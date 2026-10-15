@@ -23,6 +23,48 @@ impl ExecRule {
     }
 }
 
+/// Détecte les métacaractères shell **hors quotes** : `;`, `|`, `&`, `>`, `<`,
+/// `` ` ``, `$(`, retour ligne. Le scan respecte `'...'`, `"..."` et `\`.
+///
+/// Une commande composée (`echo hi; rm -rf /`) matche la règle `echo` mais exécute
+/// aussi `rm` : la garde anti-composition (voir `LocalSandboxBackend`) l'escalade en
+/// `Prompt` au lieu de l'autoriser silencieusement (REVIEW-W8-W9 B1).
+pub fn has_unquoted_metachars(command: &str) -> bool {
+    let mut chars = command.chars().peekable();
+    let mut in_single = false;
+    let mut in_double = false;
+    while let Some(c) = chars.next() {
+        if in_single {
+            if c == '\'' {
+                in_single = false;
+            }
+            continue;
+        }
+        if in_double {
+            match c {
+                '"' => in_double = false,
+                '\\' => {
+                    chars.next();
+                }
+                '`' => return true,
+                '$' if chars.peek() == Some(&'(') => return true,
+                _ => {}
+            }
+            continue;
+        }
+        match c {
+            '\'' => in_single = true,
+            '"' => in_double = true,
+            '\\' => {
+                chars.next();
+            }
+            ';' | '|' | '&' | '>' | '<' | '\n' | '`' => return true,
+            '$' if chars.peek() == Some(&'(') => return true,
+            _ => {}
+        }
+    }
+    false
+}
 /// Politique par règles ordonnées. Implémente le port `omega_ports::ExecPolicy`.
 #[derive(Debug, Clone)]
 pub struct RuleBasedExecPolicy {
@@ -101,6 +143,23 @@ mod tests {
             p.decide("sudo apt update"),
             ExecDecision::Prompt("élévation".to_string())
         );
+    }
+
+    #[test]
+    fn metachar_detector_respects_quotes_and_escapes() {
+        // (B1) métacaractères hors quotes détectés...
+        assert!(has_unquoted_metachars("echo hi; touch /tmp/x"));
+        assert!(has_unquoted_metachars("echo a && echo b"));
+        assert!(has_unquoted_metachars("cat f | grep x"));
+        assert!(has_unquoted_metachars("echo $(whoami)"));
+        assert!(has_unquoted_metachars("echo `whoami`"));
+        assert!(has_unquoted_metachars("echo a > /tmp/f"));
+        // ...mais ignorés dans les quotes et après backslash.
+        assert!(!has_unquoted_metachars("echo \"a;b\""));
+        assert!(!has_unquoted_metachars("echo 'a|b'"));
+        assert!(!has_unquoted_metachars("echo a\\;b"));
+        assert!(!has_unquoted_metachars("echo $HOME"));
+        assert!(!has_unquoted_metachars("echo hello"));
     }
 
     #[test]
