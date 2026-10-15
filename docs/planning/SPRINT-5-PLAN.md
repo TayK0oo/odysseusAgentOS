@@ -76,7 +76,7 @@ dépend. `src.constants` (86) et `src.auth_helpers` (69) viennent ensuite, puis
 | 3 | **MOD-5** · `AppContext` au lieu des singletons globaux | les 3 singletons : `_fs`, `_guard`, caches | occurrences de `global` dans `src/` | rien |
 | 4 | **MOD-7** · étendre l'ABC `MemoryProvider` | les chemins mémoire qui ne l'implémentent pas | `fournisseurs_hors_interface` — **aujourd'hui 0** : la classe `MemoryProvider` existe déjà, 2 fournisseurs l'implémentent. Le chantier n'est donc pas « créer une interface » mais « rendre toute non-conformance rouge » | rien |
 | 5 | **MOD-6** · contrat DB sur `core.database` | 120 importeurs → façade | `core_database_importeurs` | MOD-5 |
-| 6 | **MOD-3** · source unique du routage modèle | dédoublonner `ModelEndpoint` | modules détenant une résolution modèle | rien |
+| 6 | **MOD-3** · source unique du routage modèle | dédoublonner `ModelEndpoint` | `modules_resolution_modele` — **aujourd'hui 12** | rien |
 | 7 | **MOD-8** · outils découplés de `routes` | auto-enregistrement déclaratif | arêtes `src/* → routes.*` | MOD-5 |
 | 8 | **MOD-2** · inverser les arêtes restantes | `src/*` → `services/*` | `aretes_src_vers_routes` | MOD-5, MOD-7, MOD-8 |
 | 9 | **MOD-1** · `route_loader` dynamique | 54 imports → `pkgutil` | `route_loader_imports_statiques` | MOD-8 |

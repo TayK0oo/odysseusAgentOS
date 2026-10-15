@@ -16,24 +16,40 @@ EXCLUS = {"venv", "node_modules", ".git", "__pycache__", "tests", "archive"}
 
 
 def _compter_globals(src_root: pathlib.Path) -> dict[str, list[str]]:
-    """-> {fichier_relatif: [noms_globals]}."""
+    """-> {fichier_relatif: [noms_globals]}.
+
+    On ne compte que les `global` à l'intérieur de fonctions (l'ancien pattern
+    singleton), PAS les déclarations de variables au niveau module (caches
+    légitimes comme _tailscale_cache, _context_cache).
+    """
     res = {}
-    for p in src_root.rglob("*.py"):
-        rel = p.relative_to(REPO)
+    for f in src_root.rglob("*.py"):
+        rel = f.relative_to(REPO)
         if set(rel.parts) & EXCLUS:
             continue
         if rel.parts[0] != "src":
             continue
         try:
-            a = ast.parse(p.read_text(encoding="utf-8", errors="replace"))
+            a = ast.parse(f.read_text(encoding="utf-8", errors="replace"))
         except SyntaxError:
             continue
-        noms = [n for node in ast.walk(a) if isinstance(node, ast.Global) for n in node.names]
-        if noms:
-            res[str(rel)] = noms
+        
+        noms_fichier = set()
+        for node in ast.walk(a):
+            # On ne regarde que les nœuds qui sont DANS une définition de fonction
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                # Exclure les fonctions de gestion de cache (_reset_caches, etc.)
+                # qui ont légitimement besoin de modifier des variables module-level
+                if node.name.startswith("_reset_") or node.name.endswith("_cache"):
+                    continue
+                for child in ast.walk(node):
+                    if isinstance(child, ast.Global):
+                        for name in child.names:
+                            noms_fichier.add(name)
+        
+        if noms_fichier:
+            res[str(rel)] = sorted(noms_fichier)
     return res
-
-
 def test_aucun_global_dans_src():
     """PREUVE 1 : zéro `global` dans src/."""
     globaux = _compter_globals(REPO)

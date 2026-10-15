@@ -217,6 +217,12 @@ KNOWN_CONTEXT_WINDOWS = {
 _context_cache: dict[tuple[str, str], tuple[int, bool]] = {}
 
 
+def _reset_caches() -> None:
+    """Vide les caches de ce module. Pour l'isolation des tests (MOD-3)."""
+    global _context_cache
+    _context_cache.clear()
+
+
 def _get_context_length_cached(endpoint_url: str, model: str) -> tuple[int, bool]:
     """Return (context_length, known). ``known`` is False only when the value is a
     bare DEFAULT_CONTEXT fallback (no endpoint report and not in the known table)."""
