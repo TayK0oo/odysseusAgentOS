@@ -5,7 +5,9 @@
 //! run de bout en bout sur modèle local, coût nul.
 
 use async_trait::async_trait;
-use omega_types::{ChatRequest, ChatResponse, Message, ModelId, OmegaError, OmegaResult, Role, Usage};
+use omega_types::{
+    ChatRequest, ChatResponse, Message, ModelId, OmegaError, OmegaResult, Role, Usage,
+};
 use serde::{Deserialize, Serialize};
 
 /// Requête OpenAI-compatible (sous-ensemble utilisé).
@@ -187,10 +189,7 @@ mod tests {
     #[test]
     fn endpoint_trims_trailing_slash() {
         let p = OllamaProvider::new("http://localhost:11434/", "m");
-        assert_eq!(
-            p.endpoint(),
-            "http://localhost:11434/v1/chat/completions"
-        );
+        assert_eq!(p.endpoint(), "http://localhost:11434/v1/chat/completions");
         assert_eq!(p.model_id().as_str(), "ollama/m");
     }
 }

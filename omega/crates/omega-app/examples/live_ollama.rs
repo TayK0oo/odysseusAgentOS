@@ -16,8 +16,8 @@ use omega_otel::TraceReplayer;
 use omega_plugin_api::{Contributor, InstallContext};
 use omega_ports::{EventStore, Provider};
 use omega_registry::{Manifest, RegistryBuilder};
-use omega_router::{CompositeScoringPolicy, HeuristicTaskClassifier, Selector, TaskClassifier};
 use omega_router::selector::ParetoSelector;
+use omega_router::{CompositeScoringPolicy, HeuristicTaskClassifier, Selector, TaskClassifier};
 use omega_types::{
     Capabilities, Capability, Message, ModelId, ModelRecord, ModelTier, OmegaResult, QualityAxes,
     Role, RoutingRequest,
@@ -88,9 +88,7 @@ async fn main() {
 }
 
 async fn run() -> OmegaResult<()> {
-    let store = Arc::new(FileEventStore::new(
-        std::env::temp_dir().join("omega-live"),
-    ));
+    let store = Arc::new(FileEventStore::new(std::env::temp_dir().join("omega-live")));
     let provider: Arc<dyn Provider> = Arc::new(omega_providers::OllamaProvider::new(
         "http://localhost:11434",
         "qwen2.5-coder:7b",
@@ -111,17 +109,12 @@ async fn run() -> OmegaResult<()> {
                 où chaque brique est un plugin interchangeable, avec un moteur en Rust.";
     let req = RoutingRequest::new(text);
     let task = HeuristicTaskClassifier::new().classify(&req);
-    println!("tache : {} ({})", task.code(), format!("{task:?}"));
+    println!("tache : {} ({task:?})", task.code());
 
     // 2. Sélection (Pareto + score composite).
     let selector = ParetoSelector::new(CompositeScoringPolicy::new());
     let decision = selector
-        .select(
-            task,
-            Capabilities::default(),
-            4000,
-            &[local_record()],
-        )
+        .select(task, Capabilities::default(), 4000, &[local_record()])
         .map_err(|e| omega_types::OmegaError::Config(format!("selection : {e:?}")))?;
     println!(
         "decision : {} (score {:.3}) — {}",
@@ -145,8 +138,10 @@ async fn run() -> OmegaResult<()> {
     let summary = TraceReplayer::summarize("live-1", journal);
     println!(
         "journal : {} evenements, {}/{} etapes OK, issue={:?}",
-        summary.total_events, summary.steps_completed,
-        summary.steps_completed + summary.steps_failed, summary.outcome
+        summary.total_events,
+        summary.steps_completed,
+        summary.steps_completed + summary.steps_failed,
+        summary.outcome
     );
     if summary.steps_completed < 2 {
         return Err(omega_types::OmegaError::Config(

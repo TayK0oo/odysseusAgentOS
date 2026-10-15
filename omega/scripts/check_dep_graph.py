@@ -42,7 +42,7 @@ ARCH_RULES = {
     "adapters": {"types", "ports", "config", "registry", "plugin-api"},
     "plugins": {"types", "ports", "config", "registry"},
     "app": {"types", "ports", "config", "protocol", "core", "registry",
-            "plugin-api", "adapters", "plugins"},
+            "plugin-api", "adapters", "plugins", "router"},
     "app-edge": {"types", "app", "protocol"},
     "other": set(),  # pas de regle specifique, seulement l'absence de cycle
 }
