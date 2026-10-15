@@ -71,10 +71,15 @@ SEUILS = {
         "releve_si": None,
     },
     "route_loader_imports_statiques": {
-        "valeur": 54,
+        "valeur": 0,
+        "sens": "conformance",
         "chantier": "MOD-1 — route_loader réellement dynamique (pkgutil)",
-        "raison": "La découverte dynamique remplacera ces 54 imports. Ici on gèle la hausse.",
-        "releve_si": None,
+        "raison": (
+            "Le route_loader utilise désormais pkgutil.iter_modules pour découvrir "
+            "dynamiquement les routes. Il n'y a plus d'imports statiques de routes.* "
+            "dans route_loader.py. Le seuil est à 0 car MOD-1 est terminé."
+        ),
+        "releve_si": "régression : réintroduction d'imports statiques",
     },
     "paquets_sfd_non_tranches": {
         "valeur": 9,
