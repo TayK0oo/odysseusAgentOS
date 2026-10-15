@@ -1,10 +1,14 @@
 //! `omega-plugin-api` — la **surface d'extension** d'Omega.
 //!
-//! Volontairement **minuscule** (leçon n°1 du RE) : un plugin = un manifeste + une ou
+//! Volontairement **minuscule** (lecon n°1 du RE) : un plugin = un manifeste + une ou
 //! plusieurs contributions. On enregistre dans un [`RegistryBuilder`] (mutable), puis on
 //! gele le registre (immuable en usage).
+//!
+//! Le cycle de vie type : `manifest` -> [`PluginFactory::instantiate`] ->
+//! [`register_typed`](omega_registry::RegistryBuilder::register_typed). Ce mecanisme
+//! permet de remplacer n'importe quelle capacite par simple configuration/manifeste sans
+//! modifier le noyau (ADR-0003, OCP).
 
-use std::any::Any;
 use std::sync::Arc;
 
 use omega_registry::{Manifest, Registry, RegistryBuilder};
@@ -33,10 +37,48 @@ pub trait Contributor: Send + Sync {
     fn contribute(&self, builder: &mut RegistryBuilder, ctx: &InstallContext) -> OmegaResult<()>;
 }
 
-/// Fabrique d'instances (injection de dependances par constructeur).
+/// Fabrique d'instances typees (injection de dependances par constructeur).
+///
+/// Le type associe `Instance` est memorise dans le registre via `register_typed`, ce qui
+/// lie la capacite au port concret et autorise la detection de `TypeMismatch`.
 pub trait PluginFactory: Send + Sync {
+    type Instance: 'static + Send + Sync;
     fn manifest(&self) -> Manifest;
-    fn instantiate(&self, ctx: &InstallContext) -> OmegaResult<Arc<dyn Any + Send + Sync>>;
+    fn instantiate(&self, ctx: &InstallContext) -> OmegaResult<Arc<Self::Instance>>;
+}
+
+/// Installe une fabrique dans le builder : `manifest -> instantiate -> register_typed`.
+pub fn install<F: PluginFactory>(
+    factory: &F,
+    builder: &mut RegistryBuilder,
+    ctx: &InstallContext,
+) -> OmegaResult<()> {
+    let manifest = factory.manifest();
+    let instance = factory.instantiate(ctx)?;
+    builder.register_typed::<F::Instance>(manifest, instance)
+}
+
+/// Adapte une [`PluginFactory`] en [`Contributor`] pour la composition.
+pub struct FactoryContributor<F: PluginFactory> {
+    factory: F,
+    id: String,
+}
+
+impl<F: PluginFactory> FactoryContributor<F> {
+    pub fn new(factory: F) -> Self {
+        let id = factory.manifest().id.clone();
+        Self { factory, id }
+    }
+}
+
+impl<F: PluginFactory> Contributor for FactoryContributor<F> {
+    fn name(&self) -> &str {
+        &self.id
+    }
+
+    fn contribute(&self, builder: &mut RegistryBuilder, ctx: &InstallContext) -> OmegaResult<()> {
+        install(&self.factory, builder, ctx)
+    }
 }
 
 /// Compose un registre a partir d'une liste de contributeurs, puis le gele.
@@ -80,6 +122,31 @@ mod tests {
     use super::*;
     use omega_types::Capability;
 
+    // Type local representant un adaptateur ContextEngine ; on ne depend pas de
+    // `omega-ports` en dev-dependency pour ne pas creer d'arete interdite.
+    #[derive(Debug)]
+    struct FakeContextEngine(&'static str);
+
+    impl FakeContextEngine {
+        fn name(&self) -> &str {
+            self.0
+        }
+    }
+
+    struct FakeContextEngineFactory;
+
+    impl PluginFactory for FakeContextEngineFactory {
+        type Instance = FakeContextEngine;
+
+        fn manifest(&self) -> Manifest {
+            Manifest::new("fake-ctx", Capability::ContextEngine, "1").with_priority(5)
+        }
+
+        fn instantiate(&self, _ctx: &InstallContext) -> OmegaResult<Arc<Self::Instance>> {
+            Ok(Arc::new(FakeContextEngine("fake-ctx")))
+        }
+    }
+
     #[test]
     fn parses_manifests_from_json() {
         let json = r#"[
@@ -112,5 +179,39 @@ mod tests {
         }
         let registry = compose(&[&Noop], &InstallContext::new()).unwrap();
         assert!(registry.active_ids(Capability::LlmProvider).is_empty());
+    }
+
+    #[test]
+    fn install_factory_registers_typed_context_engine() {
+        // (M4) installer un adaptateur ContextEngine par manifeste/factory sans toucher au noyau.
+        let mut builder = RegistryBuilder::new();
+        install(
+            &FakeContextEngineFactory,
+            &mut builder,
+            &InstallContext::new(),
+        )
+        .unwrap();
+        let registry = builder.build();
+
+        assert_eq!(
+            registry.active_ids(Capability::ContextEngine),
+            vec!["fake-ctx".to_string()]
+        );
+
+        let engine = registry
+            .resolve::<FakeContextEngine>(Capability::ContextEngine)
+            .unwrap();
+        assert_eq!(engine.name(), "fake-ctx");
+    }
+
+    #[test]
+    fn factory_contributor_composes_with_other_contributors() {
+        // La fabrique est utilisable via `compose` grace a FactoryContributor.
+        let contributor = FactoryContributor::new(FakeContextEngineFactory);
+        let registry = compose(&[&contributor], &InstallContext::new()).unwrap();
+        assert_eq!(
+            registry.active_ids(Capability::ContextEngine),
+            vec!["fake-ctx".to_string()]
+        );
     }
 }
