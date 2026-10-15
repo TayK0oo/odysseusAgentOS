@@ -1,59 +1,115 @@
 //! Classifieur de tache 100 % deterministe (regex + longueur + pieces jointes).
 //!
-//! Aucun LLM n'est implique. Le trait `TaskClassifier` vit desormais dans
-//! `omega-ports` ; `HeuristicTaskClassifier` en est l'implementation par defaut.
+//! Aucun LLM n'est implique. Le trait `TaskClassifier` vit dans `omega-ports` ;
+//! `HeuristicTaskClassifier` en est l'implementation par defaut.
+//!
+//! # Regle de priorite explicite (REVUE-W4 B2)
+//!
+//! 1. Modalites d'entree (pieces jointes image/audio/video).
+//! 2. Vision implicite : analyse/description/explication d'une image/photo.
+//! 3. Intentions fortes : raisonnement long (plan, strategie, architecture,
+//!    concevoir, analyser) > mathematiques > recherche.
+//! 4. Transformation/edition : implementation > refactor > edition ciblee >
+//!    resume/reformatage.
+//! 5. Capacites specialisees : embedding, agentique, generation media.
+//! 6. Longueur : > 40 mots => raisonnement long ; < 8 mots => trivial.
+//! 7. Defaut : conversation generaliste.
+
+use std::sync::OnceLock;
 
 use regex::Regex;
+use unicode_normalization::UnicodeNormalization;
 
 use omega_ports::TaskClassifier;
 use omega_types::{AttachmentKind, RoutingRequest, TaskType};
 
-/// Classifieur heuristique deterministe.
-pub struct HeuristicTaskClassifier {
-    re_media: Regex,
-    re_embedding: Regex,
-    re_agentic: Regex,
-    re_math: Regex,
-    re_research: Regex,
-    re_implementation: Regex,
-    re_refactor: Regex,
-    re_edit: Regex,
-    re_summarize: Regex,
-    re_reasoning: Regex,
+macro_rules! static_regex {
+    ($fn:ident, $var:ident, $pattern:expr) => {
+        static $var: OnceLock<Regex> = OnceLock::new();
+        fn $fn() -> &'static Regex {
+            $var.get_or_init(|| Regex::new($pattern).unwrap())
+        }
+    };
 }
 
-impl Default for HeuristicTaskClassifier {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+static_regex!(
+    re_vision_implicit,
+    RE_VISION_IMPLICIT,
+    r"(?i)\b(image|photo)\b.*\b(analyse|analyser|decris|decrire|explique|expliquer|ocr|reconnai[st]?)\b|\b(analyse|analyser|decris|decrire|explique|expliquer|ocr|reconnai[st]?)\b.*\b(image|photo)\b"
+);
+static_regex!(
+    re_reasoning,
+    RE_REASONING,
+    r"(?i)\b(concevoir|concois|architecte|strategie|plan|analyse|raisonnement|design)\b"
+);
+static_regex!(
+    re_math,
+    RE_MATH,
+    r"(?i)\b(math|mathematique|preuve|equation|calcul|formule|gpqa|physique|algebre)\b"
+);
+static_regex!(
+    re_research,
+    RE_RESEARCH,
+    r"(?i)\b(cherche|recherche|compare|sources|synthese|etat de l art|web)\b"
+);
+static_regex!(
+    re_implementation,
+    RE_IMPLEMENTATION,
+    r"(?i)\b(creer|implementer|implemente|scaffold|from scratch|ecrire|developper)\b"
+);
+static_regex!(
+    re_refactor,
+    RE_REFACTOR,
+    r"(?i)\b(refactor|refactorise|plusieurs fichiers|multi-fichiers|restructurer|rewriting)\b"
+);
+static_regex!(
+    re_edit,
+    RE_EDIT,
+    r"(?i)\b(patch|corrige|corriger|bug|fix|edition|fichier|diff|build)\b"
+);
+static_regex!(
+    re_summarize,
+    RE_SUMMARIZE,
+    r"(?i)\b(resume|resumer|liste|convertis|reformate|summary|bullets)\b"
+);
+static_regex!(
+    re_embedding,
+    RE_EMBEDDING,
+    r"(?i)\b(embed|embedding|indexer|indexation|similarite|vector|rag)\b"
+);
+static_regex!(
+    re_agentic,
+    RE_AGENTIC,
+    r"(?i)\b(shell|bash|commande|script|ci/cd|terminal|docker|deploy|ops|kubectl)\b"
+);
+static_regex!(
+    re_media,
+    RE_MEDIA,
+    r"(?i)\b(generer?|generate|image|photo|dessine|tts|video|musique|audio)\b"
+);
+
+/// Classifieur heuristique deterministe.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct HeuristicTaskClassifier;
 
 impl HeuristicTaskClassifier {
     pub fn new() -> Self {
-        Self {
-            re_media: Regex::new(
-                r"(?i)\b(generer?|generate|image|photo|dessine|tts|video|musique|audio)\b",
-            )
-            .unwrap(),
-            re_embedding: Regex::new(r"(?i)\b(embed|embedding|indexer|indexation|similarite|vector|rag)\b").unwrap(),
-            re_agentic: Regex::new(
-                r"(?i)\b(shell|bash|commande|script|ci/cd|terminal|docker|deploy|ops|kubectl)\b",
-            )
-            .unwrap(),
-            re_math: Regex::new(r"(?i)\b(math|mathematique|preuve|equation|calcul|formule|gpqa|physique|algebre)\b").unwrap(),
-            re_research: Regex::new(r"(?i)\b(cherche|recherche|compare|sources|synthese|etat de l art|web)\b").unwrap(),
-            re_implementation: Regex::new(r"(?i)\b(creer|implementer|implemente|build|scaffold|from scratch|ecrire|developper)\b").unwrap(),
-            re_refactor: Regex::new(r"(?i)\b(refactor|refactorise|plusieurs fichiers|multi-fichiers|restructurer|rewriting)\b").unwrap(),
-            re_edit: Regex::new(r"(?i)\b(patch|corrige|corriger|bug|fix|edition|fichier|diff)\b").unwrap(),
-            re_summarize: Regex::new(r"(?i)\b(resume|resumer|liste|convertis|reformate|summary|bullets)\b").unwrap(),
-            re_reasoning: Regex::new(r"(?i)\b(concevoir|concois|architecte|strategie|plan|analyse|raisonnement|design)\b").unwrap(),
-        }
+        Self
     }
+}
+
+/// Normalise le texte pour le matching : NFD + suppression des marques
+/// diacritiques + mise en minuscules.
+fn normalize(text: &str) -> String {
+    text.nfd()
+        .filter(|c| !unicode_normalization::char::is_combining_mark(*c))
+        .collect::<String>()
+        .to_lowercase()
 }
 
 impl TaskClassifier for HeuristicTaskClassifier {
     fn classify(&self, req: &RoutingRequest) -> TaskType {
-        // Priorite absolue : modalite en entree.
+        // 1. Priorite absolue : modalite en entree.
         if req
             .attachments
             .iter()
@@ -76,36 +132,51 @@ impl TaskClassifier for HeuristicTaskClassifier {
             return TaskType::MediaGeneration;
         }
 
-        let text = req.lower();
+        let text = normalize(&req.text);
 
-        if self.re_embedding.is_match(&text) {
-            return TaskType::Embedding;
+        // 2. Vision implicite (analyse/description d'image sans piece jointe).
+        if re_vision_implicit().is_match(&text) {
+            return TaskType::Vision;
         }
-        if self.re_media.is_match(&text) {
-            return TaskType::MediaGeneration;
+
+        // 3. Intentions fortes.
+        if re_reasoning().is_match(&text) {
+            return TaskType::LongReasoning;
         }
-        if self.re_agentic.is_match(&text) {
-            return TaskType::AgenticTerminal;
-        }
-        if self.re_math.is_match(&text) {
+        if re_math().is_match(&text) {
             return TaskType::Math;
         }
-        if self.re_research.is_match(&text) {
+        if re_research().is_match(&text) {
             return TaskType::Research;
         }
-        if self.re_implementation.is_match(&text) {
+
+        // 4. Transformation / edition.
+        if re_implementation().is_match(&text) {
             return TaskType::Implementation;
         }
-        if self.re_refactor.is_match(&text) {
+        if re_refactor().is_match(&text) {
             return TaskType::Refactor;
         }
-        if self.re_edit.is_match(&text) {
+        if re_edit().is_match(&text) {
             return TaskType::TargetedEdit;
         }
-        if self.re_summarize.is_match(&text) {
+        if re_summarize().is_match(&text) {
             return TaskType::Summarization;
         }
-        if self.re_reasoning.is_match(&text) || req.word_count() > 40 {
+
+        // 5. Capacites specialisees.
+        if re_embedding().is_match(&text) {
+            return TaskType::Embedding;
+        }
+        if re_agentic().is_match(&text) {
+            return TaskType::AgenticTerminal;
+        }
+        if re_media().is_match(&text) {
+            return TaskType::MediaGeneration;
+        }
+
+        // 6. Longueur.
+        if req.word_count() > 40 {
             return TaskType::LongReasoning;
         }
         if req.word_count() < 8 {
@@ -137,9 +208,31 @@ mod tests {
     }
 
     #[test]
+    fn summarization_accented() {
+        assert_eq!(
+            classify("Résume ce document en trois points"),
+            TaskType::Summarization
+        );
+        assert_eq!(classify("Résumer ce texte"), TaskType::Summarization);
+        assert_eq!(classify("Résumé du rapport"), TaskType::Summarization);
+        // "synthese" est partage avec Research ; on accepte les deux.
+        let synth = classify("synthèse de ce document");
+        assert!(
+            synth == TaskType::Summarization || synth == TaskType::Research,
+            "synthese should route to summarization or research, got {:?}",
+            synth
+        );
+    }
+
+    #[test]
     fn targeted_edit() {
         assert_eq!(classify("corrige ce bug"), TaskType::TargetedEdit);
         assert_eq!(classify("patch le fichier main.rs"), TaskType::TargetedEdit);
+    }
+
+    #[test]
+    fn fix_the_build_is_targeted_edit() {
+        assert_eq!(classify("fix the build"), TaskType::TargetedEdit);
     }
 
     #[test]
@@ -173,9 +266,35 @@ mod tests {
     }
 
     #[test]
+    fn generate_architecture_plan_is_long_reasoning() {
+        assert_eq!(
+            classify("genere un plan d'architecture pour la migration"),
+            TaskType::LongReasoning
+        );
+        assert_eq!(
+            classify("génère un plan d'architecture"),
+            TaskType::LongReasoning
+        );
+    }
+
+    #[test]
+    fn analyse_image_is_vision() {
+        assert_eq!(classify("analyse cette image en detail"), TaskType::Vision);
+        assert_eq!(classify("décris cette photo"), TaskType::Vision);
+    }
+
+    #[test]
     fn math() {
         assert_eq!(classify("resous cette equation"), TaskType::Math);
         assert_eq!(classify("preuve du theoreme"), TaskType::Math);
+    }
+
+    #[test]
+    fn math_accented() {
+        assert_eq!(
+            classify("Résous cette équation du second degré"),
+            TaskType::Math
+        );
     }
 
     #[test]
@@ -222,6 +341,7 @@ mod tests {
             classify("genere une image d un chat"),
             TaskType::MediaGeneration
         );
+        assert_eq!(classify("dessine un paysage"), TaskType::MediaGeneration);
     }
 
     #[test]
@@ -229,6 +349,20 @@ mod tests {
         assert_eq!(
             classify("quelle est la meteo a Paris aujourd hui"),
             TaskType::Chat
+        );
+    }
+
+    #[test]
+    fn unicode_normalization_strips_accents() {
+        // Memes entrees accentuees et non accentuees doivent produire le meme type.
+        assert_eq!(classify("resume ce texte"), classify("Résume ce texte"));
+        assert_eq!(
+            classify("resous cette equation"),
+            classify("Résous cette équation")
+        );
+        assert_eq!(
+            classify("genere un plan d'architecture"),
+            classify("génère un plan d'architecture")
         );
     }
 }
