@@ -1,10 +1,13 @@
 //! `omega-core` — **boucle d'agent agnostique** du provider et des extensions.
 //!
-//! Leçon n°3 du reverse-engineering : le noyau est une machine d'`Operation` ordonnées,
-//! paramétrée par des traits (`Inference`, `EffectHandler`, `Emitter`), avec un event-bus
-//! interne et une annulation coopérative. Il ne connaît ni provider ni extension.
+//! Lecon n°3 du reverse-engineering : le noyau est une machine d'`Operation` ordonnees,
+//! parametree par des traits (`Inference`, `EffectHandler`, `Emitter`), avec un event-bus
+//! interne et une annulation cooperative. Il ne connait ni provider ni extension.
 //!
-//! Dépendances autorisées : `omega-types` + `omega-ports` uniquement
+//! L'annulation est verifiee **avant** chaque etape et **pendant** l'execution de
+//! chaque etape (`tokio::select!` biased) pour court-circuiter les operations longues.
+//!
+//! Dependances autorisees : `omega-types` + `omega-ports` uniquement
 //! (`OMEGA-BLUEPRINT.md` §2.2).
 
 use async_trait::async_trait;
@@ -13,11 +16,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use tokio::sync::Notify;
 
-/// Événement émis par le noyau ou par une opération.
+/// Evenement emis par le noyau ou par une operation.
 ///
-/// Les événements `durable` sont destinés au journal append-only ; les autres sont
-/// éphémères (UI live, métriques).
+/// Les evenements `durable` sont destines au journal append-only ; les autres sont
+/// ephemeres (UI live, metriques).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Event {
     pub name: String,
@@ -43,15 +47,15 @@ impl Event {
     }
 }
 
-/// Bus d'événements interne au noyau.
+/// Bus d'evenements interne au noyau.
 pub trait EventBus: Send + Sync {
     fn publish(&self, event: Event);
 
-    /// Journal des événements publiés (utile pour tests et replay).
+    /// Journal des evenements publies (utile pour tests et replay).
     fn events(&self) -> Vec<Event>;
 }
 
-/// Bus en mémoire qui conserve chaque événement dans un journal.
+/// Bus en memoire qui conserve chaque evenement dans un journal.
 #[derive(Default)]
 pub struct InMemoryBus {
     journal: Mutex<Vec<Event>>,
@@ -75,55 +79,68 @@ impl EventBus for InMemoryBus {
     }
 }
 
-/// Token d'annulation **coopérative**. Vérifié avant chaque étape de la boucle.
+struct CancellationInner {
+    flag: AtomicBool,
+    notify: Notify,
+}
+
+/// Token d'annulation **cooperative**. Verifie avant et pendant chaque etape.
 #[derive(Clone)]
 pub struct CancellationToken {
-    inner: Arc<AtomicBool>,
+    inner: Arc<CancellationInner>,
 }
 
 impl CancellationToken {
-    fn new(inner: Arc<AtomicBool>) -> Self {
+    fn new(inner: Arc<CancellationInner>) -> Self {
         Self { inner }
     }
 
     pub fn is_cancelled(&self) -> bool {
-        self.inner.load(Ordering::Relaxed)
+        self.inner.flag.load(Ordering::Relaxed)
     }
 
-    /// Renvoie une erreur si l'annulation a été demandée.
+    /// Renvoie une erreur si l'annulation a ete demandee.
     pub fn check(&self) -> OmegaResult<()> {
         if self.is_cancelled() {
-            Err(omega_types::OmegaError::PluginFailed(
-                "kernel".to_string(),
-                "annulation demandee".to_string(),
-            ))
+            Err(omega_types::OmegaError::Cancelled)
         } else {
             Ok(())
         }
     }
+
+    /// Future qui se resout des que l'annulation est demandee.
+    pub async fn cancelled(&self) {
+        while !self.is_cancelled() {
+            self.inner.notify.notified().await;
+        }
+    }
 }
 
-/// Poignée permettant d'annuler un run.
+/// Poignee permettant d'annuler un run.
 pub struct CancellationHandle {
-    inner: Arc<AtomicBool>,
+    inner: Arc<CancellationInner>,
 }
 
 impl CancellationHandle {
     pub fn cancel(&self) {
-        self.inner.store(true, Ordering::Relaxed);
+        self.inner.flag.store(true, Ordering::Relaxed);
+        self.inner.notify.notify_waiters();
     }
 }
 
-/// Crée une paire `(token, handle)` partageant le même drapeau.
+/// Cree une paire `(token, handle)` partageant le meme drapeau.
 pub fn cancellation_pair() -> (CancellationToken, CancellationHandle) {
-    let inner = Arc::new(AtomicBool::new(false));
+    let inner = Arc::new(CancellationInner {
+        flag: AtomicBool::new(false),
+        notify: Notify::new(),
+    });
     (
         CancellationToken::new(inner.clone()),
         CancellationHandle { inner },
     )
 }
 
-/// Effet produit par une opération et appliqué par un `EffectHandler`.
+/// Effet produit par une operation et applique par un `EffectHandler`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Effect {
     pub name: String,
@@ -139,25 +156,25 @@ impl Effect {
     }
 }
 
-/// Handler d'effets. Permet au noyau de rester agnostique des actions concrètes.
+/// Handler d'effets. Permet au noyau de rester agnostique des actions concretes.
 #[async_trait]
 pub trait EffectHandler: Send + Sync {
     async fn apply(&self, effect: &Effect) -> OmegaResult<()>;
 }
 
-/// Émetteur asynchche d'événements (frontière live / UI).
+/// Emetteur asynchrone d'evenements (frontiere live / UI).
 #[async_trait]
 pub trait Emitter: Send + Sync {
     async fn emit(&self, event: Event) -> OmegaResult<()>;
 }
 
-/// Interface d'inférence. Le noyau reçoit une implémentation sans la connaître.
+/// Interface d'inference. Le noyau recoit une implementation sans la connaitre.
 #[async_trait]
 pub trait Inference: Send + Sync {
     async fn infer(&self, input: serde_json::Value) -> OmegaResult<serde_json::Value>;
 }
 
-/// État partagé pendant un run. Le noyau le passe à chaque opération.
+/// Etat partage pendant un run. Le noyau le passe a chaque operation.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RunState(pub serde_json::Value);
 
@@ -167,7 +184,7 @@ impl RunState {
     }
 }
 
-/// Contexte d'exécution passé à chaque opération.
+/// Contexte d'execution passe a chaque operation.
 pub struct RunContext<'a> {
     pub bus: &'a dyn EventBus,
     pub token: &'a CancellationToken,
@@ -193,7 +210,7 @@ pub enum RunStatus {
     Cancelled,
 }
 
-/// Opération élémentaire de la boucle. L'ordre dans `AgentLoop` encode la priorité.
+/// Operation elementaire de la boucle. L'ordre dans `AgentLoop` encode la priorite.
 #[async_trait]
 pub trait Operation: Send + Sync {
     fn name(&self) -> &str;
@@ -206,7 +223,7 @@ pub trait Operation: Send + Sync {
     async fn run(&self, ctx: &mut RunContext<'_>) -> OmegaResult<()>;
 }
 
-/// Boucle d'agent minimale : exécute une séquence d'opérations ordonnées.
+/// Boucle d'agent minimale : execute une sequence d'operations ordonnees.
 pub struct AgentLoop {
     operations: Vec<Box<dyn Operation>>,
     fail_fast: bool,
@@ -226,19 +243,19 @@ impl AgentLoop {
         }
     }
 
-    /// Ajoute une opération à la fin de la séquence.
+    /// Ajoute une operation a la fin de la sequence.
     pub fn push(mut self, op: impl Operation + 'static) -> Self {
         self.operations.push(Box::new(op));
         self
     }
 
-    /// Si `true`, la première opération en échec fait passer le run en `Failed`.
+    /// Si `true`, la premiere operation en echec fait passer le run en `Failed`.
     pub fn with_fail_fast(mut self, fail_fast: bool) -> Self {
         self.fail_fast = fail_fast;
         self
     }
 
-    /// Exécute les opérations dans l'ordre jusqu'à terminaison, annulation ou échec critique.
+    /// Execute les operations dans l'ordre jusqu'a terminaison, annulation ou echec critique.
     pub async fn run(
         &self,
         bus: &dyn EventBus,
@@ -252,7 +269,7 @@ impl AgentLoop {
         ));
 
         for op in &self.operations {
-            // Annulation coopérative : vérifiée **avant** chaque étape.
+            // Annulation cooperative : verifiee **avant** chaque etape.
             if token.check().is_err() {
                 bus.publish(Event::new("run.cancelled", json!({ "before": op.name() })));
                 return RunStatus::Cancelled;
@@ -269,12 +286,29 @@ impl AgentLoop {
                 state: &mut state,
             };
 
-            match op.run(&mut ctx).await {
+            let fut = op.run(&mut ctx);
+            tokio::pin!(fut);
+
+            // Annulation cooperative : verifiee **pendant** chaque etape.
+            let result = tokio::select! {
+                biased;
+                _ = token.cancelled() => {
+                    bus.publish(Event::new("run.cancelled", json!({ "during": op.name() })));
+                    return RunStatus::Cancelled;
+                }
+                r = fut => r,
+            };
+
+            match result {
                 Ok(()) => {
                     bus.publish(Event::new(
                         "step.completed",
                         json!({ "operation": op.name() }),
                     ));
+                }
+                Err(omega_types::OmegaError::Cancelled) => {
+                    bus.publish(Event::new("run.cancelled", json!({ "during": op.name() })));
+                    return RunStatus::Cancelled;
                 }
                 Err(e) => {
                     let payload = json!({
@@ -288,7 +322,7 @@ impl AgentLoop {
                         bus.publish(Event::new("run.failed", json!({ "operation": op.name() })));
                         return RunStatus::Failed;
                     }
-                    // Sinon : isolation — on continue avec les opérations suivantes.
+                    // Sinon : isolation — on continue avec les operations suivantes.
                 }
             }
         }
@@ -301,6 +335,8 @@ impl AgentLoop {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::AtomicBool;
+    use std::time::Duration;
 
     struct PushOp {
         name: &'static str,
@@ -319,9 +355,26 @@ mod tests {
         }
     }
 
+    struct SleepyOp {
+        completed: Arc<AtomicBool>,
+    }
+
+    #[async_trait]
+    impl Operation for SleepyOp {
+        fn name(&self) -> &str {
+            "sleepy"
+        }
+
+        async fn run(&self, _ctx: &mut RunContext<'_>) -> OmegaResult<()> {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            self.completed.store(true, Ordering::Relaxed);
+            Ok(())
+        }
+    }
+
     #[tokio::test]
     async fn operations_run_in_order() {
-        // (i) l'ordre des opérations est respecté.
+        // (i) l'ordre des operations est respecte.
         let trace = Arc::new(Mutex::new(Vec::new()));
         let bus = InMemoryBus::new();
         let (token, _handle) = cancellation_pair();
@@ -351,7 +404,7 @@ mod tests {
 
     #[tokio::test]
     async fn cancellation_stops_before_next_step() {
-        // (ii) annulation coopérative → Cancelled et aucune op suivante ne s'exécute.
+        // (ii) annulation cooperative -> Cancelled et aucune op suivante ne s'execute.
         let trace = Arc::new(Mutex::new(Vec::new()));
         let bus = InMemoryBus::new();
         let (token, handle) = cancellation_pair();
@@ -388,7 +441,32 @@ mod tests {
         assert_eq!(status, RunStatus::Cancelled);
         assert_eq!(*trace.lock().unwrap(), vec!["first".to_string()]);
 
-        // L'événement d'annulation a été journalisé.
+        // L'evenement d'annulation a ete journalise.
+        let events = bus.events();
+        let names: Vec<_> = events.iter().map(|e| e.name.as_str()).collect();
+        assert!(names.contains(&"run.cancelled"));
+    }
+
+    #[tokio::test]
+    async fn cancellation_interrupts_long_operation() {
+        // (§4.6) operation longue annulee en cours par le noyau.
+        let bus = InMemoryBus::new();
+        let (token, handle) = cancellation_pair();
+        let completed = Arc::new(AtomicBool::new(false));
+
+        let loop_ = AgentLoop::new().push(SleepyOp {
+            completed: completed.clone(),
+        });
+
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            handle.cancel();
+        });
+
+        let status = loop_.run(&bus, &token, RunState::default()).await;
+        assert_eq!(status, RunStatus::Cancelled);
+        assert!(!completed.load(Ordering::Relaxed));
+
         let events = bus.events();
         let names: Vec<_> = events.iter().map(|e| e.name.as_str()).collect();
         assert!(names.contains(&"run.cancelled"));
@@ -396,7 +474,7 @@ mod tests {
 
     #[tokio::test]
     async fn bus_journals_every_step() {
-        // (iii) l'event-bus journalise chaque étape.
+        // (iii) l'event-bus journalise chaque etape.
         let bus = InMemoryBus::new();
         let (token, _handle) = cancellation_pair();
         let loop_ = AgentLoop::new()
@@ -442,7 +520,7 @@ mod tests {
 
     #[tokio::test]
     async fn isolated_failure_continues() {
-        // (iv) une opération en échec non critique n'arrête pas le noyau.
+        // (iv) une operation en echec non critique n'arrete pas le noyau.
         let trace = Arc::new(Mutex::new(Vec::new()));
         let bus = InMemoryBus::new();
         let (token, _handle) = cancellation_pair();
@@ -463,7 +541,7 @@ mod tests {
 
     #[tokio::test]
     async fn critical_failure_produces_failed() {
-        // (iv) une opération critique produit Failed proprement.
+        // (iv) une operation critique produit Failed proprement.
         let bus = InMemoryBus::new();
         let (token, _handle) = cancellation_pair();
 
@@ -488,23 +566,25 @@ mod tests {
         assert!(!token.is_cancelled());
         handle.cancel();
         assert!(token.is_cancelled());
-        assert!(token.check().is_err());
+        let err = token.check().unwrap_err();
+        assert!(matches!(err, omega_types::OmegaError::Cancelled));
     }
 
     #[test]
-    fn dependency_graph_guard_passes() {
-        // (f) le garde-fou de graphe de dépendances est exécuté et passe.
+    fn dependency_graph_guard_self_test_passes() {
+        // (f/B2) le garde-fou de graphe detecte les cas invalides (--self-test).
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
         let script = std::path::Path::new(&manifest_dir).join("../../scripts/check_dep_graph.py");
         let output = std::process::Command::new("python3")
             .arg(&script)
+            .arg("--self-test")
             .current_dir(&manifest_dir)
             .output()
             .expect("le script check_dep_graph.py doit etre executable");
 
         if !output.status.success() {
             panic!(
-                "garde-fou graphe en echec :\nstdout: {}\nstderr: {}",
+                "auto-test du garde-fou en echec :\nstdout: {}\nstderr: {}",
                 String::from_utf8_lossy(&output.stdout),
                 String::from_utf8_lossy(&output.stderr)
             );
