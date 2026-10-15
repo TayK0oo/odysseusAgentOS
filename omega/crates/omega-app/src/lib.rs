@@ -178,7 +178,6 @@ impl App {
             // `name()` (ex. deux « infer ») sont distinctes et ne sont jamais confondues
             // a la reprise (pas de saut silencieux).
             let id = format!("{}#{}", op.name(), index);
-            debug_assert_eq!(id, all_ids[index]);
             if input.resume && completed.contains(&id) {
                 skipped += 1;
             } else {

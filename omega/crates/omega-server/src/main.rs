@@ -3,6 +3,11 @@
 //! Configuration par l'environnement (`OMEGA_PORT`/`PORT`, `OLLAMA_URL`,
 //! `OLLAMA_MODEL`, `OMEGA_EVENT_DIR`), defauts W7 sinon (port 8787).
 //! Prerequis : `ollama serve` + modele tire (ex. `ollama pull qwen2.5-coder:7b`).
+//!
+//! Contexte du modele : le candidat local declare 32768 tokens, ce qui exige
+//! `OLLAMA_NUM_CTX=32768` côté daemon (le defaut d'Ollama, 4096, tronquerait
+//! tout contexte assemblé au-dela). Sans cette variable, reduisez `max_tokens`
+//! et `REQUIRED_CONTEXT` en conséquence.
 
 use std::net::SocketAddr;
 

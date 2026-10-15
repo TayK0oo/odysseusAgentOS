@@ -72,8 +72,10 @@ extrême (~200 crates, `RE-GC:622`).
 ### 2.1 Liste des crates (18 + plugins + ui)
 
 > **Note de maintenance (2026-10-15) :** la colonne « Dépendances internes » reflète
-> l'état **réel vérifié** (`Cargo.toml`, garde-fou `check_dep_graph.py` vert) —
-> les adaptateurs dépendent aussi de `registry`/`plugin-api` pour leurs
+> l'état **réel vérifié** (`Cargo.toml`, garde-fou `check_dep_graph.py` vert) pour les
+> crates **existants**. `omega-memory`, `omega-tools`, `omega-cli` et `omega-ui-bindings`
+> n'existent pas encore : leurs lignes décrivent la **cible**, pas l'état.
+> Les adaptateurs dépendent aussi de `registry`/`plugin-api` pour leurs
 > `Contributor`s (leçon du câblage `omega-context`, revue W6).
 
 | Crate | Responsabilité | Dépendances internes |

@@ -35,10 +35,11 @@ impl<S: omega_ports::ScoringPolicy> ParetoSelector<S> {
             return Ok(decision);
         }
         let mut best_local: Option<(&ModelRecord, f64)> = None;
-        for m in candidates
-            .iter()
-            .filter(|m| matches!(m.tier, ModelTier::SelfHosted))
-        {
+        for m in candidates.iter().filter(|m| {
+            matches!(m.tier, ModelTier::SelfHosted)
+                && m.capabilities.covers(required_capabilities)
+                && m.context_length >= required_context
+        }) {
             let s = self.scoring.score(task, required_context, candidates, m);
             if best_local.map(|(_, bs)| s > bs).unwrap_or(true) {
                 best_local = Some((m, s));
@@ -621,6 +622,31 @@ mod tests {
         assert_eq!(raw.model_id, "cloud-elite");
         let d = selector
             .select_with_local_preference(TaskType::Chat, Capabilities::default(), 0, &candidates)
+            .unwrap();
+        assert_eq!(d.model_id, "ollama/qwen2.5-coder:7b");
+        assert!(d.reason.contains("self-host-first"));
+    }
+
+    #[test]
+    fn local_preference_ignores_ineligible_high_scorer() {
+        // (B2) deux locaux : un inéligible à fort score ne doit pas masquer
+        // l'éligible dans la marge — seul l'éligible concourt.
+        let mut ineligible = local_candidate();
+        ineligible.id = "ollama/huge-noctx".to_string();
+        ineligible.context_length = 100; // < required_context
+        let mut scores = std::collections::HashMap::new();
+        scores.insert("ollama/huge-noctx".to_string(), 0.99);
+        scores.insert("ollama/qwen2.5-coder:7b".to_string(), 0.70);
+        scores.insert("cloud-elite".to_string(), 0.74);
+        let selector = ParetoSelector::new(FixedScoring { scores });
+        let candidates = vec![ineligible, local_candidate(), remote_candidate()];
+        let d = selector
+            .select_with_local_preference(
+                TaskType::Chat,
+                Capabilities::default(),
+                4000,
+                &candidates,
+            )
             .unwrap();
         assert_eq!(d.model_id, "ollama/qwen2.5-coder:7b");
         assert!(d.reason.contains("self-host-first"));

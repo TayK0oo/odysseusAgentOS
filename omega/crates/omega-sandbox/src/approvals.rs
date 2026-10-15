@@ -129,6 +129,32 @@ impl ApprovalQueue {
         before - inner.entries.len()
     }
 
+    /// Retire une demande (annulation opérateur). Rend `false` si inconnue.
+    /// Avec `prune_denied`, permet de borner la file (les `Pending`/`Approved`
+    /// restants sont sous responsabilité opérateur : `len()` les expose).
+    pub fn remove(&self, id: ApprovalId) -> bool {
+        self.inner
+            .lock()
+            .expect("approval queue poisoned")
+            .entries
+            .remove(&id)
+            .is_some()
+    }
+
+    /// Nombre de demandes conservées (tous états).
+    pub fn len(&self) -> usize {
+        self.inner
+            .lock()
+            .expect("approval queue poisoned")
+            .entries
+            .len()
+    }
+
+    /// Vrai si la file ne contient aucune demande.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Consomme (supprime, usage unique) la plus ancienne approbation `Approved`
     /// pour la **commande exacte**. Rend `true` si une approbation a été
     /// consommée, `false` sinon (aucune, refusée, commande différente ou déjà
@@ -215,5 +241,16 @@ mod tests {
         assert_eq!(q.prune_denied(), 1);
         assert!(q.consume_for("sudo b"));
         assert_eq!(q.prune_denied(), 0);
+    }
+
+    #[test]
+    fn remove_cancels_operator_request() {
+        let q = ApprovalQueue::new();
+        let id = q.request("sudo x", "y");
+        assert_eq!(q.len(), 1);
+        assert!(!q.is_empty());
+        assert!(q.remove(id));
+        assert!(!q.remove(id));
+        assert!(q.is_empty());
     }
 }

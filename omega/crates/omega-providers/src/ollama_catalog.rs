@@ -63,9 +63,13 @@ pub struct OllamaCatalogSource {
 
 impl OllamaCatalogSource {
     pub fn new(base_url: impl Into<String>) -> Self {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .expect("client HTTP catalogue Ollama : configuration invalide");
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
-            client: reqwest::Client::new(),
+            client,
             known_context: HashMap::new(),
         }
     }

@@ -35,6 +35,14 @@ impl EventStore for InMemoryEventStore {
     }
 
     fn append(&self, event: DurableEvent) -> OmegaResult<u64> {
+        // Même contrat que `FileEventStore` (cohérence des stores) : un run_id
+        // invalide est refusé, même sans risque de traversal ici.
+        if !is_valid_run_id(&event.run_id) {
+            return Err(OmegaError::Config(format!(
+                "identifiant de run invalide : {:?}",
+                event.run_id
+            )));
+        }
         let mut runs = self.runs.lock().expect("journal empoisonné");
         let journal = runs.entry(event.run_id.clone()).or_default();
         let seq = journal.len() as u64;
@@ -43,6 +51,11 @@ impl EventStore for InMemoryEventStore {
     }
 
     fn read_run(&self, run_id: &str) -> OmegaResult<Vec<DurableEvent>> {
+        if !is_valid_run_id(run_id) {
+            return Err(OmegaError::Config(format!(
+                "identifiant de run invalide : {run_id:?}"
+            )));
+        }
         Ok(self
             .runs
             .lock()

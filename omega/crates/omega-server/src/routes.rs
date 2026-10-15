@@ -229,7 +229,7 @@ mod tests {
         };
         let err = run(state_arg(&state), Json(req)).await.unwrap_err();
         assert_eq!(err.status, StatusCode::BAD_REQUEST);
-        let err = trace(state_arg(&state), Path("..%2Fevil".to_string()))
+        let err = trace(state_arg(&state), Path("../evil".to_string()))
             .await
             .unwrap_err();
         assert_eq!(err.status, StatusCode::BAD_REQUEST);

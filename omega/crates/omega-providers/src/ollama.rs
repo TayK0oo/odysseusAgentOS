@@ -65,6 +65,10 @@ fn wire_to_message(m: WireMessage) -> Message {
     Message::new(role, m.content)
 }
 
+/// Timeout HTTP par défaut ( Ollama local : l'inférence 7B prend ~10-60 s ;
+/// sans timeout, un daemon bloqué suspendrait le run indéfiniment).
+const DEFAULT_HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(180);
+
 /// Provider Ollama (modèle local, coût nul).
 pub struct OllamaProvider {
     base_url: String,
@@ -74,10 +78,25 @@ pub struct OllamaProvider {
 
 impl OllamaProvider {
     pub fn new(base_url: impl Into<String>, model: impl Into<String>) -> Self {
+        Self::with_timeout(base_url, model, DEFAULT_HTTP_TIMEOUT)
+    }
+
+    /// Construit le provider avec un timeout HTTP explicite.
+    pub fn with_timeout(
+        base_url: impl Into<String>,
+        model: impl Into<String>,
+        timeout: std::time::Duration,
+    ) -> Self {
+        let client = reqwest::Client::builder()
+            .timeout(timeout)
+            // Échec ici = erreur de programmation (config invalide), pas d'exécution :
+            // échec rapide et explicite à la construction.
+            .build()
+            .expect("client HTTP Ollama : configuration invalide");
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
             model: model.into(),
-            client: reqwest::Client::new(),
+            client,
         }
     }
 
@@ -149,6 +168,7 @@ impl omega_ports::Provider for OllamaProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use omega_ports::Provider;
 
     #[test]
     fn request_serializes_openai_compatible() {
@@ -191,5 +211,41 @@ mod tests {
         let p = OllamaProvider::new("http://localhost:11434/", "m");
         assert_eq!(p.endpoint(), "http://localhost:11434/v1/chat/completions");
         assert_eq!(p.model_id().as_str(), "ollama/m");
+    }
+
+    #[test]
+    fn with_timeout_builds() {
+        // (robustesse) le client HTTP porte un timeout : pas de hang infini
+        // si le daemon est bloqué. Construction seule (zéro réseau).
+        let _ = OllamaProvider::with_timeout(
+            "http://localhost:11434",
+            "m",
+            std::time::Duration::from_secs(5),
+        );
+    }
+
+    #[tokio::test]
+    async fn http_timeout_fires_on_hanging_server() {
+        // (robustesse) serveur qui accepte puis se tait : `complete` doit
+        // échouer en erreur typée au bout du timeout, jamais bloquer.
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let _ = listener.accept().await;
+            std::future::pending::<()>().await;
+        });
+        let p = OllamaProvider::with_timeout(
+            format!("http://{addr}"),
+            "m",
+            std::time::Duration::from_millis(300),
+        );
+        let err = p
+            .complete(ChatRequest {
+                model: ModelId::new("m"),
+                messages: vec![Message::new(Role::User, "hi")],
+            })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, OmegaError::Io(_)));
     }
 }
