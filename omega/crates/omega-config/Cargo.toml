@@ -10,3 +10,4 @@ description = "Omega — config a couches avec provenance et precedence testable
 omega-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+toml = { workspace = true }

@@ -6,9 +6,9 @@
 
 use async_trait::async_trait;
 use omega_types::{
-    ChatRequest, ChatResponse, CommandOutput, Message, ModelRecord, OmegaResult, PermissionEffect,
-    RawModel, RouterDecision, RouterError, RoutingRequest, TaskType, TelemetryEvent, ToolSpec,
-    Weights,
+    ChatRequest, ChatResponse, CommandOutput, DurableEvent, Message, ModelRecord, OmegaResult,
+    PermissionEffect, RawModel, RouterDecision, RouterError, RoutingRequest, TaskType,
+    TelemetryEvent, ToolSpec, Weights,
 };
 
 /// Fournit de l'inference. Regime : *ensemble*.
@@ -126,6 +126,28 @@ pub trait CatalogSource: Send + Sync {
 pub trait TelemetrySink: Send + Sync {
     fn name(&self) -> &str;
     fn emit(&self, event: TelemetryEvent);
+}
+
+/// Journal durable d'evenements. Regime : *slot exclusif* (capacite `event-store`).
+///
+/// Contrat de reprise (idempotence) :
+/// - `append` ecrit durablement un [`DurableEvent`] et retourne le `seq` monotone attribue
+///   (par run) ;
+/// - `read_run` restitue le journal d'un run dans l'ordre d'append ;
+/// - l'identifiant d'operation ([`DurableEvent::operation_id`]) est la cle d'idempotence :
+///   une operation est consideree « completee » si le journal contient un evenement
+///   `step.completed` portant son `operation_id`.
+///
+/// Phase 1 : interface synchrone (append local). Un port async avec barriere de flush
+/// viendra si un adaptateur distant l'exige (cf. `OMEGA-BLUEPRINT.md` §2.1).
+pub trait EventStore: Send + Sync {
+    fn name(&self) -> &str;
+
+    /// Append un evenement durable au run `event.run_id` ; retourne le `seq` attribue.
+    fn append(&self, event: DurableEvent) -> OmegaResult<u64>;
+
+    /// Lit le journal d'un run, dans l'ordre d'append (par `seq` croissant).
+    fn read_run(&self, run_id: &str) -> OmegaResult<Vec<DurableEvent>>;
 }
 
 /// Hook de cycle de vie. Regime : *ensemble*.
@@ -272,5 +294,22 @@ mod tests {
             }
         }
         let _f: Arc<dyn FallbackPolicy> = Arc::new(Dummy);
+    }
+
+    #[test]
+    fn event_store_is_object_safe() {
+        struct Dummy;
+        impl EventStore for Dummy {
+            fn name(&self) -> &str {
+                "dummy"
+            }
+            fn append(&self, event: DurableEvent) -> OmegaResult<u64> {
+                Ok(event.seq)
+            }
+            fn read_run(&self, _run_id: &str) -> OmegaResult<Vec<DurableEvent>> {
+                Ok(Vec::new())
+            }
+        }
+        let _s: Arc<dyn EventStore> = Arc::new(Dummy);
     }
 }

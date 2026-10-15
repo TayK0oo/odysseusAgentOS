@@ -31,6 +31,10 @@ pub enum OmegaError {
     #[error("erreur de configuration : {0}")]
     Config(String),
 
+    /// Erreur d'entree/sortie (journal durable, fichiers, store).
+    #[error("erreur d'entree/sortie : {0}")]
+    Io(String),
+
     /// Le type concret demande ne correspond pas a l'instance enregistree.
     #[error("capacite {0:?} : type demande incompatible avec l'instance enregistree")]
     TypeMismatch(Capability),

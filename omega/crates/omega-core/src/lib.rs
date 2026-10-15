@@ -18,34 +18,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
 
-/// Evenement emis par le noyau ou par une operation.
-///
-/// Les evenements `durable` sont destines au journal append-only ; les autres sont
-/// ephemeres (UI live, metriques).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Event {
-    pub name: String,
-    pub payload: serde_json::Value,
-    pub durable: bool,
-}
-
-impl Event {
-    pub fn new(name: impl Into<String>, payload: serde_json::Value) -> Self {
-        Self {
-            name: name.into(),
-            payload,
-            durable: true,
-        }
-    }
-
-    pub fn ephemeral(name: impl Into<String>, payload: serde_json::Value) -> Self {
-        Self {
-            name: name.into(),
-            payload,
-            durable: false,
-        }
-    }
-}
+pub use omega_types::Event;
 
 /// Bus d'evenements interne au noyau.
 pub trait EventBus: Send + Sync {
@@ -246,6 +219,15 @@ impl AgentLoop {
     /// Ajoute une operation a la fin de la sequence.
     pub fn push(mut self, op: impl Operation + 'static) -> Self {
         self.operations.push(Box::new(op));
+        self
+    }
+
+    /// Ajoute une operation deja boxee a la fin de la sequence.
+    ///
+    /// Utile pour l'assemblage applicatif (`omega-app`) qui manipule des operations
+    /// heterogenes derriere `Box<dyn Operation>` (plans de run, reprise).
+    pub fn push_boxed(mut self, op: Box<dyn Operation>) -> Self {
+        self.operations.push(op);
         self
     }
 

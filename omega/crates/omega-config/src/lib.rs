@@ -6,6 +6,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+pub mod loader;
+
 /// Origine d'une couche de configuration. L'ordre de declaration **est** la precedence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]

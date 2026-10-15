@@ -67,6 +67,36 @@ impl Usage {
     }
 }
 
+/// Evenement emis par le noyau ou par une operation.
+///
+/// Les evenements `durable` sont destines au journal append-only ; les autres sont
+/// ephemeres (UI live, metriques). Ce type vit dans `omega-types` (et non dans `omega-core`)
+/// afin que le port `EventStore` (`omega-ports`) puisse l'utiliser sans dependre du noyau.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Event {
+    pub name: String,
+    pub payload: serde_json::Value,
+    pub durable: bool,
+}
+
+impl Event {
+    pub fn new(name: impl Into<String>, payload: serde_json::Value) -> Self {
+        Self {
+            name: name.into(),
+            payload,
+            durable: true,
+        }
+    }
+
+    pub fn ephemeral(name: impl Into<String>, payload: serde_json::Value) -> Self {
+        Self {
+            name: name.into(),
+            payload,
+            durable: false,
+        }
+    }
+}
+
 /// Requete d'inference adressee a un `Provider`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChatRequest {
@@ -142,6 +172,54 @@ pub enum PermissionEffect {
 pub struct TelemetryEvent {
     pub name: String,
     pub fields: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Evenement durable ecrit dans le journal d'un `EventStore` (une ligne JSONL).
+///
+/// Porte l'identite du run, un numero de sequence monotone par run (`seq`), et
+/// l'identifiant d'operation auquel il se rapporte (`operation_id`). C'est la cle
+/// d'idempotence de la reprise : une operation est « completee » si et seulement si le
+/// journal contient un evenement `step.completed` portant son `operation_id`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DurableEvent {
+    pub run_id: String,
+    /// Numero de sequence monotone par run (attribue par le store a l'append).
+    pub seq: u64,
+    /// Nom de l'evenement (ex. `step.completed`, `run.completed`).
+    pub name: String,
+    /// Identifiant d'operation (idempotence de reprise). `None` pour les evenements globaux.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation_id: Option<String>,
+    /// Charge utile (libre, JSON).
+    pub payload: serde_json::Value,
+}
+
+impl DurableEvent {
+    pub fn new(
+        run_id: impl Into<String>,
+        name: impl Into<String>,
+        payload: serde_json::Value,
+    ) -> Self {
+        Self {
+            run_id: run_id.into(),
+            seq: 0,
+            name: name.into(),
+            operation_id: None,
+            payload,
+        }
+    }
+
+    /// Associe un identifiant d'operation (idempotence de reprise).
+    pub fn with_operation_id(mut self, operation_id: Option<String>) -> Self {
+        self.operation_id = operation_id;
+        self
+    }
+
+    /// Fixe le numero de sequence (attribue par le store a l'append).
+    pub fn with_seq(mut self, seq: u64) -> Self {
+        self.seq = seq;
+        self
+    }
 }
 
 /// Capacite = **besoin nomme du systeme** (jamais une marque).

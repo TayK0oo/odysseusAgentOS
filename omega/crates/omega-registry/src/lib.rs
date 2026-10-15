@@ -52,10 +52,20 @@ struct Entry {
     quarantined: bool,
 }
 
+/// Entree « trait object » : memorise une `Arc<dyn Trait>` (port non resolvable en
+/// `Sized`). Permet a `App` de resoudre `Arc<dyn Provider>` / `Arc<dyn ContextEngine>`
+/// / `Arc<dyn EventStore>` sans connaitre le type concret.
+struct TraitEntry {
+    manifest: Manifest,
+    object: Box<dyn Any + Send + Sync>,
+    quarantined: bool,
+}
+
 /// Registre de capacites, immuable en usage, construit par [`RegistryBuilder`].
 #[derive(Default)]
 pub struct Registry {
     entries: IndexMap<Capability, Vec<Entry>>,
+    trait_entries: IndexMap<Capability, Vec<TraitEntry>>,
 }
 
 impl Registry {
@@ -127,6 +137,61 @@ impl Registry {
         self.register_inner(manifest, any_instance, expected)
     }
 
+    /// Enregistre un **trait object** (`Arc<dyn Trait>`) pour une capacite.
+    ///
+    /// Pour les capacites que l'on resout en port (`llm-provider`, `context-engine`,
+    /// `event-store`...) : `App` manipule des `Arc<dyn Provider>` / `Arc<dyn ContextEngine>`
+    /// / `Arc<dyn EventStore>` sans connaitre le type concret. Meme garantie
+    /// d'exclusivite de slot / quarantaine que [`Self::register_typed`].
+    pub fn register_dyn<T: ?Sized + Send + Sync + 'static>(
+        &mut self,
+        manifest: Manifest,
+        instance: Arc<T>,
+    ) -> OmegaResult<()> {
+        let cap = manifest.capability;
+        let list = self.trait_entries.entry(cap).or_default();
+
+        if list.iter().any(|e| e.manifest.id == manifest.id) {
+            return Err(OmegaError::DuplicateId(cap, manifest.id));
+        }
+        if cap.regime() == Regime::Slot {
+            if let Some(owner) = list.iter().find(|e| !e.quarantined) {
+                return Err(OmegaError::SlotConflict(cap, owner.manifest.id.clone()));
+            }
+        }
+
+        list.push(TraitEntry {
+            manifest,
+            object: Box::new(instance),
+            quarantined: false,
+        });
+        list.sort_by(|a, b| {
+            b.manifest
+                .priority
+                .cmp(&a.manifest.priority)
+                .then_with(|| a.manifest.id.cmp(&b.manifest.id))
+        });
+        Ok(())
+    }
+
+    /// Resout le premier trait object actif du type demande (`Arc<dyn Provider>`...).
+    pub fn resolve_dyn<T: ?Sized + Send + Sync + 'static>(
+        &self,
+        cap: Capability,
+    ) -> OmegaResult<Arc<T>> {
+        let list = self
+            .trait_entries
+            .get(&cap)
+            .ok_or(OmegaError::NoImplementation(cap))?;
+
+        for e in list.iter().filter(|e| !e.quarantined) {
+            if let Some(a) = e.object.downcast_ref::<Arc<T>>() {
+                return Ok(a.clone());
+            }
+        }
+        Err(OmegaError::NoImplementation(cap))
+    }
+
     /// Retire toutes les entrees `(cap, id)` — qu'elles soient actives ou quarantinees.
     pub fn unregister(&mut self, cap: Capability, id: &str) {
         if let Some(list) = self.entries.get_mut(&cap) {
@@ -189,11 +254,19 @@ impl Registry {
                 }
             }
         }
+        if let Some(list) = self.trait_entries.get_mut(&cap) {
+            for e in list.iter_mut() {
+                if e.manifest.id == id {
+                    e.quarantined = true;
+                }
+            }
+        }
     }
 
     /// Ids des implementations actives (non quarantainees) d'une capacite, par ordre de priorite.
     pub fn active_ids(&self, cap: Capability) -> Vec<String> {
-        self.entries
+        let mut ids: Vec<String> = self
+            .entries
             .get(&cap)
             .map(|l| {
                 l.iter()
@@ -201,7 +274,15 @@ impl Registry {
                     .map(|e| e.manifest.id.clone())
                     .collect()
             })
-            .unwrap_or_default()
+            .unwrap_or_default();
+        if let Some(list) = self.trait_entries.get(&cap) {
+            ids.extend(
+                list.iter()
+                    .filter(|e| !e.quarantined)
+                    .map(|e| e.manifest.id.clone()),
+            );
+        }
+        ids
     }
 
     /// Resout la premiere implementation active du type demande.
@@ -265,6 +346,14 @@ impl RegistryBuilder {
         instance: Arc<T>,
     ) -> OmegaResult<()> {
         self.registry.register_typed(manifest, instance)
+    }
+
+    pub fn register_dyn<T: ?Sized + Send + Sync + 'static>(
+        &mut self,
+        manifest: Manifest,
+        instance: Arc<T>,
+    ) -> OmegaResult<()> {
+        self.registry.register_dyn(manifest, instance)
     }
 
     pub fn unregister(&mut self, cap: Capability, id: &str) {
