@@ -69,7 +69,11 @@ impl DefaultContextEngine {
     /// Le prefixe systeme est toujours preserve. Si le systeme seul depasse deja le
     /// budget, le depassement est journalise via `AssembleReport.over_budget` (le
     /// resultat n'est jamais coupe au-dela du systeme, qui est intouchable).
-    pub fn assemble_sync(&self, messages: &[Message]) -> Vec<Message> {
+    ///
+    /// Retourne le resultat **et** son rapport ensemble : l'appelant async utilise le
+    /// rapport retourne (pas une relecture du `Mutex` partage), ce qui rend la decision
+    /// `Ok`/`BudgetExceeded` insensible aux appels concurrents (REVIEW-W6 N1).
+    pub fn assemble_sync(&self, messages: &[Message]) -> (Vec<Message>, AssembleReport) {
         let total = self.estimator.estimate_messages(messages);
         if total <= self.budget.max_tokens() {
             let report = AssembleReport {
@@ -79,8 +83,8 @@ impl DefaultContextEngine {
                 over_budget: false,
                 dropped_previews: Vec::new(),
             };
-            *self.last_report.lock().expect("rapport empoisonne") = report;
-            return messages.to_vec();
+            *self.last_report.lock().expect("rapport empoisonne") = report.clone();
+            return (messages.to_vec(), report);
         }
 
         let system: Vec<Message> = messages
@@ -121,8 +125,8 @@ impl DefaultContextEngine {
             over_budget: estimated_tokens > self.budget.max_tokens(),
             dropped_previews,
         };
-        *self.last_report.lock().expect("rapport empoisonne") = report;
-        result
+        *self.last_report.lock().expect("rapport empoisonne") = report.clone();
+        (result, report)
     }
 }
 
@@ -137,8 +141,7 @@ impl ContextEngine for DefaultContextEngine {
     }
 
     async fn assemble(&self, messages: Vec<Message>) -> OmegaResult<Vec<Message>> {
-        let result = self.assemble_sync(&messages);
-        let report = self.last_report();
+        let (result, report) = self.assemble_sync(&messages);
         if report.over_budget {
             // Le systeme seul depasse le budget : signal type, jamais de resultat
             // hors contrat silencieux (REVIEW-W6 M1).
@@ -170,7 +173,7 @@ mod tests {
     fn under_budget_is_passthrough() {
         let e = DefaultContextEngine::new(1000);
         let msgs = vec![sys("S"), user("hello")];
-        let out = e.assemble_sync(&msgs);
+        let (out, _) = e.assemble_sync(&msgs);
         assert_eq!(out, msgs);
         assert_eq!(e.last_report().dropped, 0);
     }
@@ -185,7 +188,7 @@ mod tests {
             user("22222222"),
             user("33333333"),
         ];
-        let out = e.assemble_sync(&msgs);
+        let (out, _) = e.assemble_sync(&msgs);
 
         // systeme + les 2 plus recents uniquement.
         assert_eq!(
@@ -204,7 +207,7 @@ mod tests {
         // system 2 tokens ; budget 3 : aucun message non-systeme ne rentre.
         let e = DefaultContextEngine::new(3);
         let msgs = vec![sys("SSSSSSSS"), user("11111111"), user("22222222")];
-        let out = e.assemble_sync(&msgs);
+        let (out, _) = e.assemble_sync(&msgs);
 
         assert_eq!(out, vec![sys("SSSSSSSS")]);
         let report = e.last_report();
@@ -218,7 +221,7 @@ mod tests {
         // Le systeme est preserve (primaute), mais le depassement est explicite.
         let e = DefaultContextEngine::new(5);
         let msgs = vec![sys(&"S".repeat(40))]; // 40 caracteres -> 10 tokens
-        let out = e.assemble_sync(&msgs);
+        let (out, _) = e.assemble_sync(&msgs);
 
         assert_eq!(out, msgs);
         let report = e.last_report();
@@ -242,6 +245,24 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[tokio::test]
+    async fn concurrent_assembles_use_own_report_not_shared() {
+        // Non-regression REVIEW-W6 N1 : deux `assemble` concurrents sur le meme moteur
+        // prennent chacun la decision coherente avec LEUR entree (pas de faux
+        // negatif/positif par relecture du rapport partage).
+        use std::sync::Arc;
+        let engine = Arc::new(DefaultContextEngine::new(5));
+        let over: Vec<Message> = vec![sys(&"S".repeat(40))]; // 10 tokens > 5
+        let under: Vec<Message> = vec![user("hi")];
+        for _ in 0..50 {
+            let (e1, e2) = (engine.clone(), engine.clone());
+            let (o1, o2) = (over.clone(), under.clone());
+            let (r1, r2) = tokio::join!(e1.assemble(o1), e2.assemble(o2));
+            assert!(matches!(r1, Err(OmegaError::BudgetExceeded { .. })));
+            assert!(r2.is_ok());
+        }
     }
 
     #[tokio::test]
