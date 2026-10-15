@@ -15,15 +15,23 @@ pub enum OmegaError {
     #[error("capacite {0:?} : slot deja detenu par '{1}'")]
     SlotConflict(Capability, String),
 
+    /// Identifiant deja enregistre pour cette capacite.
+    #[error("capacite {0:?} : identifiant '{1}' deja enregistre")]
+    DuplicateId(Capability, String),
+
     /// Un plugin a echoue en cours d'execution (doit etre mis en quarantaine, pas fatal).
     #[error("plugin '{0}' en echec : {1}")]
     PluginFailed(String, String),
+
+    /// Annulation cooperative demandee.
+    #[error("annulation demandee")]
+    Cancelled,
 
     /// Erreur de configuration (couche, schema, valeur).
     #[error("erreur de configuration : {0}")]
     Config(String),
 
-    /// Le type concrete demande ne correspond pas a l'instance enregistree.
+    /// Le type concret demande ne correspond pas a l'instance enregistree.
     #[error("capacite {0:?} : type demande incompatible avec l'instance enregistree")]
     TypeMismatch(Capability),
 }
