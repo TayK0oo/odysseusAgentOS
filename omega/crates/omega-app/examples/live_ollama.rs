@@ -139,15 +139,24 @@ async fn run() -> OmegaResult<()> {
         app.assemble_operation(messages.clone())?,
         app.infer_operation(ModelId::new(&decision.model_id), messages)?,
     ];
-    let outcome = app.run(RunInput::new(ops).with_run_id("live-1")).await?;
+    let run_id = format!(
+        "live-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0)
+    );
+    let outcome = app
+        .run(RunInput::new(ops).with_run_id(run_id.clone()))
+        .await?;
     println!(
         "run {} : {:?} (executes={}, sautes={})",
         outcome.run_id, outcome.status, outcome.executed_operations, outcome.skipped_operations
     );
 
     // 4. Preuve par le journal : `step.completed(infer)` = l'inférence live a abouti.
-    let journal = store.read_run("live-1")?;
-    let summary = TraceReplayer::summarize("live-1", journal);
+    let journal = store.read_run(&run_id)?;
+    let summary = TraceReplayer::summarize(&run_id, journal);
     println!(
         "journal : {} evenements, {}/{} etapes OK, issue={:?}",
         summary.total_events,
