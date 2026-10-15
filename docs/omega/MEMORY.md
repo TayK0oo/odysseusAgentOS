@@ -119,16 +119,18 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] **W8/W9 — re-vérification** : `REVIEW-W8-W9.md` (**GO conditionnel 8/10**, B1/B2/B3 corrigés vérifiés par 20+ cas, N1 `setsid` documenté, **N3 corrigé** : `app→router` autorisé dans le garde-fou, fmt/clippy exemple) — **180 tests**
 - [x] **W2 inc3 — provider réel** : `OllamaProvider` + exemple `live_ollama` (**LIVE-OK** : T2→ollama/qwen2.5-coder:7b, 2/2 étapes, journal 6 événements, coût nul)
 - [x] **W7 inc1 — scaffold UI** : `omega/ui` (React/TS + Vite, 5 panneaux, `protocol.ts` miroir, `tsc` vert)
+- [x] **W9 inc2 — parse strict + file d'approbations** : casse normalisée, `strict()` (substitutions→Forbidden), `ApprovalQueue` à usage unique, backend `with_approvals` (mergé, paragraphe parallèle)
+- [x] **W10 inc1 — catalogue local + self-host-first** : `OllamaCatalogSource` (`/api/tags`→records), `local_record` (coût 0, tier SelfHosted), règle `score_local + 0.05 >= score_distant` (mergé, paragraphe parallèle)
 - [x] Branche publiée sur `origin/feat/agentos-omega`
-- [ ] **W6 — incrément 2** : stemming, prompt caching, compaction structurée branchée sur `ContextEngine::compact`, découverte `AGENTS.md`
-- [ ] **W8 — traçabilité** : `omega-otel` (télémétrie nommée, provenance, replay) (EN COURS)
-- [ ] W2 — incrément 3 : 1ᵉʳ adaptateur réel (provider `/v1/models`)
+- [ ] **W7 inc2 — omega-server + UI branchée** (paragraphe parallèle, en cours)
+- [ ] **W4 inc3 — circuit breaker à états** (paragraphe parallèle, en cours)
+- [ ] **W6 inc2 — stemming** (paragraphe parallèle, en cours)
 - [x] Décomposition W0-W10 (`docs/omega/02-WORKSTREAMS.md`)
 - [x] Credentials déposés et validés (`.env`, non versionné)
-- [x] Subagents routés sur l'abonnement Go (`opencode-go/*`, 24 modèles)
+- [x] Subagents : Go épuisé puis `opencode/*` payants épuisés → **routage 100% Free** (`muse-spark-1.3-contributor-free`, `mimo-v2.6-flash-free`, replis `step-5`/`space-bunny`)
+- [x] Parallélisme propre : 1 worktree + 1 branche par agent (`omega-par/*`, `feat/omega-*`), zones de fichiers disjointes, `MEMORY.md` consolidée par l'orchestrateur
 - [x] **Bascule provider `opencode` (défaut)** : quota Go épuisé → sonde OK sur `opencode/mimo-v2.6-flash-free` ; MAIS modèles payants `opencode/*` aussi à sec (`Insufficient account funds`) → **routage 100% Free** : `opencode/muse-spark-1.3-contributor-free` (revues), `opencode/mimo-v2.6-flash-free` (exécution), replis `step-5-preview-free`, `space-bunny-free`
 - [x] Self-hosting local : `ollama pull qwen2.5-coder:7b` (4,7 Go) + inférence vérifiée via API (`/api/generate` OK) — amorce W10 `[observed]`
-- [ ] Self-hosting local : `ollama pull qwen2.5-coder:7b` (RTX 4060 Ti 8 Go VRAM, 616 Go disque) — amorce W10
 
 ### Dettes architecturales résolues
 
