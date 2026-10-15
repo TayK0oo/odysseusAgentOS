@@ -1,0 +1,15 @@
+[package]
+name = "omega-otel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Omega — tracabilite : provenance, telemetrie nommee, sinks, replay de journaux."
+
+[dependencies]
+omega-types = { workspace = true }
+omega-ports = { workspace = true }
+omega-registry = { workspace = true }
+omega-plugin-api = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
