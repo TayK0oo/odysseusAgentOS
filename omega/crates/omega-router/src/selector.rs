@@ -1,51 +1,22 @@
 //! Selection de modele : filtres durs, frontiere de Pareto, argmax du score.
 
-use std::fmt::Write;
-
-use omega_providers::{Capabilities, ModelRecord, ModelTier};
-use omega_types::TaskType;
-
-use crate::scoring::ScoringPolicy;
-
-/// Decision de routage.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RouterDecision {
-    pub model_id: String,
-    pub score: f64,
-    pub reason: String,
-}
-
-/// Port du selecteur.
-pub trait Selector {
-    fn select(
-        &self,
-        task: TaskType,
-        required_capabilities: Capabilities,
-        required_context: u32,
-        candidates: &[ModelRecord],
-    ) -> Result<RouterDecision, RouterError>;
-}
-
-#[derive(Debug, Clone, PartialEq, thiserror::Error)]
-pub enum RouterError {
-    #[error("aucun candidat fourni")]
-    EmptyRegistry,
-    #[error("aucun modele eligible apres filtrage dur")]
-    NoEligibleModel,
-}
+use omega_ports::Selector;
+use omega_types::{
+    format_reason, Capabilities, ModelRecord, ModelTier, RouterDecision, RouterError, TaskType,
+};
 
 /// Selecteur avec filtre dur + Pareto + scoring composite.
-pub struct ParetoSelector<S: ScoringPolicy> {
+pub struct ParetoSelector<S: omega_ports::ScoringPolicy> {
     scoring: S,
 }
 
-impl<S: ScoringPolicy> ParetoSelector<S> {
+impl<S: omega_ports::ScoringPolicy> ParetoSelector<S> {
     pub fn new(scoring: S) -> Self {
         Self { scoring }
     }
 }
 
-impl<S: ScoringPolicy> Selector for ParetoSelector<S> {
+impl<S: omega_ports::ScoringPolicy> Selector for ParetoSelector<S> {
     fn select(
         &self,
         task: TaskType,
@@ -104,16 +75,7 @@ impl<S: ScoringPolicy> Selector for ParetoSelector<S> {
             })
             .expect("pareto non vide");
 
-        let mut reason = String::new();
-        let _ = write!(
-            reason,
-            "task={} eligible={} pareto={} selected={} score={:.4}",
-            task.code(),
-            eligible.len(),
-            pareto_len,
-            best.0.id,
-            best.1
-        );
+        let reason = format_reason(task.code(), eligible.len(), pareto_len, &best.0.id, best.1);
 
         Ok(RouterDecision {
             model_id: best.0.id.clone(),
@@ -125,7 +87,7 @@ impl<S: ScoringPolicy> Selector for ParetoSelector<S> {
 
 /// Construit la frontiere de Pareto sur (qualite effective, cout) :
 /// garde les modeles non domines (pas d'autre modele avec Q >= et cout <=).
-fn pareto_frontier<'a, S: ScoringPolicy>(
+fn pareto_frontier<'a, S: omega_ports::ScoringPolicy>(
     scoring: &S,
     task: TaskType,
     candidates: &[&'a ModelRecord],
@@ -157,7 +119,7 @@ fn pareto_frontier<'a, S: ScoringPolicy>(
 mod tests {
     use super::*;
     use crate::scoring::CompositeScoringPolicy;
-    use omega_providers::{Capabilities, ModelTier, QualityAxes};
+    use omega_types::{Capabilities, ModelTier, QualityAxes};
 
     #[allow(clippy::too_many_arguments)]
     fn model(
@@ -367,5 +329,153 @@ mod tests {
                 .unwrap_err(),
             RouterError::EmptyRegistry
         );
+    }
+
+    #[test]
+    fn no_eligible_model_fails() {
+        let selector = ParetoSelector::new(CompositeScoringPolicy::new());
+        let small_ctx = model(
+            "small",
+            ModelTier::Standard,
+            0.5,
+            1.5,
+            200.0,
+            4000,
+            Capabilities::default(),
+            QualityAxes {
+                reasoning: 80,
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            selector
+                .select(
+                    TaskType::LongReasoning,
+                    Capabilities::default(),
+                    8000,
+                    &[small_ctx],
+                )
+                .unwrap_err(),
+            RouterError::NoEligibleModel
+        );
+    }
+
+    #[test]
+    fn dominated_model_is_excluded_from_pareto_frontier() {
+        let selector = ParetoSelector::new(CompositeScoringPolicy::new());
+        // `bad` est domine par `good` (meilleure qualite ET meilleur cout).
+        let bad = model(
+            "bad",
+            ModelTier::Standard,
+            2.0,
+            6.0,
+            100.0,
+            128_000,
+            Capabilities::default(),
+            QualityAxes {
+                chat: 60,
+                ..Default::default()
+            },
+        );
+        let good = model(
+            "good",
+            ModelTier::Standard,
+            1.0,
+            3.0,
+            120.0,
+            128_000,
+            Capabilities::default(),
+            QualityAxes {
+                chat: 80,
+                ..Default::default()
+            },
+        );
+        let decision = selector
+            .select(TaskType::Chat, Capabilities::default(), 0, &[bad, good])
+            .unwrap();
+        assert_eq!(decision.model_id, "good");
+    }
+
+    #[test]
+    fn tie_break_prefers_cheaper_faster_self_hosted() {
+        let selector = ParetoSelector::new(CompositeScoringPolicy::new());
+        let cheap_fast = model(
+            "cheap-fast",
+            ModelTier::Standard,
+            0.5,
+            1.5,
+            200.0,
+            128_000,
+            Capabilities::default(),
+            QualityAxes {
+                chat: 70,
+                ..Default::default()
+            },
+        );
+        let expensive_slow = model(
+            "expensive-slow",
+            ModelTier::Standard,
+            1.0,
+            3.0,
+            100.0,
+            128_000,
+            Capabilities::default(),
+            QualityAxes {
+                chat: 70,
+                ..Default::default()
+            },
+        );
+        let decision = selector
+            .select(
+                TaskType::Chat,
+                Capabilities::default(),
+                0,
+                &[expensive_slow, cheap_fast],
+            )
+            .unwrap();
+        assert_eq!(decision.model_id, "cheap-fast");
+    }
+
+    #[test]
+    fn determinism_on_permuted_input() {
+        let selector = ParetoSelector::new(CompositeScoringPolicy::new());
+        let a = model(
+            "a",
+            ModelTier::Standard,
+            1.0,
+            3.0,
+            100.0,
+            128_000,
+            Capabilities::default(),
+            QualityAxes {
+                chat: 70,
+                ..Default::default()
+            },
+        );
+        let b = model(
+            "b",
+            ModelTier::Standard,
+            2.0,
+            6.0,
+            50.0,
+            128_000,
+            Capabilities::default(),
+            QualityAxes {
+                chat: 85,
+                ..Default::default()
+            },
+        );
+        let d1 = selector
+            .select(
+                TaskType::Chat,
+                Capabilities::default(),
+                0,
+                &[a.clone(), b.clone()],
+            )
+            .unwrap();
+        let d2 = selector
+            .select(TaskType::Chat, Capabilities::default(), 0, &[b, a])
+            .unwrap();
+        assert_eq!(d1.model_id, d2.model_id);
     }
 }

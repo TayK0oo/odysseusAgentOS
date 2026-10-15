@@ -1,65 +1,11 @@
 //! Politique de scoring composite multi-criteres.
 
-use omega_providers::ModelRecord;
-use omega_types::TaskType;
-
-/// Poids d'un profil de tache. Tous les champs somment a 1.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Weights {
-    pub reasoning: f64,
-    pub code: f64,
-    pub agentic: f64,
-    pub knowledge: f64,
-    pub chat: f64,
-    pub vision: f64,
-    pub speed: f64,
-    pub cost: f64,
-    pub context: f64,
-}
-
-impl Weights {
-    /// Verifie que les poids somment approximativement a 1 (tolerance flottante).
-    pub fn is_normalized(&self) -> bool {
-        let sum = self.reasoning
-            + self.code
-            + self.agentic
-            + self.knowledge
-            + self.chat
-            + self.vision
-            + self.speed
-            + self.cost
-            + self.context;
-        (sum - 1.0).abs() < 1e-6
-    }
-}
-
-/// Port du moteur de scoring.
-pub trait ScoringPolicy {
-    /// Poids associes a un type de tache.
-    fn weights(&self, task: TaskType) -> Weights;
-
-    /// Score composite d'un modele pour une tache donnee.
-    /// Les normalisations se font relativement a `candidates`.
-    fn score(
-        &self,
-        task: TaskType,
-        required_context: u32,
-        candidates: &[ModelRecord],
-        model: &ModelRecord,
-    ) -> f64;
-
-    /// Qualite effective Q_eff(m) = melange des axes pour la tache.
-    fn effective_quality(&self, task: TaskType, model: &ModelRecord) -> f64;
-}
+use omega_ports::ScoringPolicy;
+use omega_types::{ModelRecord, TaskType, Weights};
 
 /// Scoring composite par defaut : axes + vitesse + cout + contexte.
+#[derive(Debug, Default, Clone, Copy)]
 pub struct CompositeScoringPolicy;
-
-impl Default for CompositeScoringPolicy {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl CompositeScoringPolicy {
     pub fn new() -> Self {
@@ -262,23 +208,9 @@ impl ScoringPolicy for CompositeScoringPolicy {
             (f64::from(model.context_length) / f64::from(required_context)).min(1.0)
         };
 
-        q_eff
-            + w_speed(task) * speed_norm
-            + w_cost(task) * cost_norm
-            + w_context(task) * context_norm
+        let w = self.weights(task);
+        q_eff + w.speed * speed_norm + w.cost * cost_norm + w.context * context_norm
     }
-}
-
-fn w_speed(task: TaskType) -> f64 {
-    CompositeScoringPolicy::weights_for(task).speed
-}
-
-fn w_cost(task: TaskType) -> f64 {
-    CompositeScoringPolicy::weights_for(task).cost
-}
-
-fn w_context(task: TaskType) -> f64 {
-    CompositeScoringPolicy::weights_for(task).context
 }
 
 /// Normalise `value` dans [0,1] par log par rapport a l'ensemble des candidats.
@@ -324,7 +256,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use omega_providers::{Capabilities, ModelTier, QualityAxes};
+    use omega_types::{Capabilities, ModelTier, QualityAxes};
 
     fn model(
         id: &str,
@@ -443,5 +375,42 @@ mod tests {
         let s_cheap = policy.score(TaskType::Implementation, 0, &candidates, &cheap);
         let s_elite = policy.score(TaskType::Implementation, 0, &candidates, &elite);
         assert!(s_elite > s_cheap, "elite should win on T5");
+    }
+
+    #[test]
+    fn single_candidate_with_zero_cost_and_speed() {
+        let policy = CompositeScoringPolicy::new();
+        let lone = model("lone", 0.0, 0.0, 0.0, 4000, QualityAxes::default());
+        let candidates = vec![lone.clone()];
+        let score = policy.score(TaskType::Chat, 0, &candidates, &lone);
+        assert!(
+            score.is_finite(),
+            "score should be finite for zero-cost/speed candidate"
+        );
+        assert_eq!(
+            score, 0.30,
+            "single candidate should get weighted speed/cost/context"
+        );
+    }
+
+    #[test]
+    fn identical_candidates_get_same_score() {
+        let policy = CompositeScoringPolicy::new();
+        let a = model(
+            "a",
+            1.0,
+            3.0,
+            100.0,
+            128_000,
+            QualityAxes {
+                chat: 70,
+                ..Default::default()
+            },
+        );
+        let b = a.clone();
+        let candidates = vec![a.clone(), b];
+        let sa = policy.score(TaskType::Chat, 0, &candidates, &a);
+        // Avec des candidats identiques, min == max => normalisations retournent 1.0.
+        assert!(sa > 0.0);
     }
 }

@@ -2,10 +2,14 @@
 //!
 //! Logique pure, deterministe, zero reseau. Responsabilites :
 //! - classification de tache (`TaskClassifier`, implemente dans `omega-ports`) ;
-//! - scoring composite (`ScoringPolicy`) ;
-//! - selection Pareto (`Selector`) ;
-//! - fallback + circuit breaker (`FallbackPolicy`) ;
+//! - scoring composite (`ScoringPolicy`, implemente dans `omega-ports`) ;
+//! - selection Pareto (`Selector`, implemente dans `omega-ports`) ;
+//! - fallback + circuit breaker (`FallbackPolicy`, implemente dans `omega-ports`) ;
 //! - cache de decision (`DecisionCache`).
+//!
+//! Les ports `TaskClassifier`, `ScoringPolicy`, `Selector` et `FallbackPolicy`
+//! vivent dans `omega-ports`. `omega-router` fournit les implementations par
+//! defaut et les re-exporte pour la commodite des consommateurs.
 
 pub mod cache;
 pub mod classifier;
@@ -16,11 +20,12 @@ pub mod task;
 
 pub use cache::DecisionCache;
 pub use classifier::HeuristicTaskClassifier;
-pub use fallback::{FallbackPolicy, TierFallbackPolicy};
-pub use scoring::{CompositeScoringPolicy, ScoringPolicy, Weights};
-pub use selector::{ParetoSelector, RouterDecision, RouterError, Selector};
-pub use task::TaskType;
+pub use fallback::TierFallbackPolicy;
+pub use scoring::CompositeScoringPolicy;
 
-/// Types de requete et de classifieur re-exportes pour la compatibilite.
-pub use omega_ports::TaskClassifier;
-pub use omega_types::{Attachment, AttachmentKind, RoutingRequest};
+// Re-export des ports et types utilises par les consommateurs du routeur.
+pub use omega_ports::{FallbackPolicy, ScoringPolicy, Selector, TaskClassifier};
+pub use omega_types::{
+    Attachment, AttachmentKind, Capabilities, ModelRecord, ModelTier, QualityAxes, RouterDecision,
+    RouterError, RoutingRequest, TaskType, Weights,
+};

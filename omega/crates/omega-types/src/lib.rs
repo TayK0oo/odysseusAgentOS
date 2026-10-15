@@ -6,7 +6,12 @@
 use serde::{Deserialize, Serialize};
 
 mod error;
+pub mod model;
+pub mod routing;
+
 pub use error::{OmegaError, OmegaResult};
+pub use model::{ModelRecord, ModelTier, QualityAxes};
+pub use routing::{format_reason, RouterDecision, RouterError, Weights};
 
 /// Identifiant de modele (opaque : c'est le registre qui connait sa semantique).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

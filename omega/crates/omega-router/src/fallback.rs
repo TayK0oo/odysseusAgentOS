@@ -1,54 +1,43 @@
 //! Politique de fallback + circuit breaker simple.
 
-use std::collections::HashMap;
+use std::collections::HashSet;
 
-use omega_providers::{Capabilities, ModelRecord, ModelTier};
-use omega_types::TaskType;
-
-use crate::scoring::ScoringPolicy;
-use crate::selector::RouterDecision;
-
-/// Port de la politique de fallback.
-pub trait FallbackPolicy {
-    /// Enregistre un echec pour un modele.
-    fn record_failure(&mut self, model_id: &str);
-
-    /// Indique si le modele est disponible (circuit breaker ferme).
-    fn is_available(&self, model_id: &str) -> bool;
-
-    /// Choisit le prochain modele de fallback pour une decision echouee.
-    fn next_fallback(
-        &self,
-        task: TaskType,
-        required_capabilities: Capabilities,
-        required_context: u32,
-        candidates: &[ModelRecord],
-        failed: &RouterDecision,
-    ) -> Option<RouterDecision>;
-}
+use omega_ports::FallbackPolicy;
+use omega_types::{Capabilities, ModelRecord, ModelTier, RouterDecision, TaskType};
 
 /// Fallback par tier avec circuit breaker a compteur d'echecs.
-pub struct TierFallbackPolicy<S: ScoringPolicy> {
+///
+/// La politique memorise l'ensemble des modeles deja essayes dans un run
+/// pour eviter le ping-pong (REVUE-W4 M1). L'ensemble est reset a chaque
+/// nouvelle instance.
+pub struct TierFallbackPolicy<S: omega_ports::ScoringPolicy> {
     scoring: S,
     max_failures: u32,
-    failures: HashMap<String, u32>,
+    failures: std::collections::HashMap<String, u32>,
+    tried: HashSet<String>,
 }
 
-impl<S: ScoringPolicy> TierFallbackPolicy<S> {
+impl<S: omega_ports::ScoringPolicy> TierFallbackPolicy<S> {
     pub fn new(scoring: S, max_failures: u32) -> Self {
         Self {
             scoring,
             max_failures,
-            failures: HashMap::new(),
+            failures: std::collections::HashMap::new(),
+            tried: HashSet::new(),
         }
     }
 
     pub fn failure_count(&self, model_id: &str) -> u32 {
         self.failures.get(model_id).copied().unwrap_or(0)
     }
+
+    /// Nombre de modeles deja essayes dans ce run.
+    pub fn tried_count(&self) -> usize {
+        self.tried.len()
+    }
 }
 
-impl<S: ScoringPolicy> FallbackPolicy for TierFallbackPolicy<S> {
+impl<S: omega_ports::ScoringPolicy> FallbackPolicy for TierFallbackPolicy<S> {
     fn record_failure(&mut self, model_id: &str) {
         *self.failures.entry(model_id.to_string()).or_insert(0) += 1;
     }
@@ -58,7 +47,7 @@ impl<S: ScoringPolicy> FallbackPolicy for TierFallbackPolicy<S> {
     }
 
     fn next_fallback(
-        &self,
+        &mut self,
         task: TaskType,
         required_capabilities: Capabilities,
         required_context: u32,
@@ -68,11 +57,15 @@ impl<S: ScoringPolicy> FallbackPolicy for TierFallbackPolicy<S> {
         let failed_model = candidates.iter().find(|m| m.id == failed.model_id)?;
         let current_tier_rank = failed_model.tier.rank();
 
-        // Candidats eligibles et disponibles.
+        // Memorise le modele qui vient d'echouer comme "deja essaye".
+        self.tried.insert(failed.model_id.clone());
+
+        // Candidats eligibles, disponibles et non deja essayes.
         let eligible: Vec<&ModelRecord> = candidates
             .iter()
             .filter(|m| {
                 m.id != failed.model_id
+                    && !self.tried.contains(&m.id)
                     && m.context_length >= required_context
                     && m.capabilities.covers(required_capabilities)
                     && self.is_available(&m.id)
@@ -96,6 +89,7 @@ impl<S: ScoringPolicy> FallbackPolicy for TierFallbackPolicy<S> {
             candidates,
             &same_tier,
         ) {
+            self.tried.insert(next.model_id.clone());
             return Some(next);
         }
 
@@ -112,6 +106,7 @@ impl<S: ScoringPolicy> FallbackPolicy for TierFallbackPolicy<S> {
             candidates,
             &higher_tier,
         ) {
+            self.tried.insert(next.model_id.clone());
             return Some(next);
         }
 
@@ -121,17 +116,19 @@ impl<S: ScoringPolicy> FallbackPolicy for TierFallbackPolicy<S> {
             .copied()
             .filter(|m| matches!(m.tier, ModelTier::SelfHosted))
             .collect();
-        pick_best(
+        let next = pick_best(
             &self.scoring,
             task,
             required_context,
             candidates,
             &self_hosted,
-        )
+        )?;
+        self.tried.insert(next.model_id.clone());
+        Some(next)
     }
 }
 
-fn pick_best<S: ScoringPolicy>(
+fn pick_best<S: omega_ports::ScoringPolicy>(
     scoring: &S,
     task: TaskType,
     required_context: u32,
@@ -156,7 +153,7 @@ fn pick_best<S: ScoringPolicy>(
 mod tests {
     use super::*;
     use crate::scoring::CompositeScoringPolicy;
-    use omega_providers::{Capabilities, ModelTier, QualityAxes};
+    use omega_types::{Capabilities, ModelTier, QualityAxes};
 
     #[allow(clippy::too_many_arguments)]
     fn model(
@@ -196,7 +193,7 @@ mod tests {
 
     #[test]
     fn fallback_picks_different_model() {
-        let fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
+        let mut fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
         let m1 = model(
             "m1",
             ModelTier::Standard,
@@ -223,11 +220,7 @@ mod tests {
                 ..Default::default()
             },
         );
-        let failed = RouterDecision {
-            model_id: "m1".to_string(),
-            score: 0.5,
-            reason: "initial".to_string(),
-        };
+        let failed = RouterDecision::new("m1", 0.5, "initial");
         let next = fallback
             .next_fallback(
                 TaskType::Chat,
@@ -242,7 +235,7 @@ mod tests {
 
     #[test]
     fn fallback_escalates_tier_when_same_tier_exhausted() {
-        let fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
+        let mut fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
         let standard = model(
             "standard",
             ModelTier::Standard,
@@ -269,11 +262,7 @@ mod tests {
                 ..Default::default()
             },
         );
-        let failed = RouterDecision {
-            model_id: "standard".to_string(),
-            score: 0.5,
-            reason: "initial".to_string(),
-        };
+        let failed = RouterDecision::new("standard", 0.5, "initial");
         let next = fallback
             .next_fallback(
                 TaskType::Chat,
@@ -284,5 +273,124 @@ mod tests {
             )
             .unwrap();
         assert_eq!(next.model_id, "elite");
+    }
+
+    #[test]
+    fn fallback_avoids_ping_pong() {
+        let mut fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
+        let m1 = model(
+            "m1",
+            ModelTier::Standard,
+            1.0,
+            3.0,
+            100.0,
+            128_000,
+            Capabilities::default(),
+            QualityAxes {
+                chat: 70,
+                ..Default::default()
+            },
+        );
+        let m2 = model(
+            "m2",
+            ModelTier::Standard,
+            1.0,
+            3.0,
+            100.0,
+            128_000,
+            Capabilities::default(),
+            QualityAxes {
+                chat: 80,
+                ..Default::default()
+            },
+        );
+
+        // m1 echoue -> fallback m2.
+        let step0 = fallback
+            .next_fallback(
+                TaskType::Chat,
+                Capabilities::default(),
+                0,
+                &[m1.clone(), m2.clone()],
+                &RouterDecision::new("m1", 0.5, "initial"),
+            )
+            .unwrap();
+        assert_eq!(step0.model_id, "m2");
+
+        // m2 echoue -> on ne doit PAS reselectionner m1 (deja essaye).
+        let step1 = fallback.next_fallback(
+            TaskType::Chat,
+            Capabilities::default(),
+            0,
+            &[m1, m2],
+            &RouterDecision::new("m2", 0.5, "fallback"),
+        );
+        assert!(step1.is_none(), "should exhaust candidates, not ping-pong");
+    }
+
+    #[test]
+    fn fallback_escalates_to_self_hosted_after_exhaustion() {
+        let mut fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
+        let standard = model(
+            "standard",
+            ModelTier::Standard,
+            1.0,
+            3.0,
+            100.0,
+            128_000,
+            Capabilities::default(),
+            QualityAxes {
+                chat: 70,
+                ..Default::default()
+            },
+        );
+        let self_hosted = model(
+            "self-hosted",
+            ModelTier::SelfHosted,
+            0.0,
+            0.0,
+            80.0,
+            128_000,
+            Capabilities::default(),
+            QualityAxes {
+                chat: 65,
+                ..Default::default()
+            },
+        );
+
+        let failed = RouterDecision::new("standard", 0.5, "initial");
+        let next = fallback
+            .next_fallback(
+                TaskType::Chat,
+                Capabilities::default(),
+                0,
+                &[standard, self_hosted],
+                &failed,
+            )
+            .unwrap();
+        assert_eq!(next.model_id, "self-hosted");
+    }
+
+    #[test]
+    fn fallback_returns_none_when_failed_model_unknown() {
+        let mut fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
+        let m1 = model(
+            "m1",
+            ModelTier::Standard,
+            1.0,
+            3.0,
+            100.0,
+            128_000,
+            Capabilities::default(),
+            QualityAxes::default(),
+        );
+        let next = fallback.next_fallback(
+            TaskType::Chat,
+            Capabilities::default(),
+            0,
+            &[m1],
+            &RouterDecision::new("unknown", 0.5, "initial"),
+        );
+        assert!(next.is_none());
     }
 }
