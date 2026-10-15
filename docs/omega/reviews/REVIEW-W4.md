@@ -238,3 +238,100 @@ Toutes vertes (`[observed]`).
 - Violations accessibilité : 0 (hors périmètre, aucun artefact UI).
 - Violations i18n : 0 bloquante (chaînes diagnostic en dur, n3).
 - Tests passants : 28/28 (router), clippy `-D warnings` : 0 warning.
+
+---
+
+## §Résolution — re-vérification
+
+> Commits examinés : `304a2f7`, `b24d571`, `9e6a9c5`, `47d5783`, `60b1a9a`.
+> Re-contrôles exécutés : `cargo test --workspace` (vert, 45 tests router, +17 vs revue),
+> `cargo clippy --workspace --all-targets -- -D warnings` (vert),
+> `python3 scripts/check_dep_graph.py` (valide).
+> Re-assauts : crate isolé `/tmp/opencode/advtest` (hors dépôt).
+
+### Verdict mis à jour
+
+**GO avec réserves — 7/10** (contre NO-GO 5/10).
+
+B1, M1, M2, M3 sont corrigés et vérifiés. B2 est **partiellement** corrigé :
+les cas originaux passent, mais le réordonnancement introduit une
+**sur-correction** (le raisonnement écrase la génération média quand le sujet
+contient « plan/architecture/stratégie »). Deux nouveaux défauts subsistent :
+le `tried` du fallback fuit d'une requête à l'autre (latent en inc1, bloquant
+pour inc2), et une lacune de lemmatisation (verbes à l'infinitif uniquement).
+M4 reste non corrigé (documenté : half-open reporté à l'incrément 3).
+
+### Statut par constat
+
+| Constat | Statut | Preuve |
+|---|---|---|
+| **B1** accents | **CORRIGÉ** | `normalize()` NFD + strip marks (`classifier.rs:103-108`) ; repro : `"Résume ce document en trois points"` → `Summarization`, `"Résous cette équation du second degré"` → `Math`, `"RÉSUME CE TEXTE"` → `Summarization` ; tests `summarization_accented`, `math_accented`, `unicode_normalization_strips_accents`. |
+| **B2** priorité | **PARTIEL** | Cas originaux corrigés (`"genere un plan d'architecture"` → `LongReasoning`, `"fix the build"` → `TargetedEdit`, `"analyse cette image"` → `Vision`). **Mais** sur-correction : cf. nouveau constat **N1** ci-dessous. |
+| **M1** fallback ping-pong | **CORRIGÉ** | `tried: HashSet` (`fallback.rs:17`) exclut les modèles déjà essayés (`:67-68`) ; repro : 2 modèles `m1→m2→None` (plus de ping-pong), 3 modèles `m1→m2→m3→None` avec escalade vers `Elite` atteinte ; tests `fallback_avoids_ping_pong`, `fallback_escalates_to_self_hosted_after_exhaustion`. |
+| **M2** cache versionné | **CORRIGÉ** | `registry_version` ajouté à la clé (`cache.rs:29-43`) ; repro : même requête v1/v2 → clés distinctes ; tests `registry_version_changes_key`, `cache_miss_after_registry_change`. |
+| **M3** ports dans `omega-ports` | **CORRIGÉ** | `ScoringPolicy`/`Selector`/`FallbackPolicy` définis dans `omega-ports/src/lib.rs:63-111` ; `ModelRecord`/`Weights`/`RouterDecision`/`RouterError` relocalisés dans `omega-types` ; `RouterPolicy` supprimé ; repro : `ParetoSelector<MyScoring>` (port custom) sélectionne sans toucher au noyau ; tests object-safety des 4 ports (`omega-ports/src/lib.rs:188-269`). |
+| **M4** reset circuit breaker | **NON CORRIGÉ** (documenté) | Toujours aucun `record_success`/reset/cooldown (`fallback.rs:41-47`) ; conforme à W4-routing.md:108 (« pas de half-open ») — à tracer en ADR avant l'incrément 3. |
+
+### Nouveaux constats
+
+**N1 (MAJEUR) — Sur-correction : le raisonnement écrase la génération média.**
+`classifier.rs:143` (`re_reasoning`) est testé **avant** `re_media` (`:174`). Or
+`re_reasoning` contient `plan|architecte|strategie|analyse|concevoir`. Dès qu'une
+requête de génération d'image/vidéo mentionne ces mots comme *sujet* de l'image,
+elle est routée en `LongReasoning` au lieu de `MediaGeneration` :
+
+| Entrée | Sortie observée | Attendu |
+|---|---|---|
+| `génère une image d'un plan d'architecture` | `LongReasoning` | `MediaGeneration` |
+| `dessine le plan de la maison` | `LongReasoning` | `MediaGeneration` |
+| `génère une image d'une stratégie marketing` | `LongReasoning` | `MediaGeneration` |
+
+C'est le miroir exact du B2 initial. Correctif suggéré : détecter l'**objet média
+réel** (`image|photo|dessine|video|musique|audio|tts`) *avant* l'intention
+raisonnement, tout en conservant « générer un plan » (sans objet média) en
+`LongReasoning`.
+
+**N2 (MAJEUR) — Le `tried` du fallback fuit d'une requête à l'autre.**
+`TierFallbackPolicy` mélange deux durées de vie dans une même struct : `failures`
+(circuit breaker, **doit** persister) et `tried` (run, **doit** se réinitialiser).
+Il n'existe aucun `reset_run()` ; `tried` n'est vidé qu'à la reconstruction
+(`fallback.rs:20-28`), qui vide aussi `failures`. Repro (même instance, 2 requêtes) :
+
+```
+requete1: m1 -> Some("m2")   (tried=2)
+requete2: m3 -> None         (tried=3)   // m1 et m2 sont is_available()==true mais exclus
+```
+
+En inc1 il n'y a pas d'orchestration réutilisant la politique (donc latent) ; en
+inc2 (boucle de routing réelle), un circuit breaker long-lived affamera les
+fallbacks. Correctif : séparer l'état circuit-breaker de l'état « déjà essayé »
+per-run, ou exposer `begin_request()`.
+
+**N3 (MINEUR) — Lemmatisation : verbes français à l'infinitif uniquement.**
+Les motifs ne couvrent que les infinitifs (`ecrire`, `creer`, `concevoir`…). Les
+impératifs/conjugaisons courantes ne sont pas reconnus : `"Écris un poème"` →
+`TrivialCompletion` (`"ecris"` ≠ `"ecrire"`), `"Crée un fichier"` → `TargetedEdit`
+(par `fichier`, pas par `creer`). Impact faible (texte court), mais la taxonomie
+reste incomplète.
+
+### Points confirmés (positifs)
+
+- **Déterminisme** conservé (même entrée → même sortie ; `DefaultHasher` clé fixe).
+- **Score borné** confirmé par nouveaux tests : `single_candidate_with_zero_cost_and_speed`
+  (score fini = 0.30), `identical_candidates_get_same_score`.
+- **Sélecteur** : nouveau test `dominated_model_is_excluded_from_pareto_frontier`,
+  `tie_break_prefers_cheaper_faster_self_hosted`, `determinism_on_permuted_input`,
+  `no_eligible_model_fails`.
+- **Cache** : aucune collision observée entre tâches distinctes (chat/hello ≠
+  summarization/hello ≠ chat/world), version de registre discriminante.
+- **Clarté** : priorité du classifieur documentée en tête de fichier
+  (`classifier.rs:6-16`).
+
+### Métriques (post-correctifs)
+
+- Tests router : **45** (vs 28) — nouveaux tests accentués, priorité, ping-pong,
+  cache versionné, object-safety des ports, bornes de scoring, Pareto/dominance,
+  déterminisme permuté.
+- Violations SOLID : 0 (DIP rétabli, M3 résolu).
+- Violations sécurité/accessibilité/i18n : 0.
+- Clippy `-D warnings` : 0 warning · `check_dep_graph.py` : valide.
