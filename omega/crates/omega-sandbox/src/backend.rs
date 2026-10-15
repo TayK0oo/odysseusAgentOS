@@ -1,9 +1,11 @@
 //! Backend local : exécute via `sh -c` **après** décision de l'`ExecPolicy`.
 //!
 //! - `Allow` → exécute avec timeout (tue le processus au dépassement).
-//! - `Prompt` → refusé sans approbation (`ApprovalRequired`) : l'approbation humaine
-//!   arrive en incrément 2 (file d'approbations + `ApprovalReviewContributor`).
-//! - `Forbidden` → refusé **sans exécuter** (jamais de fork).
+//! - `Prompt` → sans approbation consommée dans la file (`ApprovalQueue`) :
+//!   `ApprovalRequired` **sans exécuter**. Avec une approbation `Approved` pour
+//!   la commande exacte, elle est **consommée (usage unique)** puis la commande
+//!   s'exécute normalement.
+//! - `Forbidden` → refusé **sans exécuter** (jamais de fork, jamais de file).
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -11,15 +13,33 @@ use std::time::Duration;
 use omega_ports::{ExecPolicy, SandboxBackend};
 use omega_types::{CommandOutput, ExecDecision, OmegaError, OmegaResult};
 
-/// Backend local borné (timeout + politique).
+use crate::approvals::ApprovalQueue;
+
+/// Backend local borné (timeout + politique + file d'approbations optionnelle).
 pub struct LocalSandboxBackend {
     policy: Arc<dyn ExecPolicy>,
     timeout: Duration,
+    approvals: Option<Arc<ApprovalQueue>>,
 }
 
 impl LocalSandboxBackend {
     pub fn new(policy: Arc<dyn ExecPolicy>, timeout: Duration) -> Self {
-        Self { policy, timeout }
+        Self {
+            policy,
+            timeout,
+            approvals: None,
+        }
+    }
+
+    /// Attache une file d'approbations (incrément 2 : lève le `Prompt`).
+    pub fn with_approvals(mut self, queue: Arc<ApprovalQueue>) -> Self {
+        self.approvals = Some(queue);
+        self
+    }
+
+    /// File d'approbations attachée, s'il y en a une.
+    pub fn approval_queue(&self) -> Option<&Arc<ApprovalQueue>> {
+        self.approvals.as_ref()
     }
 }
 
@@ -47,10 +67,24 @@ impl SandboxBackend for LocalSandboxBackend {
                 })
             }
             ExecDecision::Prompt(reason) => {
-                return Err(OmegaError::ApprovalRequired {
-                    command: command.to_string(),
-                    reason,
-                })
+                // File d'approbations (inc2) : une approbation `Approved` pour la
+                // commande exacte est consommée (usage unique) et l'exécution
+                // continue ; sinon refus sans fork.
+                if let Some(queue) = &self.approvals {
+                    if queue.consume_for(command) {
+                        // Approbation consommée : on continue vers l'exécution.
+                    } else {
+                        return Err(OmegaError::ApprovalRequired {
+                            command: command.to_string(),
+                            reason,
+                        });
+                    }
+                } else {
+                    return Err(OmegaError::ApprovalRequired {
+                        command: command.to_string(),
+                        reason,
+                    });
+                }
             }
             ExecDecision::Allow => {}
         }
@@ -108,6 +142,14 @@ mod tests {
         LocalSandboxBackend::new(policy, Duration::from_secs(5))
     }
 
+    /// Backend dont `echo` demande une approbation (commande inoffensive).
+    fn prompt_echo_backend(queue: Arc<ApprovalQueue>) -> LocalSandboxBackend {
+        let policy: Arc<dyn ExecPolicy> = Arc::new(
+            RuleBasedExecPolicy::new("t").rule("echo", ExecDecision::Prompt("test".to_string())),
+        );
+        LocalSandboxBackend::new(policy, Duration::from_secs(5)).with_approvals(queue)
+    }
+
     #[tokio::test]
     async fn allowed_command_runs_and_captures() {
         let out = backend().run("echo hello").await.unwrap();
@@ -135,12 +177,42 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn timeout_kills_long_command() {
-        let policy: Arc<dyn ExecPolicy> =
-            Arc::new(RuleBasedExecPolicy::new("t").rule("sleep", ExecDecision::Allow));
-        let b = LocalSandboxBackend::new(policy, Duration::from_millis(200));
-        let err = b.run("sleep 30").await.unwrap_err();
-        assert!(matches!(err, OmegaError::CommandTimeout { .. }));
+    async fn approval_queue_runs_once_then_asks_again() {
+        // (inc2) request → approve → exécute une fois → second appel re-demande.
+        let queue = Arc::new(ApprovalQueue::new());
+        let b = prompt_echo_backend(queue.clone());
+        // Sans approbation : refus sans exécution.
+        assert!(matches!(
+            b.run("echo hello").await.unwrap_err(),
+            OmegaError::ApprovalRequired { .. }
+        ));
+        // Approbation : exécute.
+        let id = queue.request("echo hello", "test");
+        assert!(queue.approve(id));
+        let out = b.run("echo hello").await.unwrap();
+        assert_eq!(out.stdout.trim(), "hello");
+        // Approbation consommée (usage unique) : second appel re-demande.
+        assert!(matches!(
+            b.run("echo hello").await.unwrap_err(),
+            OmegaError::ApprovalRequired { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn denied_approval_never_executes() {
+        let queue = Arc::new(ApprovalQueue::new());
+        let b = prompt_echo_backend(queue.clone());
+        let id = queue.request("echo hello", "test");
+        assert!(queue.deny(id));
+        assert!(matches!(
+            b.run("echo hello").await.unwrap_err(),
+            OmegaError::ApprovalRequired { .. }
+        ));
+        // Toujours pas d'approbation : second appel refusé aussi.
+        assert!(matches!(
+            b.run("echo hello").await.unwrap_err(),
+            OmegaError::ApprovalRequired { .. }
+        ));
     }
 
     #[tokio::test]
@@ -160,6 +232,15 @@ mod tests {
         );
         assert!(!witness.exists(), "la commande composée a été exécutée !");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn timeout_kills_long_command() {
+        let policy: Arc<dyn ExecPolicy> =
+            Arc::new(RuleBasedExecPolicy::new("t").rule("sleep", ExecDecision::Allow));
+        let b = LocalSandboxBackend::new(policy, Duration::from_millis(200));
+        let err = b.run("sleep 30").await.unwrap_err();
+        assert!(matches!(err, OmegaError::CommandTimeout { .. }));
     }
 
     #[tokio::test]
