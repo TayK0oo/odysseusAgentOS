@@ -1,0 +1,18 @@
+[package]
+name = "omega-router"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Omega — routeur de modeles : classification, scoring, selection, fallback, cache."
+
+[dependencies]
+omega-types = { path = "../omega-types" }
+omega-ports = { path = "../omega-ports" }
+omega-providers = { path = "../omega-providers" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+regex = "1.11"
+
+[dev-dependencies]
