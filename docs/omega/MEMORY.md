@@ -74,6 +74,7 @@
 | D8 | Isolation du travail Omega via git worktree (concurrence) | 2026-10-15 | ✅ `[observed]` | — |
 | D9 | Correction `REVIEW-W2` : garde-fou durci + quarantaine scopée + type↔capacité + factory câblée + annulation intra-étape | 2026-10-15 | ✅ `[observed]` | ADR-0003 |
 | D10 | Réconciliation dette W4 : `TaskType`/`RoutingRequest`/`Capabilities` dans `omega-types`, port `TaskClassifier` dans `omega-ports`, `omega-router` implémente et ré-exporte | 2026-10-15 | ✅ `[observed]` | — |
+| D11 | Correction REVIEW-W4 : normalisation Unicode (B1), priorité du classifieur (B2), fallback sans ping-pong (M1), cache versionné (M2), ports `ScoringPolicy`/`Selector`/`FallbackPolicy` dans `omega-ports` (M3), M4 documenté comme non-objectif | 2026-10-15 | ✅ `[observed]` | — |
 
 ## 7. Credentials & accès
 
@@ -114,6 +115,14 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
   Preuves : `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`,
   `cargo fmt --all --check`, `python3 omega/scripts/check_dep_graph.py` et `--self-test`
   tous verts (`[observed]`).
+- [x] REVIEW-W4 — B1/B2/M1/M2/M3 corrigés ; M4 documenté comme non-objectif.
+  - `ModelRecord`/`QualityAxes`/`ModelTier` déplacés dans `omega-types` ;
+  - ports `ScoringPolicy`/`Selector`/`FallbackPolicy` définis dans `omega-ports` ;
+  - `RouterPolicy` orphelin supprimé ;
+  - classifieur normalisé NFD + strip marks et priorité explicite ;
+  - fallback mémorise les modèles déjà essayés (pas de ping-pong) ;
+  - cache inclut `registry_version`.
+  Preuves : 45 tests router passants, clippy/fmt/dep graph verts (`[observed]`).
 
 ### Clones de travail (nettoyables)
 `/tmp/opencode/re/` : codex (131M), goose (646M), hermes-agent (344M), openclaw (939M), opencode (230M).

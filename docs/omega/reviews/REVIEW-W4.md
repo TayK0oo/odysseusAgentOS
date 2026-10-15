@@ -199,6 +199,36 @@ step5: failed=m2 -> None      (épuisement)
 
 ---
 
+## §6 Note de résolution (2026-10-15)
+
+Tous les constats BLOQUANT et MAJEUR ont été corrigés dans `omega/**`,
+`docs/omega/workstreams/W4-routing.md`, `docs/omega/MEMORY.md` et ce document.
+
+| Constat | Correction | Statut |
+|---|---|---|
+| **B1** — Français accentué non reconnu | Normalisation NFD + strip marks dans `classifier.rs` ; dépendance `unicode-normalization` ajoutée à `omega-router` ; tests accentués ajoutés. | ✅ corrigé |
+| **B2** — Priorité des mots-clés | Règle de priorité explicite documentée et testée : modalités > vision implicite > intentions fortes > transformation/édition > capacités spécialisées > longueur > défaut. | ✅ corrigé |
+| **M1** — Fallback ping-pong | `next_fallback` prend `&mut self` et mémorise les modèles déjà essayés ; tests ping-pong + escalation ajoutés. | ✅ corrigé |
+| **M2** — Cache insuffisant | Clé inclut `registry_version` ; test anti-collision ajouté. | ✅ corrigé |
+| **M3** — Ports dans l'adaptateur | `ScoringPolicy`/`Selector`/`FallbackPolicy` déplacés dans `omega-ports` ; `RouterPolicy` orphelin supprimé ; `ModelRecord`/`QualityAxes`/`ModelTier` déplacés dans `omega-types`. | ✅ corrigé |
+| **M4** — Reset compteur d'échecs | Documenté comme non-objectif de l'incrément (pas de half-open/reset). | ✅ documenté |
+
+### Vérifications
+
+Exécutées à la racine du workspace `omega/` :
+
+```bash
+cargo test --workspace                # 62 tests passants (45 router)
+cargo clippy --workspace --all-targets -- -D warnings  # 0 warning
+cargo fmt --all --check               # conforme
+python3 scripts/check_dep_graph.py    # 9 crates, 0 cycle, 0 arete interdite
+python3 scripts/check_dep_graph.py --self-test  # 5/5 cas adversariaux detectes
+```
+
+Toutes vertes (`[observed]`).
+
+---
+
 ## Métriques
 
 - Fichiers audités : 11 (7 `omega-router` + 2 `omega-providers` + `omega-ports` + `omega-types`).
