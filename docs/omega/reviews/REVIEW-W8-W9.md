@@ -107,3 +107,41 @@ Policy de test : `rm→Forbidden`, `echo→Allow`, défaut deny-by-default (= co
 - **Architecture propre** : `omega-otel`/`omega-sandbox` ne dépendent que de `types`, `ports`, `registry`, `plugin-api` (jamais `core`/`app`) — confirmé par `Cargo.toml` + `check_dep_graph.py` ; zéro `unwrap`/`panic` en chemin prod hors `expect` du verrou (m1) — le reste (`unwrap_or`, `unwrap_or_default`, `unwrap_or_else`) est justifié, `unwrap` cantonnés aux tests.
 - **Hygiène CI verte** : 169 tests OK, clippy `-D warnings` OK, `fmt --check` OK.
 - **Auto-revue W9 §5 honnête mais incomplète** : les dettes subshell/casse sont admises (rare et appréciable) — il y manque `;`/`&&`/`|` (B1) et le PGID (B2).
+
+---
+
+# §Résolution — re-vérification indépendante (2026-10-15, commit `f68435a` + descendants `1de0172`, `40b3432`, `8a3a9be`)
+
+> **Méthode :** mêmes assauts qu'en §3 + cas demandés, rejoués depuis mini-crate isolée `/tmp/opencode/advtest2` (dépôt non modifié, `git status` propre hors ce fichier). Policy de test identique (`echo→Allow`, `rm→Forbidden`, défaut deny).
+
+## Portes (gates)
+
+| Porte | Résultat | Commentaire |
+|---|---|---|
+| `cargo test --workspace` | **VERT** — 180 tests, 0 échec (+11 vs revue initiale, dont `compound_command_escalates_to_prompt`, `timeout_kills_grandchildren_not_just_sh`, `steps_without_operation_id_are_counted_not_lost`, `conflicting_terminal_markers_first_wins`, `file_sink_counts_io_errors`, `accepts_hyphenated_names`) | — |
+| `cargo clippy --workspace --all-targets -- -D warnings` | **ROUGE hors périmètre** : `omega-app/examples/live_ollama.rs:114` (`format!` dans `println!`, commit W2 `40b3432`, fichier non touché par `f68435a`). **Vert sur le périmètre** (`-p omega-sandbox -p omega-otel -p omega-ports -p omega-types`) | À corriger côté W2, pas bloquant W8/W9 |
+| `cargo fmt --all --check` | **ROUGE hors périmètre** (`live_ollama.rs`, `ollama.rs`, commit W2). Aucun diff sur `omega-sandbox`/`omega-otel` | Idem |
+| `python3 scripts/check_dep_graph.py` | **1 violation hors périmètre** : `omega-app (app) -> omega-router (router)` (dépendance ajoutée par W2 `40b3432`) | À trancher côté archi W2, pas une régression du correctif |
+
+## Chaque constat → statut + preuve
+
+- **B1 — CORRIGÉ.** 20 cas rejoués end-to-end (décision + témoin) : `;`, `&&`, `||`, `|`, `$(...)`, backticks, `>`, `&`, `\n` réel, `<(...)`, `$(...)`/backtick **dans** `"..."` → tous `ApprovalRequired`, **témoin jamais créé**. `EcHo …; touch` → `ForbiddenCommand`, non exécuté. Cas sains préservés : `\techo hi` → `Allow` exécuté ; `echo "a;b"`, `echo 'a;b'` → `Allow` (stdout `a;b`) ; `echo $HOME` → `Allow` ; `echo a\;b` → `Allow` littéral ; `echo '$(…)'` → `Allow` littéral sans exécution ; `'...'` non fermé → `Allow` mais erreur shell (exit 2), témoin absent ; variable piégée `ADV_EVIL="; touch …"` → `Allow`, **contenu non re-parsé** (fichier absent — sémantique shell correcte). `evaluate` n'est consommé que par `backend.rs:36` : la garde couvre tout le chemin d'exécution.
+- **B2 — CORRIGÉ (cas général).** `sh bg.sh` (`sleep 61 & wait`, timeout 300 ms) → `CommandTimeout`, `pgrep` vide : **aucun survivant**. Le test `timeout_kills_grandchildren_not_just_sh` est **significatif** : démo témoin kill-par-PID-seul → 2 survivants (parent + petit-fils), donc il échoue sur l'ancien code et passe sur le nouveau. Réserve : voir N1.
+- **B3 — CORRIGÉ.** Étape sans `operation_id` → `steps=1, ignored_events=1, total=4` (comptée, plus de silence). Double marqueur contradictoire → **premier gagne + `outcome_conflict=true`** dans les deux ordres (C-puis-F → `Completed` ; F-puis-C → `Failed`). Double marqueur identique → pas de faux conflit (`Completed`, `false`).
+- **M1 — PARTIEL.** Côté émission : **CORRIGÉ** — `FileSink::emit_errors()` = 1 sur chemin `/proc` non créable (prouvé). Côté lecture : **NON CORRIGÉ** — `read_all` (`sinks.rs:68-74`, inchangé) saute toujours la ligne corrompue sans signal (prouvé : 3 lignes dont 1 corrompue → 2 lues, `emit_errors=0`). Verrou toujours intra-processus seul (doc `sinks.rs:38-39` inchangée).
+- **M2 — CORRIGÉ.** `omega.http-client.req` → `Ok` ; borne 3–8 segments appliquée (`omega.a.b` Ok, 9+ segments Err) ; doc alignée (`[a-z0-9_-]`, 3-8) + tests des deux côtés. Résidu assumé (charset seul) : `omega.0.0`, `omega._a._b` toujours `Ok` — conforme à la doc, pas un bug.
+- **m1 — NON CORRIGÉ** (inchangé `sinks.rs:83`, `expect` sur le verrou) — toujours mineur.
+- **m2, m3** — non re-testés, inchangés (mineurs).
+- **m4 — NON CORRIGÉ (test manquant).** Comportement sûr confirmé (`EcHo` → `Forbidden`, prouvé) mais **aucun test ne fige le fail-closed casse** (pas de `EcHo` dans `policy.rs` tests).
+
+## Nouveaux constats
+
+- **N1 (MAJEUR-limite, non bloquant) — le kill de groupe ne tue pas le petit-fils qui change volontairement de session.** Repro : `sh daemon.sh` (`setsid sleep 64 & wait`, timeout 300 ms) → `CommandTimeout` mais **`sleep 64` (PID 216676, vérifié `pgrep -af`) survit** : `setsid` quitte le PGID, `kill -9 -pgid` ne l'atteint plus. Portée : exige un préfixe `Allow` couvrant `sh` + charge délibérément daemonisante (pas le `&` courant, lui corrigé). **Correctif inc2 :** cgroup/pidfd ou interdiction `setsid`/`daemon` ; **a minima documenter la limite** (actuellement le commentaire `backend.rs:60-62` promet « le groupe entier », sans cette exception).
+- **N2 (mineur, assumable) — sur-blocage bénin.** `echo $((1+1))` (arithmétique inoffensive) escalade en `Prompt` car `$(` déclenche la garde. Fail-closed donc sûr ; à noter si plainte UX en inc2 (distinguer `$(` de `$((`).
+- **N3 (hors périmètre, à router) — portes workspace rouges depuis W2** (clippy `live_ollama.rs`, fmt `live_ollama.rs`+`ollama.rs`, arête `omega-app→omega-router`). Non causés par `f68435a`, mais la mention mémoire « clippy/fmt/graphe verts » (176 tests) est devenue fausse au niveau workspace — requalifier en « verts sur le périmètre W8/W9 ».
+
+## Verdict mis à jour
+
+**GO conditionnel — score 8/10** (contre NO-GO 4/10).
+
+B1/B2/B3 tiennent contre tous les assauts rejoués + 5 contournements inédits (`\n`, quote non fermée, `$((…))`, `<(…)`, env piégée) ; M2 tranché et testé ; M1 moitié émission faite. Conditions avant promotion inc2 (dettes tracées, pas de re-revue) : (1) `read_all` signale les lignes corrompues (ou API `(Vec, skipped)`) ; (2) documenter la limite N1 (`setsid`) + test `EcHo→Forbidden` (m4) ; (3) remettre au vert les 3 portes hors périmètre côté W2. Dépôt non modifié par cette re-vérification hormis le présent fichier.
