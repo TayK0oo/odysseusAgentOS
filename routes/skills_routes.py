@@ -1809,3 +1809,20 @@ def setup_skills_routes(skills_manager: SkillsManager) -> APIRouter:
         return {"skills": results, "query": query, "count": len(results)}
 
     return router
+
+# ─── Registre central (MOD-2) ─────────────────────────────────────────────
+
+def register_skills_routes():
+    """Enregistre les fonctions de skills_routes dans le registre central."""
+    from src.route_registry import register_action
+    
+    register_action("_run_skill_test_once", _run_skill_test_once)
+    register_action("_skill_test_task", _skill_test_task)
+
+
+# Auto-enregistrement à l'import
+try:
+    register_skills_routes()
+except Exception as e:
+    import logging
+    logging.getLogger(__name__).warning(f"Auto-enregistrement skills_routes échoué: {e}")

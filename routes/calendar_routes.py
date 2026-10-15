@@ -1598,3 +1598,19 @@ def setup_calendar_routes() -> APIRouter:
         return {"calendars": [], "status": "ok"}
 
     return router
+
+# ─── Registre central (MOD-2) ─────────────────────────────────────────────
+
+def register_calendar_routes():
+    """Enregistre les fonctions de calendar_routes dans le registre central."""
+    from src.route_registry import register_action
+    
+    register_action("parse_due_for_user", parse_due_for_user)
+
+
+# Auto-enregistrement à l'import
+try:
+    register_calendar_routes()
+except Exception as e:
+    import logging
+    logging.getLogger(__name__).warning(f"Auto-enregistrement calendar_routes échoué: {e}")

@@ -1483,3 +1483,19 @@ async def run_ssh_command_async(
         await proc.communicate()
         raise
     return proc.returncode or 0, stdout, stderr
+
+# ─── Registre central (MOD-2) ─────────────────────────────────────────────
+
+def register_cookbook_helpers():
+    """Enregistre les fonctions de cookbook_helpers dans le registre central."""
+    from src.route_registry import register_action
+    
+    register_action("load_stored_hf_token", load_stored_hf_token)
+
+
+# Auto-enregistrement à l'import
+try:
+    register_cookbook_helpers()
+except Exception as e:
+    import logging
+    logging.getLogger(__name__).warning(f"Auto-enregistrement cookbook_helpers échoué: {e}")

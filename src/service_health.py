@@ -357,10 +357,9 @@ def email_health(accounts: list[dict[str, Any]], *, connect: Callable | None = N
     if not accounts:
         return _svc("email", DISABLED, "No email accounts configured.")
     if connect is None:
-        from routes.email_helpers import _imap_connect
-
+        
         # Impose the service-health budget on the IMAP connect itself.
-        connect = lambda aid: _imap_connect(aid, timeout=_PROBE_TIMEOUT)  # noqa: E731
+        connect = lambda aid: _get_action("_imap_connect")(aid, timeout=_PROBE_TIMEOUT)  # noqa: E731
 
     def _label(acc: dict[str, Any]) -> str:
         return acc.get("account_name") or acc.get("account_id") or "account"
@@ -402,7 +401,7 @@ def providers_health(endpoints: list[dict[str, Any]], *, probe: Callable | None 
     if not endpoints:
         return _svc("providers", DISABLED, "No model endpoints configured.")
     if probe is None:
-        from routes.model_routes import _probe_endpoint as probe
+        return _svc("providers", DISABLED, "No probe function provided.")
 
     def _label(ep: dict[str, Any]) -> str:
         return ep.get("name") or _safe_url(ep.get("base_url")) or "endpoint"
@@ -410,7 +409,7 @@ def providers_health(endpoints: list[dict[str, Any]], *, probe: Callable | None 
     def _check(_i: int, ep: dict[str, Any]) -> dict[str, Any]:
         name = _label(ep)
         try:
-            models = probe(ep.get("base_url"), ep.get("api_key"), timeout=_PROBE_TIMEOUT) or []
+            models = _get_action("_probe_endpoint")(ep.get("base_url"), ep.get("api_key"), timeout=_PROBE_TIMEOUT) or []
         except Exception as e:
             return {"name": name, "ok": False, "model_count": 0, "error": _classify_error(e)}
         count = len(models)
@@ -472,9 +471,8 @@ def _gather_inputs() -> dict[str, Any]:
     except Exception as e:
         logger.debug(f"service_health: integrations load failed: {e}")
     try:
-        from routes.email_helpers import _list_email_accounts
-
-        accounts = _list_email_accounts() or []
+        
+        accounts = _get_action("_list_email_accounts")() or []
     except Exception as e:
         logger.debug(f"service_health: email accounts load failed: {e}")
     try:

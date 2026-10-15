@@ -1381,3 +1381,29 @@ def _start_poller():
 
         # Store for the router lifespan / first-request hook
         _start_poller._deferred = _deferred_start
+
+# ─── Registre central (MOD-2) ─────────────────────────────────────────────
+
+def register_email_pollers():
+    """Enregistre les fonctions d'email_pollers dans le registre central."""
+    from src.route_registry import register_action
+    
+    # Actions pour builtin_actions
+    register_action("_run_auto_summarize_once", _run_auto_summarize_once)
+    register_action("_auto_summarize_pass", _auto_summarize_pass)
+    register_action("_auto_summarize_pass_single", _auto_summarize_pass_single)
+    register_action("_latest_inbox_fallback_uids", _latest_inbox_fallback_uids)
+    register_action("_auto_summarize_poller", _auto_summarize_poller)
+    register_action("_scheduled_poll_once", _scheduled_poll_once)
+    register_action("_scheduled_email_poller", _scheduled_email_poller)
+    register_action("_start_poller", _start_poller)
+    register_action("_inprocess_pollers_enabled", _inprocess_pollers_enabled)
+
+
+# Auto-enregistrement à l'import (si ce module est chargé)
+try:
+    register_email_pollers()
+except Exception as e:
+    import logging
+    logging.getLogger(__name__).warning(f"Auto-enregistrement email_pollers échoué: {e}")
+

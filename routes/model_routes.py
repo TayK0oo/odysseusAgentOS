@@ -2586,3 +2586,19 @@ def setup_model_routes(model_discovery):
         return {"ok": True, "disabled": body.disabled}
 
     return router
+
+# ─── Registre central (MOD-2) ─────────────────────────────────────────────
+
+def register_model_routes():
+    """Enregistre les fonctions de model_routes dans le registre central."""
+    from src.route_registry import register_action
+    
+    register_action("_probe_endpoint", _probe_endpoint)
+
+
+# Auto-enregistrement à l'import
+try:
+    register_model_routes()
+except Exception as e:
+    import logging
+    logging.getLogger(__name__).warning(f"Auto-enregistrement model_routes échoué: {e}")

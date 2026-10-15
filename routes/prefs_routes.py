@@ -91,3 +91,22 @@ def setup_prefs_routes():
         return {"key": key, "value": prefs[key]}
 
     return router
+
+# ─── Registre central (MOD-2) ─────────────────────────────────────────────
+
+def register_prefs_routes():
+    """Enregistre les fonctions de prefs_routes dans le registre central."""
+    from src.route_registry import register_action
+    
+    register_action("_load", _load)
+    register_action("_save", _save)
+    register_action("_load_for_user", _load_for_user)
+    register_action("_save_for_user", _save_for_user)
+
+
+# Auto-enregistrement à l'import
+try:
+    register_prefs_routes()
+except Exception as e:
+    import logging
+    logging.getLogger(__name__).warning(f"Auto-enregistrement prefs_routes échoué: {e}")

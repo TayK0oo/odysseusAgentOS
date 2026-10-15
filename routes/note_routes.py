@@ -946,3 +946,19 @@ def setup_note_routes(task_scheduler=None):
             db.close()
 
     return router
+
+# ─── Registre central (MOD-2) ─────────────────────────────────────────────
+
+def register_note_routes():
+    """Enregistre les fonctions de note_routes dans le registre central."""
+    from src.route_registry import register_action
+    
+    register_action("dispatch_reminder", dispatch_reminder)
+
+
+# Auto-enregistrement à l'import
+try:
+    register_note_routes()
+except Exception as e:
+    import logging
+    logging.getLogger(__name__).warning(f"Auto-enregistrement note_routes échoué: {e}")
