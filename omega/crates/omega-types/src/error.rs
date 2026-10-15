@@ -31,6 +31,14 @@ pub enum OmegaError {
     #[error("erreur de configuration : {0}")]
     Config(String),
 
+    /// Depassement du budget de contexte (estimation > plafond).
+    #[error("budget de contexte depasse : {used} + {additional} > {max}")]
+    BudgetExceeded {
+        max: usize,
+        used: usize,
+        additional: usize,
+    },
+
     /// Erreur d'entree/sortie (journal durable, fichiers, store).
     #[error("erreur d'entree/sortie : {0}")]
     Io(String),

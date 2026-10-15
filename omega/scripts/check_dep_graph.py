@@ -36,7 +36,10 @@ ARCH_RULES = {
     "registry": {"types", "ports", "config"},
     "plugin-api": {"types", "registry"},
     "router": {"types", "ports", "config", "adapters"},
-    "adapters": {"types", "ports", "config"},
+    # Les adaptateurs (context, memory, tools, providers...) peuvent aussi fournir des
+    # contributeurs de plugin (omega-plugin-api) et s'enregistrer dans le registre
+    # (omega-registry) — cf. OMEGA-BLUEPRINT.md §2.1 (omega-context depend de registry).
+    "adapters": {"types", "ports", "config", "registry", "plugin-api"},
     "plugins": {"types", "ports", "config", "registry"},
     "app": {"types", "ports", "config", "protocol", "core", "registry",
             "plugin-api", "adapters", "plugins"},
