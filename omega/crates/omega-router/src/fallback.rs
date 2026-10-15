@@ -7,14 +7,14 @@ use omega_types::{Capabilities, ModelRecord, ModelTier, RouterDecision, TaskType
 
 /// Fallback par tier avec circuit breaker a compteur d'echecs.
 ///
-/// La politique memorise l'ensemble des modeles deja essayes dans un run
-/// pour eviter le ping-pong (REVUE-W4 M1). L'ensemble est reset a chaque
-/// nouvelle instance.
+/// Le circuit breaker (`failures`) persiste sur l'instance. L'ensemble des
+/// modeles deja essayes dans un run (`tried`) est porte par l'appelant et
+/// reinitialise a chaque requete : il ne fuit pas d'une requete a l'autre
+/// (REVUE-W4 N2).
 pub struct TierFallbackPolicy<S: omega_ports::ScoringPolicy> {
     scoring: S,
     max_failures: u32,
     failures: std::collections::HashMap<String, u32>,
-    tried: HashSet<String>,
 }
 
 impl<S: omega_ports::ScoringPolicy> TierFallbackPolicy<S> {
@@ -23,17 +23,11 @@ impl<S: omega_ports::ScoringPolicy> TierFallbackPolicy<S> {
             scoring,
             max_failures,
             failures: std::collections::HashMap::new(),
-            tried: HashSet::new(),
         }
     }
 
     pub fn failure_count(&self, model_id: &str) -> u32 {
         self.failures.get(model_id).copied().unwrap_or(0)
-    }
-
-    /// Nombre de modeles deja essayes dans ce run.
-    pub fn tried_count(&self) -> usize {
-        self.tried.len()
     }
 }
 
@@ -47,25 +41,26 @@ impl<S: omega_ports::ScoringPolicy> FallbackPolicy for TierFallbackPolicy<S> {
     }
 
     fn next_fallback(
-        &mut self,
+        &self,
         task: TaskType,
         required_capabilities: Capabilities,
         required_context: u32,
         candidates: &[ModelRecord],
         failed: &RouterDecision,
+        tried: &mut HashSet<String>,
     ) -> Option<RouterDecision> {
         let failed_model = candidates.iter().find(|m| m.id == failed.model_id)?;
         let current_tier_rank = failed_model.tier.rank();
 
         // Memorise le modele qui vient d'echouer comme "deja essaye".
-        self.tried.insert(failed.model_id.clone());
+        tried.insert(failed.model_id.clone());
 
         // Candidats eligibles, disponibles et non deja essayes.
         let eligible: Vec<&ModelRecord> = candidates
             .iter()
             .filter(|m| {
                 m.id != failed.model_id
-                    && !self.tried.contains(&m.id)
+                    && !tried.contains(&m.id)
                     && m.context_length >= required_context
                     && m.capabilities.covers(required_capabilities)
                     && self.is_available(&m.id)
@@ -89,7 +84,7 @@ impl<S: omega_ports::ScoringPolicy> FallbackPolicy for TierFallbackPolicy<S> {
             candidates,
             &same_tier,
         ) {
-            self.tried.insert(next.model_id.clone());
+            tried.insert(next.model_id.clone());
             return Some(next);
         }
 
@@ -106,7 +101,7 @@ impl<S: omega_ports::ScoringPolicy> FallbackPolicy for TierFallbackPolicy<S> {
             candidates,
             &higher_tier,
         ) {
-            self.tried.insert(next.model_id.clone());
+            tried.insert(next.model_id.clone());
             return Some(next);
         }
 
@@ -123,7 +118,7 @@ impl<S: omega_ports::ScoringPolicy> FallbackPolicy for TierFallbackPolicy<S> {
             candidates,
             &self_hosted,
         )?;
-        self.tried.insert(next.model_id.clone());
+        tried.insert(next.model_id.clone());
         Some(next)
     }
 }
@@ -193,7 +188,7 @@ mod tests {
 
     #[test]
     fn fallback_picks_different_model() {
-        let mut fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
+        let fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
         let m1 = model(
             "m1",
             ModelTier::Standard,
@@ -228,6 +223,7 @@ mod tests {
                 0,
                 &[m1, m2],
                 &failed,
+                &mut HashSet::new(),
             )
             .unwrap();
         assert_eq!(next.model_id, "m2");
@@ -235,7 +231,7 @@ mod tests {
 
     #[test]
     fn fallback_escalates_tier_when_same_tier_exhausted() {
-        let mut fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
+        let fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
         let standard = model(
             "standard",
             ModelTier::Standard,
@@ -270,6 +266,7 @@ mod tests {
                 0,
                 &[standard, elite],
                 &failed,
+                &mut HashSet::new(),
             )
             .unwrap();
         assert_eq!(next.model_id, "elite");
@@ -277,7 +274,7 @@ mod tests {
 
     #[test]
     fn fallback_avoids_ping_pong() {
-        let mut fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
+        let fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
         let m1 = model(
             "m1",
             ModelTier::Standard,
@@ -306,6 +303,7 @@ mod tests {
         );
 
         // m1 echoue -> fallback m2.
+        let mut tried = HashSet::new();
         let step0 = fallback
             .next_fallback(
                 TaskType::Chat,
@@ -313,6 +311,7 @@ mod tests {
                 0,
                 &[m1.clone(), m2.clone()],
                 &RouterDecision::new("m1", 0.5, "initial"),
+                &mut tried,
             )
             .unwrap();
         assert_eq!(step0.model_id, "m2");
@@ -324,13 +323,14 @@ mod tests {
             0,
             &[m1, m2],
             &RouterDecision::new("m2", 0.5, "fallback"),
+            &mut tried,
         );
         assert!(step1.is_none(), "should exhaust candidates, not ping-pong");
     }
 
     #[test]
     fn fallback_escalates_to_self_hosted_after_exhaustion() {
-        let mut fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
+        let fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
         let standard = model(
             "standard",
             ModelTier::Standard,
@@ -366,6 +366,7 @@ mod tests {
                 0,
                 &[standard, self_hosted],
                 &failed,
+                &mut HashSet::new(),
             )
             .unwrap();
         assert_eq!(next.model_id, "self-hosted");
@@ -373,7 +374,7 @@ mod tests {
 
     #[test]
     fn fallback_returns_none_when_failed_model_unknown() {
-        let mut fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
+        let fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
         let m1 = model(
             "m1",
             ModelTier::Standard,
@@ -390,7 +391,69 @@ mod tests {
             0,
             &[m1],
             &RouterDecision::new("unknown", 0.5, "initial"),
+            &mut HashSet::new(),
         );
         assert!(next.is_none());
+    }
+
+    #[test]
+    fn tried_state_is_per_run_not_shared_between_requests() {
+        // REVUE-W4 N2 : l'ensemble "deja essaye" ne doit pas fuir d'une requete
+        // a l'autre. Meme instance, deux runs avec un `tried` frais => meme
+        // fallback complet depuis zero.
+        let fallback = TierFallbackPolicy::new(CompositeScoringPolicy::new(), 3);
+        let m1 = model(
+            "m1",
+            ModelTier::Standard,
+            1.0,
+            3.0,
+            100.0,
+            128_000,
+            Capabilities::default(),
+            QualityAxes {
+                chat: 70,
+                ..Default::default()
+            },
+        );
+        let m2 = model(
+            "m2",
+            ModelTier::Standard,
+            1.0,
+            3.0,
+            100.0,
+            128_000,
+            Capabilities::default(),
+            QualityAxes {
+                chat: 80,
+                ..Default::default()
+            },
+        );
+        let candidates = [m1, m2];
+
+        // Run 1 : m1 echoue -> m2.
+        let run1 = fallback
+            .next_fallback(
+                TaskType::Chat,
+                Capabilities::default(),
+                0,
+                &candidates,
+                &RouterDecision::new("m1", 0.5, "initial"),
+                &mut HashSet::new(),
+            )
+            .unwrap();
+        assert_eq!(run1.model_id, "m2");
+
+        // Run 2 : `tried` reinitialise => le fallback repart de zero (m2 a nouveau).
+        let run2 = fallback
+            .next_fallback(
+                TaskType::Chat,
+                Capabilities::default(),
+                0,
+                &candidates,
+                &RouterDecision::new("m1", 0.5, "initial"),
+                &mut HashSet::new(),
+            )
+            .unwrap();
+        assert_eq!(run2.model_id, "m2");
     }
 }

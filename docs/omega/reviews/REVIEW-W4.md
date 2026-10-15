@@ -314,6 +314,14 @@ impératifs/conjugaisons courantes ne sont pas reconnus : `"Écris un poème"` �
 (par `fichier`, pas par `creer`). Impact faible (texte court), mais la taxonomie
 reste incomplète.
 
+### Résolution des constats N1/N2/N3 (2026-10-15)
+
+| Constat | Correction | Statut |
+|---|---|---|
+| **N1** — Sur-correction media | Détection média = (verbe de génération média **ET** nom média) **OU** verbe de dessin intrinsèquement visuel (`dessine`, `esquisse`, `croquis`). La présence de `plan/architecture/stratégie` comme *sujet* n'écrase plus la génération média. `re_media` remplacé par `re_draw` + `re_media_verb` + `re_media_noun`. Repro : `"dessine le plan de la maison"` → `MediaGeneration`, `"génère une image d'une stratégie marketing"` → `MediaGeneration`, `"génère une image d'un plan d'architecture"` → `MediaGeneration` ; `"analyse cette image"` → `Vision` (non cassé), `"genere un plan d'architecture"` → `LongReasoning` (non cassé). Tests : `media_generation_with_reasoning_subject`. | ✅ corrigé |
+| **N2** — Fuite de `tried` | L'état circuit-breaker (`failures`) persiste sur l'instance, mais `tried` est désormais **par run** : passé en paramètre `next_fallback(&self, ..., tried: &mut HashSet<String>)`, l'appelant le réinitialise par requête. Champ `tried` et méthode `tried_count()` retirés. Repro : même instance, 2 runs → chacun obtient le fallback complet depuis zéro. Test : `tried_state_is_per_run_not_shared_between_requests`. | ✅ corrigé |
+| **N3** — Lemmatisation | Forme impérative `ecris` ajoutée à la famille « écriture » (`re_implementation`) : `"Écris un poème"` → `Implementation`. Les verbes génériques `faire`/`fais` restent **dette documentée** (polysémiques, risque de casser l'existant). Test : `ecris_poem_is_implementation`. | ✅ partiel (dette `faire`/`fais`) |
+
 ### Points confirmés (positifs)
 
 - **Déterminisme** conservé (même entrée → même sortie ; `DefaultHasher` clé fixe).
@@ -329,9 +337,9 @@ reste incomplète.
 
 ### Métriques (post-correctifs)
 
-- Tests router : **45** (vs 28) — nouveaux tests accentués, priorité, ping-pong,
-  cache versionné, object-safety des ports, bornes de scoring, Pareto/dominance,
-  déterminisme permuté.
+- Tests router : **48** (vs 45) — ajout de `media_generation_with_reasoning_subject`
+  (N1), `tried_state_is_per_run_not_shared_between_requests` (N2),
+  `ecris_poem_is_implementation` (N3) ; suppression de `tried_count` (état per-run).
 - Violations SOLID : 0 (DIP rétabli, M3 résolu).
 - Violations sécurité/accessibilité/i18n : 0.
 - Clippy `-D warnings` : 0 warning · `check_dep_graph.py` : valide.

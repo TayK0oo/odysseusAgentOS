@@ -98,15 +98,20 @@ pub trait FallbackPolicy: Send + Sync {
     fn is_available(&self, model_id: &str) -> bool;
 
     /// Choisit le prochain modele de fallback pour une decision echouee.
-    /// L'implementation doit memoriser les modeles deja essayes pour eviter
-    /// le ping-pong (cf. REVIEW-W4 M1).
+    ///
+    /// L'etat circuit-breaker (`record_failure`/`is_available`) persiste sur
+    /// l'instance, mais l'ensemble `tried` des modeles deja essayes est
+    /// **par run** : l'appelant le fournit et le reinitialise a chaque requete.
+    /// L'implementation y ajoute les modeles qu'elle propose pour eviter le
+    /// ping-pong (cf. REVIEW-W4 M1/N2).
     fn next_fallback(
-        &mut self,
+        &self,
         task: TaskType,
         required_capabilities: omega_types::Capabilities,
         required_context: u32,
         candidates: &[ModelRecord],
         failed: &RouterDecision,
+        tried: &mut std::collections::HashSet<String>,
     ) -> Option<RouterDecision>;
 }
 
@@ -255,12 +260,13 @@ mod tests {
                 true
             }
             fn next_fallback(
-                &mut self,
+                &self,
                 _task: TaskType,
                 _required_capabilities: omega_types::Capabilities,
                 _required_context: u32,
                 _candidates: &[ModelRecord],
                 _failed: &RouterDecision,
+                _tried: &mut std::collections::HashSet<String>,
             ) -> Option<RouterDecision> {
                 None
             }

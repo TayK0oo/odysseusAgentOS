@@ -60,22 +60,29 @@ Mapping conforme à `MODEL-ROUTING-BENCHMARKS.md` §3 :
 | T13 | `MediaGeneration` | génère image/vidéo/audio/TTS |
 | T14 | `Chat` | défaut, conversation généraliste |
 
-### Priorité du classifieur (REVUE-W4 B2)
+### Priorité du classifieur (REVUE-W4 B2 + N1)
 
 L'ordre de matching est explicite et testé :
 
 1. **Modalités d'entrée** (pièces jointes image/audio/video) — priorité absolue.
 2. **Vision implicite** : analyse/description/explication d'une image/photo.
-3. **Intentions fortes** : raisonnement long (plan, stratégie, architecture,
+3. **Génération média** : (verbe de génération média **ET** nom média) **OU**
+   verbe de dessin intrinsèquement visuel (`dessine`, `esquisse`, `croquis`).
+4. **Intentions fortes** : raisonnement long (plan, stratégie, architecture,
    concevoir, analyser, raisonnement, design) > mathématiques > recherche.
-4. **Transformation / édition** : implementation > refactor > édition ciblee >
+5. **Transformation / édition** : implementation > refactor > édition ciblee >
    résumé/reformatage.
-5. **Capacités spécialisées** : embedding, agentique, génération media.
-6. **Longueur** : > 40 mots → raisonnement long ; < 8 mots → trivial.
-7. **Défaut** : conversation généraliste (`Chat`).
+6. **Capacités spécialisées** : embedding, agentique.
+7. **Longueur** : > 40 mots → raisonnement long ; < 8 mots → trivial.
+8. **Défaut** : conversation généraliste (`Chat`).
 
 Cette priorité garantit les cas adversariaux de la revue :
-- `"genere un plan d'architecture"` → `LongReasoning` (intention forte avant media).
+- `"genere un plan d'architecture"` → `LongReasoning` (verbe `genere` sans nom média :
+  pas de génération média ; intention forte avant media).
+- `"genere une image d'un plan d'architecture"` → `MediaGeneration` (verbe `genere`
+  **et** nom `image` : la génération média prime sur le sujet « plan/architecture »).
+- `"dessine le plan de la maison"` → `MediaGeneration` (verbe de dessin : visuel
+  intrinsèque).
 - `"analyse cette image"` → `Vision` (vision implicite avant reasoning).
 - `"fix the build"` → `TargetedEdit` (édition avant implémentation).
 
@@ -131,11 +138,15 @@ Profils de poids retenus :
 3. **Argmax du score composite** sur la frontière.
 4. **Tie-break** : coût croissant, puis vitesse décroissante, puis préférence self-hosted.
 
-### Fallback (REVUE-W4 M1)
+### Fallback (REVUE-W4 M1 + N2)
 
 - Compteur d'échecs par modèle ; après `max_failures` le modèle est marqué indisponible.
-- La politique mémorise l'ensemble des modèles déjà essayés dans un run et ne
-  les re-sélectionne jamais, évitant le ping-pong.
+- L'état circuit-breaker (`failures`) persiste sur l'instance ; l'ensemble des
+  modèles déjà essayés (`tried`) est **par run** : porté par l'appelant via
+  `next_fallback(..., tried: &mut HashSet<String>)` et réinitialisé à chaque
+  requête. Il ne fuit donc pas d'une requête à l'autre.
+- La politique ne re-sélectionne jamais un modèle déjà essayé dans le run,
+  évitant le ping-pong.
 - Échelle : même tier → tier supérieur → `SelfHosted`.
 - Pour cet incrément : pas de backoff exponentiel ni half-open (ADR à venir).
 
@@ -159,7 +170,11 @@ Profils de poids retenus :
 7. **Déterminisme** : même entrée → même décision.
 8. **Français accentué** : `Résume`, `équation`, `génère`… sont reconnus.
 9. **Collisions de priorité** : `genere un plan d'architecture` → `LongReasoning`,
-   `analyse cette image` → `Vision`, `fix the build` → `TargetedEdit`.
+   `analyse cette image` → `Vision`, `fix the build` → `TargetedEdit`,
+   `genere une image d'une stratégie marketing` → `MediaGeneration`,
+   `dessine le plan de la maison` → `MediaGeneration`.
+10. **Fallback par run** : deux requêtes consécutives sur la même instance
+    obtiennent chacune le fallback complet depuis zéro (pas de fuite de `tried`).
 
 ## Non-objectifs de l'incrément
 
@@ -168,6 +183,9 @@ Profils de poids retenus :
 - Pas de half-open circuit breaker ni de remise à zéro du compteur d'échecs
   (ADR + incrément 3) — documenté explicitement (REVUE-W4 M4).
 - Pas de binding TS / protocole (W7).
+- Lemmatisation partielle : la forme impérative `ecris` (→ `Implementation`) est
+  couverte (REVUE-W4 N3), mais les verbes génériques `faire`/`fais` restent
+  **dette** : trop polysémiques pour un classement sûr sans casser l'existant.
 
 ## Provenance
 

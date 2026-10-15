@@ -3,17 +3,20 @@
 //! Aucun LLM n'est implique. Le trait `TaskClassifier` vit dans `omega-ports` ;
 //! `HeuristicTaskClassifier` en est l'implementation par defaut.
 //!
-//! # Regle de priorite explicite (REVUE-W4 B2)
+//! # Regle de priorite explicite (REVUE-W4 B2 + N1)
 //!
 //! 1. Modalites d'entree (pieces jointes image/audio/video).
 //! 2. Vision implicite : analyse/description/explication d'une image/photo.
-//! 3. Intentions fortes : raisonnement long (plan, strategie, architecture,
+//! 3. Generation media : (verbe de generation media ET nom media) OU verbe de
+//!    dessin intrinsequement visuel. La presence de plan/architecture/strategie
+//!    comme *sujet* de l'image n'ecrase pas la generation media (REVUE-W4 N1).
+//! 4. Intentions fortes : raisonnement long (plan, strategie, architecture,
 //!    concevoir, analyser) > mathematiques > recherche.
-//! 4. Transformation/edition : implementation > refactor > edition ciblee >
+//! 5. Transformation/edition : implementation > refactor > edition ciblee >
 //!    resume/reformatage.
-//! 5. Capacites specialisees : embedding, agentique, generation media.
-//! 6. Longueur : > 40 mots => raisonnement long ; < 8 mots => trivial.
-//! 7. Defaut : conversation generaliste.
+//! 6. Capacites specialisees : embedding, agentique.
+//! 7. Longueur : > 40 mots => raisonnement long ; < 8 mots => trivial.
+//! 8. Defaut : conversation generaliste.
 
 use std::sync::OnceLock;
 
@@ -55,7 +58,7 @@ static_regex!(
 static_regex!(
     re_implementation,
     RE_IMPLEMENTATION,
-    r"(?i)\b(creer|implementer|implemente|scaffold|from scratch|ecrire|developper)\b"
+    r"(?i)\b(creer|implementer|implemente|scaffold|from scratch|ecrire|ecris|developper)\b"
 );
 static_regex!(
     re_refactor,
@@ -83,9 +86,19 @@ static_regex!(
     r"(?i)\b(shell|bash|commande|script|ci/cd|terminal|docker|deploy|ops|kubectl)\b"
 );
 static_regex!(
-    re_media,
-    RE_MEDIA,
-    r"(?i)\b(generer?|generate|image|photo|dessine|tts|video|musique|audio)\b"
+    re_draw,
+    RE_DRAW,
+    r"(?i)\b(dessine[rsz]?|esquisse[rz]?|croquis)\b"
+);
+static_regex!(
+    re_media_verb,
+    RE_MEDIA_VERB,
+    r"(?i)\b(generer?|generes?|generate|generates|creer|produire|fabrique)\b"
+);
+static_regex!(
+    re_media_noun,
+    RE_MEDIA_NOUN,
+    r"(?i)\b(image|photo|video|musique|audio|tts|dessin|illustration|diagramme|icone|logo|affiche|poster|gif|paysage|portrait|schema)\b"
 );
 
 /// Classifieur heuristique deterministe.
@@ -139,7 +152,15 @@ impl TaskClassifier for HeuristicTaskClassifier {
             return TaskType::Vision;
         }
 
-        // 3. Intentions fortes.
+        // 3. Generation media : verbe de generation media ET nom media,
+        //    OU verbe de dessin (le dessin produit intrinsequement une image).
+        if re_draw().is_match(&text)
+            || (re_media_verb().is_match(&text) && re_media_noun().is_match(&text))
+        {
+            return TaskType::MediaGeneration;
+        }
+
+        // 4. Intentions fortes.
         if re_reasoning().is_match(&text) {
             return TaskType::LongReasoning;
         }
@@ -150,7 +171,7 @@ impl TaskClassifier for HeuristicTaskClassifier {
             return TaskType::Research;
         }
 
-        // 4. Transformation / edition.
+        // 5. Transformation / edition.
         if re_implementation().is_match(&text) {
             return TaskType::Implementation;
         }
@@ -164,18 +185,15 @@ impl TaskClassifier for HeuristicTaskClassifier {
             return TaskType::Summarization;
         }
 
-        // 5. Capacites specialisees.
+        // 6. Capacites specialisees.
         if re_embedding().is_match(&text) {
             return TaskType::Embedding;
         }
         if re_agentic().is_match(&text) {
             return TaskType::AgenticTerminal;
         }
-        if re_media().is_match(&text) {
-            return TaskType::MediaGeneration;
-        }
 
-        // 6. Longueur.
+        // 7. Longueur.
         if req.word_count() > 40 {
             return TaskType::LongReasoning;
         }
@@ -342,6 +360,30 @@ mod tests {
             TaskType::MediaGeneration
         );
         assert_eq!(classify("dessine un paysage"), TaskType::MediaGeneration);
+    }
+
+    #[test]
+    fn media_generation_with_reasoning_subject() {
+        // REVUE-W4 N1 : plan/architecture/strategie comme *sujet* de l'image
+        // ne doit pas ecraser la generation media.
+        assert_eq!(
+            classify("génère une image d'un plan d'architecture"),
+            TaskType::MediaGeneration
+        );
+        assert_eq!(
+            classify("génère une image d'une stratégie marketing"),
+            TaskType::MediaGeneration
+        );
+        assert_eq!(
+            classify("dessine le plan de la maison"),
+            TaskType::MediaGeneration
+        );
+    }
+
+    #[test]
+    fn ecris_poem_is_implementation() {
+        // REVUE-W4 N3 : forme imperative "ecris" reconnue comme "ecrire".
+        assert_eq!(classify("Écris un poème"), TaskType::Implementation);
     }
 
     #[test]
