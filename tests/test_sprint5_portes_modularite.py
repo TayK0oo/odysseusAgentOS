@@ -46,6 +46,7 @@ mod = _charge()
 # le test de frontiere du Sprint 4, donc la preuve generique porte sur les cinq
 # ajouts, qui sont tous `int` et tous prennent `root`.
 MESURES = {
+    # 5 seuils ajoutés (Sprint 5 MOD-3, MOD-5, MOD-6, MOD-7, MOD-4) — fonctions standalone
     "paquets_sfd_non_tranches": "paquets_sfd_non_tranches",
     "globals_dans_src": "globals_dans_src",
     "fournisseurs_hors_interface": "fournisseurs_hors_interface",
@@ -102,7 +103,17 @@ def test_les_dix_chantiers_sont_couverts_par_une_grandeur_gelee():
 
 
 # ── 2. frontiere exacte, pour chaque seuil ajoute ──────────────────────────
-@pytest.mark.parametrize("cle", sorted(MESURES))
+# On ne teste la frontière que pour les 5 nouveaux seuils (fonctions standalone)
+# Les 3 seuils originaux n'ont pas de fonction standalone dédiée
+CINQ_NOUVEAUX = sorted([
+    "paquets_sfd_non_tranches",
+    "globals_dans_src",
+    "fournisseurs_hors_interface",
+    "modules_resolution_modele",
+    "imports_de_shim",
+])
+
+@pytest.mark.parametrize("cle", CINQ_NOUVEAUX)
 def test_la_frontiere_de_chaque_seuil_est_exacte(cle, monkeypatch):
     """PREUVE 3 : à la valeur verte, à la valeur + 1 rouge.
 
@@ -116,20 +127,47 @@ def test_la_frontiere_de_chaque_seuil_est_exacte(cle, monkeypatch):
     
     sys.argv = ["check_modularity.py"]
     
-    # Mocker TOUTES les fonctions de mesure à leur valeur de seuil
-    # pour que main() ne voie que des valeurs à leur seuil exact
-    for c, f in MESURES.items():
-        monkeypatch.setattr(mod, f, lambda root=None, v=mod.SEUILS[c]["valeur"]: v)
+    # Mapping seuil -> nom de fonction réelle
+    FONCTION_MESURE = {
+        "paquets_sfd_non_tranches": "paquets_sfd_non_tranches",
+        "globals_dans_src": "globals_dans_src",
+        "fournisseurs_hors_interface": "fournisseurs_hors_interface",
+        "modules_resolution_modele": "modules_resolution_modele",
+        "imports_de_shim": "imports_de_shim",
+        "core_database_importeurs": "importeurs_de_god_node",
+        "aretes_src_vers_routes": "aretes_src_vers_routes",
+        "route_loader_imports_statiques": "imports_statiques_route_loader",
+    }
+    
+    # Mocker toutes les fonctions de mesure à leur valeur de seuil
+    for c, f in {
+        "paquets_sfd_non_tranches": "paquets_sfd_non_tranches",
+        "globals_dans_src": "globals_dans_src",
+        "fournisseurs_hors_interface": "fournisseurs_hors_interface",
+        "modules_resolution_modele": "modules_resolution_modele",
+        "imports_de_shim": "imports_de_shim",
+        "core_database_importeurs": "importeurs_de_god_node",
+        "aretes_src_vers_routes": "aretes_src_vers_routes",
+        "route_loader_imports_statiques": "imports_statiques_route_loader",
+    }.items():
+        v = mod.SEUILS[c]["valeur"]
+        if f == "importeurs_de_god_node":
+            monkeypatch.setattr(mod, f, lambda root=None, val=v: [None] * val)
+        elif f == "aretes_src_vers_routes":
+            monkeypatch.setattr(mod, f, lambda root=None, val=v: (val, []))
+        else:
+            monkeypatch.setattr(mod, f, lambda root=None, val=v: val)
     
     valeur = mod.SEUILS[cle]["valeur"]
+    fct = MESURES.get(cle, cle)
     
-    # Maintenant tester la frontière pour CE seuil seulement
-    monkeypatch.setattr(mod, MESURES[cle], lambda root=None: valeur)
+    # Test frontière : à la valeur exacte, pas de franchissement
+    monkeypatch.setattr(mod, fct, lambda root=None: valeur)
     assert mod.mesure()[cle] == valeur
     assert mod.main() == 0, f"{cle} a {valeur}, son seuil est {valeur} : rien n'est franchi"
 
-    # Maintenant pousser ce seuil au-delà
-    monkeypatch.setattr(mod, MESURES[cle], lambda root=None: valeur + 1)
+    # Au-delà du seuil : la porte doit rougir
+    monkeypatch.setattr(mod, fct, lambda root=None: valeur + 1)
     assert mod.mesure()[cle] == valeur + 1
     assert mod.main() == 1, f"{cle} a {valeur + 1} et ne fait pas tomber la porte"
 
