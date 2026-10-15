@@ -112,6 +112,9 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] **W3 — revue + correctifs + re-vérification** : `REVIEW-W3.md` (NO-GO 5/10 → GO avec réserves 7/10, B1/B2/B3/M1/M2/M3 corrigés, N1-N4 notés)
 - [x] **W6 — incrément 1** : crate `omega-context` (estimateur, budget, `DefaultContextEngine`, tool search BM25 + rarest-token gate, skills 3 niveaux, compaction) + `ContextContributor` — 29 tests
 - [x] **W6 — revue + correctifs + re-vérification** : `REVIEW-W6.md` (GO 8/10, B1/M1/M3 corrigés, M2/M4 partiels documentés, **N1 TOCTOU corrigé** : `assemble_sync` retourne `(résultat, rapport)` + test de concurrence) — 40 tests context, **149 workspace**
+- [x] **W8 inc1 — traçabilité** : `omega-otel` (provenance, `MetricName`, `StdoutSink`/`FileSink`, `TraceReplayer`, `RunSummary`, `OtelContributor`)
+- [x] **W9 inc1 — sandbox** : `ExecDecision`/`ExecPolicy`, `RuleBasedExecPolicy` (deny-by-default), `LocalSandboxBackend` (timeout + kill), `SandboxContributor` — **169 tests workspace**, clippy/fmt/graphe verts (13 crates)
+- [ ] **W8/W9 — revue indépendante** (en attente quota Go)
 - [ ] **W6 — incrément 2** : stemming, prompt caching, compaction structurée branchée sur `ContextEngine::compact`, découverte `AGENTS.md`
 - [ ] **W8 — traçabilité** : `omega-otel` (télémétrie nommée, provenance, replay) (EN COURS)
 - [ ] W2 — incrément 3 : 1ᵉʳ adaptateur réel (provider `/v1/models`)
