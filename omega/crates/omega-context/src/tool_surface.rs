@@ -18,13 +18,98 @@ impl ToolDoc {
     }
 }
 
-/// Tokenise en minuscules puis decoupe sur les caracteres non alphanumeriques.
+/// Tokenise en minuscules puis decoupe sur les caracteres non alphanumeriques,
+/// puis applique le stemming deterministe des deux cotes (docs ET requetes).
 fn tokenize(text: &str) -> Vec<String> {
     text.to_lowercase()
         .split(|c: char| !c.is_alphanumeric())
         .filter(|s| !s.is_empty())
-        .map(str::to_string)
+        .map(stem)
         .collect()
+}
+
+/// Stemming deterministe maison (pas de Porter complet : YAGNI).
+///
+/// Regles EXPLICITES, appliquees dans cet ordre (la premiere qui correspond
+/// gagne, une seule transformation par appel — pas de cascade) :
+/// - R0 : minuscule (defensif ; `tokenize` a deja lowercase en amont, mais
+///   `stem` reste correct en usage unitaire : `Write` -> `writ`).
+/// - R1 (exceptions exactes, avant les generiques) : `writing -> writ`,
+///   `write -> writ` (conflation : sans R1, `writing - ing = writ != write`
+///   et la requete "writing" ne rencontrerait jamais le doc "write").
+/// - R2 (EN verbal) : `ing -> ""` si `len >= 5` et reste `>= 2`
+///   (ex. `playing -> play` ; `sing` bloque par la garde -> `sing`).
+/// - R3 (EN verbal) : `ed -> ""`, memes gardes (`len >= 4`, reste `>= 2` ;
+///   ex. `watched -> watch` ; `red` bloque -> `red` ; `read` intact car `ad`).
+/// - R4 (EN verbal) : `es -> ""` UNIQUEMENT apres sibilante
+///   (`sses|zes|xes|ches|shes|oes` ; ex. `boxes -> box`, `passes -> pass`).
+///   `files`/`writes` (en `les`/`tes`) ne correspondent PAS et tombent en R5.
+/// - R5 (EN/FR pluriel) : `s -> ""`, memes gardes que R3
+///   (ex. `files -> file`, `writes -> write`).
+/// - R6 (FR) : `eaux -> eau` (ex. `bureaux -> bureau`, `eaux -> eau`).
+/// - R7 (FR pluriel) : `x -> ""`, memes gardes
+///   (ex. `chevaux -> chevau` ; limite documentee : pas de `al -> ail`,
+///   pas de Porter complet).
+/// - Sinon : token inchange.
+///
+/// Limites assumees (deterministes, testees) : `need -> ne`, `travaux ->
+/// travau`. Pas de cascade (une regle max par token).
+fn stem(token: &str) -> String {
+    let t = token.to_lowercase();
+    // R1 — exceptions exactes (conflation write/writing).
+    if t == "writing" || t == "write" {
+        return "writ".to_string();
+    }
+    // R2 — `ing`.
+    if t.len() >= 5 && t.ends_with("ing") {
+        let s = &t[..t.len() - 3];
+        if s.len() >= 2 {
+            return s.to_string();
+        }
+    }
+    // R3 — `ed`.
+    if t.len() >= 4 && t.ends_with("ed") {
+        let s = &t[..t.len() - 2];
+        if s.len() >= 2 {
+            return s.to_string();
+        }
+    }
+    // R4 — `es` apres sibilante uniquement (avant R5 : `boxes -> box`,
+    // pas `boxe`).
+    const ES_SIBILANTS: [&str; 6] = ["sses", "xes", "zes", "ches", "shes", "oes"];
+    if t.len() >= 5 {
+        for suf in ES_SIBILANTS {
+            if t.ends_with(suf) {
+                let s = &t[..t.len() - 2];
+                if s.len() >= 2 {
+                    return s.to_string();
+                }
+                break;
+            }
+        }
+    }
+    // R5 — pluriel en `s` (`files -> file`, `writes -> write`).
+    if t.len() >= 4 && t.ends_with('s') {
+        let s = &t[..t.len() - 1];
+        if s.len() >= 2 {
+            return s.to_string();
+        }
+    }
+    // R6 — `eaux -> eau` (avant R7 : le suffixe finit en `x`).
+    if t.len() >= 4 && t.ends_with("eaux") {
+        let s = &t[..t.len() - 1];
+        if s.len() >= 2 {
+            return s.to_string();
+        }
+    }
+    // R7 — pluriel en `x`.
+    if t.len() >= 4 && t.ends_with('x') {
+        let s = &t[..t.len() - 1];
+        if s.len() >= 2 {
+            return s.to_string();
+        }
+    }
+    t
 }
 
 struct IndexedDoc {
@@ -259,11 +344,12 @@ mod tests {
 
     #[test]
     fn open_file_for_writing_gate_is_deterministic_phase1() {
-        // Non-regression REVIEW-W6 M2. "open" (df=1, unique a openssl) est le token le
-        // plus rare ; "writing" n'apparait pas dans le corpus (pas de stemming en
-        // Phase 1), donc file_write/file_read ne partagent aucun token rare avec la
-        // requete et sont exclus par la gate stricte. Le resultat est deterministe ;
-        // le rappel de file_write viendra du stemming (W6 inc2, cf. W6-contexte §7).
+        // Non-regression REVIEW-W6 M2, toujours valide en inc2 : en gate stricte,
+        // "open" (df=1, unique a openssl) reste le token le plus rare — l'egalite
+        // `open`/`writ` (df=1 chacun depuis le stemming) se departage au lexical
+        // croissant (`open` < `writ`) — donc seul `openssl` est admis.
+        // Le rappel de file_write par stemming passe par le seuil
+        // (cf. `stemming_rappelle_file_write_via_seuil`).
         let idx = ToolSurfaceIndex::from_docs(vec![
             tool("file_write", "write data to a file"),
             tool("file_read", "read data from a file"),
@@ -275,6 +361,102 @@ mod tests {
             .map(|d| d.name.as_str())
             .collect();
         assert_eq!(names, vec!["openssl"]);
+    }
+
+    #[test]
+    fn stem_table_cas_explicites() {
+        // Table des regles R0-R7 : (entree, stem attendu).
+        let cases = [
+            // R0 lowercase defensif + R1 exceptions (conflation write/writing).
+            ("writing", "writ"),
+            ("Writing", "writ"),
+            ("WRITE", "writ"),
+            ("write", "writ"),
+            // R2 ing.
+            ("playing", "play"),
+            ("sing", "sing"), // garde : reste < 2 -> inchange.
+            // R3 ed.
+            ("watched", "watch"),
+            ("red", "red"),   // garde : len < 4 -> inchange.
+            ("read", "read"), // `ad`, pas `ed` -> inchange.
+            // R4 es apres sibilante.
+            ("boxes", "box"),
+            ("passes", "pass"),
+            // R5 pluriel en s (files/writes ne prenaient PAS R4).
+            ("files", "file"),
+            ("writes", "write"),
+            // R6 eaux -> eau.
+            ("bureaux", "bureau"),
+            ("eaux", "eau"),
+            // R7 pluriel en x (limite documentee : pas de al -> ail).
+            ("chevaux", "chevau"),
+            // Inchanges (gardes + absence de suffixe).
+            ("open", "open"),
+            ("file", "file"),
+            ("ssl", "ssl"),
+            ("for", "for"),
+            ("common", "common"),
+            ("rare", "rare"),
+            ("a", "a"),
+            ("x", "x"),
+            ("y", "y"),
+        ];
+        for (input, expected) in cases {
+            assert_eq!(stem(input), expected, "stem({input:?})");
+        }
+    }
+
+    #[test]
+    fn stem_conflates_write_forms() {
+        // Sans cette conflation, "writing" (requete) ne rencontrerait jamais
+        // "write" (docs) et le rappel echouerait meme avec seuil.
+        assert_eq!(stem("writing"), "writ");
+        assert_eq!(stem("write"), "writ");
+        assert_eq!(stem("writing"), stem("write"));
+    }
+
+    #[test]
+    fn stem_est_deterministe() {
+        // Meme entree -> meme sortie, des deux cotes (docs ET requetes).
+        let a = tokenize("Open FILE for Writing!");
+        let b = tokenize("Open FILE for Writing!");
+        assert_eq!(a, b);
+        assert_eq!(a, vec!["open", "file", "for", "writ"]);
+        assert_eq!(stem("Writing"), stem("writing"));
+    }
+
+    #[test]
+    fn stemming_rappelle_file_write_via_seuil() {
+        // Dette W6 inc2 resolue (cf. W6-contexte §8). Meme fixture que le test
+        // de gate stricte. Sans stemming, file_write ne scorerait que
+        // idf(file) ~= 1.29 < 2.0 (writing != write) et serait exclu ; avec
+        // stemming, file_write matche `file` + `writ` ~= 2.98 >= 2.0 -> admis
+        // par le seuil et classe premier. `openssl` reste admis par la gate
+        // (`open`) malgre son score ~= 1.69 < 2.0. `file_read` (~= 1.29, sans
+        // gate) reste exclu.
+        let mk = || {
+            ToolSurfaceIndex::from_docs(vec![
+                tool("file_write", "write data to a file"),
+                tool("file_read", "read data from a file"),
+                tool("openssl", "open ssl certificate"),
+            ])
+            .with_min_score(2.0)
+        };
+        let idx = mk();
+        let names: Vec<&str> = idx
+            .search("open file for writing", 10)
+            .iter()
+            .map(|d| d.name.as_str())
+            .collect();
+        assert_eq!(names, vec!["file_write", "openssl"]);
+        assert!(names.contains(&"file_write"));
+        // Determinisme : deux appels -> meme resultat.
+        let again: Vec<&str> = idx
+            .search("open file for writing", 10)
+            .iter()
+            .map(|d| d.name.as_str())
+            .collect();
+        assert_eq!(names, again);
     }
 
     #[test]
