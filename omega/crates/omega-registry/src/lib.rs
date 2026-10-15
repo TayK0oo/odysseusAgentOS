@@ -73,6 +73,26 @@ impl Registry {
         Self::default()
     }
 
+    /// Proprietaire actif (non quarantaine) d'une capacite en regime `Slot`, en
+    /// inspectant **les deux** voies d'enregistrement (`entries` et `trait_entries`).
+    ///
+    /// Garantit l'exclusivite de slot quel que soit le mode d'enregistrement : un
+    /// `register_typed` puis un `register_dyn` sur la meme capacite Slot (ou l'inverse)
+    /// refuse le second avec `SlotConflict`.
+    fn active_owner(&self, cap: Capability) -> Option<String> {
+        if let Some(list) = self.entries.get(&cap) {
+            if let Some(e) = list.iter().find(|e| !e.quarantined) {
+                return Some(e.manifest.id.clone());
+            }
+        }
+        if let Some(list) = self.trait_entries.get(&cap) {
+            if let Some(e) = list.iter().find(|e| !e.quarantined) {
+                return Some(e.manifest.id.clone());
+            }
+        }
+        None
+    }
+
     fn register_inner(
         &mut self,
         manifest: Manifest,
@@ -80,18 +100,22 @@ impl Registry {
         expected_type_id: TypeId,
     ) -> OmegaResult<()> {
         let cap = manifest.capability;
-        let list = self.entries.entry(cap).or_default();
 
-        if list.iter().any(|e| e.manifest.id == manifest.id) {
+        if self
+            .entries
+            .get(&cap)
+            .is_some_and(|l| l.iter().any(|e| e.manifest.id == manifest.id))
+        {
             return Err(OmegaError::DuplicateId(cap, manifest.id));
         }
 
         if cap.regime() == Regime::Slot {
-            if let Some(owner) = list.iter().find(|e| !e.quarantined) {
-                return Err(OmegaError::SlotConflict(cap, owner.manifest.id.clone()));
+            if let Some(owner) = self.active_owner(cap) {
+                return Err(OmegaError::SlotConflict(cap, owner));
             }
         }
 
+        let list = self.entries.entry(cap).or_default();
         list.push(Entry {
             manifest,
             instance,
@@ -149,17 +173,21 @@ impl Registry {
         instance: Arc<T>,
     ) -> OmegaResult<()> {
         let cap = manifest.capability;
-        let list = self.trait_entries.entry(cap).or_default();
 
-        if list.iter().any(|e| e.manifest.id == manifest.id) {
+        if self
+            .trait_entries
+            .get(&cap)
+            .is_some_and(|l| l.iter().any(|e| e.manifest.id == manifest.id))
+        {
             return Err(OmegaError::DuplicateId(cap, manifest.id));
         }
         if cap.regime() == Regime::Slot {
-            if let Some(owner) = list.iter().find(|e| !e.quarantined) {
-                return Err(OmegaError::SlotConflict(cap, owner.manifest.id.clone()));
+            if let Some(owner) = self.active_owner(cap) {
+                return Err(OmegaError::SlotConflict(cap, owner));
             }
         }
 
+        let list = self.trait_entries.entry(cap).or_default();
         list.push(TraitEntry {
             manifest,
             object: Box::new(instance),
@@ -184,12 +212,19 @@ impl Registry {
             .get(&cap)
             .ok_or(OmegaError::NoImplementation(cap))?;
 
-        for e in list.iter().filter(|e| !e.quarantined) {
+        let active: Vec<&TraitEntry> = list.iter().filter(|e| !e.quarantined).collect();
+        if active.is_empty() {
+            return Err(OmegaError::NoImplementation(cap));
+        }
+
+        for e in active {
             if let Some(a) = e.object.downcast_ref::<Arc<T>>() {
                 return Ok(a.clone());
             }
         }
-        Err(OmegaError::NoImplementation(cap))
+        // Des entrees actives existent mais aucune ne correspond au type demande :
+        // c'est une erreur de cablage (TypeMismatch), pas une capacite absente.
+        Err(OmegaError::TypeMismatch(cap))
     }
 
     /// Retire toutes les entrees `(cap, id)` — qu'elles soient actives ou quarantinees.
@@ -265,24 +300,20 @@ impl Registry {
 
     /// Ids des implementations actives (non quarantainees) d'une capacite, par ordre de priorite.
     pub fn active_ids(&self, cap: Capability) -> Vec<String> {
-        let mut ids: Vec<String> = self
-            .entries
-            .get(&cap)
-            .map(|l| {
-                l.iter()
-                    .filter(|e| !e.quarantined)
-                    .map(|e| e.manifest.id.clone())
-                    .collect()
-            })
-            .unwrap_or_default();
-        if let Some(list) = self.trait_entries.get(&cap) {
-            ids.extend(
-                list.iter()
-                    .filter(|e| !e.quarantined)
-                    .map(|e| e.manifest.id.clone()),
-            );
+        let mut ids: Vec<(i32, String)> = Vec::new();
+        if let Some(list) = self.entries.get(&cap) {
+            for e in list.iter().filter(|e| !e.quarantined) {
+                ids.push((e.manifest.priority, e.manifest.id.clone()));
+            }
         }
-        ids
+        if let Some(list) = self.trait_entries.get(&cap) {
+            for e in list.iter().filter(|e| !e.quarantined) {
+                ids.push((e.manifest.priority, e.manifest.id.clone()));
+            }
+        }
+        // Fusion des deux voies puis tri **global** : priorite decroissante, id croissant.
+        ids.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+        ids.into_iter().map(|(_, id)| id).collect()
     }
 
     /// Resout la premiere implementation active du type demande.
@@ -599,6 +630,73 @@ mod tests {
             err,
             OmegaError::DuplicateId(Capability::LlmProvider, _)
         ));
+    }
+
+    #[test]
+    fn slot_exclusivity_spans_typed_and_dyn() {
+        // (B2) register_typed puis register_dyn sur une capacite Slot -> SlotConflict.
+        let mut r = Registry::new();
+        r.register_typed(
+            Manifest::new("typed-store", Capability::EventStore, "1"),
+            Arc::new(FakeProvider("typed-store")),
+        )
+        .unwrap();
+        let err = r
+            .register_dyn(
+                Manifest::new("dyn-store", Capability::EventStore, "1"),
+                Arc::new(FakeProvider("dyn-store")),
+            )
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            OmegaError::SlotConflict(Capability::EventStore, _)
+        ));
+        // Le proprietaire d'origine reste le seul actif.
+        assert_eq!(
+            r.active_ids(Capability::EventStore),
+            vec!["typed-store".to_string()]
+        );
+    }
+
+    #[test]
+    fn resolve_dyn_reports_type_mismatch_not_no_implementation() {
+        // (M1) trait object actif present mais de mauvais type -> TypeMismatch.
+        let mut r = Registry::new();
+        r.register_dyn(
+            Manifest::new("bad", Capability::ContextEngine, "1"),
+            Arc::new(FakeProvider("bad")),
+        )
+        .unwrap();
+
+        let err = match r.resolve_dyn::<dyn ContextEngine>(Capability::ContextEngine) {
+            Ok(_) => panic!("resolve_dyn devait echouer : type incompatible"),
+            Err(e) => e,
+        };
+        assert!(matches!(
+            err,
+            OmegaError::TypeMismatch(Capability::ContextEngine)
+        ));
+    }
+
+    #[test]
+    fn active_ids_merges_and_sorts_across_ways() {
+        // (M2) la priorite est globale entre voies typed et dyn.
+        let mut r = Registry::new();
+        r.register_typed(
+            Manifest::new("typed-low", Capability::LlmProvider, "1").with_priority(0),
+            Arc::new(FakeProvider("typed-low")),
+        )
+        .unwrap();
+        r.register_dyn(
+            Manifest::new("dyn-high", Capability::LlmProvider, "1").with_priority(100),
+            Arc::new(FakeProvider("dyn-high")),
+        )
+        .unwrap();
+
+        assert_eq!(
+            r.active_ids(Capability::LlmProvider),
+            vec!["dyn-high".to_string(), "typed-low".to_string()]
+        );
     }
 
     #[test]
