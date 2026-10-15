@@ -115,6 +115,7 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] **W8 inc1 — traçabilité** : `omega-otel` (provenance, `MetricName`, `StdoutSink`/`FileSink`, `TraceReplayer`, `RunSummary`, `OtelContributor`)
 - [x] **W9 inc1 — sandbox** : `ExecDecision`/`ExecPolicy`, `RuleBasedExecPolicy` (deny-by-default), `LocalSandboxBackend` (timeout + kill), `SandboxContributor` — **169 tests workspace**, clippy/fmt/graphe verts (13 crates)
 - [ ] **W8/W9 — revue indépendante** (en attente quota Go)
+- [x] **W8/W9 — correctifs B1/B2/B3 + majeurs** : garde anti-composition (`has_unquoted_metachars`, Allow+metachars→Prompt), kill de groupe (`process_group` + `kill -9 -pgid`, test petits-fils), replay fidèle (`ignored_events`, `outcome_conflict`, premier marqueur gagne), `FileSink.emit_errors`, `MetricName` (`-`, 3-8 segments) — **176 tests**, clippy/fmt/graphe verts
 - [ ] **W6 — incrément 2** : stemming, prompt caching, compaction structurée branchée sur `ContextEngine::compact`, découverte `AGENTS.md`
 - [ ] **W8 — traçabilité** : `omega-otel` (télémétrie nommée, provenance, replay) (EN COURS)
 - [ ] W2 — incrément 3 : 1ᵉʳ adaptateur réel (provider `/v1/models`)
