@@ -26,8 +26,10 @@ un run interrompu **reprend sans ré-exécuter** les opérations déjà complét
 
 - **`EventStore`** (slot exclusif) : `append(event) -> seq` monotone par run ; `read_run(run_id)`.
 - **Idempotence de reprise** : une opération est « complétée » **si et seulement si** le journal
-  contient un événement `step.completed` portant son `operation_id` (= `Operation::name()`).
-  → `App::run(resume=true)` **saute** les opérations déjà complétées.
+  contient un événement `step.completed` portant son `operation_id` (= `Operation::operation_id()`).
+  `App` rend cet identifiant **unique par position** (`name#index`) : deux opérations homonymes
+  sont distinctes. → `App::run(resume=true)` **saute** les opérations déjà complétées, sans jamais
+  confondre deux opérations de même `name()`.
 - **`FileEventStore`** : un fichier JSONL par run ; **tolère une dernière ligne tronquée**
   (crash en cours d'écriture) — ignorée à la lecture, réparée à l'append suivant.
 - **Résolution par le registre** : `App` résout `Provider` / `ContextEngine` / `EventStore`
@@ -58,6 +60,12 @@ un run interrompu **reprend sans ré-exécuter** les opérations déjà complét
   (`omega-ports`) puisse l'utiliser sans dépendre du noyau.
 - Le registre a **deux voies** : `register_typed`/`resolve::<T>` (concret, `TypeId` vérifié)
   et `register_dyn`/`resolve_dyn::<T>` (trait objects). `App` utilise la seconde.
+- **Règle de câblage des ports** (`[observed]`, corr. REVIEW-W3 M3) : les capacités résolues
+  **en trait object** par `App` (`llm-provider`, `context-engine`, `event-store`) **doivent**
+  être enregistrées via `register_dyn`. La voie `register_typed`/`PluginFactory` sert aux
+  **capacités concrètes** (types `Sized` résolus par `resolve::<T>`). Un port installé via
+  `PluginFactory` (typed) n'est **pas** résolvable par `App` (`resolve_dyn` ne voit que
+  `trait_entries`) — c'est un contrat assumé, pas un bug : en cas de doute, `register_dyn`.
 - `StoreBackedBus` fait le pont bus → store : chaque événement `durable` est append
   **synchronement** avant l'étape suivante (ordre + durabilité garantis).
 
