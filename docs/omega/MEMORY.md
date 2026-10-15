@@ -108,6 +108,13 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 ### Clones de travail (nettoyables)
 `/tmp/opencode/re/` : codex (131M), goose (646M), hermes-agent (344M), openclaw (939M), opencode (230M).
 
+### Incident d'orchestration (2026-10-15) `[observed]`
+Deux exécuteurs subagents ont écrit **dans le même arbre** de travail (`omega/`) en parallèle :
+l'exécuteur « N1/N2 » a supprimé les artefacts en cours de l'exécuteur « W4 » (`omega-router/`)
+pour débloquer ses commandes. Le fichier `W4-routing.md` est susceptible d'avoir été affecté.
+**Règle ajoutée** (RULES-OMEGA §5.2) : un seul agent en écriture par arbre ; parallélisme =
+un worktree git par agent.
+
 ## 9. Pointeurs utiles
 
 | Sujet | Fichier |

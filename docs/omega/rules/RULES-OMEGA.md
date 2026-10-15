@@ -73,7 +73,11 @@ Trois mots d'ordre : **interchangeable · traçable · économique.**
 ## 5. Exécution & parallélisme
 
 1. **Parallélisation par défaut.** Toute suite d'actions indépendantes part en un seul bloc.
-2. **L'orchestrateur ne fait pas.** Il décompose, délègue, vérifie. (Zéro exécution directe
+2. **Un seul agent écrit par arbre de travail.** Pour paralléliser des écritures, chaque agent
+   travaille dans un **worktree git dédié** (branche propre), fusionné ensuite. Jamais deux
+   agents en écriture dans le même arbre. *(Incident 2026-10-15 : deux exécuteurs dans le même
+   arbre ; l'un a vidé les fichiers de l'autre.)*
+3. **L'orchestrateur ne fait pas.** Il décompose, délègue, vérifie. (Zéro exécution directe
    pour les gros chantiers ; l'orchestrateur peut produire de la doc/plan.)
 3. **Vérification indépendante.** Deux agents distincts (Reviewer + TestEngineer) pour
    tout livrable critique. On ne s'auto-certifie pas.
