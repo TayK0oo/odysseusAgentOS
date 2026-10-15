@@ -3,7 +3,7 @@
 > **Réviseur :** SFD Reviewer (indépendant, adversarial) · **Date :** 2026-10-15
 > **Périmètre :** `omega/crates/omega-context/src/*` + `omega-types/src/error.rs`
 > (`BudgetExceeded`) + `omega/scripts/check_dep_graph.py` (règle `adapters` élargie).
-> **Exécutions effectuées :** `cargo test --workspace` (vert, 29 tests `omega-context`),
+> **Exécutions effectuées :** `cargo test --workspace` (vert, 39 tests `omega-context`),
 > `cargo clippy --workspace --all-targets -- -D warnings` (vert, exit 0),
 > `cargo fmt --all --check` (vert), `python3 scripts/check_dep_graph.py` (valide, 11 crates, 0 cycle / 0 arête interdite).
 > **Reproductions :** crate isolé sous `/tmp/opencode/repro` (hors dépôt, aucun fichier du dépôt modifié).
@@ -12,21 +12,15 @@
 
 ## §1 Verdict
 
-**GO avec réserves — score 7/10.**
+**GO — score 8/10** *(réévalué après correctifs commit `6e14638` ; initialement GO avec réserves 7/10)*.
 
-Les cinq leviers sont implémentés, **déterministes** (zéro LLM), et les garanties
-centrales tiennent : estimateur stable, budget typé sans sur-consommation, système
-préservé hors cas dégénéré, gate rarest-token (cas Hermes) couverte, disclosure 3
-niveaux sans fuite du corps, cache par signature invalidé, déterminisme de
-compaction. Câblage `register_dyn`/`resolve_dyn` conforme au contrat W3, graphe de
-dépendances sain (0 cycle, 0 arête interdite), clippy/fmt propres.
-
-Trois réserves substantielles : (1) un **pied-dans-la-porte public** — `TokenEstimator`
-dérive `Default` qui produit une instance dont `estimate()` **panique** sur tout
-texte non vide ; (2) `assemble` viole **silencieusement** le budget quand le seul
-préfixe système dépasse déjà le plafond (contrat §4.3 non tenu, aucun signal) ;
-(3) la gate rarest-token, à égalité d'IDF, peut choisir un token de bruit et **rater
-l'outil évident** (reproduit). Corrections localisées, sans réécriture (cf. §2).
+Le bloquant (B1) et deux réserves (M1, M3) sont **corrigés et vérifiés**. M2 est
+**partiellement** corrigé (déterminisme/indépendance de position acquis ; le rappel de
+l'outil évident reste une dette de stemming, désormais documentée et verrouillée par un
+test). M4 est **documenté en dette** mais la table du blueprint §2.1 reste périmée.
+Un **nouveau** point (N1, course TOCTOU sur le signal `over_budget` en usage concurrent)
+est signalé, non bloquant. Re-exécutions toutes vertes (39 tests `omega-context`,
+clippy/fmt/dep-graph). Détail et preuves en §Résolution.
 
 ---
 
@@ -174,3 +168,64 @@ table §2.1 et/ou poser un ADR dédié à l'arête `adapters → plugin-api`.
 Réserves résiduelles (dette, cf. `W6-contexte.md` §8) : rappel lexical sans stemming
 (M2, inc2), table blueprint §2.1 (M4), config silencieuse (`contributor.rs`), i18n du
 marqueur de compaction.
+
+---
+
+## §Résolution — re-vérification (commit `6e14638`)
+
+> Re-vérification indépendante après correctifs. Commandes re-exécutées : `cargo test
+> --workspace` (vert, **39 tests** `omega-context`), `cargo clippy --workspace
+> --all-targets -- -D warnings` (vert), `cargo fmt --all --check` (vert),
+> `python3 scripts/check_dep_graph.py` (valide). Assauts dans `/tmp/opencode/repro`
+> (hors dépôt).
+
+| # | Statut | Constat | Preuve |
+|---|---|---|---|
+| B1 — `Default`/div-zéro | ✅ **CORRIGÉ** | `impl Default` manuel → `Self::new()` (`token.rs:20-25`), dérive retirée. | `default().estimate("texte non vide") = 4` ; `default() == new()` ; test `default_ne_panique_pas`. |
+| M1 — `assemble` hors budget silencieux | ✅ **CORRIGÉ** | `AssembleReport.over_budget` (`engine.rs:22`) + `assemble` renvoie `BudgetExceeded` (`engine.rs:142-150`). | `assemble([System 10 tok], max 5)` → `Err(BudgetExceeded{max:5, used:10, additional:0})` ; `assemble_sync` → `over_budget=true`. |
+| M2 — gate rarest-token | 🟡 **PARTIEL** | Départage désormais `df` minimal puis **lexical croissant**, indépendant de la position (`tool_surface.rs:110-123`) — plus robuste que l'ancien « premier token ». **Mais** le rappel de l'outil évident reste non résolu (dette stemming, inc2). | `search("open file for writing")` **et** `search("writing for file open")` → `["openssl"]` (identiques, déterministe) ; `file_write` toujours exclu (test `open_file_for_writing_gate_is_deterministic_phase1` fige `["openssl"]`). |
+| M3 — marqueur mensonger | ✅ **CORRIGÉ** | Garde-fou `if system_tokens + marker_reserve > budget { return system.to_vec() }` (`compaction.rs:41-43`). | `truncate_compact([System 10 tok, User 2 tok], 5)` → `[System]` seul (len=1, aucun marqueur). |
+| M4 — dérive blueprint | 🟡 **PARTIEL** | Documenté en dette (W6 §6.1/§8, MEMORY D15), mais `OMEGA-BLUEPRINT.md` §2.1 l.83 liste toujours `config` et omet `plugin-api` → la table **autorité** reste périmée. | `Cargo.toml` réel = `types, ports, registry, plugin-api` ; blueprint l.83 = `types, ports, config, registry`. |
+
+### Nouveaux constats (post-correctif)
+
+**N1 — Course TOCTOU sur le signal `over_budget` (usage concurrent).** `omega-context/src/engine.rs:139-150`.
+`assemble` décide de renvoyer `Err` en relisant `self.last_report()` **après** avoir appelé
+`assemble_sync` ; or `last_report` est un `Mutex<AssembleReport>` **partagé** (`engine.rs:45`).
+Deux appels concurrents (le type est `Send + Sync`, enregistré en `Arc` dans le registre) peuvent
+s'entrelacer : A (système > budget) écrit son rapport, B (sous budget) l'écrase, A lit le rapport
+de B → **faux négatif** (retourne `Ok` avec un résultat hors budget, réintroduit la violation
+silencieuse) ; ou l'inverse (faux positif). Le chemin séquentiel actuel (`AgentLoop`) masque le
+problème. Correctif trivial : faire rendre le rapport par `assemble_sync` (retour `(Vec<Message>,
+AssembleReport)` ou recalculer `over_budget` depuis le résultat local), au lieu de relire l'état
+partagé. Sévérité : DEVRAIT (non bloquant, mais à corriger avant tout usage concurrent du moteur).
+
+**N2 — Sémantique de l'erreur `BudgetExceeded` (mineur).** `engine.rs:145-149` pose `used =
+report.estimated_tokens` (le **total** système) et `additional = 0`, d'où un message
+« 10 + 0 > 5 » légèrement trompeur sur le sens de `used`. Cosmétique ; n'affecte pas le
+comportement.
+
+**N3 — Contrat du port non documenté (mineur).** `omega-ports/src/lib.rs:29-30` (`ContextEngine::
+assemble`) ne mentionne pas `BudgetExceeded` comme issue possible ; l'extension de contrat
+introduite par M1 n'est pas reflétée dans la doc du port (et se propage en erreur dure via
+`AssembleOperation` `omega-app/src/lib.rs:382`).
+
+### Assauts de contournement (tous sains)
+
+- `TokenEstimator::default().estimate("texte non vide")` → `4`, **pas de panic** (et `chars_per_token`
+  est privé : impossible de reconstruire un ratio nul depuis l'extérieur).
+- Budget : `enforce(9)` puis `enforce(2)` sur `max=10` → `BudgetExceeded`, `used` reste `9`
+  (pas de sur-consommation) ; `check`/`enforce` n'exposent aucun mutateur de `used`.
+- Gate : requête vide → `[]` ; `top_k=0` → `[]` ; permutation des tokens → même sortie (déterministe).
+- Compaction : `budget=0` sans système → `[]` (pas de panic) ; `budget=0` avec système → `[system]`
+  (primauté respectée).
+- `assemble` système == budget + un message user → `Ok([system])` (user tronqué, `over_budget=false`).
+
+### Tests manquants restants
+
+- N1 : test de non-régression **concurrent** (deux `assemble` simultanés sur le même moteur, dont
+  un hors budget) — aujourd'hui absent, la course est réelle.
+- M4 : mise à jour effective de `OMEGA-BLUEPRINT.md` §2.1 (2 lignes), plutôt que la seule dette
+  documentaire.
+- `assemble_sync` : cas « un seul message non-système > budget » (comportement = troncature, pas
+  d'erreur) non couvert explicitement.
