@@ -116,6 +116,10 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] **W9 inc1 — sandbox** : `ExecDecision`/`ExecPolicy`, `RuleBasedExecPolicy` (deny-by-default), `LocalSandboxBackend` (timeout + kill), `SandboxContributor` — **169 tests workspace**, clippy/fmt/graphe verts (13 crates)
 - [ ] **W8/W9 — revue indépendante** (en attente quota Go)
 - [x] **W8/W9 — correctifs B1/B2/B3 + majeurs** : garde anti-composition (`has_unquoted_metachars`, Allow+metachars→Prompt), kill de groupe (`process_group` + `kill -9 -pgid`, test petits-fils), replay fidèle (`ignored_events`, `outcome_conflict`, premier marqueur gagne), `FileSink.emit_errors`, `MetricName` (`-`, 3-8 segments) — **176 tests**, clippy/fmt/graphe verts
+- [x] **W8/W9 — re-vérification** : `REVIEW-W8-W9.md` (**GO conditionnel 8/10**, B1/B2/B3 corrigés vérifiés par 20+ cas, N1 `setsid` documenté, **N3 corrigé** : `app→router` autorisé dans le garde-fou, fmt/clippy exemple) — **180 tests**
+- [x] **W2 inc3 — provider réel** : `OllamaProvider` + exemple `live_ollama` (**LIVE-OK** : T2→ollama/qwen2.5-coder:7b, 2/2 étapes, journal 6 événements, coût nul)
+- [x] **W7 inc1 — scaffold UI** : `omega/ui` (React/TS + Vite, 5 panneaux, `protocol.ts` miroir, `tsc` vert)
+- [x] Branche publiée sur `origin/feat/agentos-omega`
 - [ ] **W6 — incrément 2** : stemming, prompt caching, compaction structurée branchée sur `ContextEngine::compact`, découverte `AGENTS.md`
 - [ ] **W8 — traçabilité** : `omega-otel` (télémétrie nommée, provenance, replay) (EN COURS)
 - [ ] W2 — incrément 3 : 1ᵉʳ adaptateur réel (provider `/v1/models`)
