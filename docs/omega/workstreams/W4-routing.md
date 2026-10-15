@@ -1,7 +1,7 @@
 # W4 — Routing (routeur de modèles)
 
-> **Workstream :** W4 · **Increment :** 1 (logique pure, zéro réseau)  
-> **Date :** 2026-10-15 · **Branche :** `feat/agentos-omega`
+> **Workstream :** W4 · **Increment :** 1 (logique pure, zéro réseau) + 3 (circuit breaker à états, M4)
+> **Date :** 2026-10-15 · **Branche :** `feat/agentos-omega` (+ `feat/omega-w4-cb` pour l'inc3)
 
 ## Objectif de l'incrément
 
@@ -138,17 +138,60 @@ Profils de poids retenus :
 3. **Argmax du score composite** sur la frontière.
 4. **Tie-break** : coût croissant, puis vitesse décroissante, puis préférence self-hosted.
 
-### Fallback (REVUE-W4 M1 + N2)
+### Fallback (REVUE-W4 M1 + N2, inc3 M4)
 
-- Compteur d'échecs par modèle ; après `max_failures` le modèle est marqué indisponible.
-- L'état circuit-breaker (`failures`) persiste sur l'instance ; l'ensemble des
-  modèles déjà essayés (`tried`) est **par run** : porté par l'appelant via
-  `next_fallback(..., tried: &mut HashSet<String>)` et réinitialisé à chaque
-  requête. Il ne fuit donc pas d'une requête à l'autre.
-- La politique ne re-sélectionne jamais un modèle déjà essayé dans le run,
-  évitant le ping-pong.
-- Échelle : même tier → tier supérieur → `SelfHosted`.
-- Pour cet incrément : pas de backoff exponentiel ni half-open (ADR à venir).
+- Compteur d'echecs consecutifs par modele ; apres `max_failures` le modele
+  est marque indisponible.
+- L'etat circuit-breaker persiste sur l'instance ; l'ensemble des modeles
+  deja essayes (`tried`) est **par run** : porte par l'appelant via
+  `next_fallback(..., tried: &mut HashSet<String>)` et reinitialise a chaque
+  requete. Il ne fuit donc pas d'une requete a l'autre.
+- La politique ne re-selectionne jamais un modele deja essaye dans le run,
+  evitant le ping-pong.
+- Echelle : meme tier → tier superieur → `SelfHosted`.
+- Increment 3 : le compteur simple devient une **machine a etats**
+  (voir § « Circuit breaker a etats ») ; le reset sur succes (M4) est
+  implemente via `record_success` (methode inherente : le trait
+  `FallbackPolicy` d'`omega-ports` est hors perimetre de l'increment).
+
+### Circuit breaker a etats (increment 3, REVUE-W4 M4)
+
+Machine a etats par modele, implementee dans
+`omega/crates/omega-router/src/fallback.rs` (seul fichier de code touche) :
+
+```text
+Closed --(N echecs consecutifs)--> Open --(delai ecoule)--> HalfOpen
+  ^                                  |                        |
+  |----(record_success, reset)--------+----(sonde echouee)----+
+  +----(sonde reussie : record_success)-----------------------+
+```
+
+- **Parametres** : `max_failures` = N (configurable via `new`, defaut
+  `DEFAULT_MAX_FAILURES = 3`, sature a >= 1) ; `open_timeout` (configurable
+  via `with_open_timeout`, defaut `DEFAULT_OPEN_TIMEOUT = 60 s`).
+- **Horloge injectable** : `with_clock(Fn() -> Instant)` ; l'horloge systeme
+  (`Instant::now`) est le defaut, une horloge manuelle (`Arc<Mutex<Instant>>`
+  avancee a la main) rend les tests deterministes sans `sleep`. Le passage
+  `Open` → `HalfOpen` est derive paresseusement a la lecture : `is_available`
+  (`&self`, impose par le trait) ne mute jamais.
+- **`record_success`** (methode inherente, le trait `FallbackPolicy` etant
+  hors perimetre) : remet le compteur a zero et repasse `Closed` — y compris
+  apres une sonde `HalfOpen` reussie. Sans effet sur un modele inconnu.
+- **`is_available`** : faux si `Open`, vrai si `Closed` ou `HalfOpen`.
+- **`record_failure`** : en `Closed`, incremente et ouvre au seuil N ; en
+  `Open` avant la fin du delai, ne prolonge pas l'ouverture (garde
+  `opened_at` d'origine) ; en `HalfOpen` (delai ecoule), re-ouvre et le delai
+  repart de zero.
+- **`next_fallback`** : les candidats `Open` sont exclus ; les `Closed`
+  sont preferes (escalade meme tier → tier superieur → `SelfHosted`).
+  Une sonde `HalfOpen` n'est proposee que si aucun `Closed` n'est eligible,
+  a raison d'**une seule sonde par run** : la proposition insere le marqueur
+  interne `__omega_half_open_probe__` dans `tried`, et toute sonde
+  supplementaire avec le meme `tried` retourne `None`. Un `tried` frais
+  (contrat par run) re-autorise la sonde.
+- **Etat observable** : `state(model_id) -> CircuitState`
+  (`Closed`/`Open`/`HalfOpen`, inconnu = `Closed`) ; `failure_count`,
+  `max_failures()`, `open_timeout()` exposes pour tests et telemetrie future.
 
 ### Cache (REVUE-W4 M2)
 
@@ -174,14 +217,25 @@ Profils de poids retenus :
    `genere une image d'une stratégie marketing` → `MediaGeneration`,
    `dessine le plan de la maison` → `MediaGeneration`.
 10. **Fallback par run** : deux requêtes consécutives sur la même instance
-    obtiennent chacune le fallback complet depuis zéro (pas de fuite de `tried`).
+     obtiennent chacune le fallback complet depuis zéro (pas de fuite de `tried`).
+11. **Circuit breaker inc3** : `Closed` → `Open` apres N echecs (N configurable,
+    defaut 3) → `HalfOpen` apres le delai (defaut 60 s) → `Closed` si la sonde
+    reussit, `Open` (delai reparti de zero) si elle echoue.
+12. **Reset sur succes (M4)** : `record_success` remet le compteur a zero ;
+    apres reset, il faut a nouveau N echecs consecutifs pour ouvrir.
+13. **Sonde unique par run** : `next_fallback` exclut les modeles `Open`,
+    prefere les `Closed` (meme a score inferieur) et n'autorise qu'une seule
+    sonde `HalfOpen` par `tried` ; un `tried` frais re-autorise la sonde.
+14. **Determinisme** : horloge injectee, aucun `sleep` dans les tests.
 
 ## Non-objectifs de l'incrément
 
 - Pas de synchronisation catalogue (W4 incrément 2).
 - Pas de feedback bandit (W4 incrément 3).
-- Pas de half-open circuit breaker ni de remise à zéro du compteur d'échecs
-  (ADR + incrément 3) — documenté explicitement (REVUE-W4 M4).
+- ~~Pas de half-open circuit breaker ni de remise à zéro du compteur d'échecs
+  (ADR + incrément 3)~~ → **fait en increment 3** (machine a etats +
+  `record_success`, REVUE-W4 M4 clos ; sans ADR dedie, le § « Circuit breaker
+  a etats » ci-dessus tient lieu de spec).
 - Pas de binding TS / protocole (W7).
 - Lemmatisation partielle : la forme impérative `ecris` (→ `Implementation`) est
   couverte (REVUE-W4 N3), mais les verbes génériques `faire`/`fais` restent
