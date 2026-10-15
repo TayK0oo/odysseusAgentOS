@@ -232,3 +232,26 @@ l'assemblage (M4).
 - Violations i18n : N/A (pas de strings visibles utilisateur)
 - Faux négatifs du garde-fou de graphe : **4/4 reproduits** (§3)
 - Code mort : 1 variante (`OmegaError::TypeMismatch`) + 1 trait non utilisé (`PluginFactory`)
+
+---
+
+## §6 — Résolution (2026-10-15)
+
+Tous les constats BLOQUANTS et MAJEURS ont été corrigés dans `omega/**` ; les MINEURS
+bon marché (`unregister`/`replace`, typo, `Cancelled`) ont également été traités.
+Le garde-fou `--self-test` et le test Rust `dependency_graph_guard_self_test_passes`
+garantissent que les faux négatifs ne régresseront pas.
+
+| Constats | Corrections clés |
+|---|---|
+| B1/B2 | `check_dep_graph.py` parse `dev-dependencies`, `build-dependencies`, `target.*.*` ; résout `package =`, `workspace = true`, `path =` ; indexe par `[package] name` ; `--self-test` avec 4 cas adversariaux |
+| M1 | `quarantine(cap, id)` scopée par capacité |
+| M2/M3 | `register_typed::<T>()` mémorise `TypeId::of::<T>()` ; `resolve` renvoie `TypeMismatch` si le type ne correspond |
+| M4 | `PluginFactory` générique + `install(factory, ctx)` → `instantiate` → `register_typed` ; `FactoryContributor` pour `compose` |
+| m1 | `unregister(cap, id)` et `replace`/`replace_typed` |
+| m2/m3 | `tokio::select!` biased dans `AgentLoop::run` ; `OmegaError::Cancelled` |
+| m4 | simplification documentée dans `W2-plugin-ports.md` §6 (JSON-only Phase 1) |
+| n1/n2/n3 | `Path.glob` supprimé, lecture de `[package] name`, externalisation des crates non-membres |
+| n5 | typo « asynchche » corrigée |
+
+Commandes de validation : `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --all --check`, `python3 omega/scripts/check_dep_graph.py --self-test`.

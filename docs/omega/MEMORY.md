@@ -72,6 +72,7 @@
 | D6 | **UI : nouvelle app React/TS à côté** (pas de refonte incrémentale) | 2026-10-15 | ✅ `[stated]` | ADR-0002 (à écrire) |
 | D7 | **Premier chantier de code : W5 reverse-engineering** | 2026-10-15 | ✅ `[stated]` | — |
 | D8 | Isolation du travail Omega via git worktree (concurrence) | 2026-10-15 | ✅ `[observed]` | — |
+| D9 | Correction `REVIEW-W2` : garde-fou durci + quarantaine scopée + type↔capacité + factory câblée + annulation intra-étape | 2026-10-15 | ✅ `[observed]` | ADR-0003 |
 
 ## 7. Credentials & accès
 
@@ -98,7 +99,7 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] **W5 — consolidation** : `FEATURE-MATRIX.md` (96 features) · `OMEGA-BLUEPRINT.md` (18 crates) · `features.json`
 - [x] **W2 — incrément 1** : workspace `omega/` + crates `types/ports/config/registry/plugin-api`, 13 tests verts, clippy propre
 - [x] **W2 — incrément 2** : crates `omega-core` (boucle d'agent) + `omega-protocol` (wire types), `omega/scripts/check_dep_graph.py` (graphe + garde-fou), 25 tests verts, clippy/fmt propre
-- [ ] W2 — revue indépendante (en cours)
+- [x] **W2 — revue indépendante** : `REVIEW-W2.md` (B1/B2/M1-M4/m1-m5/n1-n5) corrigée — 33 tests verts, `--self-test` OK
 - [ ] W2 — incrément 3 : `omega-app` (assemblage) + 1ᵉʳ adaptateur réel (provider `/v1/models`)
 - [x] Décomposition W0-W10 (`docs/omega/02-WORKSTREAMS.md`)
 - [x] Credentials déposés et validés (`.env`, non versionné)
