@@ -8,24 +8,20 @@
 
 ## §1 Verdict
 
-**NO-GO — réserves bloquantes.** Score **5/10**.
+**MIS À JOUR (re-vérification indépendante, 2026-10-15) — GO avec réserves. Score 7/10.**
 
-> **Mise à jour 2026-10-15 (exécuteur SFD) :** les 3 BLOQUANTS (B1/B2/B3) et les 3 MAJEURS
-> (M1/M2/M3) ont été **corrigés** (marqués ✅ CORRIGÉ dans §2) et couverts par des tests de
-> non-régression (reproductions §3 transformées en tests). Les commandes `cargo test --workspace`
-> (109 tests), `cargo clippy -D warnings`, `cargo fmt --check` et `check_dep_graph.py`
-> (+ `--self-test`) passent. L'incrément 1 est **mergeable**. Les MINEURS (m1–m4) restent hors
-> périmètre de cette passe (voir §2).
+Les 3 BLOQUANTS (B1, B2, B3) et 3 MAJEURS (M1, M2, M3) sont **réellement corrigés** — vérifiés par
+de nouveaux assauts exécutés (voir §Résolution) : reprise homonyme, exclusivité de slot cross-voies,
+concurrence du `FileEventStore`, diagnostic `TypeMismatch`, tri global d'`active_ids`, et contrat de
+câblage des ports.
 
-Le socle est sain (architecture propre, tests verts, clippy/fmt/garde-fou clean), mais **une
-garantie centrale du workstream est fausse** : « chaque opération s'exécute exactement une
-fois » n'est vérifiée que si les noms d'opérations sont **uniques**, ce que rien n'impose ni
-ne valide. Deux opérations de même nom provoquent un **saut silencieux** (perte de travail)
-en reprise. S'y ajoutent deux brèches de contrat dans le registre (exclusivité de slot
-contournable entre voies typed/dyn) et dans le journal fichier (append non synchronisé).
+Il reste **un résidu MAJEUR (N1)** de la même classe de bug (saut silencieux), plus étroit : l'idempotence
+est désormais **positionnelle** (`name#index`), donc un **changement de contenu à la même position** entre
+deux reprises fait sauter silencieusement l'opération modifiée. S'y ajoutent 3 mineurs (N2 DuplicateId
+cross-voie, N3 test de non-régression trop faible, N4 hook `operation_id()` mort dans `App`). Détail en §Résolution.
 
-Les correctifs sont **petits et localisés** (cf. §2) ; une fois appliqués, l'incrément 1
-redevient mergeable sans ré-architecture.
+> Audit initial : **NO-GO, 5/10** (constats §2, repro §3). Correctifs : commits `7713080`, `0e5be01`,
+> `f7e184d`, `e910ad3`.
 
 ---
 
@@ -182,6 +178,62 @@ Cas corrects (vérifiés, non-bugs) :
   (rollback sur échec), quarantaine scopée par capacité — tous testés.
 
 ---
+
+---
+
+## §Résolution — re-vérification (indépendante)
+
+Commandes re-exécutées : `cargo test --workspace` (109 tests OK), `cargo clippy --workspace
+--all-targets -- -D warnings` (OK), `cargo fmt --all --check` (OK), `python3 scripts/check_dep_graph.py`
+(10 crates, 0 cycle, 0 arête interdite). Assauts via crate scratch externe `path=` (dépôt intact).
+
+| Constat | Statut | Preuve (reproduction exécutée) |
+|---|---|---|
+| **B1** — deux homonymes + crash entre les deux + reprise | **CORRIGÉ** | run1 `Failed exec=2` ; run2 resume `Ok exec=1 skip=1` ; `trace=["dup","dup"]` → chacune exécutée **exactement une fois** |
+| **B2** — slot cross-voies (typed→dyn **et** dyn→typed) | **CORRIGÉ** | les deux ordres → `SlotConflict(EventStore, _)` ; `Ensemble` → les deux coexistent (`active=["x","y"]`) |
+| **B3** — `FileEventStore` concurrent (8 threads × 50) | **CORRIGÉ** | 400 lus, **0 `seq` dupliqué**, `seq == 0..399` (unique + monotone) |
+| **M1** — `resolve_dyn` type présent mais mauvais / absent | **CORRIGÉ** | mauvais type → `TypeMismatch(ContextEngine)` ; absent → `NoImplementation(EventStore)` |
+| **M2** — `active_ids` tri global typed+dyn | **CORRIGÉ** | `["hi"(prio 100, dyn), "mid"(5, typed), "lo"(0, typed)]` |
+| **M3** — contrat « ports = `register_dyn` » | **CORRIGÉ (documenté)** | règle explicite dans `W3-app-durable.md` §6 |
+
+### Nouveaux constats
+
+**N1 — MAJEUR. Idempotence positionnelle → saut silencieux si le contenu change à même position.**
+`omega-app/src/lib.rs:134-143` : l'id est `format!("{}#{}", op.name(), index)` ; il ne capture **pas le
+contenu** de l'opération. Un run complète l'op à l'index *k* (`name#k` au journal) ; une reprise réutilisant
+le même `run_id` avec une opération **de même nom, à la même position, mais de contenu différent** est
+**sautée sans s'exécuter**.
+**Preuve (repro exécutée) :** run1 `[a,b]` complet ; reprise `[a'(autre contenu), b]` → `executed=0 skipped=2
+trace=[]` — `a'` jamais exécutée. Atteignable via l'API publique : `assemble_operation`/`infer_operation`
+ont des noms **fixes** (`assemble`/`infer`) ; un « retry avec tweak » (nouveau prompt/modèle, même `run_id`,
+`resume=true`) saute l'inférence modifiée.
+**Correctif :** inclure un condensat du contenu dans la clé, ou refuser la reprise quand le plan diffère, ou
+documenter explicitement l'invariante « plan identique entre deux reprises ».
+
+**N2 — MINEUR. `DuplicateId` non appliqué cross-voie sur `Ensemble`.**
+`omega-registry/src/lib.rs:104-110` (typed) et `177-183` (dyn) vérifient l'unicité d'id **dans leur propre
+liste** ; `active_owner` ne protège que les `Slot`. `register_typed(id="dup")` + `register_dyn(id="dup")` sur
+`LlmProvider` (Ensemble) → les deux OK, `active_ids=["dup","dup"]`.
+**Correctif :** vérifier l'unicité d'id sur l'union des deux voies.
+
+**N3 — MINEUR (TDD). Le test de non-régression B1 est trop faible (victoire prématurée).**
+`omega-app/src/lib.rs:857-895` (`duplicate_operation_names_each_run_once_and_resume`) exécute les deux
+homonymes **jusqu'au bout** avant la reprise : il **passe aussi sur l'ancien code buggé** (le saut ne se
+produit que si le crash survient *entre* les deux). Le vrai test de régression est le crash entre homonymes
+(couvert par la repro B1 de §Résolution, qui passe). **Correctif :** ajouter le cas « crash après le 1er
+homonyme, le 2e jamais exécuté ».
+
+**N4 — MINEUR. `Operation::operation_id()` (ajouté en `7713080`) est mort dans le chemin `App`.**
+`TaggedOperation` (`omega-app/src/lib.rs:349-367`) surcharge `name()` (→ `name#index`) mais pas
+`operation_id()` ; `App::run` calcule l'id à partir de `op.name()` **avant** l'enveloppement. Le hook
+`operation_id()` du trait n'est donc jamais consulté par `App` (deux mécanismes pour une même clé, l'un
+redondant). Cosmétique : documenter ou supprimer l'un des deux.
+
+### Verdict mis à jour
+
+**GO avec réserves — 7/10.** Les bloquants sont levés avec preuves exécutées. N1 est un résidu de la même
+classe (saut silencieux) mais exige un changement de plan entre deux reprises (précondition plus étroite).
+À traiter en incrément 2 : clé enrichie du contenu, ou garde « plan identique » avant reprise.
 
 ## Métriques
 
