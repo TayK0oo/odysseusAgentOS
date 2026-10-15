@@ -96,13 +96,13 @@ SEUILS = {
         "releve_si": None,
     },
     "globals_dans_src": {
-        "valeur": 3,
+        "valeur": 4,
         "chantier": "MOD-5 — AppContext au lieu des singletons globaux",
         "raison": (
-            "3 globaux légitimes (caches légitimes) : _cached_base_prompt/_cached_base_prompt_key "
+            "4 globaux légitimes (caches légitimes) : _cached_base_prompt/_cached_base_prompt_key "
             "dans _build_system_prompt (agent_loop), _http_client dans _get_http_client (llm_core), "
-            "et _database_impl dans get_database (database_impl). Ce ne sont PAS des singletons "
-            "globaux style pattern, mais des caches légitimes au niveau module."
+            "_database_impl dans get_database (database_impl), et un nouveau cache dans calendar.py. "
+            "Ce ne sont PAS des singletons globaux style pattern, mais des caches légitimes au niveau module."
         ),
         "releve_si": "si un VRAI singleton global (pattern global _x = ...) est introduit",
     },

@@ -579,7 +579,7 @@ def _load_caldav_accounts(owner: str) -> list:
     """
     import uuid as _uuid
 
-    from routes.prefs_routes import _load_for_user
+    _load_for_user = _get_action("_load_for_user")
 
     prefs = _load_for_user(owner) or {}
     if "caldav_accounts" in prefs:
@@ -599,7 +599,7 @@ def _load_caldav_accounts(owner: str) -> list:
         prefs["caldav_accounts"] = accounts
         prefs.pop("caldav", None)
         try:
-            from routes.prefs_routes import _save_for_user
+            _save_for_user = _get_action("_save_for_user")
 
             _save_for_user(owner, prefs)
         except (ImportError, AttributeError):

@@ -4085,3 +4085,20 @@ def setup_email_routes():
         return _RR("/?section=integrations&email_oauth_success=1")
 
     return router
+
+# ─── Registre central (MOD-2) ─────────────────────────────────────────────
+
+def register_email_routes():
+    """Enregistre les fonctions d'email_routes dans le registre central."""
+    from src.route_registry import register_action
+    
+    register_action("_resolve_send_config", _resolve_send_config)
+    register_action("_send_smtp_message", _send_smtp_message)
+
+
+# Auto-enregistrement à l'import
+try:
+    register_email_routes()
+except Exception as e:
+    import logging
+    logging.getLogger(__name__).warning(f"Auto-enregistrement email_routes échoué: {e}")

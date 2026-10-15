@@ -1569,9 +1569,7 @@ def _build_system_prompt(
             _skills_on = True
             _prefs = {}
             try:
-                from routes.prefs_routes import _load_for_user as _load_prefs
-
-                _prefs = _load_prefs(owner) or {}
+                _prefs = _get_action("_load_for_user")(owner) or {}
                 _skills_on = _prefs.get("skills_enabled", True)
             except Exception:
                 pass
@@ -2600,9 +2598,7 @@ async def stream_agent_loop(
 
             _skills_on = True
             try:
-                from routes.prefs_routes import _load_for_user as _load_prefs
-
-                _skills_on = (_load_prefs(owner) or {}).get("skills_enabled", True)
+                _skills_on = (_get_action("_load_for_user")(owner) or {}).get("skills_enabled", True)
             except Exception:
                 pass
             _sm = SkillsManager(DATA_DIR)

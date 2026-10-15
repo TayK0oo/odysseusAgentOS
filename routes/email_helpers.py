@@ -1804,3 +1804,23 @@ class SendEmailRequest(BaseModel):
 
 class ExtractStyleRequest(BaseModel):
     sample_count: int | None = 20
+
+# ─── Registre central (MOD-2) ─────────────────────────────────────────────
+
+def register_email_helpers():
+    """Enregistre les fonctions d'email_helpers dans le registre central."""
+    from src.route_registry import register_action
+    
+    register_action("SCHEDULED_DB", SCHEDULED_DB)
+    register_action("_email_cache_owner_clause", _email_cache_owner_clause)
+    register_action("_imap_connect", _imap_connect)
+    register_action("_decode_header", _decode_header)
+    register_action("_init_scheduled_db", _init_scheduled_db)
+
+
+# Auto-enregistrement à l'import
+try:
+    register_email_helpers()
+except Exception as e:
+    import logging
+    logging.getLogger(__name__).warning(f"Auto-enregistrement email_helpers échoué: {e}")

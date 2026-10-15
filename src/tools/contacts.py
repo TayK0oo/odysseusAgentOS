@@ -32,9 +32,9 @@ async def do_resolve_contact(content: str, owner: str | None = None) -> dict:
     try:
         import asyncio
 
-        from routes import contacts_routes as cc
+        from src.route_registry import get_action as _get_action
 
-        all_contacts = await asyncio.to_thread(cc._fetch_contacts)
+        all_contacts = await asyncio.to_thread(_get_action("_fetch_contacts"), True)
         q = name.lower()
         for c in all_contacts or []:
             hay_name = (c.get("name") or "").lower()
@@ -59,6 +59,7 @@ async def do_resolve_contact(content: str, owner: str | None = None) -> dict:
     async with httpx.AsyncClient(timeout=30) as client:
         # 2. Email history (sent/received)
         try:
+            from src.tool_implementations import _INTERNAL_BASE
             resp = await client.get(f"{_INTERNAL_BASE}/api/email/resolve-contact", params={"name": name})
             if resp.status_code == 200:
                 for c in resp.json().get("contacts") or []:
@@ -91,17 +92,16 @@ async def do_manage_contact(content: str, owner: str | None = None) -> dict:
     except ValueError:
         return {"error": "Invalid JSON arguments", "exit_code": 1}
     action = (args.get("action") or "").strip().lower()
-    try:
-        from routes import contacts_routes as cc
-    except Exception as e:
-        return {"error": f"Contacts module unavailable: {e}", "exit_code": 1}
+
     # The contacts helpers are sync (httpx blocking calls to CardDAV) — run
     # them in a thread so we don't block the event loop.
     import asyncio
 
     try:
+        from src.route_registry import get_action as _get_action
+
         if action == "list":
-            rows = await asyncio.to_thread(cc._fetch_contacts, True)
+            rows = await asyncio.to_thread(_get_action("_fetch_contacts"), True)
             if not rows:
                 return {"output": "No contacts.", "exit_code": 0}
             lines = [f"{len(rows)} contacts:"]
@@ -116,11 +116,11 @@ async def do_manage_contact(content: str, owner: str | None = None) -> dict:
                 return {"error": "email is required for add", "exit_code": 1}
             name = (args.get("name") or "").strip() or email.split("@")[0]
             # Dedupe by email (same as the /add route).
-            existing = await asyncio.to_thread(cc._fetch_contacts)
+            existing = await asyncio.to_thread(_get_action("_fetch_contacts"))
             for c in existing:
                 if email.lower() in [e.lower() for e in c.get("emails", [])]:
                     return {"output": f"{email} is already a contact ({c.get('name', '')}).", "exit_code": 0}
-            ok = await asyncio.to_thread(cc._create_contact, name, email)
+            ok = await asyncio.to_thread(_get_action("_create_contact"), name, email)
             return {"output": f"{'Added' if ok else 'Failed to add'} {name} <{email}>.", "exit_code": 0 if ok else 1}
 
         if action in ("update", "edit"):
@@ -130,23 +130,23 @@ async def do_manage_contact(content: str, owner: str | None = None) -> dict:
             name = (args.get("name") or "").strip()
             emails = args.get("emails")
             if emails is None and args.get("email"):
-                emails = [args["email"]]
+                emails = [args.get("email")]
             emails = [e.strip() for e in (emails or []) if e and e.strip()]
             phones = [p.strip() for p in (args.get("phones") or []) if p and p.strip()]
             if not name and not emails:
                 return {"error": "Provide a name or emails to update", "exit_code": 1}
             if not name and emails:
                 name = emails[0].split("@")[0]
-            ok = await asyncio.to_thread(cc._update_contact, uid, name, emails, phones)
+            ok = await asyncio.to_thread(_get_action("_update_contact"), uid, name, emails)
             return {"output": "Contact updated." if ok else "Update failed.", "exit_code": 0 if ok else 1}
 
         if action == "delete":
             uid = (args.get("uid") or "").strip()
             if not uid:
                 return {"error": "uid is required for delete (use action=list to find it)", "exit_code": 1}
-            ok = await asyncio.to_thread(cc._delete_contact, uid)
+            ok = await asyncio.to_thread(_get_action("_delete_contact"), uid)
             return {"output": "Contact deleted." if ok else "Delete failed.", "exit_code": 0 if ok else 1}
 
         return {"error": f"Unknown action '{action}'. Use list, add, update, or delete.", "exit_code": 1}
     except Exception as e:
-        return {"error": f"Contact operation failed: {e}", "exit_code": 1}
+        return {"error": f"Contacts module unavailable: {e}", "exit_code": 1}

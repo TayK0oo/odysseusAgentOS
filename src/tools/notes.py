@@ -125,9 +125,8 @@ async def do_manage_notes(content: str, owner: str | None = None) -> dict:
             due_iso = None
             if due_raw:
                 try:
-                    from routes.calendar_routes import parse_due_for_user as _pdt_user
-
-                    due_iso = _pdt_user(due_raw)
+                    
+                    due_iso = _get_action("parse_due_for_user")(due_raw)
                 except Exception:
                     due_iso = due_raw  # fall through; trust the model
             if due_iso and title:
@@ -199,9 +198,8 @@ async def do_manage_notes(content: str, owner: str | None = None) -> dict:
             if args.get("due_date") is not None:
                 due_raw = args["due_date"]
                 try:
-                    from routes.calendar_routes import parse_due_for_user as _pdt_user
-
-                    note.due_date = _pdt_user(due_raw)
+                    
+                    note.due_date = _get_action("parse_due_for_user")(due_raw)
                 except Exception:
                     note.due_date = due_raw  # fall through; trust the model
             new_items = args.get("checklist_items")

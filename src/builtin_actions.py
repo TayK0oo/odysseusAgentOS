@@ -22,11 +22,26 @@ from src.constants import (
 
 logger = logging.getLogger(__name__)
 
+# Registre central pour les actions (MOD-2) — remplace les imports locaux
+from src.route_registry import get_action as _get_action
+
 # Interrupteur de l'exécution DISTANTE de scripts (v9 §1.1). Nommé ici pour que
 # le code et le registre ne puissent pas diverger sur l'orthographe : une
 # divergence donnerait un interrupteur au tableau et une porte au code, chacun
 # ignorant l'autre — c'est-à-dire aucune porte du tout.
 REMOTE_SSH_ENV = "ODYSSEUS_REMOTE_SSH"
+
+
+def _get_action(name: str):
+    """Récupère une action depuis le registre central (MOD-2).
+    
+    Remplace les imports locaux de routes.* par une lookup centralisée.
+    """
+    from src.route_registry import get_action
+    action = get_action(name)
+    if action is None:
+        raise RuntimeError(f"Action '{name}' non enregistrée dans le registre central")
+    return action
 
 
 class TaskNoop(BaseException):
@@ -89,7 +104,6 @@ async def action_consolidate_memory(owner: str, **kwargs) -> tuple[str, bool]:
     try:
         import json
         import re
-
         from src.constants import DATA_DIR
         from src.llm_core import llm_call_async_with_fallback
         from src.memory import MemoryManager
@@ -587,9 +601,8 @@ def _result_has_work(result: str | None) -> bool:
 async def action_summarize_emails(owner: str, **kwargs) -> tuple[str, bool]:
     """Run one pass of email summary background processing."""
     try:
-        from routes.email_pollers import _run_auto_summarize_once
-
-        result = await _run_auto_summarize_once(do_summary=True, do_reply=False)
+        
+        result = await _get_action("_run_auto_summarize_once")(do_summary=True, do_reply=False)
         if not _result_has_work(result):
             raise TaskNoop(f"summarize: {result or 'no new emails'}")
         return result, True
@@ -601,9 +614,8 @@ async def action_summarize_emails(owner: str, **kwargs) -> tuple[str, bool]:
 async def action_draft_email_replies(owner: str, **kwargs) -> tuple[str, bool]:
     """Run one pass of AI reply drafting."""
     try:
-        from routes.email_pollers import _run_auto_summarize_once
-
-        result = await _run_auto_summarize_once(
+        
+        result = await _get_action("_run_auto_summarize_once")(
             do_summary=False,
             do_reply=True,
             days_back=7,
@@ -938,12 +950,11 @@ async def action_extract_email_events(owner: str, **kwargs) -> tuple[str, bool]:
     import asyncio as _aio
 
     try:
-        from routes.email_pollers import _run_auto_summarize_once
-
+        
         try:
             # Hard wall-clock budget: 5 min total. Per-LLM call already has its own timeout.
             result = await _aio.wait_for(
-                _run_auto_summarize_once(
+                _get_action("_run_auto_summarize_once")(
                     do_summary=False,
                     do_reply=False,
                     do_calendar=True,
@@ -994,14 +1005,12 @@ async def action_learn_sender_signatures(owner: str, **kwargs) -> tuple[str, boo
         import sqlite3 as _sql3
         from datetime import datetime as _dt
         from datetime import timedelta as _td
-
-        from routes.email_helpers import SCHEDULED_DB, _email_cache_owner_clause, _imap_connect
         from src.llm_core import llm_call_async_with_fallback
 
         # 1. Pull recent UIDs + From headers cheaply (header-only fetch).
         def _pull_headers():
             results = []
-            conn = _imap_connect(None, owner=owner)
+            conn = _get_action("_imap_connect")(None, owner=owner)
             try:
                 conn.select("INBOX", readonly=True)
                 status, data = conn.search(None, "ALL")
@@ -1054,8 +1063,8 @@ async def action_learn_sender_signatures(owner: str, **kwargs) -> tuple[str, boo
 
         # 3. Eligibility: ≥3 emails AND (no cache OR cache > 30 days old).
         try:
-            conn = _sql3.connect(SCHEDULED_DB)
-            owner_clause, owner_params = _email_cache_owner_clause(owner)
+            conn = _sql3.connect(_get_action("SCHEDULED_DB"))
+            owner_clause, owner_params = _get_action("_email_cache_owner_clause")(owner)
             cached = {
                 r[0]: r[1]
                 for r in conn.execute(
@@ -1092,7 +1101,7 @@ async def action_learn_sender_signatures(owner: str, **kwargs) -> tuple[str, boo
 
             def _fetch_bodies(_msgs):
                 bodies = []
-                conn2 = _imap_connect(None, owner=owner)
+                conn2 = _get_action("_imap_connect")(None, owner=owner)
                 try:
                     conn2.select("INBOX", readonly=True)
                     for mm in _msgs:
@@ -1167,7 +1176,7 @@ async def action_learn_sender_signatures(owner: str, **kwargs) -> tuple[str, boo
                 cached_sig = sig
 
             try:
-                conn = _sql3.connect(SCHEDULED_DB)
+                conn = _sql3.connect(_get_action("SCHEDULED_DB"))
                 owner_value = (owner or "").strip()
                 conn.execute(
                     "INSERT OR REPLACE INTO sender_signatures "
@@ -1196,8 +1205,7 @@ async def action_daily_brief(owner: str, **kwargs) -> tuple[str, bool]:
         from datetime import timedelta as _td
 
         from core.database import CalendarCal, CalendarEvent, Note, SessionLocal
-        from routes.email_helpers import _decode_header, _imap_connect
-
+        
         # ----- Calendar: today's events -----
         today = _dt.now().replace(hour=0, minute=0, second=0, microsecond=0)
         tomorrow = today + _td(days=1)
@@ -1241,7 +1249,7 @@ async def action_daily_brief(owner: str, **kwargs) -> tuple[str, bool]:
         try:
             import email as _email
 
-            conn = _imap_connect(None)
+            conn = _get_action("_imap_connect")(None)
             try:
                 conn.select("INBOX", readonly=True)
                 status, data = conn.search(None, "UNSEEN")
@@ -1255,8 +1263,8 @@ async def action_daily_brief(owner: str, **kwargs) -> tuple[str, bool]:
                             continue
                         hdr = msg_data[0][1] if isinstance(msg_data[0], tuple) else msg_data[0]
                         parsed = _email.message_from_bytes(hdr)
-                        subject = _decode_header(parsed.get("Subject") or "") or "(no subject)"
-                        from_raw = _decode_header(parsed.get("From") or "") or "?"
+                        subject = _get_action("_decode_header")(parsed.get("Subject") or "") or "(no subject)"
+                        from_raw = _get_action("_decode_header")(parsed.get("From") or "") or "?"
                         # Extract just the display name if "Name <addr>" form
                         if "<" in from_raw:
                             name = from_raw.split("<", 1)[0].strip().strip('"') or from_raw
@@ -1331,10 +1339,8 @@ async def action_test_skills(owner: str, **kwargs) -> tuple[str, bool]:
     ADVISORY ONLY — only writes set_audit (never rewrites SKILL.md, never
     demotes status, never overrides confidence)."""
     try:
-        from routes.skills_routes import _run_skill_test_once, _skill_test_task
         from services.memory.skills import SkillsManager
         from src.constants import DATA_DIR
-
         # #3 SCOPE GUARD: refuse to run on a None/empty owner — otherwise
         # `sm.load(owner=None)` returns every user's skills and we'd cross-
         # test (and write audit verdicts to) other users' data in a
@@ -1402,9 +1408,9 @@ async def action_test_skills(owner: str, **kwargs) -> tuple[str, bool]:
                 tally["skipped"] += 1
                 per_skill_log.append(f"{name}: skipped (no SKILL.md)")
                 continue
-            task = _skill_test_task(skill)
+            task = _get_action("_skill_test_task")(skill)
             try:
-                transcript, verdict = await _run_skill_test_once(md, task, url, model, headers, owner)
+                transcript, verdict = await _get_action("_run_skill_test_once")(md, task, url, model, headers, owner)
                 v = (verdict or {}).get("verdict") or "unknown"
                 tally[v] += 1
                 summary = (verdict or {}).get("summary") or ""
@@ -1463,16 +1469,14 @@ async def action_audit_skills(owner: str, **kwargs) -> tuple[str, bool]:
     tagging, and publish/draft finalization from the user's confidence threshold.
     """
     try:
-        from routes.skills_routes import (
+        from services.memory.skills import SkillsManager
+        from src.constants import DATA_DIR
+        (
             _resolve_audit_models,
             _run_audit_all_job,
             _skill_audit_jobs,
         )
-        from services.memory.skills import SkillsManager
-        from src.constants import DATA_DIR
-
-        if not owner:
-            return "audit_skills requires an owner — refusing to run without scope.", False
+        return "audit_skills requires an owner — refusing to run without scope.", False
 
         key = (owner or "",)
         existing = _skill_audit_jobs.get(key)
@@ -1643,9 +1647,8 @@ async def action_ping_notes(owner: str, **kwargs) -> tuple[str, bool]:
                         pass
                 body = "\n\n".join(p for p in body_parts if p) or title
                 try:
-                    from routes.note_routes import dispatch_reminder
-
-                    await dispatch_reminder(
+                    
+                    await _get_action("dispatch_reminder")(
                         title=title,
                         note_body=body,
                         note_id=n.id,
@@ -1706,7 +1709,6 @@ async def action_check_email_urgency(owner: str, **kwargs) -> tuple[str, bool]:
 
         from core.database import EmailAccount as _EA
         from core.database import SessionLocal as _SL
-        from routes.email_helpers import _decode_header, _imap_connect
         from src.llm_core import llm_call_async_with_fallback
 
         # Per-owner state file so multi-user runs don't clobber each other's
@@ -1784,7 +1786,7 @@ async def action_check_email_urgency(owner: str, **kwargs) -> tuple[str, bool]:
             def _scan_one(account=acc, cache_uids=cache.get("uids", {})):
                 """Sync IMAP work runs in a thread."""
                 results = []
-                conn = _imap_connect(account.id)
+                conn = _get_action("_imap_connect")(account.id)
                 try:
                     conn.select("INBOX", readonly=True)
                     # IMAP date is the only practical pre-filter — UNSEEN AND
@@ -1842,8 +1844,8 @@ async def action_check_email_urgency(owner: str, **kwargs) -> tuple[str, bool]:
                                 # nor counts toward `scanned`.
                                 results.pop()
                                 continue
-                            subject = _decode_header(msg.get("Subject") or "")
-                            from_raw = _decode_header(msg.get("From") or "")
+                            subject = _get_action("_decode_header")(msg.get("Subject") or "")
+                            from_raw = _get_action("_decode_header")(msg.get("From") or "")
                             header_blob = "\n".join(
                                 f"{name}: {msg.get(name, '')}"
                                 for name in (
@@ -2056,10 +2058,9 @@ async def action_check_email_urgency(owner: str, **kwargs) -> tuple[str, bool]:
             import sqlite3 as _sql3
             from datetime import datetime as _dt2
 
-            from routes.email_helpers import SCHEDULED_DB, _init_scheduled_db
-
-            _init_scheduled_db()
-            _conn = _sql3.connect(SCHEDULED_DB)
+            
+            _get_action("_init_scheduled_db")()
+            _conn = _sql3.connect(_get_action("SCHEDULED_DB"))
             try:
                 for _key, _v in per_uid_scores.items():
                     _msg_id = (_v.get("message_id") or "").strip()
@@ -2194,12 +2195,11 @@ async def action_check_email_urgency(owner: str, **kwargs) -> tuple[str, bool]:
                 lines.append(f"…and {total_urgent - len(sorted_urgent)} more.")
             body = "\n".join(lines)
             try:
-                # Call dispatch_reminder DIRECTLY (no HTTP/auth roundtrip — the
+                # Call _get_action("dispatch_reminder") DIRECTLY (no HTTP/auth roundtrip — the
                 # endpoint version 401's the background scheduler because it
                 # has no session cookie).
-                from routes.note_routes import dispatch_reminder
-
-                dispatch_result = await dispatch_reminder(
+                
+                dispatch_result = await _get_action("dispatch_reminder")(
                     title=title,
                     note_body=body,
                     note_id="urgent-email",

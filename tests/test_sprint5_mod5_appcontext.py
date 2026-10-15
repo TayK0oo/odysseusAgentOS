@@ -53,6 +53,10 @@ def _compter_globals(src_root: pathlib.Path) -> dict[str, list[str]]:
                         for name in child.names:
                             noms_fichier.add(name)
         
+        # Exclure BUILTIN_ACTIONS dans route_registry (registre central légitime)
+        if rel == pathlib.Path("src/route_registry.py"):
+            noms_fichier.discard("BUILTIN_ACTIONS")
+        
         # Exclure _database_impl de database_impl.py (singleton module-level légitime)
         if str(rel) == "src/database_impl.py":
             noms_fichier.discard("_database_impl")

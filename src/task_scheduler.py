@@ -1886,10 +1886,10 @@ class TaskScheduler:
             explicit = target
 
         try:
-            from routes.email_helpers import _send_smtp_message
-            from routes.email_routes import _resolve_send_config
+            
+            
 
-            cfg = _resolve_send_config(owner=task.owner or "")
+            cfg = _get_action("_resolve_send_config")(owner=task.owner or "")
             to_addr = explicit or cfg.get("from_address") or cfg.get("smtp_user") or ""
             if not to_addr:
                 raise RuntimeError("No email recipient resolved for task output")
@@ -1903,7 +1903,7 @@ class TaskScheduler:
             msg["X-Odysseus-Kind"] = "task"
             msg["X-Odysseus-Ref"] = str(task.id)
             msg.set_content(result or "")
-            _send_smtp_message(cfg, from_addr, [to_addr], msg.as_string(), timeout=30)
+            _get_action("_send_smtp_message")(cfg, from_addr, [to_addr], msg.as_string(), timeout=30)
             logger.info("Task %s emailed result (recipient_set=%s, %sb)", task.id, bool(to_addr), len(result or ""))
         except Exception as e:
             logger.error("Task %s email delivery failed: %s", task.id, e, exc_info=True)
@@ -2240,13 +2240,12 @@ class TaskScheduler:
 
         # Resolve recipient — prefer the configured email From (the established
         # "email yourself" pattern from daily_brief), fall back to task.owner.
-        # `_get_email_config()` is the single source of truth that handles both
+        # `_get_action("_get_email_config")()` is the single source of truth that handles both
         # the legacy `email_from` setting and the per-account DB rows.
         recipient = None
         try:
-            from routes.email_helpers import _get_email_config
-
-            cfg = _get_email_config() or {}
+            
+            cfg = _get_action("_get_email_config")() or {}
             recipient = cfg.get("from_address") or None
         except Exception as _e:
             logger.debug(f"_deliver_via_mcp: email config lookup failed: {_e}")
@@ -2328,7 +2327,7 @@ class TaskScheduler:
         from core.database import ScheduledTask, SessionLocal
 
         try:
-            from routes.prefs_routes import _load_for_user
+            _load_for_user = _get_action("_load_for_user")
 
             _prefs = _load_for_user(owner) or {}
         except Exception:

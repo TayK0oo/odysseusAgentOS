@@ -18,7 +18,6 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from routes._validators import validate_remote_host, validate_ssh_port
 from src.tools._common import _parse_tool_args
 
 logger = logging.getLogger(__name__)
@@ -29,8 +28,8 @@ def _string_arg(value: Any) -> str:
 
 
 def _validate_cookbook_ssh_target(remote_host: Any, ssh_port: Any = "") -> tuple[str, str]:
-    remote = validate_remote_host(_string_arg(remote_host) or None) or ""
-    sport = validate_ssh_port(_string_arg(ssh_port) or None) or ""
+    remote = _get_action("validate_remote_host")(_string_arg(remote_host) or None) or ""
+    sport = _get_action("validate_ssh_port")(_string_arg(ssh_port) or None) or ""
     return remote, sport
 
 
@@ -157,15 +156,14 @@ async def _cookbook_env_for_host(host: str) -> dict[str, Any]:
         else:
             env_prefix = f'eval "$(conda shell.bash hook)" && conda activate {env_path}'
 
-    from routes.cookbook_helpers import load_stored_hf_token
-
+    
     return {
         "env_prefix": env_prefix,
         "env_type": env_kind,
         "env_path": env_path,
         "gpus": env_root.get("gpus") or "",
         "platform": platform,
-        "hf_token": load_stored_hf_token(),
+        "hf_token": _get_action("load_stored_hf_token")(),
         "ssh_port": ssh_port,
     }
 
