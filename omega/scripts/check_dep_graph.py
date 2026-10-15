@@ -35,6 +35,7 @@ ARCH_RULES = {
     "core": {"types", "ports"},
     "registry": {"types", "ports", "config"},
     "plugin-api": {"types", "registry"},
+    "router": {"types", "ports", "config", "adapters"},
     "adapters": {"types", "ports", "config"},
     "plugins": {"types", "ports", "config", "registry"},
     "app": {"types", "ports", "config", "protocol", "core", "registry",
@@ -60,6 +61,8 @@ def categorize(name: str, path: Path) -> str:
         return "registry"
     if name == "omega-plugin-api":
         return "plugin-api"
+    if name == "omega-router":
+        return "router"
     if name == "omega-app":
         return "app"
     if name in ("omega-server", "omega-cli", "omega-ui-bindings"):
