@@ -124,6 +124,7 @@ Annoncés par l'utilisateur comme fournissables `[stated]` — à déposer dans 
 - [x] Branche publiée sur `origin/feat/agentos-omega`
 - [x] **W7 inc2 — omega-server + UI branchée** (mergé, paragraphe parallèle) : axum (health, plugins, run, trace), UI sur `/api` (loading/erreur + repli fixtures), **LIVE vérifié** : `POST /api/run`→T14→local 0.685→2/2 OK→replay cohérent
 - [x] **Revue indépendante `REVIEW-FINAL-2` (AJOURNÉ 6/10) + correction optimale** : B1 timeouts HTTP (180 s provider / 30 s catalogue + test d'expiration réelle), B2 éligibilité dans la préférence locale (+ test), `InMemoryEventStore` validé, `remove`/`len`/`is_empty` file, test traversal décodé, `debug_assert` retiré, blueprint §2.1 (crates cibles vs existants), note `OLLAMA_NUM_CTX`, exemple à id unique — **251 tests**, tout vert
+  - Commits : `63827d87` (correctifs, committé par l'utilisateur depuis l'arbre de travail) + `04ae01fa` (complément : import de test, id unique exemple, mémoire). `[observed]`
 - [x] **W4 inc3 — circuit breaker à états** : Closed→Open→HalfOpen→Closed, `record_success` (M4 implémenté), horloge injectable, sonde unique par run (mergé, paragraphe parallèle)
 - [x] **W6 inc2 — stemming déterministe** : règles R0–R7 commentées, appliqué docs+requêtes, `file_write` rappelé via seuil (gate stricte inchangée, prouvé) (mergé, paragraphe parallèle)
 - [x] Décomposition W0-W10 (`docs/omega/02-WORKSTREAMS.md`)
