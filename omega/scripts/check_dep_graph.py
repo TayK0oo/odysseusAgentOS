@@ -135,17 +135,29 @@ def read_workspace_dependencies(root: Path) -> Dict[str, object]:
     return data.get("workspace", {}).get("dependencies", {})
 
 
+def _is_under_root(path: Path, root: Path) -> bool:
+    """Vrai si `path` est la racine ou un de ses descendants."""
+    path = path.resolve()
+    root = root.resolve()
+    return path == root or root in path.parents
+
+
 def _resolve_dep_name(
     key: str,
     spec: object,
     workspace_deps: Dict[str, object],
-    crates: Dict[str, Path],
+    member_crates: Dict[str, Path],
     root: Path,
     cargo_dir: Path,
-) -> str | None:
-    """Determine le nom reel d'une dependance et indique si elle est interne.
+) -> Tuple[str | None, Path | None]:
+    """Determine le nom reel d'une dependance et son Cargo.toml si elle est interne.
 
-    Retourne le nom du crate interne, ou `None` si la dependance est externe.
+    Une dependance est interne si :
+    - c'est un membre du workspace ; ou
+    - c'est une dependance `path` (directe ou via `[workspace.dependencies]`)
+      pointant sous la racine du workspace (membre ou non).
+
+    Retourne `(nom_interne, cargo_path)` ou `(None, None)`.
     """
     if isinstance(spec, dict):
         real_name = spec.get("package", key)
@@ -157,44 +169,56 @@ def _resolve_dep_name(
                 if "path" in ws_spec:
                     path_dep = (root / ws_spec["path"]).resolve()
                     cargo = path_dep / "Cargo.toml"
-                    if cargo.exists() and (path_dep == root or root in path_dep.parents):
+                    if cargo.exists() and _is_under_root(path_dep, root):
                         try:
                             name = read_package_name(cargo)
                         except Exception:
-                            return None
-                        return name if name in crates else None
-                # Dependance workspace sans path : version seule -> externe.
-                return real_name if real_name in crates else None
+                            return None, None
+                        return name, cargo
+                # Dependance workspace sans path : interne seulement si membre.
+                if real_name in member_crates:
+                    return real_name, member_crates[real_name]
+                return None, None
             # `workspace = true` mais la dependance workspace est externe (version seule).
-            return real_name if real_name in crates else None
+            if real_name in member_crates:
+                return real_name, member_crates[real_name]
+            return None, None
 
         # Dependance directe : path relatif au Cargo.toml du crate consommateur.
         if "path" in spec:
             path_dep = (cargo_dir / spec["path"]).resolve()
             cargo = path_dep / "Cargo.toml"
-            if cargo.exists() and (path_dep == root or root in path_dep.parents):
+            if cargo.exists() and _is_under_root(path_dep, root):
                 try:
                     name = read_package_name(cargo)
                 except Exception:
-                    return None
-                return name if name in crates else None
+                    return None, None
+                return name, cargo
+            return None, None
 
-        return real_name if real_name in crates else None
+        # Tableau inline sans path/workspace : interne seulement si membre.
+        if real_name in member_crates:
+            return real_name, member_crates[real_name]
+        return None, None
 
-    # Spec simple : chaine de version ou "*".
-    return key if key in crates else None
+    # Spec simple : chaine de version ou "*" -> interne seulement si membre.
+    if key in member_crates:
+        return key, member_crates[key]
+    return None, None
 
 
 def parse_internal_deps(
     cargo_path: Path,
     workspace_deps: Dict[str, object],
-    crates: Dict[str, Path],
+    member_crates: Dict[str, Path],
     root: Path,
+    crate_paths: Dict[str, Path],
 ) -> Set[str]:
-    """Extrait les dependances internes au workspace depuis un Cargo.toml.
+    """Extrait les dependances internes depuis un Cargo.toml.
 
     Parcourt `[dependencies]`, `[dev-dependencies]`, `[build-dependencies]` ainsi
-    que leurs variantes `[target.'<cfg>'.*]`.
+    que leurs variantes `[target.'<cfg>'.*]`. Les crates decouverts par `path`
+    (membres ou non) sont ajoutes a `crate_paths` pour inspection recursive.
     """
     with cargo_path.open("rb") as f:
         data = tomllib.load(f)
@@ -216,9 +240,13 @@ def parse_internal_deps(
 
     for _section_name, table in sections:
         for dep_name, spec in table.items():
-            internal = _resolve_dep_name(dep_name, spec, workspace_deps, crates, root, cargo_dir)
+            internal, cargo = _resolve_dep_name(
+                dep_name, spec, workspace_deps, member_crates, root, cargo_dir
+            )
             if internal is not None:
                 deps.add(internal)
+                if cargo is not None:
+                    crate_paths.setdefault(internal, cargo)
 
     return deps
 
@@ -251,15 +279,35 @@ def detect_cycles(graph: Dict[str, Set[str]]) -> List[List[str]]:
 
 
 def check_workspace(root: Path) -> Tuple[int, List[str]]:
-    """Verifie un workspace. Retourne (nombre de crates, liste d'erreurs)."""
-    crates = discover_crates(root)
-    if not crates:
+    """Verifie un workspace. Retourne (nombre de crates connus, liste d'erreurs)."""
+    member_crates = discover_crates(root)
+    if not member_crates:
         return 0, ["ERREUR : aucun crate decouvert"]
 
     workspace_deps = read_workspace_dependencies(root)
+
+    # Graphe complet : membres + crates atteints par dependances `path` hors members.
+    crate_paths: Dict[str, Path] = dict(member_crates)
     graph: Dict[str, Set[str]] = {}
-    for name, path in crates.items():
-        graph[name] = parse_internal_deps(path, workspace_deps, crates, root)
+
+    to_process = list(crate_paths.items())
+    processed: Set[str] = set()
+
+    while to_process:
+        name, cargo_path = to_process.pop()
+        if name in processed:
+            continue
+        processed.add(name)
+
+        deps = parse_internal_deps(
+            cargo_path, workspace_deps, member_crates, root, crate_paths
+        )
+        graph[name] = deps
+
+        for dep_name in sorted(deps):
+            dep_cargo = crate_paths.get(dep_name)
+            if dep_cargo is not None and dep_name not in processed:
+                to_process.append((dep_name, dep_cargo))
 
     errors: List[str] = []
 
@@ -270,16 +318,16 @@ def check_workspace(root: Path) -> Tuple[int, List[str]]:
 
     # 2. Aretes interdites
     for name, deps in sorted(graph.items()):
-        src_cat = categorize(name, crates[name])
+        src_cat = categorize(name, crate_paths[name])
         allowed = ARCH_RULES.get(src_cat, set())
         for dep in sorted(deps):
-            dep_cat = categorize(dep, crates.get(dep, root / "Cargo.toml"))
+            dep_cat = categorize(dep, crate_paths[dep])
             if dep_cat not in allowed:
                 errors.append(
                     f"arete interdite : {name} ({src_cat}) -> {dep} ({dep_cat})"
                 )
 
-    return len(crates), errors
+    return len(crate_paths), errors
 
 
 CrateFixture = Tuple[Dict[str, str], Dict[str, str], Dict[str, Dict[str, str]]]
@@ -291,12 +339,15 @@ def write_cargo_fixture(
     deps: Dict[str, str] | None = None,
     dev_deps: Dict[str, str] | None = None,
     target_deps: Dict[str, Dict[str, str]] | None = None,
+    prefix: str = "crates",
 ) -> None:
     """Ecrit un Cargo.toml minimal de crate interne pour les fixtures.
 
     Les arguments sont des fragments TOML (ex. `{ workspace = true }`).
+    Le parametre `prefix` permet de placer le crate hors `members`
+    (ex. `prefix="hidden"`).
     """
-    cargo_dir = root / "crates" / crate_name
+    cargo_dir = root / prefix / crate_name
     cargo_dir.mkdir(parents=True, exist_ok=True)
     lines = [
         "[package]",
@@ -331,7 +382,7 @@ def self_test() -> int:
         print("SELF-TEST ERREUR : python3 non disponible", file=sys.stderr)
         return 1
 
-    base_crates: Dict[str, CrateFixture] = {
+    base_members: Dict[str, CrateFixture] = {
         "omega-types": ({}, {}, {}),
         "omega-ports": ({"omega-types": '{ workspace = true }'}, {}, {}),
         "omega-core": (
@@ -339,13 +390,17 @@ def self_test() -> int:
             {},
             {},
         ),
+    }
+    # Crates presents dans le depot mais absents de `[workspace] members`.
+    base_hidden: Dict[str, CrateFixture] = {
         "omega-registry": ({"omega-types": '{ workspace = true }'}, {}, {}),
     }
 
-    cases: List[Tuple[str, Dict[str, CrateFixture]]] = [
+    cases: List[Tuple[str, Dict[str, CrateFixture], Dict[str, CrateFixture]]] = [
         (
             "dev-dependency interdite (core -> registry)",
             {"omega-core": ({}, {"omega-registry": '{ workspace = true }'}, {})},
+            {},
         ),
         (
             "renommage package= (core -> registry)",
@@ -356,6 +411,7 @@ def self_test() -> int:
                     {},
                 )
             },
+            {},
         ),
         (
             "target.*.dependency interdite (core -> registry)",
@@ -366,22 +422,35 @@ def self_test() -> int:
                     {"cfg(unix)": {"omega-registry": '{ workspace = true }'}},
                 )
             },
+            {},
         ),
         (
             "cycle via dev-dependencies (types -> core)",
             {"omega-types": ({}, {"omega-core": '{ workspace = true }'}, {})},
+            {},
+        ),
+        (
+            "dependance path hors members (core -> registry)",
+            {
+                "omega-core": (
+                    {"omega-registry": '{ path = "../../hidden/omega-registry" }'},
+                    {},
+                    {},
+                )
+            },
+            {},
         ),
     ]
 
     failures = 0
-    for case_name, overrides in cases:
+    for case_name, overrides, hidden_overrides in cases:
         with tempfile.TemporaryDirectory(prefix="omega_dep_guard_") as tmp:
             tmp_root = Path(tmp)
             workspace_deps = {
                 "omega-types": '{ path = "crates/omega-types" }',
                 "omega-ports": '{ path = "crates/omega-ports" }',
                 "omega-core": '{ path = "crates/omega-core" }',
-                "omega-registry": '{ path = "crates/omega-registry" }',
+                "omega-registry": '{ path = "hidden/omega-registry" }',
             }
             workspace_toml = [
                 "[workspace]",
@@ -395,10 +464,17 @@ def self_test() -> int:
                 "\n".join(workspace_toml) + "\n", encoding="utf-8"
             )
 
-            crates = dict(base_crates)
-            crates.update(overrides)
-            for name, (deps, dev_deps, target_deps) in crates.items():
+            members = dict(base_members)
+            members.update(overrides)
+            for name, (deps, dev_deps, target_deps) in members.items():
                 write_cargo_fixture(tmp_root, name, deps, dev_deps, target_deps)
+
+            hidden = dict(base_hidden)
+            hidden.update(hidden_overrides)
+            for name, (deps, dev_deps, target_deps) in hidden.items():
+                write_cargo_fixture(
+                    tmp_root, name, deps, dev_deps, target_deps, prefix="hidden"
+                )
 
             _count, errors = check_workspace(tmp_root)
             if not errors:

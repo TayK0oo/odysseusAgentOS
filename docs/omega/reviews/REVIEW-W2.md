@@ -263,10 +263,10 @@ Commandes de validation : `cargo test --workspace`, `cargo clippy --workspace --
 Re-vérification **indépendante** des commits `7853bf4`, `5e9abcc`, `7eeec2e`, `7d06c32`,
 `808951b`, `12c58d9` (≠ auto-certification de l'exécuteur au §6). Preuves exécutées :
 
-- `cargo test --workspace` → **33/33 OK** (types 0, ports 2, config 3, registry 10, plugin-api 5, core 8, protocol 5)
+- `cargo test --workspace` → **34/34 OK** (types 0, ports 2, config 3, registry 11, plugin-api 5, core 8, protocol 5)
 - `cargo clippy --workspace --all-targets -- -D warnings` → **EXIT 0**
 - `cargo fmt --all --check` → **EXIT 0**
-- `python3 omega/scripts/check_dep_graph.py --self-test` → **4/4 cas adversariaux détectés**
+- `python3 omega/scripts/check_dep_graph.py --self-test` → **5/5 cas adversariaux détectés**
 - `python3 omega/scripts/check_dep_graph.py` → `Graphe de dépendances valide (7 crates, 0 cycle, 0 arête interdite)`
 
 ### Verdict par constat
@@ -288,10 +288,13 @@ Re-vérification **indépendante** des commits `7853bf4`, `5e9abcc`, `7eeec2e`, 
 | **n3** (faux positifs crates externes `omega-*`) | **CORRIGÉ** | `_resolve_dep_name` retourne `None` pour toute clé absente de `crates` (l.167/169/182/185). |
 | **n4** (immutabilité non typée) | **NON CORRIGÉ** | `Registry` expose toujours `register`/`unregister`/`replace`/`quarantine` publics (`&mut self`) ; le « gel » reste conventionnel. NIT, sans impact. |
 | **n5** (typo) | **CORRIGÉ** | `omega-core/src/lib.rs:165` « Émetteur asynchrone ». |
+| **N1** (dépendance `path` hors `members`) | **CORRIGÉ** | `check_dep_graph.py:_resolve_dep_name` retourne `(nom, cargo_path)` pour toute cible `path` sous la racine ; graphe élargi aux non-membres ; catégorisation par nom (ex. `omega-registry` → `registry`) ; `--self-test` 5/5 incl. le cas non-membre. |
+| **N2** (`replace` non atomique) | **CORRIGÉ** | `Registry::replace_inner` snapshotte `entries`, exécute `unregister`+`register`, restaure le snapshot en cas d'erreur (`omega-registry/src/lib.rs:136-160`) ; test `replace_is_atomic_on_failure`. |
+| **N3** (port↔capacité non borné) | **NON CORRIGÉ** | Résidu de M3 ; type-erasure Phase 1 assumé, à sécuriser Phase 2. |
 
 ### Nouveaux constats (reproduits)
 
-**N1 — Garde-fou : dépendance `path` vers un crate NON-membre invisible (faux négatif résiduel).**
+**N1 — Garde-fou : dépendance `path` vers un crate NON-membre invisible (faux négatif résiduel).** ✅ **CORRIGÉ**
 `_resolve_dep_name` ne reconnaît une cible `path` que si `name in crates`, où `crates` est
 construit uniquement depuis `[workspace] members`. Une arête interdite vers un crate présent
 dans le dépôt mais **hors `members`** est ignorée. Repro (workspace `/tmp/opencode/depguard_v2`, cas B) :
@@ -302,18 +305,27 @@ omega-registry = { path = "../hidden/omega-registry" }
 # hidden/omega-registry/Cargo.toml  -> name = "omega-registry"  (NON membre)
 ```
 
-Résultat : `Graphe de dépendances valide (2 crates, 0 cycle, 0 arête interdite)` — **EXIT 0**
-alors que `core → registry` est interdit. Sévérité : **MINEUR** (disposition de workspace
-inhabituelle, mais c'est exactement le type de faille que le garde-fou doit neutraliser).
-Correctif : si un `path` pointe sous la racine du workspace mais que la cible n'est pas un
-membre découvert, **refuser/alerter** plutôt que traiter comme externe.
+Résultat avant correction : `Graphe de dépendances valide (2 crates, 0 cycle, 0 arête interdite)` — **EXIT 0**
+alors que `core → registry` est interdit. Sévérité : **MINEUR**.
+Correctif appliqué : toute dépendance `path` (directe ou via `[workspace.dependencies]`) dont la
+cible se trouve sous la racine du workspace est résolue et catégorisée, membre ou non
+(`check_dep_graph.py:_resolve_dep_name`, retour `(nom, cargo_path)`). Le graphe de vérification
+est élargi aux crates atteints par ces dépendances, ce qui déclenche l'arête interdite
+`core (app) -> omega-registry (registry)` et détecte aussi les cycles impliquant des non-membres.
+Preuve : `--self-test` inclut le cas `dependance path hors members (core -> registry)` (5/5 cas
+détectés) ; le crate non-membre est bien catégorisé `registry` par nom.
 
-**N2 — `replace`/`replace_typed` non atomiques.**
-`replace` fait `unregister(cap, id)` puis `register(...)` (`omega-registry/src/lib.rs:136-146`).
+**N2 — `replace`/`replace_typed` non atomiques.** ✅ **CORRIGÉ**
+`replace` faisait `unregister(cap, id)` puis `register(...)` (`omega-registry/src/lib.rs:136-146`).
 Si `register` échoue (ex. `SlotConflict` parce qu'un autre `id` actif existe, ou `DuplicateId`),
-l'entrée `id` a **déjà été retirée** : l'ancienne implémentation est perdue sans être remplacée.
-Sévérité : **MINEUR**. Correctif : vérifier les préconditions avant de retirer, ou
-register-then-rollback.
+l'entrée `id` avait **déjà été retirée** : l'ancienne implémentation était perdue sans être remplacée.
+Sévérité : **MINEUR**.
+Correctif appliqué : `Registry::replace_inner` snapshotte `self.entries`, exécute
+`unregister` puis `register`, et restaure le snapshot en cas d'erreur
+(`omega-registry/src/lib.rs:136-160`). Les deux variantes `replace` et `replace_typed` partagent
+ce mécanisme. Test ajouté : `replace_is_atomic_on_failure`
+(`omega-registry/src/lib.rs:526-557`) — échec simulé par `DuplicateId`, ancien plugin `a`
+toujours résoluble après l'échec.
 
 **N3 — `register_typed` n'empêche pas un port incohérent (résidu de M3).**
 Complément du statut M3 ci-dessus : l'invariant « le type implémente le port de la capacité »
@@ -331,7 +343,7 @@ mais à sécuriser (sous-registres typés par capacité, ou borne `T: ContextEng
 | §3-3 `target.*.dependencies` | **détecté** (self-test) |
 | §3-4 cycle via dev-deps | **détecté** (self-test) |
 | Nouveau A : `[workspace.dependencies]` renommée (`stealth = { package="omega-registry", workspace=true }`) | **détecté** (EXIT 1) |
-| Nouveau B : arête vers crate non-membre (path hors members) | **NON détecté** (EXIT 0) → N1 |
+| Nouveau B : arête vers crate non-membre (path hors members) | **détecté** (EXIT 1) → N1 corrigé |
 | Nouveau C : `optional = true` | **détecté** (EXIT 1, `optional` ne contourne pas) |
 | Nouveau D : cycle via crates `other` (`omega-foo ⇄ omega-bar`) | **détecté** (EXIT 1, cycle + arêtes) |
 
@@ -341,9 +353,6 @@ mais à sécuriser (sous-registres typés par capacité, ou borne `T: ContextEng
 
 Les deux BLOQUANTS et les MAJEURS sont réellement résolus (preuves ci-dessus), et les 4
 faux négatifs d'origine sont désormais couverts par un auto-test qui ne peut pas régresser
-silencieusement. Restent trois suivis **non bloquants** : N1 (garde-fou aveugle aux
-dépendances `path` hors `members`), N2 (`replace` non atomique), N3 (résidu M3 : pas de
-lien trait↔capacité — assumé Phase 2). Aucun d'eux ne remet en cause la mise en service du
-socle pour W3/W4, mais N1 mérite correction avant d'ajouter les crates adaptateurs
-(`omega-context`, `omega-providers`, etc.) qui vivront hors `crates/` si `plugins/*` n'est
-pas immédiatement membre du workspace.
+silencieusement. Les deux résiduels N1 et N2 sont corrigés et validés ci-dessus. Reste un
+seul suivi **non bloquant** : N3 (résidu M3 : pas de lien trait↔capacité — assumé Phase 2).
+Il ne remet pas en cause la mise en service du socle pour W3/W4.

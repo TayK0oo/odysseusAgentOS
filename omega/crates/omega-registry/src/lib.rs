@@ -43,6 +43,7 @@ impl Manifest {
     }
 }
 
+#[derive(Clone)]
 struct Entry {
     manifest: Manifest,
     instance: Arc<dyn Any + Send + Sync>,
@@ -133,7 +134,25 @@ impl Registry {
         }
     }
 
+    fn replace_inner(
+        &mut self,
+        cap: Capability,
+        id: &str,
+        register: impl FnOnce(&mut Self) -> OmegaResult<()>,
+    ) -> OmegaResult<()> {
+        let snapshot = self.entries.clone();
+        self.unregister(cap, id);
+        if let Err(e) = register(self) {
+            self.entries = snapshot;
+            return Err(e);
+        }
+        Ok(())
+    }
+
     /// Remplace l'entree `(cap, id)` par une nouvelle implementation type-effacee.
+    ///
+    /// Le remplacement est **atomique** : si l'enregistrement de la nouvelle
+    /// implementation echoue, l'ancienne entree est restauree.
     pub fn replace(
         &mut self,
         cap: Capability,
@@ -141,11 +160,13 @@ impl Registry {
         manifest: Manifest,
         instance: Arc<dyn Any + Send + Sync>,
     ) -> OmegaResult<()> {
-        self.unregister(cap, id);
-        self.register(manifest, instance)
+        self.replace_inner(cap, id, |this| this.register(manifest, instance))
     }
 
     /// Remplace l'entree `(cap, id)` par une nouvelle implementation typee.
+    ///
+    /// Le remplacement est **atomique** : si l'enregistrement de la nouvelle
+    /// implementation echoue, l'ancienne entree est restauree.
     pub fn replace_typed<T: 'static + Send + Sync>(
         &mut self,
         cap: Capability,
@@ -153,8 +174,7 @@ impl Registry {
         manifest: Manifest,
         instance: Arc<T>,
     ) -> OmegaResult<()> {
-        self.unregister(cap, id);
-        self.register_typed(manifest, instance)
+        self.replace_inner(cap, id, |this| this.register_typed(manifest, instance))
     }
 
     /// Met un plugin en quarantaine : il n'est plus resolu ; on replie sur le suivant.
@@ -506,5 +526,40 @@ mod tests {
             .resolve::<FakeProvider>(Capability::LlmProvider)
             .unwrap_err();
         assert!(matches!(err, OmegaError::NoImplementation(_)));
+    }
+
+    #[test]
+    fn replace_is_atomic_on_failure() {
+        // (N2) si le re-enregistrement echoue, l'ancienne implementation est restauree.
+        let mut r = Registry::new();
+        r.register_typed(
+            Manifest::new("a", Capability::LlmProvider, "1"),
+            Arc::new(FakeProvider("a")),
+        )
+        .unwrap();
+        r.register_typed(
+            Manifest::new("b", Capability::LlmProvider, "1"),
+            Arc::new(FakeProvider("b")),
+        )
+        .unwrap();
+
+        // Remplacer "a" par un manifeste utilisant l'id "b" -> DuplicateId.
+        let err = r
+            .replace_typed(
+                Capability::LlmProvider,
+                "a",
+                Manifest::new("b", Capability::LlmProvider, "2"),
+                Arc::new(FakeProvider("a2")),
+            )
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            OmegaError::DuplicateId(Capability::LlmProvider, _)
+        ));
+
+        // "a" doit toujours etre present et resoluble.
+        assert_eq!(r.active_ids(Capability::LlmProvider), vec!["a", "b"]);
+        let resolved = r.resolve::<FakeProvider>(Capability::LlmProvider).unwrap();
+        assert_eq!(resolved.id(), "a");
     }
 }
