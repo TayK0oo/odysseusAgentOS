@@ -20,3 +20,7 @@ tokio = { version = "1", features = ["sync", "rt", "macros"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+omega-providers = { path = "../omega-providers" }
+omega-context = { path = "../omega-context" }
+omega-router = { path = "../omega-router" }
+omega-otel = { path = "../omega-otel" }

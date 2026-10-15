@@ -5,6 +5,8 @@
 
 pub mod capabilities;
 pub mod model;
+pub mod ollama;
 
 pub use capabilities::Capabilities;
 pub use model::{ModelRecord, ModelTier, QualityAxes};
+pub use ollama::OllamaProvider;
