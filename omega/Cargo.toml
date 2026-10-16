@@ -21,6 +21,7 @@ omega-app = { path = "crates/omega-app" }
 omega-context = { path = "crates/omega-context" }
 omega-otel = { path = "crates/omega-otel" }
 omega-sandbox = { path = "crates/omega-sandbox" }
+omega-harness = { path = "crates/omega-harness" }
 # dependances externes
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

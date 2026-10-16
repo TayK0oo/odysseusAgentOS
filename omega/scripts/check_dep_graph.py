@@ -80,7 +80,8 @@ def categorize(name: str, path: Path) -> str:
     if name in ("omega-server", "omega-cli", "omega-ui-bindings"):
         return "app-edge"
     if name.startswith(("omega-context", "omega-memory", "omega-tools",
-                        "omega-providers", "omega-sandbox", "omega-otel")):
+                        "omega-providers", "omega-sandbox", "omega-otel",
+                        "omega-harness")):
         return "adapters"
     if name.startswith(("harness-", "plugin-")):
         return "plugins"

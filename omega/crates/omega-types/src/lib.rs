@@ -265,6 +265,8 @@ pub enum Capability {
     EventStore,
     ProvenanceSink,
     UiPanel,
+    /// Catalogue de reverse-engineering des harnais (donnees embarquees).
+    HarnessCatalog,
 }
 
 /// Regime d'activation d'une capacite (cf. ADR-0003).
@@ -316,6 +318,7 @@ impl Capability {
             EventStore => "event-store",
             ProvenanceSink => "provenance-sink",
             UiPanel => "ui-panel",
+            HarnessCatalog => "harness-catalog",
         }
     }
 }

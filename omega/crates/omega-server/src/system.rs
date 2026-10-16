@@ -516,9 +516,9 @@ mod tests {
     async fn system_lists_all_capabilities_and_crates() {
         let body = system(state()).await.0;
         assert_eq!(body.crates.len(), 14);
-        assert_eq!(body.capabilities.len(), 25);
+        assert_eq!(body.capabilities.len(), 26);
         // Trois capacités câblées dans l'état de test.
-        assert_eq!(body.counts.capabilities_wired, 3);
+        assert_eq!(body.counts.capabilities_wired, 4);
         let llm = body
             .capabilities
             .iter()
@@ -638,13 +638,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn harness_catalog_is_exposed_and_isolable() {
+        let all = harnesses().await.0;
+        assert!(all.harnesses.len() >= 12);
+        // Les harnais demandés par la vision sont présents.
+        for id in ["cursor", "claude-code", "codex", "hermes"] {
+            assert!(all.by_id(id).is_some(), "{id}");
+        }
+        // Isolation d'un harnais précis.
+        let h = harness(axum::extract::Path("claude-code".to_string()))
+            .await
+            .unwrap()
+            .0;
+        assert_eq!(h.name, "Claude Code");
+        assert!(h
+            .principles
+            .iter()
+            .any(|p| p.status == omega_harness::PrincipleStatus::Adopted));
+        // Inconnu -> 400.
+        let err = harness(axum::extract::Path("nope".to_string()))
+            .await
+            .unwrap_err();
+        assert_eq!(err.status(), axum::http::StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
     async fn overview_aggregates_dashboard_in_one_call() {
         let (st, _) = test_state("sys-overview");
         let body = overview(State(Arc::new(st.clone()))).await.0;
         assert_eq!(body.status, "ok");
-        assert_eq!(body.counts.capabilities, 25);
+        assert_eq!(body.counts.capabilities, 26);
         assert_eq!(body.crate_count, 14);
         assert_eq!(body.model_record.cost_input_per_1m, 0.0);
+        assert!(body.harness.harnesses >= 12);
+        assert!(body.harness.adopted >= 10);
         let _ = st;
     }
 
@@ -652,7 +679,7 @@ mod tests {
     async fn registry_isolates_entries_with_kind_and_quarantine() {
         let (st, _) = test_state("sys-registry");
         let body = registry(State(Arc::new(st))).await.0;
-        assert_eq!(body.capabilities.len(), 25);
+        assert_eq!(body.capabilities.len(), 26);
         let llm = body
             .capabilities
             .iter()
@@ -717,6 +744,46 @@ mod tests {
         .unwrap_err();
         assert_eq!(err.status(), axum::http::StatusCode::BAD_REQUEST);
     }
+}
+
+/* --- Catalogue de harnais (reverse-engineering) ----------------------------- */
+
+/// Résumé du catalogue.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HarnessCounts {
+    pub harnesses: usize,
+    pub principles: usize,
+    pub adopted: usize,
+    pub planned: usize,
+    pub rejected: usize,
+}
+
+fn harness_counts() -> HarnessCounts {
+    let c = omega_harness::Catalog::embedded();
+    let (a, p, r) = c.counts();
+    HarnessCounts {
+        harnesses: c.harnesses.len(),
+        principles: a + p + r,
+        adopted: a,
+        planned: p,
+        rejected: r,
+    }
+}
+
+/// `GET /api/harnesses` : le catalogue complet des harnais observés.
+pub async fn harnesses() -> Json<omega_harness::Catalog> {
+    Json(omega_harness::Catalog::embedded())
+}
+
+/// `GET /api/harnesses/:id` : un harnais précis.
+pub async fn harness(
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Json<omega_harness::Harness>, ApiError> {
+    omega_harness::Catalog::embedded()
+        .by_id(&id)
+        .cloned()
+        .map(Json)
+        .ok_or_else(|| ApiError::bad_request(format!("harnais inconnu : {id}")))
 }
 
 /* --- Configuration ---------------------------------------------------------- */
@@ -891,6 +958,16 @@ pub async fn routes() -> Json<RoutesResponse> {
                 "Évaluer une commande (sans exécuter)",
             ),
             r("GET", "/api/context", "Paramètres d'économie de contexte"),
+            r(
+                "GET",
+                "/api/harnesses",
+                "Catalogue de reverse-engineering des harnais (principes)",
+            ),
+            r(
+                "GET",
+                "/api/harnesses/:id",
+                "Un harnais précis (principes détaillés)",
+            ),
         ],
     })
 }
@@ -938,6 +1015,7 @@ pub struct OverviewResponse {
     pub crate_count: usize,
     pub recent_runs: Vec<RunEntry>,
     pub model_record: omega_types::ModelRecord,
+    pub harness: HarnessCounts,
 }
 
 pub async fn overview(State(state): State<Arc<AppState>>) -> Json<OverviewResponse> {
@@ -977,6 +1055,7 @@ pub async fn overview(State(state): State<Arc<AppState>>) -> Json<OverviewRespon
         crate_count: 14,
         recent_runs: collect_runs(&state, 8),
         model_record: local_record(state.model(), Some(32768)),
+        harness: harness_counts(),
     })
 }
 

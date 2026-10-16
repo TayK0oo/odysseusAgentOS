@@ -8,6 +8,7 @@ import { SCHEMA_VERSION } from './protocol';
 import type {
   ClassifyResponse,
   ConfigResponse,
+  HarnessCatalog,
   OverviewResponse,
   RegistryResponse,
   RoutesResponse,
@@ -79,3 +80,5 @@ export const getConfig = () => fetchJson<ConfigResponse>('/api/config');
 export const getRoutes = () => fetchJson<RoutesResponse>('/api/routes');
 export const getRunEvents = (runId: string) =>
   fetchJson<RunEventsResponse>(`/api/runs/${encodeURIComponent(runId)}/events`);
+
+export const getHarnesses = () => fetchJson<HarnessCatalog>('/api/harnesses');

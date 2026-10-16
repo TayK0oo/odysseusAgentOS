@@ -1,0 +1,15 @@
+[package]
+name = "omega-harness"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Omega — catalogue de reverse-engineering : principes des grands harnais re-spécifiés."
+
+[dependencies]
+omega-types = { workspace = true }
+omega-ports = { workspace = true }
+omega-registry = { workspace = true }
+omega-plugin-api = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

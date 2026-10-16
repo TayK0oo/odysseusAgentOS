@@ -202,6 +202,8 @@ pub mod tests {
             .add_contributor(Box::new(StubStoreContributor {
                 store: store.clone(),
             }))
+            // Meme cablage que la production : catalogue de harnais inclus.
+            .add_contributor(Box::new(omega_harness::HarnessCatalogContributor::new()))
             .build()
             .unwrap();
         (

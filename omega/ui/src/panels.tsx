@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   getConfig,
+  getHarnesses,
   getContext,
   getModels,
   getOverview,
@@ -23,11 +24,15 @@ import type {
   ContextResponse,
   DurableEvent,
   EvaluateResponse,
+  Harness,
+  HarnessCatalog,
   Message,
   ModelsResponse,
   OverviewResponse,
   PluginInfo,
   PolicyResponse,
+  Principle,
+  PrincipleStatus,
   RegistryResponse,
   RouteInfo,
   RunEntry,
@@ -110,6 +115,25 @@ export function Dashboard({
         <Card k="Port" v={<code>{ov.config.port}</code>} />
         <Card k="UI servie" v={ov.config.ui_served ? 'oui' : 'non'} />
         <Card k="Modèle" v={<code>{ov.config.ollama_model}</code>} />
+        <Card
+          k="Harnais reverse-eng."
+          v={
+            <>
+              {ov.harness.adopted}/{ov.harness.principles} adoptés
+              <div className="bar">
+                <i
+                  style={{
+                    width: `${
+                      ov.harness.principles === 0
+                        ? 0
+                        : (ov.harness.adopted / ov.harness.principles) * 100
+                    }%`,
+                  }}
+                />
+              </div>
+            </>
+          }
+        />
       </div>
 
       <h3>Capacités câblées</h3>
@@ -1065,6 +1089,125 @@ export function ConfigPanel() {
             </tbody>
           </table>
         )}
+      </Async>
+    </section>
+  );
+}
+
+/* =========================================================================
+ * Harnais (reverse-engineering) — observation des grands harnais
+ * ========================================================================= */
+
+export function HarnessesPanel({ isolate }: { isolate: string | null }) {
+  const state = useAsync(getHarnesses);
+  const [filter, setFilter] = useState(isolate ?? '');
+  const [status, setStatus] = useState<'all' | PrincipleStatus>('all');
+
+  useEffect(() => {
+    if (isolate !== null) setFilter(isolate);
+  }, [isolate]);
+
+  return (
+    <section className="panel">
+      <h2>Harnais — principes reverse-engineerés</h2>
+      <p className="hint">
+        Les grands harnais, leurs principes transférables et ce qu'Omega en fait
+        réellement : <Chip tone="ok">adopted</Chip> implémenté ·
+        <Chip tone="warn">planned</Chip> repris à faire · <Chip tone="ko">rejected</Chip> écarté.
+      </p>
+      <div className="row">
+        <input
+          type="text"
+          value={filter}
+          placeholder="filtrer (harnais, principe, texte)"
+          onChange={(e) => setFilter(e.target.value)}
+          aria-label="Filtre harnais"
+        />
+      </div>
+      <div className="tabs sub">
+        {(['all', 'adopted', 'planned', 'rejected'] as const).map((s) => (
+          <button key={s} onClick={() => setStatus(s)} aria-pressed={status === s}>
+            {s === 'all' ? 'tous' : s}
+          </button>
+        ))}
+      </div>
+      <Async state={state}>
+        {(c: HarnessCatalog) => {
+          const q = filter.trim().toLowerCase();
+          const match = (h: Harness, p?: Principle) =>
+            q.length === 0 ||
+            h.id.includes(q) ||
+            h.name.toLowerCase().includes(q) ||
+            (p !== undefined &&
+              (p.name.toLowerCase().includes(q) ||
+                p.what.toLowerCase().includes(q) ||
+                (p.omega ?? '').toLowerCase().includes(q)));
+          const harnesses = c.harnesses
+            .map((h) => ({ h, ps: h.principles.filter((p) => match(h, p) && (status === 'all' || p.status === status)) }))
+            .filter(({ h, ps }) => ps.length > 0 || (q.length > 0 && match(h)));
+          const total = c.harnesses.reduce((n, h) => n + h.principles.length, 0);
+          const adopted = c.harnesses.reduce(
+            (n, h) => n + h.principles.filter((p) => p.status === 'adopted').length,
+            0,
+          );
+          return (
+            <>
+              <div className="cards">
+                <Card k="Harnais observés" v={c.harnesses.length} />
+                <Card k="Principes" v={total} />
+                <Card k="Adoptés" v={adopted} />
+                <Card k="Restants" v={total - adopted} />
+              </div>
+              {harnesses.map(({ h, ps }) => (
+                <div key={h.id} className="harness">
+                  <h3>
+                    {h.name} <span className="muted">{h.editor}</span>{' '}
+                    <Chip>{h.oss ? 'OSS' : 'propriétaire'}</Chip> <Chip>{h.language}</Chip>
+                  </h3>
+                  <p className="muted">{h.architecture}</p>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Principe</th>
+                        <th>Statut</th>
+                        <th>Dans Omega</th>
+                        <th>Rust</th>
+                        <th>Source</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ps.map((p) => (
+                        <tr key={p.id}>
+                          <td>
+                            <strong>{p.name}</strong>
+                            <div className="muted">{p.what}</div>
+                          </td>
+                          <td>
+                            <Chip
+                              tone={
+                                p.status === 'adopted' ? 'ok' : p.status === 'planned' ? 'warn' : 'ko'
+                              }
+                            >
+                              {p.status}
+                            </Chip>
+                          </td>
+                          <td>
+                            {p.omega ? <code>{p.omega}</code> : <span className="muted">—</span>}
+                          </td>
+                          <td>
+                            <Chip>{p.rust_cost}</Chip>
+                          </td>
+                          <td className="muted">{p.refs.join(', ')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+              {harnesses.length === 0 && <Banner kind="offline" text="aucun principe ne correspond" />}
+            </>
+          );
+        }}
       </Async>
     </section>
   );

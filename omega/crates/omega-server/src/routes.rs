@@ -53,6 +53,7 @@ pub(crate) const ALL_CAPABILITIES: &[Capability] = &[
     Capability::EventStore,
     Capability::ProvenanceSink,
     Capability::UiPanel,
+    Capability::HarnessCatalog,
 ];
 
 /// Erreur d'API : statut + corps JSON versionne.
@@ -138,6 +139,8 @@ fn api_router(state: AppState) -> Router {
         .route("/api/policy", get(crate::system::policy))
         .route("/api/policy/evaluate", post(crate::system::evaluate))
         .route("/api/context", get(crate::system::context))
+        .route("/api/harnesses", get(crate::system::harnesses))
+        .route("/api/harnesses/:id", get(crate::system::harness))
         .with_state(Arc::new(state))
 }
 

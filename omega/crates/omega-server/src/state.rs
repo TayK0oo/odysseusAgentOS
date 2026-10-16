@@ -96,6 +96,8 @@ pub fn build_app_state_with(cfg: &ServerConfig) -> OmegaResult<AppState> {
         .add_contributor(Box::new(StoreContributor {
             store: store.clone(),
         }))
+        // Catalogue de reverse-engineering (données embarquées) comme capacité.
+        .add_contributor(Box::new(omega_harness::HarnessCatalogContributor::new()))
         .build()?;
     Ok(AppState {
         app: Arc::new(app),

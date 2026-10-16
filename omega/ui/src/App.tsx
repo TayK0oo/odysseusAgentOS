@@ -7,6 +7,7 @@ import {
   ConfigPanel,
   ContextPanel,
   Dashboard,
+  HarnessesPanel,
   Models,
   Plugins,
   RegistryPanel,
@@ -28,6 +29,7 @@ type Panel =
   | 'dashboard'
   | 'cockpit'
   | 'system'
+  | 'harnesses'
   | 'registry'
   | 'plugins'
   | 'models'
@@ -43,6 +45,7 @@ const PANELS: { id: Panel; label: string }[] = [
   { id: 'dashboard', label: "Vue d'ensemble" },
   { id: 'cockpit', label: 'Cockpit' },
   { id: 'system', label: 'Système' },
+  { id: 'harnesses', label: 'Harnais' },
   { id: 'registry', label: 'Registre' },
   { id: 'plugins', label: 'Plugins' },
   { id: 'models', label: 'Modèles' },
@@ -124,6 +127,9 @@ export default function App() {
       )}
       {panel === 'cockpit' && <Cockpit onRun={onRun} />}
       {panel === 'system' && <SystemPanel />}
+      {panel === 'harnesses' && (
+        <HarnessesPanel key={`h-${capIsolation?.key ?? 0}`} isolate={capIsolation?.value ?? null} />
+      )}
       {panel === 'registry' && (
         <RegistryPanel
           key={capIsolation?.key ?? 0}

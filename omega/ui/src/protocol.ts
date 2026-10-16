@@ -318,4 +318,45 @@ export interface OverviewResponse {
   crate_count: number;
   recent_runs: RunEntry[];
   model_record: ModelRecord;
+  harness: HarnessCounts;
+}
+
+/* --- Miroirs de `omega-harness` (reverse-engineering) --------------------- */
+
+export type PrincipleStatus = 'adopted' | 'planned' | 'rejected';
+export type RustCost = 'S' | 'M' | 'L';
+
+export interface Principle {
+  id: string;
+  name: string;
+  what: string;
+  why: string;
+  status: PrincipleStatus;
+  omega?: string | null;
+  rust_cost: RustCost;
+  refs: string[];
+}
+
+export interface Harness {
+  id: string;
+  name: string;
+  editor: string;
+  oss: boolean;
+  language: string;
+  architecture: string;
+  principles: Principle[];
+}
+
+export interface HarnessCatalog {
+  schema_version: number;
+  note: string;
+  harnesses: Harness[];
+}
+
+export interface HarnessCounts {
+  harnesses: number;
+  principles: number;
+  adopted: number;
+  planned: number;
+  rejected: number;
 }
