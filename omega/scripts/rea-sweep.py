@@ -211,9 +211,14 @@ def summarize(target: dict, code: int, obj: dict) -> dict:
     }
 
 
-def write_report(results: list[dict]) -> None:
+def write_report(results: list[dict], out: Path | None = None) -> None:
+    titre = (
+        "# Balayage REA — REA applique aux harnais clones (JS/TS)"
+        if out and "HARNESS" in out.name
+        else "# Balayage REA — REA applique a nos artefacts"
+    )
     lines = [
-        "# Balayage REA — REA applique a nos artefacts",
+        titre,
         "",
         "> Genere par `omega/scripts/rea-sweep.py` (regenerable). "
         "Preuve complete hors depot ; resumes ci-dessous.",
@@ -262,12 +267,43 @@ def write_report(results: list[dict]) -> None:
             if r.get("remediation"):
                 lines.append(f"- remediation : {str(r['remediation'])[:200]}")
         lines.append("")
-    (OUT_DIR / "SWEEP.md").write_text("\n".join(lines) + "\n")
+    (out or (OUT_DIR / "SWEEP.md")).write_text("\n".join(lines) + "\n")
+
+
+def harness_targets() -> list[dict]:
+    """Harnais OSS clones (dans `$OMEGA_RE_CLONES`, defaut /home/tayk0oo/omega-re).
+
+    REA n'analyse en profondeur que le JavaScript/Electron : on ne cible que les
+    depots avec un `package.json`. `rea` lui-meme est exclu (c'est l'outil).
+    """
+    root = Path(os.environ.get("OMEGA_RE_CLONES", "/home/tayk0oo/omega-re"))
+    if not root.is_dir():
+        return []
+    out = []
+    for d in sorted(root.iterdir()):
+        if not d.is_dir() or d.name in {"rea", "rea-evidence", "rea-venv", "rea-venv3"}:
+            continue
+        if not (d / "package.json").is_file():
+            continue
+        out.append(
+            {
+                "name": f"harness-{d.name}",
+                "what": f"Harnais clone : {d.name} (JS/TS)",
+                "command": ["analyze-javascript-application", str(d)],
+                "subject": str(d),
+            }
+        )
+    return out
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", default=None, help="ne traiter qu'une cible")
+    ap.add_argument(
+        "--harnesses",
+        action="store_true",
+        help="balayer les harnais OSS clones (JS/TS) au lieu de nos artefacts",
+    )
     args = ap.parse_args()
 
     if shutil.which("npx") is None:
@@ -278,8 +314,14 @@ def main() -> int:
     (OUT_DIR / "evidence").mkdir(parents=True, exist_ok=True)
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
 
+    selected = harness_targets() if args.harnesses else targets()
+    report = OUT_DIR / ("HARNESS-SWEEP.md" if args.harnesses else "SWEEP.md")
+    if args.harnesses and not selected:
+        print(f"aucun harnais JS/TS trouve dans le dossier de clones", file=sys.stderr)
+        return 1
+
     results = []
-    for target in targets():
+    for target in selected:
         if args.only and target["name"] != args.only:
             continue
         print(f"== {target['name']} : {target['what']}", flush=True)
@@ -306,9 +348,9 @@ def main() -> int:
         print(f"   -> {state} {extra}", flush=True)
 
     if results:
-        write_report(results)
+        write_report(results, report)
         ok = sum(1 for r in results if r["status"] == "analyzed")
-        print(f"\n{ok}/{len(results)} cibles analysees -> {OUT_DIR / 'SWEEP.md'}")
+        print(f"\n{ok}/{len(results)} cibles analysees -> {report}")
     return 0
 
 
