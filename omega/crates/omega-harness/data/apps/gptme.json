@@ -1,0 +1,331 @@
+{
+  "schema_version": 1,
+  "id": "gptme",
+  "name": "gptme",
+  "editor": "Erik Bjareh Seri (gptme contributors)",
+  "oss": true,
+  "language": "Python",
+  "license": "MIT",
+  "repo": "https://github.com/gptme/gptme",
+  "architecture": "Harnais d'agent ReAct (boucle step/turn) en Python : ~60 outils typés (ToolSpec), registre de hooks événementiels (~20 types), leçons/skills à inclusion auto, client + serveur MCP, agent ACP, sandbox multi-backend (firejail/bwrap/docker/wasmtime), mémoire en couches partagée avec Claude Code, compression de contexte adaptative, agents autonomes via systemd/launchd.",
+  "entrypoints": [
+    "gptme CLI (chat/whistle)",
+    "gptme-server (API v2 + WebUI)",
+    "gptme-acp (agent ACP)",
+    "gptme-mcp serve (serveur MCP)",
+    "services systemd/launchd (agents autonomes)"
+  ],
+  "functionalities": [
+    {
+      "domain": "agents",
+      "how": "chat() orchestre la session (gptme/chat.py:212-397) ; _run_chat_loop() itere les tours (gptme/chat.py:397-586) ; step() = une generation LLM + execution d'outils (gptme/chat.py:1011-1145) ; _reply_with_overflow_recovery() regenere en reduisant le contexte si depassement (gptme/chat.py:948-1010) ; _run_post_tool_compaction() compacte apres outil si besoin (gptme/chat.py:798-824).",
+      "id": "gm-react-loop",
+      "integration": "plugin",
+      "name": "Boucle agent ReAct step/turn + overflow recovery",
+      "omega_adapter": "plugins/agent-loop",
+      "omega_capability": "agent-loop",
+      "omega_port": "AgentLoop (chat/step/recover)",
+      "refs": [
+        "gptme/chat.py:212-397",
+        "gptme/chat.py:397-586",
+        "gptme/chat.py:948-1010",
+        "gptme/chat.py:1011-1145"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Boucle tour-par-tour (turn = echange complet, step = generation + execution d'outils) avec reprise automatique sur depassement de contexte et compaction post-outil."
+    },
+    {
+      "domain": "contexte",
+      "how": "LessonIndex indexe les lecons/skills depuis plusieurs repertoires avec cache et stubs de manifest (gptme/lessons/index.py:82-283) ; LessonMatcher + HybridMatcher selectionnent par mots-cles/score (gptme/lessons/matcher.py:45-185, gptme/lessons/hybrid_matcher.py) ; refine_matches() applique des gardes (gptme/lessons/selector.py:130-257) ; auto_include injecte sous budget de tokens avec dropout epsilon (gptme/lessons/auto_include.py:36-270) ; skill_events.py trace l'usage pour telemetry.",
+      "id": "gm-lessons-skills",
+      "integration": "plugin",
+      "name": "Leçons/skills a matching hybride + auto-include budgete",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "refs": [
+        "gptme/lessons/index.py:82-283",
+        "gptme/lessons/matcher.py:45-185",
+        "gptme/lessons/selector.py:130-257",
+        "gptme/lessons/auto_include.py:36-270",
+        "gptme/lessons/skill_events.py:1-80"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Index de lecons/skills markdown a matching hybride (mots-cles + score), inclusion automatique sous budget de tokens, gardes de protection et evenements d'usage telemetres."
+    },
+    {
+      "domain": "extension",
+      "how": "HookType enumere ~20 types en notation pointee (step.pre/post, tool.execute.pre/post, session.start/end, generation.*, loop.continue, tool.confirm, elicit...) (gptme/hooks/types.py:66-140) ; HookRegistry.register/trigger avec filtrage de kwargs, StopPropagation et hooks async (gptme/hooks/registry.py:109-329) ; ~25 modules de hooks concrets (confirm, guardrails, token/cost/cache awareness...) ; les plugins文件夹 exposent leurs hooks via _make_hook_registrar (gptme/plugins/registry.py:144-165).",
+      "id": "gm-hooks-registry",
+      "integration": "plugin",
+      "name": "Bus de hooks typés (~20 types, sync+async)",
+      "omega_adapter": "plugins/hook-bus",
+      "omega_capability": "hook-bus",
+      "omega_port": "HookBus (register/trigger)",
+      "refs": [
+        "gptme/hooks/types.py:66-140",
+        "gptme/hooks/registry.py:109-329",
+        "gptme/hooks/registry.py:434-607",
+        "gptme/plugins/registry.py:144-165"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Registre central de hooks typés (cycle step/turn, outils, fichiers, session, génération, confirmation) déclenchés autour de la boucle, extensible par plugins."
+    },
+    {
+      "domain": "outils",
+      "how": "ToolSpec decrit chaque outil (nom, description, fonctions execute/gen, parametres) et s'auto-derive des callables (gptme/tools/base.py:232-289,544-679) ; _iter_tool_specs collecte les specs d'un module (gptme/tools/base.py:311-326) ; ~60 outils : shell persistant, python, patch, save, read, computer, browser, gh, rag, todo, subagent... ; scripts RPC : le calcul deterministe sort du tour modele.",
+      "id": "gm-tool-surface",
+      "integration": "plugin",
+      "name": "Surface d'outils typés auto-dérivés (~60 outils)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index + hydrate)",
+      "refs": [
+        "gptme/tools/base.py:232-289",
+        "gptme/tools/base.py:544-679",
+        "gptme/tools/shell.py:645-720",
+        "gptme/tools/patch.py:1-80",
+        "gptme/tools/python.py:500-540"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Spécifications d'outils typées dérivées des fonctions Python (signature, exemples, formats), indexées et hydratées à la demande au lieu d'injecter tous les schémas."
+    },
+    {
+      "domain": "outils",
+      "how": "ShellSession maintient un bash persistant avec cwd suivi, snapshot d'etat et groupes de process tuables (gptme/tools/shell.py:645-830) ; tmux.py multiplexe des sessions background ; shell_background.py promeut les jobs longs ; _kill_descendants nettoie l'arbre de process (gptme/tools/shell.py:493-545) ; limites memoire/octets de sortie configurables (gptme/tools/shell.py:376-448).",
+      "id": "gm-shell-tmux",
+      "integration": "plugin",
+      "name": "Shell persistant + jobs background (tmux)",
+      "omega_adapter": "plugins/tool-shell",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor (shell/persist)",
+      "refs": [
+        "gptme/tools/shell.py:645-830",
+        "gptme/tools/shell.py:493-545",
+        "gptme/tools/tmux.py:1-80",
+        "gptme/tools/shell_background.py:1-60"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Sessions shell persistantes avec répertoire suivi, jobs d'arrière-plan promouvables, multiplexage tmux et nettoyage garanti des processus descendants."
+    },
+    {
+      "domain": "outils",
+      "how": "MCPClient gere les connexions stdio + HTTP avec callbacks roots et elicitation (gptme/mcp/client.py:60-310) ; expose call_tool/list_resources/read_resource/list_prompts/get_prompt et gestion dynamique des roots (gptme/mcp/client.py:351-593) ; create_mcp_tools() convertit les outils MCP distants en ToolSpec locaux avec retry (gptme/tools/mcp_adapter.py:290-523) ; MCPRegistry cherche dans les registres officiels (gptme/mcp/registry.py:50-214).",
+      "id": "gm-mcp-client",
+      "integration": "plugin",
+      "name": "Client MCP (stdio+HTTP, tools/resources/prompts)",
+      "omega_adapter": "plugins/mcp-client",
+      "omega_capability": "mcp-client",
+      "omega_port": "McpClient (connect/call/list)",
+      "refs": [
+        "gptme/mcp/client.py:60-310",
+        "gptme/mcp/client.py:351-593",
+        "gptme/tools/mcp_adapter.py:290-523",
+        "gptme/mcp/registry.py:50-214"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Consomme des serveurs MCP distants (stdio et HTTP) et projette leurs outils/ressources/prompts en outils locaux avec retry, roots dynamiques et élicitation."
+    },
+    {
+      "domain": "outils",
+      "how": "GptmeMCPServer expose les outils gptme via le protocole MCP (_toolspec_to_mcp_tool convertit ToolSpec -> types.Tool) (gptme/mcp/server.py:65-153) avec session shell partagee (gptme/mcp/server.py:136-149) ; `gptme mcp serve` demarre le serveur (gptme/cli/cmd_mcp_serve.py:1-72) ; dans l'autre sens, a2a_api.py et skills_api.py exposent agents/skills en HTTP (gptme/server/a2a_api.py, gptme/server/skills_api.py).",
+      "id": "gm-mcp-serve",
+      "integration": "plugin",
+      "name": "Serveur MCP (expose les outils gptme)",
+      "omega_adapter": "plugins/mcp-server",
+      "omega_capability": "mcp-server",
+      "omega_port": "McpServer (serve/list/call)",
+      "refs": [
+        "gptme/mcp/server.py:65-153",
+        "gptme/cli/cmd_mcp_serve.py:1-72",
+        "gptme/server/skills_api.py:1-161",
+        "gptme/server/a2a_api.py:1-120"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Expose les outils et agents gptme vers d'autres harnais via MCP (serveur) et HTTP (A2A, skills API) : MCP dans les deux sens."
+    },
+    {
+      "domain": "agents",
+      "how": "GptmeAgent implemente le protocole ACP : initialize/new_session/prompt/cancel/load_session/authenticate (gptme/acp/agent.py:588-1732) ; run_chat_turn() pont entre le tour ACP et le chat gptme avec streaming de tokens (gptme/acp/agent.py:1305-1492) ; _request_tool_permission mappe les permissions d'outils ACP vers la confirmation gptme (gptme/acp/agent.py:376-563) ; client ACP pour piloter des agents distants (gptme/acp/client.py:1-484).",
+      "id": "gm-acp-agent",
+      "integration": "plugin",
+      "name": "Agent ACP (client + serveur, permissions mappées)",
+      "omega_adapter": "plugins/acp-agent",
+      "omega_capability": "acp-agent",
+      "omega_port": "AcpAgent (session/prompt/cancel)",
+      "refs": [
+        "gptme/acp/agent.py:254-300",
+        "gptme/acp/agent.py:588-869",
+        "gptme/acp/agent.py:1128-1492",
+        "gptme/acp/client.py:1-100",
+        "gptme/acp/adapter.py:1-66"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Implémente le protocole ACP des deux côtés : sert gptme comme agent ACP (sessions, streaming, permissions d'outils) et pilote des agents ACP distants."
+    },
+    {
+      "domain": "securite",
+      "how": "SandboxConfig choisit le backend via GPTME_SANDBOX (firejail|bwrap|docker|wasmtime|none) (gptme/sandbox.py:91-146) ; wrap_shell_cmd/_firejail_cmd/_bwrap_cmd confinent le shell (gptme/sandbox.py:167-403) ; sandbox_exec_python execute le code dans docker (gptme/sandbox.py:404-516) ; sandbox_exec_wasmtime execute CPython WASI via wasmtime-py (gptme/sandbox.py:517-653) ; le tool python bascule automatiquement (gptme/tools/python.py:508-540,700-794).",
+      "id": "gm-sandbox-poly",
+      "integration": "plugin",
+      "name": "Sandbox poly-backend (firejail/bwrap/docker/wasmtime)",
+      "omega_adapter": "plugins/sandbox-docker-wasmtime",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend (execute/fetch_file/cleanup)",
+      "refs": [
+        "gptme/sandbox.py:91-146",
+        "gptme/sandbox.py:167-403",
+        "gptme/sandbox.py:404-516",
+        "gptme/sandbox.py:517-653",
+        "gptme/tools/python.py:508-540"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Exécution confinée à backends interchangeables : firejail/bubblewrap pour le shell, Docker et Wasmtime (CPython WASI) pour le code Python."
+    },
+    {
+      "domain": "memoire",
+      "how": "resolve_roots() ordonne les couches : explicit > project (<workspace>/memory) > cc (~/.claude/projects/<hash>/memory, toujours present) > agent > user (gptme/memory/roots.py:57-97) ; get_cc_memory_dir() recalcule le hash de projet Claude Code (gptme/dirs.py:205-295) ; MemoryStore.save/supersede/audit avec ecriture atomique et verrou (gptme/memory/store.py:244-478) ; default_write_root() choisit la cible d'ecriture (gptme/memory/roots.py:82-97) ; MEMORY.md/knowledge injectes par hooks (gptme/hooks/knowledge_inject.py).",
+      "id": "gm-shared-memory",
+      "integration": "plugin",
+      "name": "Mémoire en couches partagée avec Claude Code",
+      "omega_adapter": "plugins/memory-layered",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (recall/add/replace/patch/remove)",
+      "refs": [
+        "gptme/memory/roots.py:1-97",
+        "gptme/dirs.py:205-295",
+        "gptme/memory/store.py:244-478",
+        "gptme/memory/match.py:1-60",
+        "gptme/hooks/knowledge_inject.py:1-60"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Mémoire fichier en couches (projet, Claude Code, agent, utilisateur) : lit les mémoires natives de Claude Code et écrit sans les écraser, partageable entre harnais."
+    },
+    {
+      "domain": "contexte",
+      "how": "AdaptiveCompressor.compress() fait de la compression extractive a phrases scorees en preservant les blocs de code (gptme/context/adaptive_compressor.py:56-259) ; ContextProvider.should_compress/compress declenche par seuil (gptme/tools/autocompact/context_provider.py:80-130) ; _compute_source_digest detecte les changements (gptme/tools/autocompact/context_provider.py:55-68) ; strip_reasoning() retire le raisonnement verbose (gptme/context/compress.py:243-270) ; measure/analyze_* chiffrent le ratio (gptme/context/compress.py:81-242).",
+      "id": "gm-context-compress",
+      "integration": "plugin",
+      "name": "Compression de contexte adaptative + autocompact",
+      "omega_adapter": "plugins/context-compress",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (compact/afterTurn)",
+      "refs": [
+        "gptme/context/adaptive_compressor.py:56-259",
+        "gptme/context/adaptive_compressor.py:259-438",
+        "gptme/tools/autocompact/context_provider.py:55-130",
+        "gptme/context/compress.py:81-270"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Compression extractive du contexte (phrases scorées, code préservé) déclenchée par seuils, digest de changement, suppression du raisonnement et mesure du ratio."
+    },
+    {
+      "domain": "contexte",
+      "how": "add_token_budget/add_token_usage_warning injectent budgets et alertes dans le prompt (gptme/hooks/token_awareness.py:56-225) ; cost_warning_hook + session_end_cost_summary suivent le cout par session avec _calculate_llm_cost (gptme/hooks/cost_awareness.py:291-463, gptme/telemetry.py:362-442) ; CacheState/is_cache_likely_cold + cache_cold_warning_hook protegent le prefix-cache Anthropic (gptme/hooks/cache_awareness.py:79-234, gptme/hooks/cost_awareness.py:183-263) ; record_tokens/record_llm_request alimentent OTel (gptme/telemetry.py:159-230,442-589).",
+      "id": "gm-token-cost-awareness",
+      "integration": "plugin",
+      "name": "Token/cost/cache awareness (budgets + alertes)",
+      "omega_adapter": "plugins/cost-awareness",
+      "omega_capability": "cost-guard",
+      "omega_port": "CostGuard (budget/warn/summary)",
+      "refs": [
+        "gptme/hooks/token_awareness.py:56-225",
+        "gptme/hooks/cost_awareness.py:291-463",
+        "gptme/hooks/cache_awareness.py:79-234",
+        "gptme/telemetry.py:362-442"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Budgets de tokens injectés au prompt, suivi des coûts par session avec alertes à seuils, et protection du prefix-cache (avertissement cache froid)."
+    },
+    {
+      "domain": "automatisation",
+      "how": "ServiceManager abstrait systemd (Linux) et launchd (macOS) : install/uninstall/start/stop/restart/status/logs/list_agents (gptme/agent/service.py:53-108) ; SystemdManager ecrit service + timer (OnCalendar) (gptme/agent/service.py:108-180) ; `gptme service` et prompt_queue.py orchestrent les runs sans surveillant (gptme/cli/cmd_service.py, gptme/prompt_queue.py:1-187) ; aw_watcher_agent.py surveille les agents d'espace de travail (gptme/hooks/aw_watcher_agent.py).",
+      "id": "gm-autonomous-service",
+      "integration": "plugin",
+      "name": "Agents autonomes (systemd/launchd + timers)",
+      "omega_adapter": "plugins/scheduler-service",
+      "omega_capability": "scheduler-job",
+      "omega_port": "Scheduler (install/run/logs)",
+      "refs": [
+        "gptme/agent/service.py:38-180",
+        "gptme/cli/cmd_service.py:1-80",
+        "gptme/prompt_queue.py:1-187",
+        "gptme/hooks/aw_watcher_agent.py:1-80"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Installe des agents persistants/planifiés via systemd ou launchd (services + timers calendrier), avec file de prompts et surveillance des agents."
+    },
+    {
+      "domain": "agents",
+      "how": "Le tool subagent spawne des sous-agents isoles avec contexte propre et batch parallele (gptme/tools/subagent/api.py:1-300, gptme/tools/subagent/execution.py:1-400) ; persistence.py reprend les sessions (gptme/tools/subagent/persistence.py:1-215) ; hooks.py integre au bus de hooks (gptme/tools/subagent/hooks.py:1-650) ; concurrency.py borne le parallelisme (gptme/tools/subagent/concurrency.py:1-71).",
+      "id": "gm-subagents",
+      "integration": "plugin",
+      "name": "Sous-agents isolés parallèles + reprise",
+      "omega_adapter": "plugins/subagent-isolated",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/resume)",
+      "refs": [
+        "gptme/tools/subagent/api.py:1-300",
+        "gptme/tools/subagent/execution.py:1-400",
+        "gptme/tools/subagent/persistence.py:1-215",
+        "gptme/tools/subagent/concurrency.py:1-71"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Délégation à des sous-agents isolés (contexte séparé, résumé remonté), exécution batch parallèle bornée et reprise de sessions."
+    },
+    {
+      "domain": "securite",
+      "how": "guardrail_hook() bloque les chemins secrets et commandes dangereuses selon le mode (gptme/hooks/guardrails.py:224-333) ; TOOL_CONFIRM demande confirmation avant execution (gptme/hooks/types.py:130-140, gptme/hooks/confirm.py) avec variantes CLI/serveur (gptme/hooks/cli_confirm.py, gptme/hooks/server_confirm.py) ; auto_confirm.py permet l'auto-approbation scopee ; injection_screening.py filtre les injections de prompt (gptme/hooks/injection_screening.py).",
+      "id": "gm-confirm-guardrails",
+      "integration": "plugin",
+      "name": "Confirmation d'outils + guardrails anti-secrets",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy (confirm/deny)",
+      "refs": [
+        "gptme/hooks/guardrails.py:224-333",
+        "gptme/hooks/confirm.py:1-80",
+        "gptme/hooks/server_confirm.py:1-60",
+        "gptme/hooks/injection_screening.py:1-60",
+        "gptme/hooks/types.py:130-140"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Confirmation pré-exécution des outils (CLI et serveur), garde-fous bloquant l'accès aux secrets, et filtrage des injections de prompt."
+    },
+    {
+      "domain": "observabilite",
+      "how": "init_telemetry() branche OTel avec echantillonnage (gptme/telemetry.py:64-113) ; record_tool_call/record_hook_call/record_llm_request tracent chaque etape (gptme/telemetry.py:229-350,442-589) ; LogManager persiste les conversations en JSONL (gptme/logmanager/manager.py:232-330) ; create/restore_checkpoint versionne le workspace via git (gptme/checkpoint.py:240-429) ; server/metrics.py expose les metriques (gptme/server/metrics.py:1-180).",
+      "id": "gm-observability",
+      "integration": "plugin",
+      "name": "Télémétrie OTel + logs JSONL + checkpoints git",
+      "omega_adapter": "omega-otel::StdoutSink",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink (emit/flush)",
+      "refs": [
+        "gptme/telemetry.py:64-113",
+        "gptme/telemetry.py:229-350",
+        "gptme/logmanager/manager.py:232-330",
+        "gptme/checkpoint.py:240-429",
+        "gptme/server/metrics.py:1-180"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Traces OpenTelemetry des appels outils/hooks/LLM, persistance JSONL des conversations, checkpoints git du workspace et métriques serveur."
+    }
+  ]
+}

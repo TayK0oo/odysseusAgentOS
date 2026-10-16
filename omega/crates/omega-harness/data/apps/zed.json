@@ -1,0 +1,322 @@
+{
+  "schema_version": 1,
+  "id": "zed",
+  "name": "Zed",
+  "editor": "Zed Industries",
+  "oss": true,
+  "language": "Rust",
+  "license": "GPL-3.0",
+  "repo": "https://github.com/zed-industries/zed",
+  "architecture": "Editeur natif Rust (GPUI) avec agent integre : threads de conversation persistants (SQLite), boucle run_turn streaming annulable, serveurs d'agents externes via ACP v1/v2, serveurs MCP (ContextServer stdio/HTTP), skills SKILL.md a divulgation progressive, checkpoints git par message, isolation par worktree.",
+  "entrypoints": [
+    "editeur Zed (Agent Panel)",
+    "serveurs d'agents externes ACP (v1/v2)",
+    "serveurs de contexte MCP (stdio/HTTP)"
+  ],
+  "functionalities": [
+    {
+      "domain": "execution",
+      "how": "Thread::run_turn (thread.rs:2843) vide le message partiel, annule le tour en vol, fige le resume, capture les outils actives puis delegue a run_turn_internal (thread.rs:2921) qui streame la completion ; RunningTurn (thread.rs:5090) porte prompt_id, event_stream, outils et canal d'annulation watch. Les evenements (arret/refus/max-tokens/erreur) sont emis via ThreadEventStream.",
+      "id": "ze-agent-loop",
+      "integration": "plugin",
+      "name": "Boucle agent run_turn streaming annulable",
+      "omega_adapter": "plugins/agent-loop",
+      "omega_capability": "agent-runner",
+      "omega_port": "AgentRunner (run_turn/cancel)",
+      "refs": [
+        "crates/agent/src/thread.rs:2843-2920",
+        "crates/agent/src/thread.rs:5090-5130"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Chaque tour flush le message partiel, annule le tour precedent, streame la completion outil par outil avec annulation watch et gere refus / max-tokens / erreur."
+    },
+    {
+      "domain": "configuration",
+      "how": "AgentProfile (agent_profile.rs:29) + AgentProfileSettings (agent_settings.rs:104) : is_tool_enabled (agent_profile.rs:115) et is_context_server_tool_enabled (agent_profile.rs:145) basculent chaque outil natif et chaque outil MCP par profil ; ProfileSelector (profile_selector.rs:56) et cycle_profile (profile_selector.rs:95) exposent le choix dans le panneau.",
+      "id": "ze-profiles",
+      "integration": "plugin",
+      "name": "Profils d'agent (outils par profil)",
+      "omega_adapter": "plugins/agent-profiles",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "refs": [
+        "crates/agent_settings/src/agent_profile.rs:29-152",
+        "crates/agent_settings/src/agent_settings.rs:104-122",
+        "crates/agent_ui/src/profile_selector.rs:56-95"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Chaque profil d'agent active ou coupe outil par outil (natifs + MCP), persisté en settings et commutable depuis le panneau."
+    },
+    {
+      "domain": "agents",
+      "how": "AgentServerDelegate (agent_servers.rs:31) + AcpSession (acp.rs:329, v2_terminal_client_builder acp.rs:340) : l'editeur pilote des agents externes (CLI ou binaires) qui parlent ACP v1 (v1.rs) / v2 (v2.rs) via transport (transport.rs) ; les dossiers acp/ (runtime, session_updates, terminal_updates) adaptent les mises a jour de session et de terminal.",
+      "id": "ze-acp-external",
+      "integration": "plugin",
+      "name": "Agents externes via ACP (v1/v2)",
+      "omega_adapter": "plugins/acp-bridge",
+      "omega_capability": "agent-server",
+      "omega_port": "AgentServer (spawn/session)",
+      "refs": [
+        "crates/agent_servers/src/agent_servers.rs:31",
+        "crates/agent_servers/src/acp.rs:329-340",
+        "https://docs.zed.dev/ai/external-agents"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Des agents externes (binaires/CLI tiers) sont pilotés comme sessions Zed via le protocole ACP v1/v2, avec remontée des mises à jour de session et de terminal."
+    },
+    {
+      "domain": "outils",
+      "how": "ContextServer (context_server.rs:28,41) avec constructeurs stdio (context_server.rs:49) et http (context_server.rs:67), protocole MCP dans protocol.rs, transports dans transport/ (dont http.rs), OAuth dans oauth.rs ; ContextServerRegistry (tools/context_server_registry.rs) et AgentProfileSettings::is_context_server_tool_enabled filtrent les outils exposes.",
+      "id": "ze-mcp-context-servers",
+      "integration": "plugin",
+      "name": "Serveurs de contexte MCP (stdio/HTTP)",
+      "omega_adapter": "plugins/mcp-bridge",
+      "omega_capability": "mcp-bridge",
+      "omega_port": "McpBridge (list/call)",
+      "refs": [
+        "crates/context_server/src/context_server.rs:28-115",
+        "crates/context_server/src/protocol.rs",
+        "crates/agent/src/tools/context_server_registry.rs"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Les serveurs MCP (stdio ou HTTP, OAuth inclus) fournissent outils et contexte externes, filtrables par profil d'agent."
+    },
+    {
+      "domain": "contexte",
+      "how": "AgentSettings.auto_compact (agent_settings.rs:211) + AutoCompactSettings/AutoCompactThreshold (agent_settings.rs:149,176 : pourcentage, tokens utilises, tokens restants) ; Thread::auto_compaction_enabled (thread.rs:4583) et le controle pre-requete (thread.rs:4667-4733) convertissent le seuil via auto_compact_threshold_token_count (thread.rs:4940) et declenchent la compaction avec telemetrie.",
+      "id": "ze-auto-compact",
+      "integration": "plugin",
+      "name": "Compaction automatique sur seuil",
+      "omega_adapter": "omega-context::truncate_compact",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (compact/afterTurn)",
+      "refs": [
+        "crates/agent_settings/src/agent_settings.rs:149-211",
+        "crates/agent/src/thread.rs:4583-4733",
+        "crates/agent/src/thread.rs:4940-4950"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "La compaction se déclenche seule quand l'usage dépasse un seuil configurable (pourcentage, tokens utilisés ou restants), avec télémétrie."
+    },
+    {
+      "domain": "contexte",
+      "how": "Thread::compact (thread.rs:2683) : flush + cancel du tour en vol (comme run_turn), repere le marqueur accepte, construit la requete via build_compaction_request avec le compaction_model (thread.rs:4779), streame le resume via stream_compaction en CompactionInsertion::Manual, avec telemetrie pending_compaction_telemetry.",
+      "id": "ze-manual-compact",
+      "integration": "plugin",
+      "name": "Compaction manuelle resumee par modele",
+      "omega_adapter": "omega-context::truncate_compact",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (compact)",
+      "refs": [
+        "crates/agent/src/thread.rs:2683-2796",
+        "crates/agent/src/thread.rs:4779"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Compaction manuelle : un modèle dédié résume la conversation jusqu'au marqueur et le résumé remplace le contexte (message Compaction::Summary)."
+    },
+    {
+      "domain": "memoire",
+      "how": "Actions NewNativeAgentThreadFromSummary (agent_panel.rs:388) -> new_native_agent_thread_from_summary (agent_panel.rs:3490) qui recupere le contenu initial via initial_content_for_thread_summary (agent_panel.rs:3522) ; le resume detaille persiste en DB (detailed_summary, thread.rs:1832,1952) et le summary est regenere par le summarization_model (thread.rs:2121-2135).",
+      "id": "ze-new-from-summary",
+      "integration": "plugin",
+      "name": "New From Summary (nouveau fil depuis resume)",
+      "omega_adapter": "plugins/thread-from-summary",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (summarize/spawn)",
+      "refs": [
+        "crates/agent_ui/src/agent_panel.rs:388-391",
+        "crates/agent_ui/src/agent_panel.rs:3490-3522"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Un nouveau fil démarre avec le résumé du fil précédent comme contexte initial (résumé détaillé persisté + modèle de résumé dédié)."
+    },
+    {
+      "domain": "contexte",
+      "how": "MentionUri (mention.rs:20) avec parse (mention.rs:80), parse_hyperlink (mention.rs:292), abs_path/name/tooltip (mention.rs:315-398) ; MentionSet (mention_set.rs:60) attache les mentions aux creases de l'editeur (insert_mention mention_set.rs:113, confirm_mention_for_file/selection/git_diff) et les resout en contenu de contexte.",
+      "id": "ze-mentions",
+      "integration": "plugin",
+      "name": "@-mentions de fichiers/selections/diffs",
+      "omega_adapter": "plugins/mention-resolve",
+      "omega_capability": "mention-resolver",
+      "omega_port": "MentionResolver (parse/resolve)",
+      "refs": [
+        "crates/acp_thread/src/mention.rs:20-120",
+        "crates/agent_ui/src/mention_set.rs:45-130",
+        "https://docs.zed.dev/ai/agent-panel#mentions"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Les @-mentions (fichier, sélection, diff git, thread) sont parsées, attachées à l'éditeur et résolues en pièces de contexte du prompt."
+    },
+    {
+      "domain": "execution",
+      "how": "ThreadOptions.use_new_worktree + worktree_name + base ref (thread.rs:843-850) : le fil nait dans un workspace git worktree dedie ; build_root_plan / workspaces_for_archive (thread_worktree_archive.rs:112,928) et restore_archive_checkpoint (thread_worktree_archive.rs:778) archivent et restaurent l'etat du worktree.",
+      "id": "ze-worktree-per-thread",
+      "integration": "plugin",
+      "name": "Isolation par worktree par fil",
+      "omega_adapter": "plugins/worktree-isolate",
+      "omega_capability": "worktree-isolate",
+      "omega_port": "WorktreeIsolate (spawn/archive/restore)",
+      "refs": [
+        "crates/agent/src/thread.rs:843-865",
+        "crates/agent_ui/src/thread_worktree_archive.rs:112-130",
+        "crates/agent_ui/src/thread_worktree_archive.rs:778-789"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Chaque fil d'agent peut naître dans son propre git worktree (nom aléatoire anti-collision), archivable et restaurable."
+    },
+    {
+      "domain": "memoire",
+      "how": "A chaque message utilisateur non vide, le git_store prend un checkpoint (acp_thread.rs:6475-6504, Checkpoint { git_checkpoint } attache au message) ; restore_checkpoint (acp_thread.rs:6998) annule la generation, rewind le fil (rewind, acp_thread.rs:7046) puis restaure l'arbre via git_store.restore_checkpoint (git_store.rs:2176, repository.rs:1074) ; bouton Restore Checkpoint dans thread_view.rs:6851.",
+      "id": "ze-checkpoints",
+      "integration": "plugin",
+      "name": "Checkpoints git par message + restauration",
+      "omega_adapter": "omega-app::FileEventStore",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (snapshot/restore)",
+      "refs": [
+        "crates/acp_thread/src/acp_thread.rs:6475-6504",
+        "crates/acp_thread/src/acp_thread.rs:6998-7030",
+        "crates/project/src/git_store.rs:2176",
+        "crates/agent_ui/src/conversation_view/thread_view.rs:6844-6857"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Chaque message utilisateur fige un checkpoint git ; le bouton Restore Checkpoint rembobine le fil ET l'arbre de travail."
+    },
+    {
+      "domain": "observabilite",
+      "how": "TokenUsage cumule (cumulative_token_usage, current_request_token_usage, request_token_usage par message : thread.rs:1312-1317) ; TokenUsage::ratio (acp_thread.rs:3357) avec seuil warning 0.8 (TOKEN_USAGE_WARNING_THRESHOLD) et etats Normal/Warning/Exceeded (acp_thread.rs:3381) ; tooltip TokenUsageTooltip (thread_view.rs:6360-6377) et bandeau thread_view.rs:12758.",
+      "id": "ze-token-usage",
+      "integration": "plugin",
+      "name": "Usage de tokens visible (ratio + seuils)",
+      "omega_adapter": "omega-context::ContextBudget",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine + ContextBudget",
+      "refs": [
+        "crates/agent/src/thread.rs:1312-1317",
+        "crates/acp_thread/src/acp_thread.rs:3350-3390",
+        "crates/agent_ui/src/conversation_view/thread_view.rs:6360-6377"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "L'usage cumulé vs limite du modèle est visible en permanence (ratio, avertissement à 80 %, dépassement) via tooltip et bandeau."
+    },
+    {
+      "domain": "ui",
+      "how": "AgentPanel (agent_panel.rs:1116) : new_thread (agent_panel.rs:1753), new_native_agent_thread_from_summary (agent_panel.rs:3490), threads_archive_view, model/profile selectors (model_selector.rs, profile_selector.rs), AgentDiffPane (agent_diff.rs:41) pour la revue des modifications, inline_assistant pour l'edition inline.",
+      "id": "ze-agent-panel",
+      "integration": "plugin",
+      "name": "Agent Panel (fils, selecteurs, diff)",
+      "omega_adapter": "plugins/agent-panel",
+      "omega_capability": "ui-panel",
+      "omega_port": "AgentPanel (threads/selectors)",
+      "refs": [
+        "crates/agent_ui/src/agent_panel.rs:1116",
+        "crates/agent_ui/src/agent_panel.rs:1753",
+        "crates/agent_ui/src/agent_diff.rs:41-83",
+        "https://docs.zed.dev/ai/agent-panel"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Panneau latéral : liste des fils, sélecteurs modèle/profil, vue conversation, revue des diffs agent et assistant inline."
+    },
+    {
+      "domain": "routage",
+      "how": "LanguageModelRegistry (registry.rs:46) avec register/unregister_provider (registry.rs:150-171), selected model (registry.rs:67), temperature par modele (agent_settings.rs:267) ; fournisseurs natifs dans crates/ : anthropic, bedrock, deepseek, google_ai, mistral, ollama, lmstudio, openai_subscribed, x_ai (+ cloud_llm_client, copilot).",
+      "id": "ze-providers",
+      "integration": "plugin",
+      "name": "Registre multi-fournisseurs de modeles",
+      "omega_adapter": "omega-providers::OllamaProvider",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider",
+      "refs": [
+        "crates/language_model/src/registry.rs:46-194",
+        "crates/language_models/src/",
+        "crates/agent_settings/src/agent_settings.rs:267"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Un registre unique fédère ~10 fournisseurs natifs (Anthropic, Bedrock, DeepSeek, Google, Mistral, Ollama, LM Studio, OpenAI, X AI) avec modèle sélectionné global."
+    },
+    {
+      "domain": "securite",
+      "how": "HardcodedSecurityRules + ToolPermissionDecision::from_input (tool_permissions.rs:21,208,253), decide_permission_from_settings / for_paths (tool_permissions.rs:467-544) ; ThreadSandbox + SandboxPolicy (sandboxing.rs:95-160) avec escalation, fallback et persistance DB (to_db/from_db sandboxing.rs:478-496) ; AgentSettings SandboxPermissions/ToolPermissions (agent_settings.rs:434-496).",
+      "id": "ze-permissions",
+      "integration": "plugin",
+      "name": "Permissions d'outils + sandbox par fil",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "refs": [
+        "crates/agent/src/tool_permissions.rs:21-253",
+        "crates/agent/src/sandboxing.rs:95-160",
+        "crates/agent_settings/src/agent_settings.rs:434-496"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Chaque appel d'outil passe des règles de sécurité codées en dur + politiques settings (chemins), avec sandbox, escalation et file d'approbation."
+    },
+    {
+      "domain": "contexte",
+      "how": "Spec agentskills.io : decouverte stricte .agents/skills global (~/.agents/skills) + projet (<worktree>/.agents/skills), scan plat un niveau (README agent_skills) ; SkillTool (skill_tool.rs:120) + render_skill_envelope (skill_tool.rs:46) : catalogue nom+description puis corps a la demande puis ressources.",
+      "id": "ze-skills",
+      "integration": "plugin",
+      "name": "Skills SKILL.md a divulgation progressive",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "refs": [
+        "crates/agent_skills/README.md",
+        "crates/agent_skills/agent_skills.rs",
+        "crates/agent/src/tools/skill_tool.rs:46-130"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Skills au format agentskills.io (SKILL.md + scripts/references/assets), catalogue minimal puis corps puis ressources, exposés via outil skill et slash-commandes."
+    },
+    {
+      "domain": "configuration",
+      "how": "UserAgentsMd global (user_agents_md.rs:60, lu en entier comme les regles projet/AGENTS.md) ; prompt_store (prompts.rs, rules_to_skills_migration.rs) gere les regles et leur migration vers skills ; COMPACTION_PROMPT et system_prompt.hbs (agent.rs, templates/) fixent le prompt systeme.",
+      "id": "ze-rules",
+      "integration": "plugin",
+      "name": "Regles projet + AGENTS.md + migration skills",
+      "omega_adapter": "plugins/rules-inject",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "refs": [
+        "crates/agent_settings/src/user_agents_md.rs:13-97",
+        "crates/prompt_store/src/rules_to_skills_migration.rs",
+        "crates/agent/src/templates/system_prompt.hbs"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Les règles (AGENTS.md global + projet) sont injectées en entier dans le prompt système, avec migration assistée des règles vers skills."
+    },
+    {
+      "domain": "agents",
+      "how": "SpawnAgentTool (spawn_agent_tool.rs:126, input spawn_agent_tool.rs:47) + CreateThreadTool (tools/create_thread_tool.rs) : un outil modele-declenche des sous-agents/threads enfants ; Thread::summarization_model et parent (thread.rs:1507) rattachent l'enfant au parent.",
+      "id": "ze-subagents",
+      "integration": "plugin",
+      "name": "Sous-agents via outils (spawn/create_thread)",
+      "omega_adapter": "plugins/subagent-isolated",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/resume)",
+      "refs": [
+        "crates/agent/src/tools/spawn_agent_tool.rs:47-131",
+        "crates/agent/src/tools/create_thread_tool.rs"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Le modèle délègue à des sous-agents isolés via outils dédiés, chaque enfant vivant dans son propre thread rattaché au parent."
+    }
+  ]
+}

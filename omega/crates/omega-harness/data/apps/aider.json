@@ -1,0 +1,340 @@
+{
+  "schema_version": 1,
+  "id": "aider",
+  "name": "Aider",
+  "editor": "Aider-AI (Paul Gauthier)",
+  "oss": true,
+  "language": "Python",
+  "license": "Apache-2.0",
+  "repo": "https://github.com/Aider-AI/aider",
+  "architecture": "CLI Python pair-programming : boucle REPL (Coder.run) -> repo map compressee en prompt -> un edit-format impose la grammaire de reponse du LLM -> application floue + lint/tests + auto-commit git. Modeles via litellm avec registre de settings par modele.",
+  "entrypoints": [
+    "aider CLI (aider/__main__.py, aider/main.py)",
+    "mode watch AI-comments (aider/watch.py)",
+    "UI navigateur (aider/gui.py, --browser)",
+    "harnais de benchmark (benchmark/benchmark.py)"
+  ],
+  "functionalities": [
+    {
+      "domain": "contexte",
+      "how": "Extraction tree-sitter (requetes .scm par langage, get_tags_raw) en Tags def/ref ; graphe MultiDiGraph referencer->definer pondere (mention x10, snake/camel>=8 chars x10, prive x0.1, >5 definers x0.1, fichier en chat x50, sqrt des refs) ; nx.pagerank avec personnalisation vers fichiers du chat ; rank distribue aux definitions, rendu arborescent sous budget map_tokens, cache SQLite des tags.",
+      "id": "ai-repomap-pagerank",
+      "integration": "plugin",
+      "name": "Repo map tree-sitter + PageRank sous budget",
+      "omega_adapter": "plugins/repomap-pagerank",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (rank/compact)",
+      "refs": [
+        "aider/repomap.py:19-29",
+        "aider/repomap.py:42-103",
+        "aider/repomap.py:217-233",
+        "aider/repomap.py:279-328",
+        "aider/repomap.py:365-529",
+        "aider/repomap.py:576-710",
+        "aider/repomap.py:748-787"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Carte du depot (classes/fonctions + appels) classee par PageRank personalise et rendue sous un budget de tokens."
+    },
+    {
+      "domain": "execution",
+      "how": "Le LLM repond des blocs SEARCH/REPLACE ; EditBlockCoder les decoupe puis search_replace.py applique une cascade de strategies (strip_blank_lines, relative_indent, reverse_lines) via flexible_search_and_replace ; echec -> message d'erreur re-injecte en reflection.",
+      "id": "ai-edit-search-replace",
+      "integration": "plugin",
+      "name": "Format d'edition SEARCH/REPLACE flou (diff)",
+      "omega_adapter": "plugins/edit-search-replace",
+      "omega_capability": "edit-apply",
+      "omega_port": "EditApplier (apply_fuzzy)",
+      "refs": [
+        "aider/coders/editblock_coder.py:15-18",
+        "aider/coders/search_replace.py:434-565",
+        "aider/coders/search_replace.py:586-611"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Format d'edition par defaut : blocs SEARCH/REPLACE appliques avec appariement flou multi-strategies."
+    },
+    {
+      "domain": "execution",
+      "how": "WholeFileCoder demande le fichier entier en reponse ; le contenu remplace integralement le fichier ; adapte aux petits fichiers et aux modeles faibles incapables de diffs.",
+      "id": "ai-edit-wholefile",
+      "integration": "plugin",
+      "name": "Format d'edition fichier entier (whole)",
+      "omega_adapter": "plugins/edit-wholefile",
+      "omega_capability": "edit-apply",
+      "omega_port": "EditApplier (apply_whole)",
+      "refs": [
+        "aider/coders/wholefile_coder.py:10-13",
+        "aider/coders/wholefile_prompts.py:1-64"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Reecriture integrale du fichier, format de repli simple et robuste."
+    },
+    {
+      "domain": "execution",
+      "how": "UnifiedDiffCoder parse des diffs unifies standards ; PatchCoder implemente un mini-langage de patch V4A (ActionType/Chunk/PatchAction) avec parseur derive de apply_patch ; application atomique par fichier.",
+      "id": "ai-edit-udiff-patch",
+      "integration": "plugin",
+      "name": "Formats diff unifie et patch V4A",
+      "omega_adapter": "plugins/edit-udiff-patch",
+      "omega_capability": "edit-apply",
+      "omega_port": "EditApplier (apply_udiff/apply_patch)",
+      "refs": [
+        "aider/coders/udiff_coder.py:46-49",
+        "aider/coders/patch_coder.py:13-46",
+        "aider/coders/patch_coder.py:210-217",
+        "aider/coders/patch_coder.py:295-320"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Deux formats machine (diff unifie, patch structure V4A) pour les modeles qui les produisent nativement."
+    },
+    {
+      "domain": "agents",
+      "how": "ArchitectCoder (sous-classe d'AskCoder) fait reflechir le gros modele sans ecrire ; sur confirmation utilisateur il spawne un second Coder avec l'editor_model et l'editor_edit_format du modele, lui envoie la proposition et fusionne couts et hashes de commits.",
+      "id": "ai-architect-two-stage",
+      "integration": "plugin",
+      "name": "Boucle architecte -> editeur (deux modeles)",
+      "omega_adapter": "plugins/architect-loop",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/resume)",
+      "refs": [
+        "aider/coders/architect_coder.py:6-48",
+        "aider/models.py:626-647"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Le modele fort concoit, un modele editeur (souvent plus faible/cheap) applique."
+    },
+    {
+      "domain": "agents",
+      "how": "AskCoder repond sans jamais ecrire ; ContextCoder identifie les fichiers a editer, les ajoute au chat et demande une reformulation (reflected_message) au lieu d'editer ; commandes /ask /context /architect basculent de Coder.",
+      "id": "ai-ask-context-modes",
+      "integration": "plugin",
+      "name": "Modes lecture seule ask / context",
+      "omega_adapter": "plugins/readonly-modes",
+      "omega_capability": "agent-mode",
+      "omega_port": "AgentMode (ask/context/code)",
+      "refs": [
+        "aider/coders/ask_coder.py:5-9",
+        "aider/coders/context_coder.py:5-53",
+        "aider/commands.py:1182-1198"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Questions-reponses et reperage de fichiers sans ecriture, avant d'engager des edits."
+    },
+    {
+      "domain": "execution",
+      "how": "Apres chaque tour edite : lint_edited puis auto_commit, proposition de fix via reflected_message (max_reflections=3, boucle run_one) ; pareil pour cmd_test si auto_test ; run_shell_commands rejoue les commandes suggerees ; retry exponentiel sur erreurs API.",
+      "id": "ai-reflect-lint-test",
+      "integration": "plugin",
+      "name": "Boucle de reflexion lint/tests auto-fix",
+      "omega_adapter": "plugins/reflect-lint-test",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy (reflect/fixpoint)",
+      "refs": [
+        "aider/coders/base_coder.py:100-109",
+        "aider/coders/base_coder.py:924-944",
+        "aider/coders/base_coder.py:1449-1495",
+        "aider/coders/base_coder.py:1599-1623"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Les erreurs de lint/tests sont renvoyees au modele jusqu'a convergence (borne a 3 reflexions)."
+    },
+    {
+      "domain": "automatisation",
+      "how": "auto_commit appelle GitRepo.commit avec les fichiers edites ; le message est genere par le weak_model via get_commit_message ; attribution configurable (author vs committer, Co-authored-by, prefixe aider:) ; dirty_commit sauvegarde l'etat pre-edit.",
+      "id": "ai-auto-commit",
+      "integration": "plugin",
+      "name": "Git auto-commit + message genere",
+      "omega_adapter": "plugins/git-auto-commit",
+      "omega_capability": "vcs-commit",
+      "omega_port": "VcsCommit (commit/message)",
+      "refs": [
+        "aider/coders/base_coder.py:2375-2400",
+        "aider/repo.py:131-270",
+        "aider/repo.py:326-375",
+        "aider/models.py:622-624",
+        "aider/args.py:456-486"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Chaque edition est commitee automatiquement avec un message redige par un petit modele."
+    },
+    {
+      "domain": "securite",
+      "how": "Chaque hash commite par aider est memorise (aider_commit_hashes) ; /undo verifie que HEAD est un commit aider, refuse si parents multiples ou fichiers sales, puis reset ; /diff montre l'etat avant validation.",
+      "id": "ai-undo-guard",
+      "integration": "plugin",
+      "name": "Undo garde-fou des commits aider",
+      "omega_adapter": "plugins/git-auto-commit",
+      "omega_capability": "vcs-commit",
+      "omega_port": "VcsCommit (undo)",
+      "refs": [
+        "aider/commands.py:553-600",
+        "aider/commands.py:657-700",
+        "aider/coders/base_coder.py:2402-2412"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Annulation securisee du dernier commit aider uniquement, avec garde-fous."
+    },
+    {
+      "domain": "execution",
+      "how": "Classe Linter avec registre par langage (set_linter), lint() dispatchant vers py_compile/flake8 ou commandes externes ; lint_python_compile et basic_lint en repli sans dependance ; appels automatiques apres chaque edition.",
+      "id": "ai-linter-multilang",
+      "integration": "plugin",
+      "name": "Linter multi-langage apres edition",
+      "omega_adapter": "plugins/lint-after-edit",
+      "omega_capability": "lint-check",
+      "omega_port": "LintCheck (lint_file)",
+      "refs": [
+        "aider/linter.py:21-82",
+        "aider/linter.py:118-172",
+        "aider/linter.py:177-234",
+        "aider/commands.py:356-410"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Verification syntaxique immediate dans plusieurs langages apres chaque fichier edite."
+    },
+    {
+      "domain": "routage",
+      "how": "ModelSettings (edit_format, use_repo_map, cache_control, accepts_settings) resolus par ModelInfoManager (cache JSON + litellm.get_model_info + OpenRouter) avec heuristiques par nom de modele ; weak_model pour les taches cheap, editor_model pour l'application ; token_counter et completion_cost via litellm.",
+      "id": "ai-model-registry",
+      "integration": "plugin",
+      "name": "Registre de modeles + routage fort/faible",
+      "omega_adapter": "omega-registry (slots modeles)",
+      "omega_capability": "registry",
+      "omega_port": "Registre (model slots)",
+      "refs": [
+        "aider/models.py:128-160",
+        "aider/models.py:161-280",
+        "aider/models.py:329-370",
+        "aider/models.py:437-494",
+        "aider/models.py:603-647"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Capacites par modele (format, repo-map, cache) + delegation systematique au modele faible pour le cheap."
+    },
+    {
+      "domain": "contexte",
+      "how": "ChatChunks decoupe les messages en prefixe cacheable + suffixe ; add_cache_control_headers pose les breakpoints Anthropic quand le modele l'accepte ; lecture de cache_read/cache_creation_input_tokens dans usage pour le cout ; option de warm-up du cache.",
+      "id": "ai-prompt-cache",
+      "integration": "plugin",
+      "name": "Prompt caching segmente + mesure",
+      "omega_adapter": "plugins/prompt-cache",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (freeze/cache)",
+      "refs": [
+        "aider/coders/chat_chunks.py:6-64",
+        "aider/coders/base_coder.py:426-427",
+        "aider/coders/base_coder.py:1335-1341",
+        "aider/coders/base_coder.py:2004-2009",
+        "aider/models.py:140"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Prefixe de prompt gele et cache (Anthropic) avec comptabilite des tokens lus/ecrits."
+    },
+    {
+      "domain": "ui",
+      "how": "Commands (commands.py, ~1700 lignes) expose ~35 cmd_* : /add /drop /read-only /map /tokens /commit /undo /diff /test /lint /run /git /voice /model /tokens ; auto-completion prompt_toolkit et detection de mentions de fichiers/URLs dans l'entree.",
+      "id": "ai-slash-commands",
+      "integration": "plugin",
+      "name": "Systeme de commandes slash terminal",
+      "omega_adapter": "plugins/slash-commands",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (commands)",
+      "refs": [
+        "aider/commands.py:87-138",
+        "aider/commands.py:799-967",
+        "aider/commands.py:993-1064",
+        "aider/commands.py:1418-1432",
+        "aider/coders/base_coder.py:908-924"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Trente-cinq commandes de gestion du contexte, du git et des modeles dans le REPL."
+    },
+    {
+      "domain": "memoire",
+      "how": "ChatSummary resume les vieux messages quand le budget depasse (max_chat_history_tokens = min(max_input/16, 8192)) ; /tokens affiche la ventilation ; /clear /drop liberation manuelle ; historique persistee (.aider.chat.history.md, .aider.input.history).",
+      "id": "ai-chat-summary",
+      "integration": "plugin",
+      "name": "Resume d'historique sous budget",
+      "omega_adapter": "omega-context::truncate_compact (partiel)",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (compact/afterTurn)",
+      "refs": [
+        "aider/history.py:7-98",
+        "aider/models.py:355-358",
+        "aider/commands.py:411-553",
+        "aider/args.py:272-275"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Compaction resumante de l'historique sous plafond derive de la fenetre du modele."
+    },
+    {
+      "domain": "automatisation",
+      "how": "FileWatcher (watchdog) surveille les racines du repo, filtre via gitignores, et demande au modele un commentaire AI sur chaque changement externe ; commande COPY/PASTE bidirectionnelle avec le navigateur.",
+      "id": "ai-file-watcher",
+      "integration": "plugin",
+      "name": "Watch de fichiers + commentaires IA",
+      "omega_adapter": "plugins/file-watcher",
+      "omega_capability": "scheduler-job",
+      "omega_port": "Scheduler (watch/react)",
+      "refs": [
+        "aider/watch.py:65-181",
+        "aider/watch.py:257-284",
+        "aider/copypaste.py:1-60"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Reaction aux modifications externes au chat avec revue automatique."
+    },
+    {
+      "domain": "observabilite",
+      "how": "benchmark/benchmark.py rejoue des exercices polyglottes versionnes (dirs d'exercices, gestions de versions, replay) et publie les leaderboards d'edition/refactoring sur aider.chat ; Analytics opt-in via PostHog avec echantillonnage UUID.",
+      "id": "ai-benchmark-leaderboard",
+      "integration": "service",
+      "name": "Benchmark polyglotte + leaderboards",
+      "omega_adapter": "plugins/eval-harness",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink (eval results)",
+      "refs": [
+        "benchmark/benchmark.py:162-258",
+        "benchmark/benchmark.py:679-800",
+        "aider/analytics.py:60-213"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Preuve par la mesure : harnais d'exercices versionnes et classements publics par modele."
+    },
+    {
+      "domain": "configuration",
+      "how": "Recherche de .aider.conf.yml (git root puis cwd puis home), .aider.model.settings.yml et .aider.model.metadata.json par modele inconnu, .env, .aiderignore ; attributs CLI exhaustifs generes dans args.py (~900 lignes).",
+      "id": "ai-config-layers",
+      "integration": "plugin",
+      "name": "Config en couches + settings par modele",
+      "omega_adapter": "omega-config (couches + precedence)",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "refs": [
+        "aider/args.py:22-35",
+        "aider/args.py:121-129",
+        "aider/args.py:422-431",
+        "aider/args.py:794-800"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Fichiers de config decouverts par precedence avec reglages specifiques par modele."
+    }
+  ]
+}
