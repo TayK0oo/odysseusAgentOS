@@ -1,0 +1,372 @@
+{
+  "schema_version": 1,
+  "id": "rea",
+  "name": "REA (Reverse Engineer Anything)",
+  "editor": "morluto (projet ouvert)",
+  "oss": true,
+  "language": "TypeScript / Node.js",
+  "license": "MIT",
+  "repo": "https://github.com/morluto/rea",
+  "architecture": "Serveur MCP stdio + CLI one-shot partageant la même couche application ; routeur de sessions binaires vers providers natifs (Hopper/Ghidra/IDA/Rizin/objdump/Cutter/GDB) + adaptateurs statiques ciblés (JS, .NET, APK, WASM, EVM, firmware, pcap, SQLite) ; tout résultat est un record Evidence canonique avec couverture/limites explicites.",
+  "entrypoints": [
+    "serveur MCP stdio (npx rea-agents / scripts/rea.mjs)",
+    "CLI one-shot rea (≈100 commandes, même workflows que MCP)",
+    "rea setup (installation multi-agents + engines)",
+    "skill reverse-engineer-anything (.agents/skills/) + site rea.tools"
+  ],
+  "functionalities": [
+    {
+      "how": "Contrats zod figés par outil dans src/contracts/*ToolContracts.ts exposés via binary_session ; catalogue machine docs/public/product-catalog.json régénérable (npm run docs:generate) ; traduction MCP dans src/server/ ; ~142 noms d'outils name:\"...\" recensés.",
+      "id": "rea-mcp-catalog",
+      "integration": "plugin",
+      "name": "Serveur MCP à catalogue d'outils versionné",
+      "omega_adapter": "plugins/mcp-rea",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index + hydrate)",
+      "refs": [
+        "docs/mcp-contracts.md:851-862",
+        "src/contracts/sessionToolContracts.ts:71-127",
+        "src/contracts/toolContracts.ts:39-89",
+        "docs/architecture.mermaid:1-60"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Un serveur MCP stdio expose ~140 outils provider-neutres avec schémas stricts, catalogue découvrable (binary_session) et identité serveur/catalogue digest.",
+      "domain": "outils"
+    },
+    {
+      "how": "Schéma zod evidenceSchema (superRefine) + parseEvidence/immutableEvidence ; text+structuredContent ; raw_result vs normalized_result ; budgets transport 10 MiB, export streaming, vues paginées inspect_analysis_view ; erreurs canoniques isError + error-contract.schema.json.",
+      "id": "rea-evidence-contract",
+      "integration": "plugin",
+      "name": "Contrat d'évidence canonique (preuves + limites)",
+      "omega_adapter": "plugins/tool-rea-evidence",
+      "omega_capability": "provenance",
+      "omega_port": "Provenance",
+      "refs": [
+        "src/domain/evidence.ts:37-291",
+        "docs/mcp-contracts.md:9-150",
+        "docs/error-contract.schema.json:1-60"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Chaque outil rend un record Evidence canonique (résultat normalisé, couverture complete/unknown, limitations, identité artifact/provider) et les échecs rendent un diagnostic typé retryable + remediation.",
+      "domain": "observabilite"
+    },
+    {
+      "how": "AnalysisProviderRegistry + SessionProviderRouter : une liaison immuable par cible, sélection déterministe sans fallback ; bridge Python Hopper (bridge/hopper_bridge.py), bundle Java Ghidra (bridge/ghidra/), adaptation du MCP upstream ida-pro-mcp, profils Rizin/objdump/GDB, Cutter. Sessions persistantes limitées à la vie du process MCP.",
+      "id": "rea-native-providers",
+      "integration": "plugin",
+      "name": "Routeur multi-providers natifs (Hopper/Ghidra/IDA/Rizin/objdump/Cutter/GDB)",
+      "omega_adapter": "plugins/tool-rea-native",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "refs": [
+        "src/ghidra/GhidraProvider.ts:1-40",
+        "src/hopper/HopperProvider.ts:1-40",
+        "src/ida/IdaProvider.ts:39-60",
+        "src/objdump/ObjdumpCommand.ts:1-40",
+        "src/rizin/RizinCommand.ts:1-40",
+        "src/gdb/GdbSessionManager.ts:1-40",
+        "docs/reverse-engineering-tools.md:1-50",
+        "docs/architecture.mermaid:1-60"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "open_binary lie une cible à un provider (Hopper, Ghidra headless, IDA GUI/headless, Rizin, objdump, Cutter, GDB) avec files de requêtes, profils d'analyse et nettoyage possédé.",
+      "domain": "outils"
+    },
+    {
+      "how": "Dossiers de fonction (pseudo-code, asm, callers/callees, refs, strings, CFG) avec facet_availability par facette ; comparaison multi-dimensions à statuts identity/contradiction/truncated/unknown ; traces bornées avec residual_unknowns ; vues paginées pour gros dossiers.",
+      "id": "rea-function-workflows",
+      "integration": "plugin",
+      "name": "Workflows de fonctions (analyse, comparaison, call-graph, call-path)",
+      "omega_adapter": "plugins/tool-rea-functions",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "refs": [
+        "src/contracts/sessionToolContracts.ts:112-127",
+        "docs/native-investigation.md:1-60",
+        "docs/mcp-contracts.md:794-850"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "analyze_function, compare_functions, get_call_graph, trace_call_path, batch_decompile et primitives natives (instructions, xrefs, types) avec sémantique de comparaison stricte.",
+      "domain": "outils"
+    },
+    {
+      "how": "Graphe d'application JS provider-neutre (JSON canonique RFC 8785, pur et sans I/O) reliant bytes livrés, structure JS, frontières Electron, observations browser et add-ons natifs ; reconstruction d'artifacts AST-only ; inspection Electron (fuses, pages, scénarios) ; observation runtime V8 Inspector/CDP passive ; réconciliation statique/runtime.",
+      "id": "rea-js-electron",
+      "integration": "plugin",
+      "name": "Analyse JS/Electron (graphe d'application, bundles, runtime)",
+      "omega_adapter": "plugins/tool-rea-js",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "refs": [
+        "docs/javascript-application-graph.md:1-60",
+        "docs/cli.md:1-60",
+        "docs/electron-observation.md:1-40",
+        "docs/javascript-artifact-reconstruction.md:1-40",
+        "docs/electron-fuses.md:1-40"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "analyze_javascript_application, web bundle AST, export shapes, source-maps, fuses Electron et observation runtime passive avec graphe d'application canonique.",
+      "domain": "outils"
+    },
+    {
+      "how": "Lecteur PE/CLI maison (ManagedPeReader, heaps, signatures, corps de méthodes, CIL) sans charger ni exécuter l'assembly ; inspecteurs membres/frontières, comparaison inter-builds à tokens locaux, vérification contre evidence native fournie, import de décompilation, projection en graphe.",
+      "id": "rea-dotnet-managed",
+      "integration": "plugin",
+      "name": "Analyse managée .NET (metadata, CIL, frontières natives)",
+      "omega_adapter": "plugins/tool-rea-dotnet",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "refs": [
+        "docs/managed-code-analysis.md:1-60",
+        "src/dotnet/ManagedPeReader.ts:1-40",
+        "src/dotnet/ManagedMemberInspector.ts:1-40",
+        "src/dotnet/ManagedNativeBoundaryInspector.ts:1-40"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Sept outils inspect/compare/verify/project sur assemblies .NET : identité, membres CIL, appels natifs déclarés, comparaison de builds, import de reconstruction.",
+      "domain": "outils"
+    },
+    {
+      "how": "JADX headless épinglé en submodule (third_party/) piloté en process stdio possédé ; apktool pour ressources ; famille ADB complète (devices, packages, logcat,推拉 fichiers, activités, bugreport, screenshots) en commandes possédées.",
+      "id": "rea-android-adb",
+      "integration": "plugin",
+      "name": "Android statique + appareils (JADX, apktool, ADB)",
+      "omega_adapter": "plugins/tool-rea-android",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "refs": [
+        "docs/android-analysis.md:1-60",
+        "docs/adb-device-analysis.md:1-40",
+        "docs/apktool-resource-analysis.md:1-40",
+        "src/android/JadxProvider.ts:1-40",
+        "src/adb/AdbProvider.ts:1-40"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "inspect_android_package, classes/méthodes, graphe d'application, décodage de ressources apktool et pilotage ADB (install/start/logcat/pull/push/bugreport).",
+      "domain": "outils"
+    },
+    {
+      "how": "Inspection d'octets WASM locaux via WABT 1.0.42 fourni par l'appelant (REA_WABT_BIN_DIRECTORY, bannières vérifiées) ; jamais d'exécution ; open_binary refuse le header WASM avec diagnostic wasm_requires_static_inspection ; comparaison d'interfaces.",
+      "id": "rea-wasm",
+      "integration": "plugin",
+      "name": "Inspection statique WASM (WABT caller-supplied)",
+      "omega_adapter": "plugins/tool-rea-wasm",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "refs": [
+        "docs/wasm-artifacts.md:1-60",
+        "src/wasm/:1-40"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "inspect_wasm_artifact et compare_wasm_interfaces sur octets locaux avec toolchain WABT fournie par l'appelant, sans exécution.",
+      "domain": "outils"
+    },
+    {
+      "how": "Parsing explicite du carrier + inférence d'interface via EVMole/WASM inchangés dans un worker borné ; jamais d'exécution de bytecode ; client inspectable.",
+      "id": "rea-evm",
+      "integration": "plugin",
+      "name": "Bytecode EVM (interface inférée, off-chain)",
+      "omega_adapter": "plugins/tool-rea-evm",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "refs": [
+        "docs/evm-bytecode.md:1-60",
+        "src/evm/:1-40"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "inspect_evm_interface sur bytecode EVM local avec parsing de carrier et adaptation d'interface inférée, sans exécution.",
+      "domain": "outils"
+    },
+    {
+      "how": "Adapteurs Binwalk 3.1.x (régions) et Unblob 26.6.x (extraction explicite), versions vérifiées par bannière, process possédés sous prlimit, workspace privé ; octets firmware jamais admis comme exécutables natifs (sélection ELF séparée pour Ghidra).",
+      "id": "rea-firmware",
+      "integration": "plugin",
+      "name": "Firmware (Binwalk régions + Unblob extraction)",
+      "omega_adapter": "plugins/tool-rea-firmware",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "refs": [
+        "docs/firmware-analysis.md:1-60",
+        "src/firmware/:1-40"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "inspect_firmware_regions et extract_firmware via outils caller-supplied, rapports normalisés, extraction privée sans mount/emulation/exécution.",
+      "domain": "outils"
+    },
+    {
+      "how": "Famille pcap via tshark/capinfos 4.x caller-supplied (résumés, champs, filtres, decode-as ; macOS en capability gap) ; captures web HAR/SAZ + scénarios browser rejouables (capture_compare) ; observation CDP/Playwright passive ; qlog/HTTP3 lab ; signal recordings décodées.",
+      "id": "rea-captures-network",
+      "integration": "plugin",
+      "name": "Captures réseau et web (pcap, HAR/SAZ, scénarios browser)",
+      "omega_adapter": "plugins/tool-rea-captures",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "refs": [
+        "docs/pcap-analysis.md:1-60",
+        "docs/web-network-captures.md:1-60",
+        "docs/packet-captures.md:1-40",
+        "docs/browser-scenario-contract.md:1-60",
+        "docs/signal-recordings.md:1-40"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "inspect_packet_capture/pcap, inspect_web_network_capture, capture/compare de scénarios browser et web screenshots avec diffs typés.",
+      "domain": "outils"
+    },
+    {
+      "how": "Exécute UNE commande choisie par l'appelant avec PTY natif (Linux/macOS, pas de sandbox : hérite uid+env), interactions planifiées, snapshots filesystem ciblés, budget borné ; comparaison de deux runs ; Windows/WSL documentés comme non-supportés pour la capture.",
+      "id": "rea-process-capture",
+      "integration": "plugin",
+      "name": "Process Capture bornée + comparaison de runs",
+      "omega_adapter": "plugins/sandbox-rea-capture",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend (execute/fetch_file/cleanup)",
+      "refs": [
+        "docs/process-capture.md:1-80",
+        "src/process/:1-40"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "prepare_bounded_process_capture exécute une commande et enregistre comportement terminal, durée de vie et état filesystem pour comparaison directe.",
+      "domain": "execution"
+    },
+    {
+      "how": "Copie snapshot de la DB puis requêtes via DatabaseSync.limits (Node 24.15+/26+) dans un worker ; sélection table/colonnes/limite ; disponibilité annoncée par rea capabilities sans ouvrir la DB.",
+      "id": "rea-sqlite",
+      "integration": "plugin",
+      "name": "Snapshots SQLite (lecture seule, copiée)",
+      "omega_adapter": "plugins/tool-rea-sqlite",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "refs": [
+        "docs/sqlite-databases.md:1-60",
+        "src/sqlite/:1-40"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "inspect_sqlite_database sur snapshot copié, sans SQLite installé, avec garde de version Node et budgets de lecture.",
+      "domain": "outils"
+    },
+    {
+      "how": "Adapteurs ELF/core offline (pwntools/pwndbg inchangés) + GDB core-only optionnel ; sessions GDB/Rizin persistantes ; enregistrements signal ; diagnostics binaires et profiles Go/Rust en inspection statique pure.",
+      "id": "rea-crash-recordings",
+      "integration": "plugin",
+      "name": "Crashes enregistrés, cores et diagnostics binaires",
+      "omega_adapter": "plugins/tool-rea-crash",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "refs": [
+        "docs/recorded-crashes.md:1-60",
+        "docs/binary-diagnostics.md:1-40",
+        "docs/go-binaries.md:1-40",
+        "docs/rust-binaries.md:1-40"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "trace_crash, cores ELF, signal recordings, profils Go/Rust et diagnostics binaires sans exécution de la cible.",
+      "domain": "outils"
+    },
+    {
+      "how": "BinarySessionRecords + AnalysisSnapshotCache : snapshots cible/profil, facade de compatibilité, notifications post-commit ; EvidenceLedger + registre d'inconnues (list_unknowns, audit_residual_unknowns) ; export/import de bundles (atomique, streaming, summary/complete, filtres) transférables entre sessions.",
+      "id": "rea-sessions-bundles",
+      "integration": "plugin",
+      "name": "Sessions, snapshots et bundles d'évidence transférables",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "refs": [
+        "src/contracts/sessionToolContracts.ts:71-127",
+        "docs/mcp-contracts.md:190-333",
+        "src/application/AnalysisSnapshot.ts:1-40"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Sessions binaires immuables, snapshots, ledger d'évidence/inconnues et bundles exportables pour reprise ou transfert inter-agents.",
+      "domain": "memoire"
+    },
+    {
+      "how": "~50 modules src/cli/*Commands.ts enregistrés dans src/cli.ts sur le même moteur application que MCP ; chaque invocation = un process séparé (persister via fichiers) ; sorties --json + vues (summary/page) pour gros evidences ; client-configuration et vérification documentés.",
+      "id": "rea-cli-mirror",
+      "integration": "plugin",
+      "name": "CLI one-shot miroir du MCP",
+      "omega_adapter": "plugins/tool-rea-cli",
+      "omega_capability": "harness-catalog",
+      "omega_port": "Registre",
+      "refs": [
+        "src/cli.ts:1-60",
+        "docs/cli.md:1-60",
+        "docs/client-configuration.md:1-40"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Chaque outil MCP a son équivalent rea <kebab-case> --json partageant workflows et contrats d'évidence, scriptable sans serveur.",
+      "domain": "extension"
+    },
+    {
+      "how": "rea setup multi-sélect (agents détectés, preview + approbation, skill optionnelle, install Hopper vérifiée) ; rea capabilities/doctor (readiness par tâche, diagnostics, codes d'indisponibilité) ; client-verification ; matrices d'installation exhaustives.",
+      "id": "rea-setup-doctor",
+      "integration": "plugin",
+      "name": "Setup multi-agents + doctor/capabilities",
+      "omega_adapter": "omega-config",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "refs": [
+        "src/application/Doctor.ts:186-210",
+        "src/application/CapabilityInventory.ts:1-40",
+        "docs/installation.md:1-60",
+        "docs/client-verification.md:1-40"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Installation guidée (agents, engines, skill), readiness scopée par tâche et diagnostics actionnables au lieu de schémas tronqués.",
+      "domain": "configuration"
+    },
+    {
+      "how": "SKILL.md 355 lignes + skill-metadata générée et vérifiée (scripts/) ; doctrine tool-design (formes inspect/search/trace/compare/workflow/observe, primitives vs workflows, lifecycle, effets déclarés) ; prompts MCP optionnels ; c'est la méthode qui nous intéresse pour notre propre workstream RE.",
+      "id": "rea-skill-method",
+      "integration": "plugin",
+      "name": "Skill reverse-engineer-anything + doctrine tool-design",
+      "omega_adapter": "plugins/skill-rea",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index + hydrate)",
+      "refs": [
+        ".agents/skills/reverse-engineer-anything/SKILL.md:1-60",
+        "docs/tool-design.md:1-80",
+        "docs/mcp-prompts.md:1-60"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Skill embarquée + doctrine de conception d'outils (nommage, contrats, lifecycle, effets) réutilisable pour nos propres plugins d'analyse.",
+      "domain": "extension"
+    },
+    {
+      "how": "Refus explicites et motivés : exécution de cibles (WASM/EVM/firmware jamais exécutés), interprétation business applicative, langages d'orchestration/replay engines, inférence d'absence depuis couverture unknown, fallback provider silencieux, exfiltration réseau (debuginfod coupé, captures lues seulement).",
+      "id": "rea-limits-refusals",
+      "integration": "rejected",
+      "name": "Limites et refus explicites (pas d'exécution, pas d'inférence)",
+      "omega_adapter": "",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "refs": [
+        "docs/tool-design.md:1-80",
+        "docs/mcp-contracts.md:489-534",
+        "docs/process-capture.md:1-40",
+        "docs/reverse-engineering-tools.md:1-30"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Le système dit non proprement : pas d'exécution de cibles, unknown ≠ absence, pas de fallback silencieux, effets réseau/fichiers déclarés.",
+      "domain": "securite"
+    }
+  ]
+}
