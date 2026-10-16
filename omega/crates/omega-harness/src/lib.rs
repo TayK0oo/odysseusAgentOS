@@ -174,7 +174,14 @@ pub struct Dissections {
 /// Dissections embarquées (fichiers `data/apps/*.json`).
 ///
 /// Ajouter une app = déposer `data/apps/<id>.json` + l'ajouter ci-dessous.
-pub const APP_DISSECTIONS: &[&str] = &[include_str!("../data/apps/hermes.json")];
+pub const APP_DISSECTIONS: &[&str] = &[
+    include_str!("../data/apps/hermes.json"),
+    include_str!("../data/apps/opencode.json"),
+    include_str!("../data/apps/goose.json"),
+    include_str!("../data/apps/cline.json"),
+    include_str!("../data/apps/openclaw.json"),
+    include_str!("../data/apps/codex.json"),
+];
 
 impl Dissections {
     /// Charge les dissections embarquées.

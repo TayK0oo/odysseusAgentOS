@@ -1,0 +1,637 @@
+{
+  "schema_version": 1,
+  "note": "Catalogue de reverse-engineering : les grands principes des meilleurs harnais, re-spécifiés pour Omega. Source : docs/omega/reverse-eng/ (W5). Statut = ce qu'Omega en fait réellement.",
+  "statuses": ["adopted", "planned", "rejected"],
+  "harnesses": [
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "editor": "Anthropic",
+      "oss": false,
+      "language": "TypeScript",
+      "architecture": "Composants déclaratifs (rules, skills, hooks, plugins, MCP, Agent SDK) ; sous-agents en Markdown avec frontmatter.",
+      "principles": [
+        {
+          "id": "cc-progressive-disclosure",
+          "name": "Progressive disclosure des skills",
+          "what": "Les skills sont chargées par niveaux (liste de descriptions → corps → ressources) au lieu du tout au démarrage.",
+          "why": "Réduit massivement le contexte consommé avant la tâche.",
+          "status": "adopted",
+          "omega": "omega-context::SkillIndex (list/view/asset)",
+          "rust_cost": "S",
+          "refs": ["RE-OPENCODE-CLAUDECODE.md", "HARNESS-LANDSCAPE.md §2.1"]
+        },
+        {
+          "id": "cc-tool-search",
+          "name": "Tool search (schémas différés)",
+          "what": "Les schémas d'outils/MCP ne sont pas injectés d'emblée ; un index les hydrate à la demande.",
+          "why": "Évite de payer le coût des schémas inutilisés.",
+          "status": "adopted",
+          "omega": "omega-context::ToolSurfaceIndex (BM25 + gate rarest-token)",
+          "rust_cost": "M",
+          "refs": ["RE-OPENCODE-CLAUDECODE.md"]
+        },
+        {
+          "id": "cc-subagents-worktree",
+          "name": "Sous-agents isolés (worktree)",
+          "what": "Chaque sous-agent a son contexte ; `isolation: worktree` l'exécute dans un arbre séparé.",
+          "why": "Parallélise sans conflit et garde le contexte parent léger.",
+          "status": "planned",
+          "omega": "omega-ports::SubagentRunner (port posé, impl à faire)",
+          "rust_cost": "M",
+          "refs": ["RE-OPENCODE-CLAUDECODE.md", "RULES-OMEGA §5.2"]
+        },
+        {
+          "id": "cc-compaction-prefix",
+          "name": "Compaction + stabilité du préfixe",
+          "what": "/compact remplace l'historique par un résumé structuré ; le préfixe stable est mis en cache.",
+          "why": "Prolonge la session sans casser le cache de prompt.",
+          "status": "planned",
+          "omega": "omega-context::truncate_compact (partiel) + prompt-cache policy",
+          "rust_cost": "M",
+          "refs": ["RE-OPENCODE-CLAUDECODE.md"]
+        },
+        {
+          "id": "cc-hooks-permissions",
+          "name": "Hooks de cycle de vie + permissions",
+          "what": "Points d'accroche (PreToolUse…) et politique d'approbation granulaire.",
+          "why": "Gouverne l'exécution sans modifier le noyau.",
+          "status": "adopted",
+          "omega": "omega-ports::Hook + omega-sandbox::ApprovalQueue",
+          "rust_cost": "M",
+          "refs": ["RE-OPENCODE-CLAUDECODE.md", "W9-sandbox.md"]
+        }
+      ]
+    },
+    {
+      "id": "codex",
+      "name": "OpenAI Codex (CLI)",
+      "editor": "OpenAI",
+      "oss": true,
+      "language": "Rust",
+      "architecture": "Workspace Rust ; config TOML à couches ; sandbox typé ; OTel riche.",
+      "principles": [
+        {
+          "id": "cx-config-layers",
+          "name": "Config à couches + précédence testable",
+          "what": "defaults < user < projet < session, avec `precedence()` explicite.",
+          "why": "Comportement prévisible et traçable.",
+          "status": "adopted",
+          "omega": "omega-config (ConfigLayerSource::precedence)",
+          "rust_cost": "S",
+          "refs": ["RE-GOOSE-CODEX.md §2"]
+        },
+        {
+          "id": "cx-sandbox-typed",
+          "name": "Sandbox + approbations typés",
+          "what": "Politiques typées (workspace-write / danger-full-access) et décisions granulaires.",
+          "why": "L'exécution est une décision de politique, pas un effet de bord.",
+          "status": "adopted",
+          "omega": "omega-sandbox (ExecDecision/ExecPolicy/backend)",
+          "rust_cost": "M",
+          "refs": ["RE-GOOSE-CODEX.md §3", "W9-sandbox.md"]
+        },
+        {
+          "id": "cx-otel-named",
+          "name": "Télémétrie nommée + OTel",
+          "what": "Métriques nommées par domaine, événements typés, cibles log-only.",
+          "why": "Observabilité exploitable, pas des logs noyés.",
+          "status": "adopted",
+          "omega": "omega-otel (MetricName) + UI Cockpit",
+          "rust_cost": "M",
+          "refs": ["RE-GOOSE-CODEX.md §5"]
+        },
+        {
+          "id": "cx-execpolicy-dsl",
+          "name": "Execpolicy (DSL de règles)",
+          "what": "Préfixes/réseau évalués par règles ordonnées avant tout fork.",
+          "why": "Refus avant exécution, pas après.",
+          "status": "adopted",
+          "omega": "omega-sandbox::RuleBasedExecPolicy + garde anti-composition",
+          "rust_cost": "S",
+          "refs": ["RE-GOOSE-CODEX.md §3"]
+        },
+        {
+          "id": "cx-subagents-declared",
+          "name": "Sous-agents déclarés",
+          "what": "Agents en fichiers de config (rôles worker/explorer), héritant du sandbox parent.",
+          "why": "Rôles réutilisables et gouvernés.",
+          "status": "planned",
+          "omega": "omega-ports::SubagentRunner + manifestes",
+          "rust_cost": "M",
+          "refs": ["RE-GOOSE-CODEX.md §3"]
+        }
+      ]
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "editor": "Anysphere",
+      "oss": false,
+      "language": "TypeScript",
+      "architecture": "Fork VS Code ; index de codebase local ; pas d'API plugin publique.",
+      "principles": [
+        {
+          "id": "cur-instant-grep",
+          "name": "Recherche locale instantanée",
+          "what": "Moteur de recherche maison (index construit et requêté localement, sans upload).",
+          "why": "Le déterministe (chercher) va au système, pas au modèle.",
+          "status": "planned",
+          "omega": "omega-tools (recherche fichier) — non commencé",
+          "rust_cost": "M",
+          "refs": ["HARNESS-LANDSCAPE.md §2.3"]
+        },
+        {
+          "id": "cur-explore-subagent",
+          "name": "Sous-agent d'exploration",
+          "what": "Contexte séparé, modèle rapide, ne remonte que les résultats pertinents.",
+          "why": "Garde la conversation principale légère.",
+          "status": "planned",
+          "omega": "omega-ports::SubagentRunner",
+          "rust_cost": "M",
+          "refs": ["HARNESS-LANDSCAPE.md §2.3"]
+        },
+        {
+          "id": "cur-rules-path-scoped",
+          "name": "Règles path-scoped",
+          "what": "Des règles ne s'appliquent qu'aux chemins qu'elles concernent.",
+          "why": "Contexte ciblé, moins de bruit.",
+          "status": "planned",
+          "omega": "omega-context (découverte AGENTS.md/règles)",
+          "rust_cost": "S",
+          "refs": ["HARNESS-LANDSCAPE.md §2.3"]
+        }
+      ]
+    },
+    {
+      "id": "cline",
+      "name": "Cline",
+      "editor": "Cline Bot",
+      "oss": true,
+      "language": "TypeScript",
+      "architecture": "SDK de plugins + hooks ; modes Plan/Act ; équipes multi-agents persistantes.",
+      "principles": [
+        {
+          "id": "cl-plan-act",
+          "name": "Modes Plan / Act",
+          "what": "Deux régimes explicites : explorer/planifier vs exécuter.",
+          "why": "Sépare la réflexion de l'action (et le coût associé).",
+          "status": "planned",
+          "omega": "omega-core (régimes d'opérations)",
+          "rust_cost": "S",
+          "refs": ["HARNESS-LANDSCAPE.md §2.4"]
+        },
+        {
+          "id": "cl-checkpoints",
+          "name": "Checkpoints / annulation",
+          "what": "Points de sauvegarde pour tout annuler.",
+          "why": "L'erreur devient réversible.",
+          "status": "planned",
+          "omega": "omega-app (journal) + worktrees",
+          "rust_cost": "M",
+          "refs": ["HARNESS-LANDSCAPE.md §2.4"]
+        },
+        {
+          "id": "cl-scheduled",
+          "name": "Agents planifiés (cron)",
+          "what": "Tâches récurrentes indépendantes d'un terminal.",
+          "why": "Le système travaille quand tu dors.",
+          "status": "planned",
+          "omega": "omega-ports::SchedulerJob",
+          "rust_cost": "M",
+          "refs": ["HARNESS-LANDSCAPE.md §2.4"]
+        },
+        {
+          "id": "cl-connectors",
+          "name": "Connecteurs messagerie → sessions",
+          "what": "Telegram/Slack/Discord/WhatsApp mappés à des sessions.",
+          "why": "L'agent vit dans le quotidien.",
+          "status": "planned",
+          "omega": "omega-ports::Channel",
+          "rust_cost": "M",
+          "refs": ["HARNESS-LANDSCAPE.md §2.4"]
+        }
+      ]
+    },
+    {
+      "id": "aider",
+      "name": "Aider",
+      "editor": "Aider-AI",
+      "oss": true,
+      "language": "Python",
+      "architecture": "Pas de plugins ; extensibilité par formats d'édition ; repo map.",
+      "principles": [
+        {
+          "id": "aid-repo-map",
+          "name": "Repo map (tree-sitter + graphe)",
+          "what": "Carte concise du dépôt, classée par graphe de dépendances, tronquée au budget de tokens.",
+          "why": "Compréhension structurelle à coût de contexte maîtrisé.",
+          "status": "planned",
+          "omega": "omega-context (budget) + omega-tools",
+          "rust_cost": "L",
+          "refs": ["HARNESS-LANDSCAPE.md §2.5"]
+        },
+        {
+          "id": "aid-edit-formats",
+          "name": "Formats d'édition",
+          "what": "Le modèle émet des diffs dans un format choisi, contraint.",
+          "why": "Fiabilise l'édition machine.",
+          "status": "planned",
+          "omega": "omega-tools (apply_patch)",
+          "rust_cost": "M",
+          "refs": ["HARNESS-LANDSCAPE.md §2.5"]
+        },
+        {
+          "id": "aid-git-autocommit",
+          "name": "Auto-commit git + lint/tests",
+          "what": "Commit automatique et vérifications après édition.",
+          "why": "Chaque pas est prouvé et réversible.",
+          "status": "planned",
+          "omega": "omega-app (effets post-étape)",
+          "rust_cost": "S",
+          "refs": ["HARNESS-LANDSCAPE.md §2.5"]
+        }
+      ]
+    },
+    {
+      "id": "goose",
+      "name": "Goose",
+      "editor": "Block → AAIF",
+      "oss": true,
+      "language": "Rust",
+      "architecture": "Cœur Rust ; extensions = serveurs MCP ; Context Revision ; ACP.",
+      "principles": [
+        {
+          "id": "go-context-revision",
+          "name": "Context Revision",
+          "what": "Résumé par petit modèle + suppression algorithmique de l'obsolète + find-and-replace.",
+          "why": "Contexte révisé, pas seulement tronqué.",
+          "status": "planned",
+          "omega": "omega-context (compaction)",
+          "rust_cost": "M",
+          "refs": ["RE-GOOSE-CODEX.md §2", "HARNESS-LANDSCAPE.md §2.7"]
+        },
+        {
+          "id": "go-mcp-extensions",
+          "name": "Extensions = MCP",
+          "what": "Tout se branche par le protocole ouvert MCP.",
+          "why": "Interop sans réinventer.",
+          "status": "adopted",
+          "omega": "omega-ports::ToolExecutor (bridge MCP prévu)",
+          "rust_cost": "M",
+          "refs": ["RE-GOOSE-CODEX.md §3"]
+        },
+        {
+          "id": "go-acp",
+          "name": "Client ET serveur ACP",
+          "what": "L'agent peut consommer d'autres agents et être consommé.",
+          "why": "Composabilité entre harnais.",
+          "status": "planned",
+          "omega": "omega-protocol (frontière)",
+          "rust_cost": "M",
+          "refs": ["RE-GOOSE-CODEX.md §3"]
+        }
+      ]
+    },
+    {
+      "id": "openhands",
+      "name": "OpenHands",
+      "editor": "OpenHands (OSS)",
+      "oss": true,
+      "language": "Python + TypeScript",
+      "architecture": "Software Agent SDK + Agent Server REST + Canvas UI ; workspaces par conteneur.",
+      "principles": [
+        {
+          "id": "oh-workspace-isolated",
+          "name": "Conversations/workspaces isolés",
+          "what": "Chaque conversation peut tourner dans son propre conteneur.",
+          "why": "Isolation de crash et de dépendances.",
+          "status": "planned",
+          "omega": "omega-ports::SandboxBackend (multi-backend)",
+          "rust_cost": "L",
+          "refs": ["HARNESS-LANDSCAPE.md §2.6"]
+        },
+        {
+          "id": "oh-agent-server",
+          "name": "Agent Server REST + UI",
+          "what": "Le moteur est exposé par API ; l'UI est un client.",
+          "why": "Sépare le noyau de la présentation.",
+          "status": "adopted",
+          "omega": "omega-server + omega-protocol",
+          "rust_cost": "M",
+          "refs": ["HARNESS-LANDSCAPE.md §2.6"]
+        },
+        {
+          "id": "oh-automations",
+          "name": "Automations (schedule + webhooks)",
+          "what": "Déclencheurs Slack/GitHub/Linear/Notion/Datadog.",
+          "why": "Le harnais devient un service.",
+          "status": "planned",
+          "omega": "omega-ports::SchedulerJob + Channel",
+          "rust_cost": "M",
+          "refs": ["HARNESS-LANDSCAPE.md §2.6"]
+        }
+      ]
+    },
+    {
+      "id": "hermes",
+      "name": "Hermes Agent",
+      "editor": "Nous Research",
+      "oss": true,
+      "language": "Python",
+      "architecture": "Plugins + Skills (agentskills.io) + Tool Search ; mémoire bornée ; 7 backends.",
+      "principles": [
+        {
+          "id": "he-tool-search-bm25",
+          "name": "Tool Search BM25 + rarest-token gate",
+          "what": "Trois passerelles (search/describe/call) et un index BM25 avec gate par le token de plus haut IDF.",
+          "why": "Ne charge que les outils utiles, de façon déterministe.",
+          "status": "adopted",
+          "omega": "omega-context::ToolSurfaceIndex",
+          "rust_cost": "M",
+          "refs": ["RE-OPENCLAW-HERMES.md §3", "W6-contexte.md"]
+        },
+        {
+          "id": "he-bounded-memory",
+          "name": "Mémoire bornée + snapshot gelé",
+          "what": "MEMORY.md/USER.md à budget de caractères, injectés figés (préserve le cache de préfixe).",
+          "why": "Mémoire persistante sans casser le cache ni exploser le contexte.",
+          "status": "planned",
+          "omega": "omega-ports::MemoryStore (à implémenter)",
+          "rust_cost": "M",
+          "refs": ["RE-OPENCLAW-HERMES.md §3"]
+        },
+        {
+          "id": "he-session-search-fts",
+          "name": "Recherche de sessions (FTS5)",
+          "what": "Index FTS5 en SQLite sur tous les messages, sans LLM.",
+          "why": "Retrouver le passé à coût nul.",
+          "status": "planned",
+          "omega": "omega-ports::MemorySearch",
+          "rust_cost": "M",
+          "refs": ["RE-OPENCLAW-HERMES.md §3"]
+        },
+        {
+          "id": "he-seven-backends",
+          "name": "7 backends d'exécution",
+          "what": "local, Docker, SSH, Singularity, Modal, Daytona, Vercel derrière un port unique.",
+          "why": "Un port, N adaptateurs — exactement notre modèle.",
+          "status": "planned",
+          "omega": "omega-ports::SandboxBackend",
+          "rust_cost": "L",
+          "refs": ["RE-OPENCLAW-HERMES.md §3"]
+        },
+        {
+          "id": "he-self-improve",
+          "name": "Boucle auto-améliorante (skills)",
+          "what": "Création/auto-patch de skills à partir des sessions.",
+          "why": "Le système capitalise au lieu de répéter.",
+          "status": "planned",
+          "omega": "omega-context (SkillIndex) + otel",
+          "rust_cost": "L",
+          "refs": ["RE-OPENCLAW-HERMES.md §3", "obsidian-vault #26"]
+        }
+      ]
+    },
+    {
+      "id": "openclaw",
+      "name": "OpenClaw",
+      "editor": "OpenClaw Foundation",
+      "oss": true,
+      "language": "TypeScript",
+      "architecture": "Gateway + plugins (manifest + SDK) ; slots ; confiance par code.",
+      "principles": [
+        {
+          "id": "oc-context-engine-slot",
+          "name": "Context Engine enfichable (slot)",
+          "what": "Hooks ingest/assemble/compact/after-turn ; une seule implémentation active ; `ownsCompaction`.",
+          "why": "Toute l'économie de contexte est remplaçable d'un bloc.",
+          "status": "adopted",
+          "omega": "omega-ports::ContextEngine + omega-registry (slot)",
+          "rust_cost": "L",
+          "refs": ["RE-OPENCLAW-HERMES.md §3"]
+        },
+        {
+          "id": "oc-slots",
+          "name": "Slots vs ensemble",
+          "what": "Capacités exclusives (contexte, mémoire) vs concurrentes (outils, providers).",
+          "why": "Interchangeabilité sans ambiguïté.",
+          "status": "adopted",
+          "omega": "omega-registry::Regime (Slot/Ensemble) — ADR-0003",
+          "rust_cost": "S",
+          "refs": ["RE-OPENCLAW-HERMES.md §3", "ADR-0003"]
+        },
+        {
+          "id": "oc-failure-isolation",
+          "name": "Isolation d'échec + repli",
+          "what": "Un plugin qui échoue est mis en quarantaine ; repli déterministe.",
+          "why": "Un plugin ne peut pas tuer le noyau.",
+          "status": "adopted",
+          "omega": "omega-registry::quarantine + resolve fallback",
+          "rust_cost": "S",
+          "refs": ["RE-OPENCLAW-HERMES.md §3", "REVIEW-W2"]
+        },
+        {
+          "id": "oc-policy-by-code",
+          "name": "Confiance par code",
+          "what": "Le plugin déclare ses permissions ; le noyau les applique.",
+          "why": "Extension puissante mais bornée.",
+          "status": "planned",
+          "omega": "omega-plugin-api (manifestes) + PermissionPolicy",
+          "rust_cost": "M",
+          "refs": ["RE-OPENCLAW-HERMES.md §3"]
+        }
+      ]
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "editor": "anomalyco",
+      "oss": true,
+      "language": "TypeScript (Bun)",
+      "architecture": "Plugins TS scopés ; agents/commands/skills déclaratifs ; registry providers.",
+      "principles": [
+        {
+          "id": "opc-two-verbs",
+          "name": "Deux verbes : transform + hook",
+          "what": "Extension réduite à un état rejouable (transform) et un accrochage live (hook) + reload.",
+          "why": "Surface d'extension minuscule, donc sûre.",
+          "status": "adopted",
+          "omega": "omega-plugin-api::Contributor (surface volontairement étroite)",
+          "rust_cost": "S",
+          "refs": ["RE-OPENCODE-CLAUDECODE.md"]
+        },
+        {
+          "id": "opc-scoped-replay",
+          "name": "Registre scopé et rejouable",
+          "what": "Toute inscription appartient à un scope ; le fermer retire exactement son effet.",
+          "why": "Composition prévisible, zéro résidu.",
+          "status": "planned",
+          "omega": "omega-registry (scopes)",
+          "rust_cost": "M",
+          "refs": ["RE-OPENCODE-CLAUDECODE.md"]
+        },
+        {
+          "id": "opc-declarative-entities",
+          "name": "Entités déclaratives",
+          "what": "agent/command/skill/plugin décrits, pas codés dans l'orchestrateur.",
+          "why": "Ajouter = écrire un fichier.",
+          "status": "planned",
+          "omega": "omega-plugin-api (manifestes JSON)",
+          "rust_cost": "M",
+          "refs": ["RE-OPENCODE-CLAUDECODE.md"]
+        }
+      ]
+    },
+    {
+      "id": "windsurf",
+      "name": "Windsurf / Cascade",
+      "editor": "Cognition",
+      "oss": false,
+      "language": "Rust/TS (inféré)",
+      "architecture": "Workflows, memories & rules, planificateur dédié en tâche de fond.",
+      "principles": [
+        {
+          "id": "ws-dedicated-planner",
+          "name": "Agent de planification en tâche de fond",
+          "what": "Un agent distinct planifie pendant que l'autre exécute ; plan + todo continus.",
+          "why": "Découple plan et exécution.",
+          "status": "planned",
+          "omega": "omega-core (régime plan) + SubagentRunner",
+          "rust_cost": "M",
+          "refs": ["HARNESS-LANDSCAPE.md §1"]
+        },
+        {
+          "id": "ws-context-mentions",
+          "name": "@-mention des conversations passées",
+          "what": "Réinjecter le résumé d'échanges antérieurs à la demande.",
+          "why": "Mémoire adressable, sans tout recharger.",
+          "status": "planned",
+          "omega": "omega-ports::MemorySearch",
+          "rust_cost": "M",
+          "refs": ["HARNESS-LANDSCAPE.md §1"]
+        }
+      ]
+    },
+    {
+      "id": "zed",
+      "name": "Zed",
+      "editor": "Zed Industries",
+      "oss": true,
+      "language": "Rust",
+      "architecture": "Éditeur GPU ; Agent Panel ; ACP de premier ordre.",
+      "principles": [
+        {
+          "id": "zed-worktree-per-thread",
+          "name": "Isolation par worktree",
+          "what": "Chaque fil d'agent tourne dans son arbre git.",
+          "why": "Parallélisme sûr — règle que nous avons adoptée après incident.",
+          "status": "adopted",
+          "omega": "RULES-OMEGA §5.2 (1 agent = 1 arbre)",
+          "rust_cost": "S",
+          "refs": ["HARNESS-LANDSCAPE.md §1", "RULES-OMEGA.md"]
+        },
+        {
+          "id": "zed-token-visible",
+          "name": "Usage de tokens visible",
+          "what": "Le coût du contexte est affiché en continu.",
+          "why": "L'économie devient observable.",
+          "status": "adopted",
+          "omega": "omega-otel (MetricName) + UI Cockpit",
+          "rust_cost": "S",
+          "refs": ["HARNESS-LANDSCAPE.md §1"]
+        },
+        {
+          "id": "zed-new-from-summary",
+          "name": "New From Summary",
+          "what": "Repartir d'un résumé plutôt que de tout l'historique.",
+          "why": "Compaction orientée usage.",
+          "status": "planned",
+          "omega": "omega-context (compaction)",
+          "rust_cost": "S",
+          "refs": ["HARNESS-LANDSCAPE.md §1"]
+        }
+      ]
+    },
+    {
+      "id": "plandex",
+      "name": "Plandex",
+      "editor": "Plandex",
+      "oss": true,
+      "language": "Go",
+      "architecture": "Diff cumulatif en sandbox ; arbre de versions du plan ; project map.",
+      "principles": [
+        {
+          "id": "px-diff-sandbox",
+          "name": "Diff review hors arbre de travail",
+          "what": "Les changements s'accumulent en sandbox avant d'être appliqués.",
+          "why": "Relecture et annulation avant effet.",
+          "status": "planned",
+          "omega": "omega-sandbox + omega-app",
+          "rust_cost": "L",
+          "refs": ["HARNESS-LANDSCAPE.md §1"]
+        },
+        {
+          "id": "px-plan-branches",
+          "name": "Version control du plan",
+          "what": "Branches de plan (une par modèle/approche).",
+          "why": "Explorer plusieurs stratégies sans conflit.",
+          "status": "planned",
+          "omega": "omega-app (journal) + worktrees",
+          "rust_cost": "M",
+          "refs": ["HARNESS-LANDSCAPE.md §1"]
+        }
+      ]
+    },
+    {
+      "id": "gptme",
+      "name": "gptme",
+      "editor": "Erik Bjäreholt (OSS)",
+      "oss": true,
+      "language": "Python",
+      "architecture": "Plugins + Skills + Lessons + Hooks ; MCP dans les deux sens ; ACP.",
+      "principles": [
+        {
+          "id": "gm-cross-harness-memory",
+          "name": "Mémoire inter-harnais",
+          "what": "La même mémoire partagée entre Claude Code, Codex et gptme.",
+          "why": "Le savoir ne reste pas prisonnier d'un harnais.",
+          "status": "planned",
+          "omega": "omega-ports::MemoryStore (fichiers portables)",
+          "rust_cost": "M",
+          "refs": ["HARNESS-LANDSCAPE.md §1"]
+        },
+        {
+          "id": "gm-lessons",
+          "name": "Leçons contextuelles",
+          "what": "Des leçons s'activent selon mots-clés/outils/patterns.",
+          "why": "Apprentissage ciblé, peu de contexte.",
+          "status": "planned",
+          "omega": "omega-context (SkillIndex étagé)",
+          "rust_cost": "S",
+          "refs": ["HARNESS-LANDSCAPE.md §1"]
+        }
+      ]
+    },
+    {
+      "id": "open-interpreter",
+      "name": "Open Interpreter",
+      "editor": "Open Interpreter (OSS)",
+      "oss": true,
+      "language": "Rust",
+      "architecture": "Fork de Codex ; émulation de harnais ; computer use.",
+      "principles": [
+        {
+          "id": "oi-harness-emulation",
+          "name": "Émulation de harnais",
+          "what": "Le même modèle peut être piloté par différents harnais (claude-code, swe-agent, minimal).",
+          "why": "Le harnais s'adapte au modèle, pas l'inverse — pilier du routage.",
+          "status": "planned",
+          "omega": "omega-adapters harness-* (plugins, jamais dans le noyau)",
+          "rust_cost": "L",
+          "refs": ["HARNESS-LANDSCAPE.md §1", "OMEGA-BLUEPRINT.md §3"]
+        }
+      ]
+    }
+  ]
+}

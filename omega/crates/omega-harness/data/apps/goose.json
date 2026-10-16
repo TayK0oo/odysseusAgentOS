@@ -1,0 +1,357 @@
+{
+  "schema_version": 1,
+  "id": "goose",
+  "name": "Goose",
+  "editor": "Block, Inc.",
+  "oss": true,
+  "language": "Rust",
+  "license": "Apache-2.0",
+  "repo": "https://github.com/block/goose",
+  "architecture": "Workspace Cargo (~15 crates) : goose-agent (boucle d'agent pure) + goose (plateforme : extensions MCP, sessions, ACP, scheduler) + goose-providers + goose-cli + goose-sdk + ui/desktop (Electron). L'agent tourne comme une state machine a steps branchables sur un runtime.",
+  "entrypoints": [
+    "goose CLI (crates/goose-cli)",
+    "goose serve ACP (crates/goose/src/acp)",
+    "Desktop Electron (ui/desktop)",
+    "goose-sdk FFI (crates/goose-sdk)",
+    "gateway Telegram/headless (crates/goose/src/gateway)"
+  ],
+  "functionalities": [
+    {
+      "domain": "agents",
+      "how": "Observe : StateMachine<'a,S,E> (machine.rs:55) chaine des Step (machine.rs:41) via step() (machine.rs:121), run()/finalize() (machine.rs:211,228) ; chaque step rend OperationResult (operation.rs:189) portant des ConversationEffect (operation.rs:226) appliques au runtime. A reimplementer comme plugin de boucle.",
+      "id": "go-agent-loop",
+      "integration": "plugin",
+      "name": "Boucle d'agent a steps (state machine)",
+      "omega_adapter": "",
+      "omega_capability": "agent-runtime",
+      "omega_port": "AgentLoop",
+      "refs": [
+        "crates/goose-agent/src/machine.rs:55",
+        "crates/goose-agent/src/machine.rs:121",
+        "crates/goose-agent/src/operation.rs:226"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "La boucle d'inference est une state machine de steps branchables emettant des effets de conversation"
+    },
+    {
+      "domain": "agents",
+      "how": "Observe : SubagentOperation<S> (subagent.rs:165) avec SubagentOutcome/SubagentUpdate (subagent.rs:24,32) ; SubagentPromptContext (subagent_handler.rs:29) construit le prompt delegue ; outil d'execution parallele avec notifications (subagent_execution_tool/notification_events.rs:41). Delegation bornee : pas de nested delegation (goose-self-test.yaml).",
+      "id": "go-subagents",
+      "integration": "plugin",
+      "name": "Subagents delegues bornes",
+      "omega_adapter": "",
+      "omega_capability": "agent-runtime",
+      "omega_port": "SubagentHost",
+      "refs": [
+        "crates/goose-agent/src/subagent.rs:165",
+        "crates/goose/src/agents/subagent_handler.rs:29",
+        "crates/goose/src/agents/subagent_execution_tool/notification_events.rs:41"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Delegation de sous-taches a des sous-agents isoles avec budget et reporting, sans recursion"
+    },
+    {
+      "domain": "contexte",
+      "how": "Observe : compact_messages() (context_mgmt/mod.rs:87) resume les messages via le provider courant (GooseCompactionModel, mod.rs:293), preserve le dernier message user sauf compaction manuelle, et rend CompactionResult (mod.rs:65) avec usage billable. Le schema du resume est StructuredSummary (structured.rs:14) : intent, concepts, files: Vec<FileActivity>, erreurs, next_step, avec parsing lenient (structured.rs:131). Pas de 'Context Revision' find-and-replace/ripgrep observe dans le code : l'elagage est resume LLM + seuils, pas edition chirurgicale.",
+      "id": "go-compaction",
+      "integration": "plugin",
+      "name": "Compaction structuree des messages",
+      "omega_adapter": "",
+      "omega_capability": "context-engine",
+      "omega_port": "CompactionPolicy",
+      "refs": [
+        "crates/goose/src/context_mgmt/mod.rs:87",
+        "crates/goose-context-management/src/structured.rs:14",
+        "crates/goose-context-management/src/summarize.rs:124"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Compaction auto/manuelle des messages en resume structure lenient via le provider courant"
+    },
+    {
+      "domain": "contexte",
+      "how": "Observe : compute_tool_call_cutoff() (mod.rs:383) calcule un seuil d'elagage proportionnel a la limite de contexte, borne a [10,500] ; tool_ids_to_summarize() (mod.rs:393) selectionne les plus vieilles paires requete/reponse en protegeant les N dernieres ; summarize_tool_call() (mod.rs:461) les remplace par un resume. Seuil auto avec headroom sous le palier tarifaire (mod.rs:23,30). Pur algorithme + resume, sans ripgrep.",
+      "id": "go-tool-pruning",
+      "integration": "plugin",
+      "name": "Elagage algorithmique des paires d'outils",
+      "omega_adapter": "",
+      "omega_capability": "context-engine",
+      "omega_port": "CompactionPolicy",
+      "refs": [
+        "crates/goose/src/context_mgmt/mod.rs:383",
+        "crates/goose/src/context_mgmt/mod.rs:393",
+        "crates/goose/src/context_mgmt/mod.rs:461"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Suppression/resume algorithmique des vieilles paires appel-d'outil avec protection du tour courant"
+    },
+    {
+      "domain": "extension",
+      "how": "Observe : ExtensionConfig (extension.rs:158) couvre Stdio (cmd+args+envs, extension.rs:160), SSE, StreamableHttp (extension.rs:210), Builtin et Platform (in-process, extension.rs:182,197) ; resolution des secrets via Config (extension.rs:382). Toute extension est une entree de config serieuse, pas du code colle.",
+      "id": "go-ext-config",
+      "integration": "plugin",
+      "name": "Extensions MCP declaratives multi-transports",
+      "omega_adapter": "",
+      "omega_capability": "extension-host",
+      "omega_port": "ExtensionHost",
+      "refs": [
+        "crates/goose/src/agents/extension.rs:158",
+        "crates/goose/src/agents/extension.rs:210",
+        "crates/goose/src/agents/extension.rs:382"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Chaque serveur MCP se declare en config (stdio/SSE/streamable-http/builtin/platform)"
+    },
+    {
+      "domain": "extension",
+      "how": "Observe : ExtensionManager (extension_manager/mod.rs:370) avec leases par session (resolve mod.rs:670, current_session_snapshot mod.rs:717), enable/disable (mod.rs:915,970), get_tool_owner (mod.rs:427) ; GooseClient enveloppe rmcp (mcp_client.rs:167). Plateforme : PLATFORM_EXTENSIONS in-process (extension.rs:16). A adapter sur omega-registry (Slot/Ensemble + quarantaine).",
+      "id": "go-ext-manager",
+      "integration": "plugin",
+      "name": "Gestionnaire d'extensions a leases par session",
+      "omega_adapter": "",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "refs": [
+        "crates/goose/src/agents/extension_manager/mod.rs:370",
+        "crates/goose/src/agents/extension_manager/mod.rs:670",
+        "crates/goose/src/agents/mcp_client.rs:167"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Cycle de vie des serveurs MCP avec bail par session et rattachement d'outils"
+    },
+    {
+      "domain": "execution",
+      "how": "Observe : GooseAcpAgent (server.rs:313) expose l'agent via serve<R,W> (server.rs:2639) et run() (server.rs:2694) ; AcpServerFactoryConfig (server_factory.rs:18) injecte builtins, platform, scheduler ; transports HTTP/WebSocket/TLS (acp/transport/). C'est le pattern 'serveur agent local + clients multiples' a reprendre pour omega-server.",
+      "id": "go-acp-server",
+      "integration": "plugin",
+      "name": "Serveur ACP (agentcclient protocol)",
+      "omega_adapter": "",
+      "omega_capability": "agent-server",
+      "omega_port": "AcpServer",
+      "refs": [
+        "crates/goose/src/acp/server.rs:313",
+        "crates/goose/src/acp/server.rs:2639",
+        "crates/goose/src/acp/server_factory.rs:18"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "L'agent est servi en local via ACP (HTTP/WebSocket) pour CLI, desktop et clients tiers"
+    },
+    {
+      "domain": "execution",
+      "how": "Observe : run_interactive/delegate/list_sessions sur RoamingClientStream (roam_client.rs:27,112,193) ; ponts roam_full_bridge/roam_proxy ; ui/goose-acp et ui/goose-acp-client. Le client ACP est symetrique du serveur : a reprendre ensemble.",
+      "id": "go-acp-client",
+      "integration": "plugin",
+      "name": "Client ACP + roaming",
+      "omega_adapter": "",
+      "omega_capability": "agent-server",
+      "omega_port": "AcpClient",
+      "refs": [
+        "crates/goose-cli/src/commands/roam_client.rs:27",
+        "crates/goose-cli/src/commands/roam_client.rs:112"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Client ACP interactif et delegation distante (roaming) vers un agent hote"
+    },
+    {
+      "domain": "routage",
+      "how": "Observe : ~15 providers (anthropic, openai, google, ollama, databricks, azure, openrouter...) derriere un trait Provider ; ProviderManager (provider_manager.rs:18) epingle un provider par session (pinned/set_provider, provider_manager.rs:59,68) ; catalogue et fallback. Pattern identique a omega-providers.",
+      "id": "go-providers",
+      "integration": "plugin",
+      "name": "Registre multi-providers avec epinglage par session",
+      "omega_adapter": "omega-providers::OllamaProvider",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider",
+      "refs": [
+        "crates/goose-providers/src/lib.rs",
+        "crates/goose/src/agents/provider_manager.rs:18",
+        "crates/goose/src/agents/provider_manager.rs:59"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Fournisseurs interchangeables avec selection/epinglage par session"
+    },
+    {
+      "domain": "automatisation",
+      "how": "Observe : Recipe (recipe/mod.rs:43) : version, title, instructions/prompt, extensions, settings, parameters, response schema ; chargement/rendu CLI (recipes/recipe.rs:21,40) ; suite d'auto-test exhaustive en YAML (goose-self-test.yaml). Format portable 'prompt+extensions+params' directement transposable en plugin.",
+      "id": "go-recipes",
+      "integration": "plugin",
+      "name": "Recettes YAML partageables",
+      "omega_adapter": "",
+      "omega_capability": "skill-store",
+      "omega_port": "RecipeStore",
+      "refs": [
+        "crates/goose/src/recipe/mod.rs:43",
+        "crates/goose-cli/src/recipes/recipe.rs:21",
+        "goose-self-test.yaml:1"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Sessions parametrees versionnees (prompt, extensions, planning) distribuables en YAML"
+    },
+    {
+      "domain": "automatisation",
+      "how": "Observe : SchedulerTrait (scheduler_trait.rs:9) : add/list/remove/pause/run_now/kill_running_job ; implementation full (scheduler/full.rs:108) avec schedule_recipe (full.rs:343) et sessions par job (full.rs:604) ; outil schedule_tool (agents/schedule_tool.rs:63) exposant la planification au modele. Cron + recettes.",
+      "id": "go-scheduler",
+      "integration": "service",
+      "name": "Planificateur cron de recettes",
+      "omega_adapter": "",
+      "omega_capability": "",
+      "omega_port": "",
+      "refs": [
+        "crates/goose/src/scheduler_trait.rs:9",
+        "crates/goose/src/scheduler/full.rs:108",
+        "crates/goose/src/agents/schedule_tool.rs:63"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Jobs cron executant des recettes, pilotables par l'agent lui-meme via un outil"
+    },
+    {
+      "domain": "extension",
+      "how": "Observe : HookEvent (hooks/mod.rs:54) : Pre/PostToolUse, SessionStart/End, UserPromptSubmit, Before/AfterReadFile, Before/AfterShellExecution, Stop ; HookDecision (mod.rs:349), HookManager::load (mod.rs:423). Interception legere avant/apres outil, complementaire de la permission.",
+      "id": "go-hooks",
+      "integration": "plugin",
+      "name": "Hooks d'evenements agent",
+      "omega_adapter": "",
+      "omega_capability": "agent-runtime",
+      "omega_port": "HookRegistry",
+      "refs": [
+        "crates/goose/src/hooks/mod.rs:54",
+        "crates/goose/src/hooks/mod.rs:349",
+        "crates/goose/src/hooks/mod.rs:423"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Intercepteurs utilisateur sur les evenements du cycle de vie (outil, session, shell)"
+    },
+    {
+      "domain": "memoire",
+      "how": "Observe : SessionManager (session_manager.rs:348) : create/get/add_message/replace_conversation/list/delete (session_manager.rs:452,464,487,491,505,537) ; persistance JSONL + nommage auto (session_naming) + recherche d'historique (chat_history_search.rs:81). Mappe sur EventStore fichier.",
+      "id": "go-sessions",
+      "integration": "plugin",
+      "name": "Sessions persistantes nommees et interrogeables",
+      "omega_adapter": "omega-app::FileEventStore",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "refs": [
+        "crates/goose/src/session/session_manager.rs:348",
+        "crates/goose/src/session/session_manager.rs:452",
+        "crates/goose/src/session/chat_history_search.rs:81"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Persistance des conversations avec nommage, listing, export et recherche"
+    },
+    {
+      "domain": "configuration",
+      "how": "Observe : Config (config/base.rs:120) : couches fichier/secrets, get/set/get_param/set_param (base.rs:737,746,773,860), migrations (config/migrations), providers declaratives (config/declarative_providers). Equivalent direct des couches omega-config.",
+      "id": "go-config",
+      "integration": "plugin",
+      "name": "Config en couches avec secrets et migrations",
+      "omega_adapter": "omega-config",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "refs": [
+        "crates/goose/src/config/base.rs:120",
+        "crates/goose/src/config/base.rs:737",
+        "crates/goose/src/config/migrations.rs"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Configuration hierarchique fichier + secrets OS + migrations de schema"
+    },
+    {
+      "domain": "securite",
+      "how": "Observe : ToolPermissionStore (permission_store.rs:23) : check/record/cleanup_expired avec persistance (permission_store.rs:79,92,129) ; PermissionInspector annote les outils read-only (permission_inspector.rs:52,66). Mappe sur ApprovalQueue + RuleBasedExecPolicy.",
+      "id": "go-permissions",
+      "integration": "plugin",
+      "name": "Permissions d'outils persistantes + annotations read-only",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "refs": [
+        "crates/goose/src/permission/permission_store.rs:23",
+        "crates/goose/src/permission/permission_store.rs:79",
+        "crates/goose/src/permission/permission_inspector.rs:52"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Allow/deny memorises par outil avec expiration et detection read-only"
+    },
+    {
+      "domain": "securite",
+      "how": "Observe : detect_read_only_requests (permission_judge.rs:145) fait juger par un LLM si une requete d'outil est en lecture seule, pour alleger la friction d'approbation. Couteux et faillible : a reprendre comme heuristique + option LLM, pas comme defaut.",
+      "id": "go-perm-judge",
+      "integration": "plugin",
+      "name": "Juge LLM read-only",
+      "omega_adapter": "",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "refs": [
+        "crates/goose/src/permission/permission_judge.rs:145"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Un petit modele tranche si un appel d'outil est sans effet de bord"
+    },
+    {
+      "domain": "observabilite",
+      "how": "Observe : init_otlp_layers/promote_config_to_env/shutdown_otlp (otel/otlp.rs:261,300,581), propagation de contexte W3C (otel/trace_context.rs:15,26), telemetry GenAI (agents/gen_ai_telemetry). Export OTLP standard + sinks. Mappe sur TelemetrySink.",
+      "id": "go-otel",
+      "integration": "plugin",
+      "name": "Telemetrie OTLP + contexte de trace",
+      "omega_adapter": "omega-otel::StdoutSink",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "refs": [
+        "crates/goose/src/otel/otlp.rs:300",
+        "crates/goose/src/otel/trace_context.rs:15",
+        "crates/goose/src/otel/otlp.rs:581"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Traces OTLP avec propagation de contexte et telemetrie GenAI"
+    },
+    {
+      "domain": "observabilite",
+      "how": "Observe : doctor run(session) (doctor.rs:22) diagnostique config/providers/extensions et rend un Message ; generate_diagnostics (session/diagnostics.rs:297). Auto-diagnostic actionnable, pas juste des logs.",
+      "id": "go-doctor",
+      "integration": "native",
+      "name": "Docteur auto-diagnostic",
+      "omega_adapter": "",
+      "omega_capability": "",
+      "omega_port": "",
+      "refs": [
+        "crates/goose/src/doctor.rs:22",
+        "crates/goose/src/session/diagnostics.rs:297"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Commande de diagnostic qui verifie l'environnement et propose des correctifs"
+    },
+    {
+      "domain": "ui",
+      "how": "Ecarte : ui/desktop est une app Electron (forge.config.ts, electron-builder) separee du workspace Rust, avec son cycle de release propre. Omega vise cockpit React servi par omega-server sur une seule origine : reprendre les vues (session, approbations), pas le conteneur Electron.",
+      "id": "go-desktop",
+      "integration": "rejected",
+      "name": "App desktop Electron",
+      "omega_adapter": "",
+      "omega_capability": "",
+      "omega_port": "",
+      "refs": [
+        "ui/desktop/forge.config.ts",
+        "CUSTOM_DISTROS.md"
+      ],
+      "rust_cost": "L",
+      "status": "rejected",
+      "what": "Client desktop Electron avec auto-update et packaging multi-OS"
+    }
+  ]
+}

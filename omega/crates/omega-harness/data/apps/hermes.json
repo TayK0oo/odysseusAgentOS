@@ -1,0 +1,217 @@
+{
+  "schema_version": 1,
+  "id": "hermes",
+  "name": "Hermes Agent",
+  "editor": "Nous Research",
+  "oss": true,
+  "language": "Python",
+  "license": "MIT",
+  "repo": "https://github.com/NousResearch/hermes-agent",
+  "architecture": "Harnais d'agent à plugins + skills (standard agentskills.io) + tool search ; mémoire bornée ; 7 backends d'exécution ; boucle d'auto-amélioration.",
+  "entrypoints": [
+    "hermes CLI",
+    "gateway messagerie",
+    "cron scheduler"
+  ],
+  "functionalities": [
+    {
+      "id": "he-tool-search-bm25",
+      "domain": "outils",
+      "name": "Tool Search BM25 + gate rarest-token",
+      "what": "Trois outils passerelles (tool_search / tool_describe / tool_call) remplacent l'injection de tous les schémas ; un index BM25 (stemming + rarest-token + relevance floor) hydrate à la demande, avec budget min(seuil% du contexte, listing_max_tokens).",
+      "how": "Catalogue d'outils indexé en BM25 ; galerie de 3 outils fixes ; listing byte-stable dégradant par serveur.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index + hydrate)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "tools/tool_search_catalog.py:118-208,260-324"
+      ]
+    },
+    {
+      "id": "he-skills-disclosure",
+      "domain": "contexte",
+      "name": "Progressive disclosure des skills (3 niveaux)",
+      "what": "Liste (nom+description) -> corps (skill_view) -> ressources (references/templates/assets/scripts), avec cache par signature mtime/TTL.",
+      "how": "Index de skills + chargement paresseux par niveau ; jamais le corps complet au démarrage.",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "omega_adapter": "omega-context::SkillIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "tools/skills_tool.py:2-5,34-44"
+      ]
+    },
+    {
+      "id": "he-bounded-memory",
+      "domain": "memoire",
+      "name": "Mémoire bornée + snapshot gelé",
+      "what": "MEMORY.md / USER.md délimités par \\n§\\n, budget en caractères ; le bloc prompt est FIGÉ au chargement pour préserver le prefix-cache ; batch atomique ; garde-fous drift/lock/scan.",
+      "how": "Fichiers bornés + injection figée ; débordement -> consolidation dans le même tour.",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (recall/add/replace/patch/remove)",
+      "omega_adapter": "plugins/memory-bounded",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "tools/memory_tool_store.py:175-193,618-621"
+      ]
+    },
+    {
+      "id": "he-session-search",
+      "domain": "memoire",
+      "name": "Recherche de sessions FTS5",
+      "what": "Index SQLite FTS5 sur tous les messages : recherche/scroll du passé sans LLM.",
+      "how": "Table FTS5 alimentée en écriture ; requêtes lexicales.",
+      "omega_capability": "memory-search",
+      "omega_port": "MemorySearch (query)",
+      "omega_adapter": "plugins/memory-fts",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md"
+      ]
+    },
+    {
+      "id": "he-compaction-review",
+      "domain": "contexte",
+      "name": "Compression + revue d'arrière-plan",
+      "what": "/compress résume ; une revue en tâche de fond alimente mémoire et skills, avec digest si le modèle change (préserve le cache si identique).",
+      "how": "Compaction hors du tour + budgets max_input_tokens.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (compact/afterTurn)",
+      "omega_adapter": "omega-context::truncate_compact (partiel)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "W6-contexte.md"
+      ]
+    },
+    {
+      "id": "he-subagents",
+      "domain": "agents",
+      "name": "Sous-agents isolés (delegate_task)",
+      "what": "Délégation à des sous-agents parallèles isolés ; seul un résumé remonte au parent.",
+      "how": "Spawn par tâche ; contexte séparé.",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/resume)",
+      "omega_adapter": "plugins/subagent-isolated",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md"
+      ]
+    },
+    {
+      "id": "he-rpc-tools",
+      "domain": "outils",
+      "name": "Scripts RPC à coût de contexte nul",
+      "what": "Des scripts Python appellent les outils via RPC : le coût de calcul va au système, pas au modèle.",
+      "how": "Passerelle RPC vers les outils, hors du tour de modèle.",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "omega_adapter": "plugins/tool-rpc",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md"
+      ]
+    },
+    {
+      "id": "he-execution-backends",
+      "domain": "execution",
+      "name": "7 backends d'exécution derrière BaseEnvironment",
+      "what": "local, Docker, SSH, Singularity, Modal, Daytona, Vercel : un port unique, N adaptateurs.",
+      "how": "Classe de base commune ; sélection par config.",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend (execute/fetch_file/cleanup)",
+      "omega_adapter": "plugins/sandbox-{docker,ssh,modal,…}",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "OMEGA-BLUEPRINT.md §3"
+      ]
+    },
+    {
+      "id": "he-cron-gateway",
+      "domain": "automatisation",
+      "name": "Cron + gateway multi-plateforme",
+      "what": "Tâches planifiées et livraison Telegram/Discord/Slack/WhatsApp/Signal/email.",
+      "how": "Scheduler sans démon + adaptateurs de canal.",
+      "omega_capability": "scheduler-job",
+      "omega_port": "Scheduler / Channel",
+      "omega_adapter": "plugins/scheduler-cron + plugins/channel-*",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md"
+      ]
+    },
+    {
+      "id": "he-self-improve",
+      "domain": "extension",
+      "name": "Boucle auto-améliorante (création/patch de skills)",
+      "what": "Le système crée et corrige ses propres skills à partir des sessions.",
+      "how": "skill_manage (create/patch) alimenté par la revue d'arrière-plan.",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore + TelemetrySink",
+      "omega_adapter": "plugins/skill-evolve",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "obsidian-vault/loucash/_INDEX.md"
+      ]
+    },
+    {
+      "id": "he-profiles",
+      "domain": "configuration",
+      "name": "Profils isolés",
+      "what": "Chaque profil isole mémoire, skills et configuration.",
+      "how": "Répertoires/sections séparés par profil.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "omega_adapter": "omega-config (profils)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md"
+      ]
+    },
+    {
+      "id": "he-context-budget",
+      "domain": "contexte",
+      "name": "Budget de contexte explicite",
+      "what": "Budgets déclarés (max_input_tokens, seuils de listing) et awareness des tokens.",
+      "how": "Plafonds configurables vérifiés avant action.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine + ContextBudget",
+      "omega_adapter": "omega-context::ContextBudget",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "W6-contexte.md"
+      ]
+    }
+  ]
+}

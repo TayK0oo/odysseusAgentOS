@@ -1,0 +1,372 @@
+{
+  "schema_version": 1,
+  "id": "codex",
+  "name": "Codex CLI",
+  "editor": "OpenAI",
+  "oss": true,
+  "language": "Rust",
+  "license": "Apache-2.0",
+  "repo": "https://github.com/openai/codex",
+  "architecture": "Workspace Cargo (~127 crates sous codex-rs/) : un crate par capacite (sandbox, execpolicy, hooks, skills, memories, otel, model-provider, app-server) autour d'un noyau session (core, thread-store, rollout) ; extensibilite par ~15 traits contributeurs enregistres dans un registre immuable ; frontiere Rust/TS generee (ts-rs).",
+  "entrypoints": [
+    "codex CLI (codex-rs/cli)",
+    "codex TUI (codex-rs/tui)",
+    "app-server JSON-RPC (codex-rs/app-server)",
+    "exec-server distant (codex-rs/exec-server)"
+  ],
+  "functionalities": [
+    {
+      "domain": "extension",
+      "how": "~15 traits fins (McpServerContributor, ContextContributor, TurnLifecycleContributor, ToolContributor, ToolLifecycleContributor, ApprovalReviewContributor avec decide() en chaine de responsabilite, TokenUsageContributor...), tous a defaut vide ; ExtensionRegistryBuilder mutable a l'installation puis ExtensionRegistry immuable ; chaque crate ext/* s'installe via pub fn install ; to_builder() permet cloner-etendre ; empty_extension_registry() pour les hotes sans plugins.",
+      "id": "cx-ext-registry",
+      "integration": "plugin",
+      "name": "Registre d'extensions a traits contributeurs",
+      "omega_adapter": "omega-registry",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "refs": [
+        "codex-rs/ext/extension-api/src/contributors.rs:84",
+        "codex-rs/ext/extension-api/src/contributors.rs:413",
+        "codex-rs/ext/extension-api/src/registry.rs:21",
+        "codex-rs/ext/extension-api/src/registry.rs:154",
+        "codex-rs/ext/extension-api/src/registry.rs:174",
+        "codex-rs/ext/extension-api/src/registry.rs:296"
+      ],
+      "rust_cost": "L",
+      "status": "adopted",
+      "what": "Chaque capacite est un plugin declarant seulement les points du cycle de vie qu'il utilise, compose dans un registre fige apres build."
+    },
+    {
+      "domain": "configuration",
+      "how": "Enum ConfigLayerSource a 9 origines (PackagedDefaults, Mdm, System, EnterpriseManaged, User{profile}, Project, SessionFlags, 2 couches legacy) avec precedence() -> i16 testable (-10 a 50) et ordre partiel ; struct ConfigLayer { name, version, config: JsonValue, disabled_reason } ; merge_toml_values() recursif avec alias de cles normalises.",
+      "id": "cx-config-layers",
+      "integration": "plugin",
+      "name": "Config TOML a couches avec provenance",
+      "omega_adapter": "omega-config",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "refs": [
+        "codex-rs/config/src/config_layer_source.rs:5",
+        "codex-rs/config/src/config_layer_source.rs:31",
+        "codex-rs/config/src/config_layer_source.rs:71",
+        "codex-rs/config/src/merge.rs:57"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "9 sources de configuration ordonnees par precedence explicite, chaque valeur effective connait sa couche d'origine."
+    },
+    {
+      "domain": "configuration",
+      "how": "Struct ConfigProfile (model, model_provider, approval_policy, sandbox_mode, model_reasoning_effort, tools...) avec schemars(deny_unknown_fields) : un champ inconnu est une erreur ; profils nommes selectionnables par session ; generateurs de schema JSON (config-schema/src/main.rs) pour l'editeur.",
+      "id": "cx-config-profiles",
+      "integration": "plugin",
+      "name": "Profils de configuration nommes",
+      "omega_adapter": "omega-config",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "refs": [
+        "codex-rs/config/src/profile_toml.rs:24",
+        "codex-rs/protocol/src/config_types.rs:104",
+        "codex-rs/config-schema/src/main.rs:1"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Unites de configuration nommees (modele, provider, approbations, sandbox, effort) activables par session, validees strictement."
+    },
+    {
+      "domain": "automatisation",
+      "how": "HookResult { Success, FailedContinue(err), FailedAbort(err) } avec should_abort_operation() ; Hook = { name, HookFn } ; HookPayload { session_id, cwd, triggered_at, hook_event } ; 12 HookEventName (PreToolUse, PermissionRequest, PostToolUse, Pre/PostCompact, SessionStart/End, UserPromptSubmit, SubagentStart/Stop, Stop, Interrupt), 4 HookHandlerType (Command, McpTool, Prompt, Agent), modes Sync/Async, scopes Thread/Turn, HookSource (provenance) et HookTrustStatus (Managed/Untrusted/Trusted) ; moteurs par type dans hooks/src/engine/.",
+      "id": "cx-hooks-engine",
+      "integration": "plugin",
+      "name": "Hooks declaratifs types et abortables",
+      "omega_adapter": "plugins/hook-command",
+      "omega_capability": "hook",
+      "omega_port": "Hook",
+      "refs": [
+        "codex-rs/hooks/src/types.rs:15",
+        "codex-rs/hooks/src/types.rs:27",
+        "codex-rs/hooks/src/types.rs:39",
+        "codex-rs/hooks/src/types.rs:64",
+        "codex-rs/protocol/src/protocol.rs:1693",
+        "codex-rs/protocol/src/protocol.rs:1710",
+        "codex-rs/protocol/src/protocol.rs:1719",
+        "codex-rs/protocol/src/protocol.rs:1726",
+        "codex-rs/protocol/src/protocol.rs:1733",
+        "codex-rs/protocol/src/protocol.rs:1750"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Evenements de cycle de vie normalises declenchant des handlers declares (commande, outil MCP, prompt, agent), avec resultat type qui peut interrompre l'operation."
+    },
+    {
+      "domain": "outils",
+      "how": "Trait ToolExecutor<Invocation> : tool_name(), spec() (schema visible modele), handle() (execution), exposure() (Direct | Deferred | CodeModeOnly | ...), search_info() (metadonnees de recherche), supports_parallel_tool_calls() ; separation spec/handle documentee pour superposer routage, hooks et telemetrie sans rouvrir le contrat.",
+      "id": "cx-tool-surface",
+      "integration": "plugin",
+      "name": "Contrat d'outil spec/handle + exposition",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "refs": [
+        "codex-rs/tools/src/tool_executor.rs:51",
+        "codex-rs/tools/src/tool_executor.rs:106"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Chaque outil separe son schema (spec) de son execution (handle) et declare son exposition (directe ou decouverte differee)."
+    },
+    {
+      "domain": "execution",
+      "how": "SandboxPolicy { DangerFullAccess, ReadOnly { network_access }, ExternalSandbox { network_access }, WorkspaceWrite { writable_roots, network_access, exclude_tmpdir... } } ; WritableRoot protege .git/.git/hooks/.codex via read_only_subpaths ; backends OS dedies : seatbelt (macOS), landlock+bwrap (Linux), mxc-sandbox + windows-sandbox-rs (Windows) ; SandboxMode { ReadOnly, WorkspaceWrite, DangerFullAccess } cote config.",
+      "id": "cx-sandbox-multi-os",
+      "integration": "plugin",
+      "name": "Sandbox multi-OS a politiques typees",
+      "omega_adapter": "omega-sandbox::LocalSandboxBackend",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend",
+      "refs": [
+        "codex-rs/protocol/src/protocol.rs:1183",
+        "codex-rs/protocol/src/config_types.rs:104",
+        "codex-rs/sandboxing/src/lib.rs:4",
+        "codex-rs/sandboxing/src/lib.rs:19"
+      ],
+      "rust_cost": "L",
+      "status": "adopted",
+      "what": "Confinement OS par backend (Seatbelt, Landlock/bwrap, MXC) pilote par une politique typee avec racines inscriptibles et garde-fous .git."
+    },
+    {
+      "domain": "securite",
+      "how": "AskForApproval { UnlessTrusted, OnRequest, Granular(GranularApprovalConfig), Never } ou Granular distingue sandbox_approval, rules, skill_approval, request_permissions, mcp_elicitations ; ApprovalReviewContributor::decide() en chaine de responsabilite (premier qui reclame gagne) via ExtensionRegistry::decide_approval ; TurnStartAdmission comme porte d'admission d'un tour.",
+      "id": "cx-approvals-granular",
+      "integration": "plugin",
+      "name": "Approbations granulaires en chaine",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "refs": [
+        "codex-rs/protocol/src/protocol.rs:1097",
+        "codex-rs/ext/extension-api/src/contributors.rs:413",
+        "codex-rs/ext/extension-api/src/turn_admission.rs:10"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Politique d'approbation par categorie (sandbox, regles, skills, permissions, elicitations MCP) decidee par une chaine de contributeurs."
+    },
+    {
+      "domain": "securite",
+      "how": "Petit langage de regles evalue avant sandbox/approbation : Decision { Allow, Prompt, Forbidden } ; PrefixPattern { first, rest: PatternToken (Single | Alts) } avec matches_prefix ; NetworkRuleProtocol ; Policy::evaluate + Evaluation ; amendement dynamique (blocking_append_allow_prefix_rule / blocking_append_network_rule) ; erreurs localisees (ErrorLocation, TextPosition).",
+      "id": "cx-execpolicy-dsl",
+      "integration": "plugin",
+      "name": "Execpolicy : DSL deterministe de regles",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "refs": [
+        "codex-rs/execpolicy/src/decision.rs:9",
+        "codex-rs/execpolicy/src/rule.rs:16",
+        "codex-rs/execpolicy/src/rule.rs:64",
+        "codex-rs/execpolicy/src/rule.rs:111",
+        "codex-rs/execpolicy/src/policy.rs:28",
+        "codex-rs/execpolicy/src/policy.rs:388",
+        "codex-rs/execpolicy/src/lib.rs:1"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Decide Allow/Prompt/Forbidden par prefixes de commande et protocoles reseau, en Rust deterministe, sans appel modele."
+    },
+    {
+      "domain": "observabilite",
+      "how": "Crate otel dedie avec constantes de noms stables (codex.tool.call, codex.api_request, codex.turn.token_usage, codex.turn.cost_microusd, codex.turn.ttft.duration_ms, codex.hooks.run, codex.multi_agent.spawn.phase.duration_ms, codex.guardian.review...) ; compteurs/histogrammes, exporteur OTLP + stdout.",
+      "id": "cx-otel-metrics",
+      "integration": "plugin",
+      "name": "Telemetrie OTel exhaustive normalisee",
+      "omega_adapter": "omega-otel::{StdoutSink,FileSink}",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "refs": [
+        "codex-rs/otel/src/metrics/names.rs:3",
+        "codex-rs/otel/src/metrics/names.rs:15",
+        "codex-rs/otel/src/metrics/names.rs:41",
+        "codex-rs/otel/src/metrics/names.rs:63"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Metriques nommees et stables (codex.<domaine>.<objet>) couvrant API, tours, outils, hooks, couts et gardiens."
+    },
+    {
+      "domain": "observabilite",
+      "how": "Cibles de tracing separees : OTEL_TARGET_PREFIX / OTEL_LOG_ONLY_TARGET (codex_otel.log_only) / OTEL_TRACE_SAFE_TARGET (codex_otel.trace_safe) avec is_log_export_target() / is_trace_safe_target() : seules les cibles trace-safe quittent le processus, la PII reste en log local.",
+      "id": "cx-otel-pii-gating",
+      "integration": "native",
+      "name": "Gating PII log-only vs trace-safe",
+      "omega_adapter": "omega-otel::Provenance",
+      "refs": [
+        "codex-rs/otel/src/targets.rs:1"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Deux niveaux de cibles de tracing pour controler ce qui est exportable (sans PII) vs journalise localement."
+    },
+    {
+      "domain": "observabilite",
+      "how": "RolloutRecorder (canal + tache d'ecriture vers un fichier rollout) ; crate rollout-trace avec contextes par phase (CodeCellTraceContext, CompactionTraceContext...) ; thread-store (live_thread, store, queue_store) pour l'etat rejouable.",
+      "id": "cx-rollout-replay",
+      "integration": "plugin",
+      "name": "Enregistrement rollout rejouable",
+      "omega_adapter": "omega-otel::TraceReplayer",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "refs": [
+        "codex-rs/rollout/src/recorder.rs:86",
+        "codex-rs/rollout-trace/src/compaction.rs:35",
+        "codex-rs/thread-store/src/store.rs:1"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Chaque session est enregistree (rollout) avec traces par phase, rejouable sans re-executer le modele."
+    },
+    {
+      "domain": "contexte",
+      "how": "build_compaction_replacement_history() + run_compact_task() / run_inline_auto_compact_task() : resume par modele avec prompt de summarisation (codex-prompts), budget tokens dedie (compact_token_budget), retention des sorties d'outils (compact_retained_tool_outputs), hooks Pre/PostCompact autour de l'operation, variantes distantes (compact_remote_v2).",
+      "id": "cx-compaction",
+      "integration": "plugin",
+      "name": "Compaction avec budget et hooks",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "refs": [
+        "codex-rs/core/src/compact.rs:85",
+        "codex-rs/core/src/compact.rs:118",
+        "codex-rs/core/src/compact.rs:155",
+        "codex-rs/rollout-trace/src/compaction.rs:35"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Resume d'historique par un modele avec budget tokens, retention selective et hooks pre/post-compaction."
+    },
+    {
+      "domain": "contexte",
+      "how": "Racine projet = remontee depuis le cwd jusqu'a un marqueur (project_root_markers, defaut .git) ; concatenation de TOUS les AGENTS.md de la racine au cwd ; AGENTS.override.md local ; plafond project_doc_max_bytes ; dossiers non fiables (is_untrusted) court-circuitent la lecture et n'exposent que les instructions utilisateur.",
+      "id": "cx-agents-md",
+      "integration": "plugin",
+      "name": "AGENTS.md remontant avec trust",
+      "omega_adapter": "plugins/agents-md-merge",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "refs": [
+        "codex-rs/core/src/agents_md.rs:43",
+        "codex-rs/core/src/agents_md.rs:45",
+        "codex-rs/core/src/agents_md.rs:207"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Instructions projet decouvertes en remontant vers la racine, fusionnees dans l'ordre, avec override local et gating de confiance."
+    },
+    {
+      "domain": "memoire",
+      "how": "Crates memories/read (citations, usage) et memories/write (control, guard) ; crate ext/memories avec pub fn install(extension) branchant les contributeurs ; modeles preferes par usage (memory_extraction/consolidation_preferred_model) sur le port provider.",
+      "id": "cx-memories",
+      "integration": "plugin",
+      "name": "Memoires locales lecture/ecriture",
+      "omega_adapter": "plugins/memory-local",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore",
+      "refs": [
+        "codex-rs/ext/memories/src/extension.rs:163",
+        "codex-rs/memories/read/src/metrics.rs:1",
+        "codex-rs/memories/write/src/control.rs:1"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Persistance locale des faits (lecture citee, ecriture gardee) branchee comme extension, avec modeles dedies a l'extraction."
+    },
+    {
+      "domain": "routage",
+      "how": "Trait ModelProvider (info, capabilities, auth_manager, map_api_error, models_manager, modeles preferes par usage) + fabrique create_model_provider (aiguillage Bedrock/gateway/standard) ; ModelProviderInfo declare base_url, capacites et bornes ; catalogue via models-manager.",
+      "id": "cx-model-provider",
+      "integration": "plugin",
+      "name": "Port provider + fabrique multi-backend",
+      "omega_adapter": "omega-providers::OllamaProvider",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider",
+      "refs": [
+        "codex-rs/model-provider/src/provider.rs:108",
+        "codex-rs/model-provider/src/provider.rs:336"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Port LLM unique (metadata, capacites, traduction d'erreurs, catalogue) avec fabrique aiguillant vers le backend selon la config."
+    },
+    {
+      "domain": "agents",
+      "how": "AgentRoleConfig { description, config_file (couche de config par role), nickname_candidates } en TOML a champs inconnus refuses ; load_agent_roles() ; evenements SubagentStart/SubagentStop dans le cycle de vie (hooks + telemetrie multi_agent.spawn) ; templates de modes de collaboration (collaboration-mode-templates).",
+      "id": "cx-subagents-roles",
+      "integration": "plugin",
+      "name": "Sous-agents declares par roles",
+      "omega_adapter": "plugins/subagent-isolated",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner",
+      "refs": [
+        "codex-rs/agent-roles/src/agent_role_config.rs:10",
+        "codex-rs/protocol/src/protocol.rs:1693",
+        "codex-rs/otel/src/metrics/names.rs:6"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Roles d'agents declares en TOML (description, config, surnoms) lances comme sous-agents isoles avec cycle de vie trace."
+    },
+    {
+      "domain": "extension",
+      "how": "Chargement avec snapshots (LoadedSkillRoot, LoadedSkills, SkillRootSnapshots cache) ; interface declaree (SkillInterfaceFile, SkillInterfaceAssetPolicy) ; selection et mentions (@) ; metriques d'invocation (skill_invocation.rs cote otel).",
+      "id": "cx-skills-loading",
+      "integration": "plugin",
+      "name": "Skills avec snapshots et interface",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore",
+      "refs": [
+        "codex-rs/skills/src/loading.rs:24",
+        "codex-rs/skills/src/loading.rs:34",
+        "codex-rs/skills/src/interface.rs:15",
+        "codex-rs/otel/src/skill_invocation.rs:1"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Decouverte de skills avec cache par snapshot, interface declaree et suivi d'invocation."
+    },
+    {
+      "domain": "configuration",
+      "how": "Enum Stage { UnderDevelopment, Experimental{name, menu_description, announcement}, Stable, Deprecated, Removed } + registre FEATURES ; distinction features Cargo (build) vs flags runtime (produit) avec cycle de vie et deprecation explicite.",
+      "id": "cx-feature-flags",
+      "integration": "plugin",
+      "name": "Flags runtime avec cycle de vie",
+      "omega_adapter": "omega-config",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "refs": [
+        "codex-rs/features/src/lib.rs:48"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Capacites produit activees par flags versionnes (experimental/stable/deprecated) decouples des features Cargo."
+    },
+    {
+      "domain": "ui",
+      "how": "Crate app-server-protocol : types derives Serialize/Deserialize/JsonSchema/TS, generate_ts_with_options() / generate_json() pour les exports TypeScript, precomputed_exports + schema_fixtures en CI ; protos v2 (shared : SandboxMode...) ; transport app-server-transport + daemon.",
+      "id": "cx-app-server-protocol",
+      "integration": "service",
+      "name": "Frontiere Rust/TS generee (app-server)",
+      "omega_adapter": "plugins/app-server-jsonrpc",
+      "omega_capability": "app-server",
+      "omega_port": "AppServer",
+      "refs": [
+        "codex-rs/app-server-protocol/src/export.rs:123",
+        "codex-rs/app-server-protocol/src/export.rs:202",
+        "codex-rs/app-server-protocol/src/schema_fixtures.rs:1"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Protocole serveur (TUI/IDE) dont les types TypeScript sont generes depuis le Rust, avec fixtures de schema testees."
+    }
+  ]
+}
