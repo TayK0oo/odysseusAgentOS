@@ -73,6 +73,145 @@ pub struct Catalog {
     pub harnesses: Vec<Harness>,
 }
 
+/* =========================================================================
+ * Dissection par application (fonctionnalité par fonctionnalité)
+ * ========================================================================= */
+
+/// Mode d'intégration d'une fonctionnalité dans Omega.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum IntegrationMode {
+    /// Devient un plugin du registre (port + adaptateur).
+    Plugin,
+    /// Reste un service externe derrière un port.
+    Service,
+    /// Repris dans le noyau (rare : seulement si c'est un invariant).
+    Native,
+    /// Écarté (motif dans `why`, absent ici).
+    Rejected,
+}
+
+/// Une fonctionnalité disséquée d'une application.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Functionality {
+    pub id: String,
+    /// Domaine de regroupement (outils, contexte, memoire, execution…).
+    pub domain: String,
+    pub name: String,
+    /// Ce que ça fait.
+    pub what: String,
+    /// Comment c'est implémenté dans l'app d'origine (observé).
+    pub how: String,
+    /// Capacité visée dans Omega.
+    #[serde(default)]
+    pub omega_capability: Option<String>,
+    /// Port visé (trait).
+    #[serde(default)]
+    pub omega_port: Option<String>,
+    /// Adaptateur/plugin prévu.
+    #[serde(default)]
+    pub omega_adapter: Option<String>,
+    pub integration: IntegrationMode,
+    pub status: PrincipleStatus,
+    pub rust_cost: RustCost,
+    #[serde(default)]
+    pub refs: Vec<String>,
+}
+
+/// Dissection complète d'une application.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AppDissection {
+    pub schema_version: u32,
+    pub id: String,
+    pub name: String,
+    pub editor: String,
+    pub oss: bool,
+    pub language: String,
+    pub license: String,
+    #[serde(default)]
+    pub repo: Option<String>,
+    pub architecture: String,
+    #[serde(default)]
+    pub entrypoints: Vec<String>,
+    pub functionalities: Vec<Functionality>,
+}
+
+impl AppDissection {
+    /// Fonctionnalités regroupées par domaine.
+    pub fn by_domain(&self) -> Vec<(String, Vec<&Functionality>)> {
+        let mut out: Vec<(String, Vec<&Functionality>)> = Vec::new();
+        for f in &self.functionalities {
+            match out.iter_mut().find(|(d, _)| *d == f.domain) {
+                Some((_, v)) => v.push(f),
+                None => out.push((f.domain.clone(), vec![f])),
+            }
+        }
+        out
+    }
+
+    /// (adopted, planned, rejected).
+    pub fn counts(&self) -> (usize, usize, usize) {
+        let mut a = 0;
+        let mut p = 0;
+        let mut r = 0;
+        for f in &self.functionalities {
+            match f.status {
+                PrincipleStatus::Adopted => a += 1,
+                PrincipleStatus::Planned => p += 1,
+                PrincipleStatus::Rejected => r += 1,
+            }
+        }
+        (a, p, r)
+    }
+}
+
+/// Corpus des dissections (une par application disséquée).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Dissections {
+    pub apps: Vec<AppDissection>,
+}
+
+/// Dissections embarquées (fichiers `data/apps/*.json`).
+///
+/// Ajouter une app = déposer `data/apps/<id>.json` + l'ajouter ci-dessous.
+pub const APP_DISSECTIONS: &[&str] = &[include_str!("../data/apps/hermes.json")];
+
+impl Dissections {
+    /// Charge les dissections embarquées.
+    ///
+    /// L'échec est impossible en pratique : un test garantit la validité de
+    /// chaque fichier (échec à la compilation des tests).
+    pub fn embedded() -> Self {
+        Self {
+            apps: APP_DISSECTIONS
+                .iter()
+                .map(|raw| serde_json::from_str(raw).expect("dissection invalide (embarquee)"))
+                .collect(),
+        }
+    }
+
+    pub fn apps(&self) -> &[AppDissection] {
+        &self.apps
+    }
+
+    pub fn by_id(&self, id: &str) -> Option<&AppDissection> {
+        self.apps.iter().find(|a| a.id == id)
+    }
+
+    /// Total des fonctionnalités disséquées, et par statut.
+    pub fn totals(&self) -> (usize, usize, usize, usize) {
+        let (mut n, mut a, mut p, mut r) = (0, 0, 0, 0);
+        for app in &self.apps {
+            let (ca, cp, cr) = app.counts();
+            n += app.functionalities.len();
+            a += ca;
+            p += cp;
+            r += cr;
+        }
+        (n, a, p, r)
+    }
+}
+
 /// Erreur de chargement du corpus (ne devrait jamais arriver : embarqué et testé).
 pub const CATALOG_JSON: &str = include_str!("../data/harnesses.json");
 
@@ -256,6 +395,47 @@ mod tests {
             a >= 10,
             "au moins 10 principes adoptes (sinon le RE ne sert a rien)"
         );
+    }
+
+    #[test]
+    fn embedded_dissections_are_valid_and_complete() {
+        let d = Dissections::embedded();
+        assert!(!d.apps.is_empty(), "au moins une application disséquée");
+        for app in d.apps() {
+            assert_eq!(app.schema_version, 1);
+            assert!(!app.architecture.is_empty());
+            assert!(
+                app.functionalities.len() >= 8,
+                "{} : dissection trop pauvre",
+                app.id
+            );
+            let mut ids = HashSet::new();
+            for f in &app.functionalities {
+                assert!(ids.insert(f.id.clone()), "{} / {} dupliqué", app.id, f.id);
+                assert!(!f.domain.is_empty(), "{} sans domaine", f.id);
+                assert!(!f.what.is_empty(), "{} sans `what`", f.id);
+                assert!(
+                    !f.how.is_empty(),
+                    "{} sans `how` (implémentation observée)",
+                    f.id
+                );
+                assert!(!f.refs.is_empty(), "{} sans source", f.id);
+                if f.status == PrincipleStatus::Adopted {
+                    assert!(
+                        f.omega_adapter.is_some(),
+                        "{} : adopté sans adaptateur",
+                        f.id
+                    );
+                }
+                if f.integration == IntegrationMode::Plugin {
+                    assert!(
+                        f.omega_capability.is_some() && f.omega_port.is_some(),
+                        "{} : plugin sans capacité/port",
+                        f.id
+                    );
+                }
+            }
+        }
     }
 
     #[test]

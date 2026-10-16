@@ -663,6 +663,35 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn dissections_expose_functionalities_and_totals() {
+        let all = dissections().await.0;
+        assert!(!all.apps.is_empty());
+        assert!(all.totals.functionalities >= 8);
+        let h = dissection(axum::extract::Path("hermes".to_string()))
+            .await
+            .unwrap()
+            .0;
+        assert_eq!(h.id, "hermes");
+        assert!(h.functionalities.len() >= 8);
+        // Chaque fonctionnalité est mappable à une capacité/port Omega.
+        assert!(h
+            .functionalities
+            .iter()
+            .all(|f| f.omega_capability.is_some()
+                || f.integration != omega_harness::IntegrationMode::Plugin));
+        // Domaines non vides.
+        assert!(h
+            .by_domain()
+            .iter()
+            .all(|(d, v)| !d.is_empty() && !v.is_empty()));
+        // Inconnu -> 400.
+        let err = dissection(axum::extract::Path("nope".to_string()))
+            .await
+            .unwrap_err();
+        assert_eq!(err.status(), axum::http::StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
     async fn overview_aggregates_dashboard_in_one_call() {
         let (st, _) = test_state("sys-overview");
         let body = overview(State(Arc::new(st.clone()))).await.0;
@@ -672,6 +701,7 @@ mod tests {
         assert_eq!(body.model_record.cost_input_per_1m, 0.0);
         assert!(body.harness.harnesses >= 12);
         assert!(body.harness.adopted >= 10);
+        assert!(body.dissection.functionalities >= 8);
         let _ = st;
     }
 
@@ -784,6 +814,58 @@ pub async fn harness(
         .cloned()
         .map(Json)
         .ok_or_else(|| ApiError::bad_request(format!("harnais inconnu : {id}")))
+}
+
+/* --- Dissections d'applications (reverse-engineering exhaustif) -------------- */
+
+/// `GET /api/dissections` : toutes les applications disséquées.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DissectionsResponse {
+    pub schema_version: u32,
+    pub apps: Vec<omega_harness::AppDissection>,
+    pub totals: DissectionTotals,
+}
+
+/// Totaux des dissections.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct DissectionTotals {
+    pub apps: usize,
+    pub functionalities: usize,
+    pub adopted: usize,
+    pub planned: usize,
+    pub rejected: usize,
+}
+
+fn dissection_totals() -> DissectionTotals {
+    let d = omega_harness::Dissections::embedded();
+    let (n, a, p, r) = d.totals();
+    DissectionTotals {
+        apps: d.apps.len(),
+        functionalities: n,
+        adopted: a,
+        planned: p,
+        rejected: r,
+    }
+}
+
+pub async fn dissections() -> Json<DissectionsResponse> {
+    let d = omega_harness::Dissections::embedded();
+    Json(DissectionsResponse {
+        schema_version: SCHEMA_VERSION,
+        apps: d.apps,
+        totals: dissection_totals(),
+    })
+}
+
+/// `GET /api/dissections/:id` : la dissection d'une application.
+pub async fn dissection(
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Json<omega_harness::AppDissection>, ApiError> {
+    omega_harness::Dissections::embedded()
+        .by_id(&id)
+        .cloned()
+        .map(Json)
+        .ok_or_else(|| ApiError::bad_request(format!("application non disséquée : {id}")))
 }
 
 /* --- Configuration ---------------------------------------------------------- */
@@ -1016,6 +1098,7 @@ pub struct OverviewResponse {
     pub recent_runs: Vec<RunEntry>,
     pub model_record: omega_types::ModelRecord,
     pub harness: HarnessCounts,
+    pub dissection: DissectionTotals,
 }
 
 pub async fn overview(State(state): State<Arc<AppState>>) -> Json<OverviewResponse> {
@@ -1056,6 +1139,7 @@ pub async fn overview(State(state): State<Arc<AppState>>) -> Json<OverviewRespon
         recent_runs: collect_runs(&state, 8),
         model_record: local_record(state.model(), Some(32768)),
         harness: harness_counts(),
+        dissection: dissection_totals(),
     })
 }
 

@@ -141,6 +141,8 @@ fn api_router(state: AppState) -> Router {
         .route("/api/context", get(crate::system::context))
         .route("/api/harnesses", get(crate::system::harnesses))
         .route("/api/harnesses/:id", get(crate::system::harness))
+        .route("/api/dissections", get(crate::system::dissections))
+        .route("/api/dissections/:id", get(crate::system::dissection))
         .with_state(Arc::new(state))
 }
 

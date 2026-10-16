@@ -319,6 +319,7 @@ export interface OverviewResponse {
   recent_runs: RunEntry[];
   model_record: ModelRecord;
   harness: HarnessCounts;
+  dissection: DissectionTotals;
 }
 
 /* --- Miroirs de `omega-harness` (reverse-engineering) --------------------- */
@@ -359,4 +360,51 @@ export interface HarnessCounts {
   adopted: number;
   planned: number;
   rejected: number;
+}
+
+/* --- Miroirs de `omega-harness::AppDissection` ---------------------------- */
+
+export type IntegrationMode = 'plugin' | 'service' | 'native' | 'rejected';
+
+export interface Functionality {
+  id: string;
+  domain: string;
+  name: string;
+  what: string;
+  how: string;
+  omega_capability?: string | null;
+  omega_port?: string | null;
+  omega_adapter?: string | null;
+  integration: IntegrationMode;
+  status: PrincipleStatus;
+  rust_cost: RustCost;
+  refs: string[];
+}
+
+export interface AppDissection {
+  schema_version: number;
+  id: string;
+  name: string;
+  editor: string;
+  oss: boolean;
+  language: string;
+  license: string;
+  repo?: string | null;
+  architecture: string;
+  entrypoints: string[];
+  functionalities: Functionality[];
+}
+
+export interface DissectionTotals {
+  apps: number;
+  functionalities: number;
+  adopted: number;
+  planned: number;
+  rejected: number;
+}
+
+export interface DissectionsResponse {
+  schema_version: number;
+  apps: AppDissection[];
+  totals: DissectionTotals;
 }

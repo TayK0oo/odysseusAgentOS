@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   getConfig,
+  getDissections,
   getHarnesses,
   getContext,
   getModels,
@@ -22,6 +23,7 @@ import type {
   ClassifyResponse,
   ConfigResponse,
   ContextResponse,
+  DissectionsResponse,
   DurableEvent,
   EvaluateResponse,
   Harness,
@@ -1205,6 +1207,153 @@ export function HarnessesPanel({ isolate }: { isolate: string | null }) {
                 </div>
               ))}
               {harnesses.length === 0 && <Banner kind="offline" text="aucun principe ne correspond" />}
+            </>
+          );
+        }}
+      </Async>
+    </section>
+  );
+}
+
+/* =========================================================================
+ * Dissections (reverse-engineering exhaustif, fonctionnalité par fonctionnalité)
+ * ========================================================================= */
+
+export function DissectionsPanel({ isolate }: { isolate: string | null }) {
+  const state = useAsync(getDissections);
+  const [selected, setSelected] = useState<string | null>(isolate);
+  const [domain, setDomain] = useState<string>('');
+
+  useEffect(() => {
+    if (isolate !== null) setSelected(isolate);
+  }, [isolate]);
+
+  return (
+    <section className="panel">
+      <h2>Dissections — fonctionnalité par fonctionnalité</h2>
+      <p className="hint">
+        Chaque application décortiquée : ses fonctionnalités, leur implémentation d'origine
+        (<code>how</code>), et la traduction en plugin Omega (
+        <code>capacité → port → adaptateur</code>).
+      </p>
+      <Async state={state}>
+        {(d: DissectionsResponse) => {
+          const apps = d.apps;
+          const current = apps.find((a) => a.id === selected) ?? apps[0] ?? null;
+          const domains = current ? Array.from(new Set(current.functionalities.map((f) => f.domain))).sort() : [];
+          const shown = current
+            ? current.functionalities.filter((f) => domain === '' || f.domain === domain)
+            : [];
+          const byDomain = domains
+            .map((dom) => ({ dom, fs: shown.filter((f) => f.domain === dom) }))
+            .filter(({ fs }) => fs.length > 0);
+          return (
+            <>
+              <div className="cards">
+                <Card k="Apps disséquées" v={d.totals.apps} />
+                <Card k="Fonctionnalités" v={d.totals.functionalities} />
+                <Card k="Adoptées" v={d.totals.adopted} />
+                <Card k="Restantes" v={d.totals.planned + d.totals.rejected} />
+              </div>
+
+              <div className="tabs sub">
+                {apps.map((a) => (
+                  <button key={a.id} onClick={() => setSelected(a.id)} aria-pressed={current?.id === a.id}>
+                    {a.name}
+                  </button>
+                ))}
+              </div>
+
+              {current === null ? (
+                <Banner kind="offline" text="aucune dissection disponible" />
+              ) : (
+                <>
+                  <h3>
+                    {current.name} <span className="muted">{current.editor}</span>{' '}
+                    <Chip>{current.license}</Chip> <Chip>{current.language}</Chip>{' '}
+                    <Chip>{current.functionalities.length} fonctionnalités</Chip>
+                  </h3>
+                  <p className="muted">{current.architecture}</p>
+                  {current.entrypoints.length > 0 && (
+                    <p className="muted">
+                      Entrées : {current.entrypoints.map((e) => (
+                        <code key={e} style={{ marginRight: 6 }}>
+                          {e}
+                        </code>
+                      ))}
+                    </p>
+                  )}
+
+                  <div className="tabs sub">
+                    <button onClick={() => setDomain('')} aria-pressed={domain === ''}>
+                      tous domaines
+                    </button>
+                    {domains.map((dom) => (
+                      <button key={dom} onClick={() => setDomain(dom)} aria-pressed={domain === dom}>
+                        {dom}
+                      </button>
+                    ))}
+                  </div>
+
+                  {byDomain.map(({ dom, fs }) => (
+                    <div key={dom} className="harness">
+                      <h3>{dom}</h3>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Fonctionnalité</th>
+                            <th>Statut</th>
+                            <th>capabilité → port → adaptateur</th>
+                            <th>Intégration</th>
+                            <th>Rust</th>
+                            <th>Source</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fs.map((f) => (
+                            <tr key={f.id}>
+                              <td>
+                                <strong>{f.name}</strong>
+                                <div className="muted">{f.what}</div>
+                                <div className="muted">
+                                  <em>Implémentation d'origine :</em> {f.how}
+                                </div>
+                              </td>
+                              <td>
+                                <Chip
+                                  tone={
+                                    f.status === 'adopted'
+                                      ? 'ok'
+                                      : f.status === 'planned'
+                                        ? 'warn'
+                                        : 'ko'
+                                  }
+                                >
+                                  {f.status}
+                                </Chip>
+                              </td>
+                              <td className="muted">
+                                <code>{f.omega_capability ?? '—'}</code> →{' '}
+                                <code>{f.omega_port ?? '—'}</code> →{' '}
+                                <code>{f.omega_adapter ?? '—'}</code>
+                              </td>
+                              <td>
+                                <Chip tone={f.integration === 'plugin' ? 'ok' : undefined}>
+                                  {f.integration}
+                                </Chip>
+                              </td>
+                              <td>
+                                <Chip>{f.rust_cost}</Chip>
+                              </td>
+                              <td className="muted">{f.refs.join(', ')}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </>
+              )}
             </>
           );
         }}
