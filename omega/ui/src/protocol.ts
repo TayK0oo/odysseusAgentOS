@@ -251,3 +251,71 @@ export interface ContextResponse {
   required_context: number;
   sample: ContextSample[];
 }
+
+/* --- Miroirs de `omega-server::system` (W7 inc5) -------------------------- */
+
+export interface RegistryEntryDto {
+  id: string;
+  version: string;
+  priority: number;
+  quarantined: boolean;
+  kind: 'typed' | 'trait-object';
+}
+
+export interface RegistryCapabilityDto {
+  name: string;
+  regime: 'slot' | 'ensemble';
+  entries: RegistryEntryDto[];
+}
+
+export interface RegistryResponse {
+  schema_version: number;
+  capabilities: RegistryCapabilityDto[];
+}
+
+export interface ConfigResponse {
+  schema_version: number;
+  port: number;
+  ollama_url: string;
+  ollama_model: string;
+  event_dir: string;
+  max_tokens: number;
+  ui_dir?: string | null;
+  ui_served: boolean;
+}
+
+export interface RouteInfo {
+  method: string;
+  path: string;
+  description: string;
+}
+
+export interface RoutesResponse {
+  schema_version: number;
+  routes: RouteInfo[];
+}
+
+export interface DurableEvent {
+  run_id: string;
+  seq: number;
+  name: string;
+  operation_id?: string | null;
+  payload: unknown;
+}
+
+export interface RunEventsResponse {
+  schema_version: number;
+  run_id: string;
+  events: DurableEvent[];
+}
+
+export interface OverviewResponse {
+  schema_version: number;
+  status: string;
+  config: ConfigResponse;
+  counts: SystemCounts;
+  capabilities: CapabilityInfo[];
+  crate_count: number;
+  recent_runs: RunEntry[];
+  model_record: ModelRecord;
+}

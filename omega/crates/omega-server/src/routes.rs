@@ -127,9 +127,14 @@ fn api_router(state: AppState) -> Router {
         // W7 inc4 : inspection du système (architecture, modèles, classifieur,
         // runs, politique, contexte).
         .route("/api/system", get(crate::system::system))
+        .route("/api/overview", get(crate::system::overview))
+        .route("/api/registry", get(crate::system::registry))
+        .route("/api/config", get(crate::system::config))
+        .route("/api/routes", get(crate::system::routes))
         .route("/api/models", get(crate::system::models))
         .route("/api/classify", post(crate::system::classify))
         .route("/api/runs", get(crate::system::runs))
+        .route("/api/runs/:run_id/events", get(crate::system::run_events))
         .route("/api/policy", get(crate::system::policy))
         .route("/api/policy/evaluate", post(crate::system::evaluate))
         .route("/api/context", get(crate::system::context))

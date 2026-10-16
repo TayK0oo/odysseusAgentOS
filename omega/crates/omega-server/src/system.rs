@@ -207,8 +207,8 @@ pub async fn system(State(state): State<Arc<AppState>>) -> Json<SystemResponse> 
         crates: crate_table(),
         capabilities,
         ollama: OllamaInfo {
-            base_url: state.ollama_url.clone(),
-            model: state.model.clone(),
+            base_url: state.config.ollama_base_url.clone(),
+            model: state.model().to_string(),
         },
     })
 }
@@ -226,12 +226,12 @@ pub struct ModelsResponse {
 }
 
 pub async fn models(State(state): State<Arc<AppState>>) -> Result<Json<ModelsResponse>, ApiError> {
-    let source = OllamaCatalogSource::new(state.ollama_url.clone());
+    let source = OllamaCatalogSource::new(state.config.ollama_base_url.clone());
     let installed = source.fetch().await.map_err(ApiError::from_domain)?;
     Ok(Json(ModelsResponse {
         schema_version: SCHEMA_VERSION,
         installed,
-        record: local_record(&state.model, Some(32768)),
+        record: local_record(state.model(), Some(32768)),
     }))
 }
 
@@ -496,7 +496,7 @@ pub async fn context(State(state): State<Arc<AppState>>) -> Json<ContextResponse
     Json(ContextResponse {
         schema_version: SCHEMA_VERSION,
         estimator: "ceil(chars / 4) — déterministe, sans LLM".to_string(),
-        max_tokens: state.max_tokens,
+        max_tokens: state.config.max_tokens,
         required_context: REQUIRED_CONTEXT,
         sample,
     })
@@ -636,4 +636,384 @@ mod tests {
         assert_eq!(body.sample[1].chars, 7);
         assert!(body.estimator.contains("ceil"));
     }
+
+    #[tokio::test]
+    async fn overview_aggregates_dashboard_in_one_call() {
+        let (st, _) = test_state("sys-overview");
+        let body = overview(State(Arc::new(st.clone()))).await.0;
+        assert_eq!(body.status, "ok");
+        assert_eq!(body.counts.capabilities, 25);
+        assert_eq!(body.crate_count, 14);
+        assert_eq!(body.model_record.cost_input_per_1m, 0.0);
+        let _ = st;
+    }
+
+    #[tokio::test]
+    async fn registry_isolates_entries_with_kind_and_quarantine() {
+        let (st, _) = test_state("sys-registry");
+        let body = registry(State(Arc::new(st))).await.0;
+        assert_eq!(body.capabilities.len(), 25);
+        let llm = body
+            .capabilities
+            .iter()
+            .find(|c| c.name == "llm-provider")
+            .unwrap();
+        assert_eq!(llm.entries.len(), 1);
+        assert_eq!(llm.entries[0].id, "stub");
+        assert_eq!(llm.entries[0].kind, "trait-object");
+        assert!(!llm.entries[0].quarantined);
+    }
+
+    #[tokio::test]
+    async fn config_and_routes_are_self_describing() {
+        let (st, _) = test_state("sys-config");
+        let c = config(State(Arc::new(st.clone()))).await.0;
+        assert_eq!(c.ollama_model, "test-model");
+        assert_eq!(c.max_tokens, 8000);
+        let r = routes().await.0;
+        assert!(r.routes.iter().any(|x| x.path == "/api/overview"));
+        assert!(r
+            .routes
+            .iter()
+            .any(|x| x.path == "/api/runs/:run_id/events"));
+        let _ = st;
+    }
+
+    #[tokio::test]
+    async fn run_events_expose_raw_journal_for_traceability() {
+        let (st, _) = test_state("sys-events");
+        crate::pipeline::execute_run(
+            &st,
+            vec![omega_types::Message::new(
+                omega_types::Role::User,
+                "bonjour",
+            )],
+            Some("trace-raw-1".to_string()),
+        )
+        .await
+        .unwrap();
+        let body = run_events(
+            State(Arc::new(st)),
+            axum::extract::Path("trace-raw-1".to_string()),
+        )
+        .await
+        .unwrap()
+        .0;
+        assert!(body.events.iter().any(|e| e.name == "plan.defined"));
+        assert!(body.events.iter().any(|e| e.name == "step.completed"));
+        assert!(body.events.iter().any(|e| e.name == "infer.completed"));
+        // Sequences monotones.
+        let seqs: Vec<u64> = body.events.iter().map(|e| e.seq).collect();
+        let mut sorted = seqs.clone();
+        sorted.sort_unstable();
+        assert_eq!(seqs, sorted);
+
+        // run_id invalide -> 400.
+        let err = run_events(
+            State(Arc::new(test_state("sys-events-4").0)),
+            axum::extract::Path("../x".to_string()),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(err.status(), axum::http::StatusCode::BAD_REQUEST);
+    }
+}
+
+/* --- Configuration ---------------------------------------------------------- */
+
+/// `GET /api/config` : configuration effective (sans secret).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfigResponse {
+    pub schema_version: u32,
+    pub port: u16,
+    pub ollama_url: String,
+    pub ollama_model: String,
+    pub event_dir: String,
+    pub max_tokens: usize,
+    pub ui_dir: Option<String>,
+    pub ui_served: bool,
+}
+
+pub async fn config(State(state): State<Arc<AppState>>) -> Json<ConfigResponse> {
+    let c = &state.config;
+    Json(ConfigResponse {
+        schema_version: SCHEMA_VERSION,
+        port: c.port,
+        ollama_url: c.ollama_base_url.clone(),
+        ollama_model: c.ollama_model.clone(),
+        event_dir: c.event_dir.display().to_string(),
+        max_tokens: c.max_tokens,
+        ui_dir: c.ui_dir.as_ref().map(|d| d.display().to_string()),
+        ui_served: c.ui_dir.as_ref().map(|d| d.is_dir()).unwrap_or(false),
+    })
+}
+
+/* --- Registre (isolation des plugins) --------------------------------------- */
+
+/// Entree de registre exposée.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryEntryDto {
+    pub id: String,
+    pub version: String,
+    pub priority: i32,
+    pub quarantined: bool,
+    /// `typed` | `trait-object`.
+    pub kind: String,
+}
+
+/// Capacité + ses entrées.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryCapabilityDto {
+    pub name: String,
+    pub regime: String,
+    pub entries: Vec<RegistryEntryDto>,
+}
+
+/// `GET /api/registry` : le registre complet (manifests, priorité, quarantaine).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryResponse {
+    pub schema_version: u32,
+    pub capabilities: Vec<RegistryCapabilityDto>,
+}
+
+pub async fn registry(State(state): State<Arc<AppState>>) -> Json<RegistryResponse> {
+    let described = state.app.describe();
+    let capabilities = crate::routes::ALL_CAPABILITIES
+        .iter()
+        .map(|cap| {
+            let entries = described
+                .iter()
+                .find(|(c, _)| c == cap)
+                .map(|(_, v)| {
+                    v.iter()
+                        .map(|e| RegistryEntryDto {
+                            id: e.id.clone(),
+                            version: e.version.clone(),
+                            priority: e.priority,
+                            quarantined: e.quarantined,
+                            kind: match e.kind {
+                                omega_registry::EntryKind::Typed => "typed".to_string(),
+                                omega_registry::EntryKind::TraitObject => {
+                                    "trait-object".to_string()
+                                }
+                            },
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            RegistryCapabilityDto {
+                name: cap.as_str().to_string(),
+                regime: match cap.regime() {
+                    omega_types::Regime::Slot => "slot".to_string(),
+                    omega_types::Regime::Ensemble => "ensemble".to_string(),
+                },
+                entries,
+            }
+        })
+        .collect();
+    Json(RegistryResponse {
+        schema_version: SCHEMA_VERSION,
+        capabilities,
+    })
+}
+
+/* --- Surface d'API ---------------------------------------------------------- */
+
+/// Un endpoint de l'API.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RouteInfo {
+    pub method: String,
+    pub path: String,
+    pub description: String,
+}
+
+/// `GET /api/routes` : surface d'API auto-descriptive.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoutesResponse {
+    pub schema_version: u32,
+    pub routes: Vec<RouteInfo>,
+}
+
+pub async fn routes() -> Json<RoutesResponse> {
+    let r = |m: &str, p: &str, d: &str| RouteInfo {
+        method: m.to_string(),
+        path: p.to_string(),
+        description: d.to_string(),
+    };
+    Json(RoutesResponse {
+        schema_version: SCHEMA_VERSION,
+        routes: vec![
+            r("GET", "/api/health", "Sonde de vie (schema_version)"),
+            r(
+                "GET",
+                "/api/overview",
+                "Vue d'ensemble (dashboard, 1 requête)",
+            ),
+            r("GET", "/api/system", "Architecture (crates) + capacités"),
+            r(
+                "GET",
+                "/api/registry",
+                "Registre : manifests, priorité, quarantaine",
+            ),
+            r(
+                "GET",
+                "/api/config",
+                "Configuration effective (sans secret)",
+            ),
+            r("GET", "/api/routes", "Cette surface d'API"),
+            r("GET", "/api/plugins", "Capacités câblées (liste plate)"),
+            r(
+                "GET",
+                "/api/models",
+                "Catalogue Ollama + record de sélection",
+            ),
+            r(
+                "POST",
+                "/api/classify",
+                "Classifieur de tâche (déterministe)",
+            ),
+            r(
+                "POST",
+                "/api/run",
+                "Run complet (classify→select→assemble→infer)",
+            ),
+            r("GET", "/api/runs", "Journal des runs (résumés rejoués)"),
+            r(
+                "GET",
+                "/api/runs/:run_id/events",
+                "Événements bruts d'un run (traçabilité)",
+            ),
+            r("GET", "/api/trace/:run_id", "Séquence rejouée + réponse"),
+            r("GET", "/api/policy", "Politique d'exécution de référence"),
+            r(
+                "POST",
+                "/api/policy/evaluate",
+                "Évaluer une commande (sans exécuter)",
+            ),
+            r("GET", "/api/context", "Paramètres d'économie de contexte"),
+        ],
+    })
+}
+
+/* --- Événements bruts d'un run (traçabilité) -------------------------------- */
+
+/// `GET /api/runs/:run_id/events` : journal brut (chaque événement durable).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunEventsResponse {
+    pub schema_version: u32,
+    pub run_id: String,
+    pub events: Vec<omega_types::DurableEvent>,
+}
+
+pub async fn run_events(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Path(run_id): axum::extract::Path<String>,
+) -> Result<Json<RunEventsResponse>, ApiError> {
+    if !omega_app::is_valid_run_id(&run_id) {
+        return Err(ApiError::bad_request(format!(
+            "run_id invalide : {run_id:?}"
+        )));
+    }
+    let events = state
+        .store
+        .read_run(&run_id)
+        .map_err(ApiError::from_domain)?;
+    Ok(Json(RunEventsResponse {
+        schema_version: SCHEMA_VERSION,
+        run_id,
+        events,
+    }))
+}
+
+/* --- Vue d'ensemble (dashboard) --------------------------------------------- */
+
+/// `GET /api/overview` : tout ce qu'affiche le dashboard, en une requête.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OverviewResponse {
+    pub schema_version: u32,
+    pub status: String,
+    pub config: ConfigResponse,
+    pub counts: SystemCounts,
+    pub capabilities: Vec<CapabilityInfo>,
+    pub crate_count: usize,
+    pub recent_runs: Vec<RunEntry>,
+    pub model_record: omega_types::ModelRecord,
+}
+
+pub async fn overview(State(state): State<Arc<AppState>>) -> Json<OverviewResponse> {
+    let capabilities: Vec<CapabilityInfo> = crate::routes::ALL_CAPABILITIES
+        .iter()
+        .map(|cap| CapabilityInfo {
+            name: cap.as_str().to_string(),
+            regime: match cap.regime() {
+                omega_types::Regime::Slot => "slot".to_string(),
+                omega_types::Regime::Ensemble => "ensemble".to_string(),
+            },
+            active: state.app.active_ids(*cap),
+        })
+        .collect();
+    let wired = capabilities.iter().filter(|c| !c.active.is_empty()).count();
+    let c = &state.config;
+    let config = ConfigResponse {
+        schema_version: SCHEMA_VERSION,
+        port: c.port,
+        ollama_url: c.ollama_base_url.clone(),
+        ollama_model: c.ollama_model.clone(),
+        event_dir: c.event_dir.display().to_string(),
+        max_tokens: c.max_tokens,
+        ui_dir: c.ui_dir.as_ref().map(|d| d.display().to_string()),
+        ui_served: c.ui_dir.as_ref().map(|d| d.is_dir()).unwrap_or(false),
+    };
+    Json(OverviewResponse {
+        schema_version: SCHEMA_VERSION,
+        status: "ok".to_string(),
+        config,
+        counts: SystemCounts {
+            crates: 14,
+            capabilities: capabilities.len(),
+            capabilities_wired: wired,
+        },
+        capabilities,
+        crate_count: 14,
+        recent_runs: collect_runs(&state, 8),
+        model_record: local_record(state.model(), Some(32768)),
+    })
+}
+
+/// Collecte les `limit` runs les plus récents (résumés rejoués).
+fn collect_runs(state: &AppState, limit: usize) -> Vec<RunEntry> {
+    let dir = state.store.dir();
+    let mut entries: Vec<(std::time::SystemTime, String)> = Vec::new();
+    if let Ok(read) = std::fs::read_dir(dir) {
+        for e in read.flatten() {
+            let path = e.path();
+            if path.extension().and_then(|x| x.to_str()) != Some("jsonl") {
+                continue;
+            }
+            let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            let modified = e
+                .metadata()
+                .and_then(|m| m.modified())
+                .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+            entries.push((modified, stem.to_string()));
+        }
+    }
+    entries.sort_by_key(|e| std::cmp::Reverse(e.0));
+    entries.truncate(limit);
+    entries
+        .into_iter()
+        .filter_map(|(_, run_id)| {
+            let journal = state.store.read_run(&run_id).ok()?;
+            let s = omega_otel::TraceReplayer::summarize(&run_id, journal);
+            Some(RunEntry {
+                run_id,
+                events: s.total_events,
+                steps_completed: s.steps_completed,
+                steps_failed: s.steps_failed,
+                outcome: s.outcome,
+            })
+        })
+        .collect()
 }

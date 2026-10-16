@@ -64,7 +64,7 @@ pub async fn execute_run(
     // `select_with_local_preference` : sans effet à un seul candidat, mais
     // contrat homogène avec les flux multi-candidats (W10).
     let selector = ParetoSelector::new(CompositeScoringPolicy::new());
-    let candidates = [local_candidate(&state.model)];
+    let candidates = [local_candidate(state.model())];
     let decision = selector
         .select_with_local_preference(task, Capabilities::default(), REQUIRED_CONTEXT, &candidates)
         .map_err(|e| OmegaError::Config(format!("selection : {e:?}")))?;
@@ -208,9 +208,10 @@ pub mod tests {
             AppState {
                 app: Arc::new(app),
                 store: store.clone(),
-                model: "test-model".to_string(),
-                ollama_url: "http://localhost:11434".to_string(),
-                max_tokens: 8000,
+                config: crate::config::ServerConfig {
+                    ollama_model: "test-model".to_string(),
+                    ..crate::config::ServerConfig::default()
+                },
             },
             store,
         )

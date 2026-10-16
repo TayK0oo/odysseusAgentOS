@@ -27,6 +27,25 @@ pub struct Manifest {
     pub priority: i32,
 }
 
+/// Vue d'inspection d'une entree de registre (isolation d'un plugin).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntryInfo {
+    pub id: String,
+    pub version: String,
+    pub priority: i32,
+    pub quarantined: bool,
+    pub kind: EntryKind,
+}
+
+/// Voie d'enregistrement d'une entree.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EntryKind {
+    /// Type concret (`register_typed`), resolu par `resolve::<T>`.
+    Typed,
+    /// Trait object (`register_dyn`), resolu par `resolve_dyn::<T>`.
+    TraitObject,
+}
+
 impl Manifest {
     pub fn new(id: impl Into<String>, capability: Capability, version: impl Into<String>) -> Self {
         Self {
@@ -298,6 +317,47 @@ impl Registry {
         }
     }
 
+    /// Vue d'inspection d'une entree (sans exposer l'instance).
+    ///
+    /// Isole un plugin : id, version, priorite, quarantaine, voie d'enregistrement.
+    pub fn describe(&self) -> Vec<(Capability, Vec<EntryInfo>)> {
+        let mut out: Vec<(Capability, Vec<EntryInfo>)> = Vec::new();
+        let mut push =
+            |cap: Capability, info: EntryInfo| match out.iter_mut().find(|(c, _)| *c == cap) {
+                Some((_, v)) => v.push(info),
+                None => out.push((cap, vec![info])),
+            };
+        for (cap, list) in &self.entries {
+            for e in list {
+                push(
+                    *cap,
+                    EntryInfo {
+                        id: e.manifest.id.clone(),
+                        version: e.manifest.version.clone(),
+                        priority: e.manifest.priority,
+                        quarantined: e.quarantined,
+                        kind: EntryKind::Typed,
+                    },
+                );
+            }
+        }
+        for (cap, list) in &self.trait_entries {
+            for e in list {
+                push(
+                    *cap,
+                    EntryInfo {
+                        id: e.manifest.id.clone(),
+                        version: e.manifest.version.clone(),
+                        priority: e.manifest.priority,
+                        quarantined: e.quarantined,
+                        kind: EntryKind::TraitObject,
+                    },
+                );
+            }
+        }
+        out
+    }
+
     /// Ids des implementations actives (non quarantainees) d'une capacite, par ordre de priorite.
     pub fn active_ids(&self, cap: Capability) -> Vec<String> {
         let mut ids: Vec<(i32, String)> = Vec::new();
@@ -531,6 +591,44 @@ mod tests {
             .resolve::<FakeProvider>(Capability::LlmProvider)
             .unwrap_err();
         assert!(matches!(err, OmegaError::NoImplementation(_)));
+    }
+
+    #[test]
+    fn describe_isolates_entries_and_quarantine() {
+        let mut r = Registry::new();
+        r.register_typed(
+            Manifest::new("a", Capability::LlmProvider, "2").with_priority(5),
+            Arc::new(FakeProvider("a")),
+        )
+        .unwrap();
+        r.register_typed(
+            Manifest::new("b", Capability::LlmProvider, "1"),
+            Arc::new(FakeProvider("b")),
+        )
+        .unwrap();
+        r.register_dyn(
+            Manifest::new("dyn", Capability::ContextEngine, "1"),
+            Arc::new(FakeEngine("dyn")),
+        )
+        .unwrap();
+        r.quarantine(Capability::LlmProvider, "b");
+
+        let d = r.describe();
+        let llm = d
+            .iter()
+            .find(|(c, _)| *c == Capability::LlmProvider)
+            .unwrap();
+        assert_eq!(llm.1.len(), 2);
+        let b = llm.1.iter().find(|e| e.id == "b").unwrap();
+        assert!(b.quarantined);
+        assert_eq!(b.kind, EntryKind::Typed);
+        let dyn_entry = d
+            .iter()
+            .find(|(c, _)| *c == Capability::ContextEngine)
+            .map(|(_, v)| v.iter().find(|e| e.id == "dyn").unwrap())
+            .unwrap();
+        assert_eq!(dyn_entry.kind, EntryKind::TraitObject);
+        assert!(!dyn_entry.quarantined);
     }
 
     #[test]

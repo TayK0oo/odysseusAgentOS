@@ -58,6 +58,14 @@ impl App {
         &self.config
     }
 
+    /// Vue d'inspection du registre : capacite -> entrees (isolation par plugin).
+    pub fn describe(&self) -> Vec<(Capability, Vec<omega_registry::EntryInfo>)> {
+        self.registry
+            .read()
+            .expect("registre empoisonné")
+            .describe()
+    }
+
     /// Resout le `Provider` actif (capacite `llm-provider`), quarantaine respectee.
     pub fn provider(&self) -> OmegaResult<Arc<dyn Provider>> {
         self.registry

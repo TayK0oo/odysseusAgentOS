@@ -7,6 +7,11 @@
 import { SCHEMA_VERSION } from './protocol';
 import type {
   ClassifyResponse,
+  ConfigResponse,
+  OverviewResponse,
+  RegistryResponse,
+  RoutesResponse,
+  RunEventsResponse,
   ContextResponse,
   EvaluateResponse,
   HealthResponse,
@@ -65,3 +70,12 @@ export const postEvaluate = (command: string) =>
 
 export const getTrace = (runId: string) =>
   fetchJson<TraceResponse>(`/api/trace/${encodeURIComponent(runId)}`);
+
+/* --- W7 inc5 : observabilité complète ------------------------------------- */
+
+export const getOverview = () => fetchJson<OverviewResponse>('/api/overview');
+export const getRegistry = () => fetchJson<RegistryResponse>('/api/registry');
+export const getConfig = () => fetchJson<ConfigResponse>('/api/config');
+export const getRoutes = () => fetchJson<RoutesResponse>('/api/routes');
+export const getRunEvents = (runId: string) =>
+  fetchJson<RunEventsResponse>(`/api/runs/${encodeURIComponent(runId)}/events`);

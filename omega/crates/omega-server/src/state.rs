@@ -24,12 +24,15 @@ pub struct AppState {
     pub app: Arc<App>,
     /// Journal durable (meme instance que celle du registre).
     pub store: Arc<FileEventStore>,
-    /// Nom du modele local (candidat de selection + inference).
-    pub model: String,
-    /// URL de base d'Ollama (catalogue `/api/tags`).
-    pub ollama_url: String,
-    /// Budget de contexte (tokens) du moteur d'assemblage.
-    pub max_tokens: usize,
+    /// Configuration effective du serveur (port, Ollama, journal, budget, UI).
+    pub config: ServerConfig,
+}
+
+impl AppState {
+    /// Modele local courant (candidat de selection + inference).
+    pub fn model(&self) -> &str {
+        &self.config.ollama_model
+    }
 }
 
 /// Contributeur `llm-provider` : expose l'`OllamaProvider` au registre.
@@ -97,9 +100,7 @@ pub fn build_app_state_with(cfg: &ServerConfig) -> OmegaResult<AppState> {
     Ok(AppState {
         app: Arc::new(app),
         store,
-        model: cfg.ollama_model.clone(),
-        ollama_url: cfg.ollama_base_url.clone(),
-        max_tokens: cfg.max_tokens,
+        config: cfg.clone(),
     })
 }
 
@@ -130,6 +131,6 @@ mod tests {
             vec!["file".to_string()]
         );
         assert_eq!(state.app.provider().unwrap().id(), "ollama");
-        assert_eq!(state.model, "qwen2.5-coder:7b");
+        assert_eq!(state.model(), "qwen2.5-coder:7b");
     }
 }

@@ -397,10 +397,95 @@ ul.axes li {
 
 button.link {
   background: none;
+  margin-right: 10px;
   border: 0;
   color: var(--accent);
   cursor: pointer;
   text-decoration: underline;
   font: inherit;
   padding: 0;
+}
+
+/* --- Dashboard & traçabilité (W7 inc5) ------------------------------------ */
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-head h2 {
+  margin: 0;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.grid-caps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+button.cap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  text-align: left;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+}
+
+button.cap:hover {
+  border-color: var(--accent);
+}
+
+button.cap code {
+  color: var(--accent);
+}
+
+tr.selected td {
+  background: #17233a;
+}
+
+ol.timeline {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  border-left: 2px solid var(--border);
+}
+
+ol.timeline li {
+  display: grid;
+  grid-template-columns: 52px 200px auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+ol.timeline li.mark {
+  background: #131b2b;
+}
+
+ol.timeline .mono {
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
