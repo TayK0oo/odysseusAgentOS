@@ -1,0 +1,24 @@
+[package]
+name = "omega-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Omega — pont MCP (Model Context Protocol) : client stdio + surface d'outils branchable (REA, autres serveurs)."
+
+[dependencies]
+omega-types = { path = "../omega-types" }
+omega-ports = { path = "../omega-ports" }
+omega-registry = { path = "../omega-registry" }
+omega-plugin-api = { path = "../omega-plugin-api" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+tokio = { version = "1", features = [
+    "process",
+    "io-util",
+    "time",
+    "sync",
+    "macros",
+    "rt-multi-thread",
+] }

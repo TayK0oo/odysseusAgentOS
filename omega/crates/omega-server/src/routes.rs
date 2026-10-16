@@ -143,6 +143,11 @@ fn api_router(state: AppState) -> Router {
         .route("/api/harnesses/:id", get(crate::system::harness))
         .route("/api/dissections", get(crate::system::dissections))
         .route("/api/dissections/:id", get(crate::system::dissection))
+        // W5/W7 : pont MCP REA (outil de reverse-engineering) — instantané
+        // embarqué + catalogue live + appel d'outil.
+        .route("/api/rea", get(crate::rea::rea))
+        .route("/api/rea/tools", get(crate::rea::rea_tools))
+        .route("/api/rea/call", post(crate::rea::rea_call))
         .with_state(Arc::new(state))
 }
 

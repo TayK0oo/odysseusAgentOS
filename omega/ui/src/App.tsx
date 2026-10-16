@@ -11,6 +11,7 @@ import {
   HarnessesPanel,
   Models,
   Plugins,
+  ReaPanel,
   RegistryPanel,
   RouterPanel,
   RunsPanel,
@@ -32,6 +33,7 @@ type Panel =
   | 'system'
   | 'harnesses'
   | 'dissections'
+  | 'rea'
   | 'registry'
   | 'plugins'
   | 'models'
@@ -49,6 +51,7 @@ const PANELS: { id: Panel; label: string }[] = [
   { id: 'system', label: 'Système' },
   { id: 'harnesses', label: 'Harnais' },
   { id: 'dissections', label: 'Dissections' },
+  { id: 'rea', label: 'REA' },
   { id: 'registry', label: 'Registre' },
   { id: 'plugins', label: 'Plugins' },
   { id: 'models', label: 'Modèles' },
@@ -136,6 +139,7 @@ export default function App() {
       {panel === 'harnesses' && (
         <HarnessesPanel key={`h-${capIsolation?.key ?? 0}`} isolate={capIsolation?.value ?? null} />
       )}
+      {panel === 'rea' && <ReaPanel />}
       {panel === 'registry' && (
         <RegistryPanel
           key={capIsolation?.key ?? 0}

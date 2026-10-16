@@ -408,3 +408,47 @@ export interface DissectionsResponse {
   apps: AppDissection[];
   totals: DissectionTotals;
 }
+
+/* --- Miroirs des endpoints REA (pont MCP `omega-mcp`) --------------------- */
+
+export interface ReaProviderInfo {
+  id: string;
+  name: string;
+  available_ops: number;
+  unavailable_ops: number;
+}
+
+export interface ReaSnapshot {
+  rea_version: string;
+  catalog: { cli_commands: number; mcp_tools: number; mcp_prompts: number };
+  digests: Record<string, string>;
+  skill_state?: string | null;
+  providers: ReaProviderInfo[];
+  host: { platform: string; node: string; native_engines: string[] };
+  note: string;
+}
+
+export interface ReaBridgeInfo {
+  plugin_id: string;
+  spec: { command: string; args: string[] };
+  prefix: string;
+  protocol_version: string;
+}
+
+export interface ReaResponse {
+  snapshot: ReaSnapshot;
+  capabilities: unknown;
+  bridge: ReaBridgeInfo;
+}
+
+export interface ReaTool {
+  name: string;
+  prefixed: string;
+  description: string;
+  input_schema: unknown;
+}
+
+export interface ReaToolsResponse {
+  count: number;
+  tools: ReaTool[];
+}

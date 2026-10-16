@@ -18,6 +18,7 @@
 mod config;
 mod dto;
 mod pipeline;
+mod rea;
 mod routes;
 mod state;
 mod system;

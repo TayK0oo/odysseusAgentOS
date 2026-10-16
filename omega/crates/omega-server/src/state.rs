@@ -98,6 +98,10 @@ pub fn build_app_state_with(cfg: &ServerConfig) -> OmegaResult<AppState> {
         }))
         // Catalogue de reverse-engineering (données embarquées) comme capacité.
         .add_contributor(Box::new(omega_harness::HarnessCatalogContributor::new()))
+        // Pont MCP : REA (`morluto/rea`) branché comme surface d'outils
+        // (`Capability::ToolSurface`) — « everything is a plugin », sans toucher
+        // au noyau. Les appels live lancent `npx rea-agents --mcp`.
+        .add_contributor(Box::new(omega_mcp::McpContributor::rea()))
         .build()?;
     Ok(AppState {
         app: Arc::new(app),
@@ -131,6 +135,11 @@ mod tests {
         assert_eq!(
             state.app.active_ids(Capability::EventStore),
             vec!["file".to_string()]
+        );
+        // Le pont MCP REA est câblé comme surface d'outils.
+        assert_eq!(
+            state.app.active_ids(Capability::ToolSurface),
+            vec!["mcp:rea".to_string()]
         );
         assert_eq!(state.app.provider().unwrap().id(), "ollama");
         assert_eq!(state.model(), "qwen2.5-coder:7b");

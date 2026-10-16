@@ -10,6 +10,8 @@ import {
   getPolicy,
   getRegistry,
   getRoutes,
+  getRea,
+  getReaTools,
   getRuns,
   getRunEvents,
   getSystem,
@@ -33,6 +35,8 @@ import type {
   OverviewResponse,
   PluginInfo,
   PolicyResponse,
+  ReaResponse,
+  ReaTool,
   Principle,
   PrincipleStatus,
   RegistryResponse,
@@ -1357,6 +1361,172 @@ export function DissectionsPanel({ isolate }: { isolate: string | null }) {
             </>
           );
         }}
+      </Async>
+    </section>
+  );
+}
+
+/* =========================================================================
+ * REA — pont MCP (reverse-engineering) : instantané embarqué + catalogue live
+ * ========================================================================= */
+
+export function ReaPanel() {
+  const state = useAsync(getRea);
+  const [tools, setTools] = useState<ReaTool[] | null>(null);
+  const [toolsError, setToolsError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState('');
+
+  async function loadTools() {
+    setLoading(true);
+    setToolsError(null);
+    try {
+      const r = await getReaTools();
+      setTools(r.tools);
+    } catch (e) {
+      setToolsError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const shown = (tools ?? []).filter(
+    (t) =>
+      filter === '' ||
+      t.name.toLowerCase().includes(filter.toLowerCase()) ||
+      t.description.toLowerCase().includes(filter.toLowerCase()),
+  );
+
+  return (
+    <section className="panel">
+      <h2>REA — pont MCP de reverse-engineering</h2>
+      <p className="hint">
+        <code>morluto/rea</code> branché comme <strong>surface d'outils</strong> (
+        <code>Capability::ToolSurface</code>, plugin <code>mcp:rea</code>) : le noyau ne connaît que
+        le port MCP, REA fournit les outils. Instantané <em>embarqué</em> (déterministe) ; le
+        catalogue live lance <code>npx rea-agents --mcp</code>.
+      </p>
+      <Async state={state}>
+        {(d: ReaResponse) => (
+          <>
+            <div className="cards">
+              <Card k="REA" v={d.snapshot.rea_version} />
+              <Card k="Outils MCP" v={d.snapshot.catalog.mcp_tools} />
+              <Card k="Commandes CLI" v={d.snapshot.catalog.cli_commands} />
+              <Card k="Prompts MCP" v={d.snapshot.catalog.mcp_prompts} />
+            </div>
+
+            <h3>Pont</h3>
+            <table>
+              <tbody>
+                <tr>
+                  <th>Plugin</th>
+                  <td>
+                    <code>{d.bridge.plugin_id}</code>
+                  </td>
+                </tr>
+                <tr>
+                  <th>Lancement</th>
+                  <td>
+                    <code>
+                      {d.bridge.spec.command} {d.bridge.spec.args.join(' ')}
+                    </code>
+                  </td>
+                </tr>
+                <tr>
+                  <th>Préfixe d'outils</th>
+                  <td>
+                    <code>{d.bridge.prefix}</code>
+                  </td>
+                </tr>
+                <tr>
+                  <th>Révision MCP</th>
+                  <td>
+                    <code>{d.bridge.protocol_version}</code>
+                  </td>
+                </tr>
+                <tr>
+                  <th>Hôte</th>
+                  <td className="muted">
+                    {d.snapshot.host.platform} · node {d.snapshot.host.node} · moteurs :{' '}
+                    {d.snapshot.host.native_engines.join(', ') || '—'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h3>Providers</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Provider</th>
+                  <th>Nom</th>
+                  <th>Opérations dispo.</th>
+                  <th>Indispo.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.snapshot.providers.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <code>{p.id}</code>
+                    </td>
+                    <td>{p.name}</td>
+                    <td>
+                      <Chip tone={p.available_ops > 0 ? 'ok' : undefined}>{p.available_ops}</Chip>
+                    </td>
+                    <td>
+                      <Chip tone={p.unavailable_ops > 0 ? 'warn' : undefined}>
+                        {p.unavailable_ops}
+                      </Chip>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <p className="muted">{d.snapshot.note}</p>
+            <p className="muted">
+              Digests : outils <code>{String(d.snapshot.digests.tools_sha256 ?? '').slice(0, 16)}…</code>{' '}
+              · prompts <code>{String(d.snapshot.digests.prompts_sha256 ?? '').slice(0, 16)}…</code>{' '}
+              (empreinte du catalogue — sert au versioning du pont).
+            </p>
+
+            <h3>Catalogue live ({tools ? tools.length : '—'} outils)</h3>
+            <p>
+              <button onClick={loadTools} disabled={loading}>
+                {loading ? 'Interrogation de REA…' : 'Lister les outils (live)'}
+              </button>{' '}
+              <input
+                placeholder="filtrer…"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                style={{ marginLeft: 8 }}
+              />
+            </p>
+            {toolsError && <Banner kind="error" text={toolsError} />}
+            {tools && (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Outil</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((t) => (
+                    <tr key={t.name}>
+                      <td>
+                        <code>{t.prefixed}</code>
+                      </td>
+                      <td className="muted">{t.description}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
       </Async>
     </section>
   );

@@ -112,3 +112,5 @@ _scratch/
 # corpus TikTok : audio hors depot, transcriptions versionnees
 !docs/omega/research/loucash/transcripts.json
 !docs/omega/research/loucash/ocr.json
+!omega/crates/omega-mcp/data/
+!omega/crates/omega-mcp/data/**

@@ -70,3 +70,51 @@ binaries, applications, and runtime behavior. »
 - `https://github.com/morluto/rea` · `https://rea.tools/` · npm `rea-agents`
 - Corpus : `docs/omega/research/loucash/` — `videos.json`, `transcripts.json`, `ocr.json`
 - Vidéo #3 : `https://www.tiktok.com/@0xloucash/video/7694323778330856726`
+
+---
+
+## 6. Pont branché — crate `omega-mcp` (fait)
+
+REA est **branché au noyau comme un plugin**, sans modification du noyau :
+
+| Élément | Valeur |
+|---|---|
+| Crate | `omega/crates/omega-mcp` (catégorie *adapters* du garde-fou) |
+| Capacité | `ToolSurface` — plugin **`mcp:rea`** (visible dans `GET /api/plugins`) |
+| Lancement | `npx -y rea-agents@latest --mcp` (MCP stdio, révision `2025-06-18`) |
+| Préfixe d'outils | `rea::` (ex. `rea::analyze`, `rea::inspect-binary-layout`) |
+| Ports | `McpToolSurface` (surface) + `McpToolExecutor` (`ToolExecutor`, « un outil = un port ») |
+| Endpoints | `GET /api/rea` (instantané embarqué) · `GET /api/rea/tools` (catalogue live) · `POST /api/rea/call` (appel) |
+| UI | onglet **REA** (snapshot, pont, providers, catalogue live filtrable) |
+| Tests | 6 unitaires + 8 d'intégration contre un serveur MCP **stub** (`mcp_stub`), déterministes, hors réseau |
+
+**Cycle de vie Phase 1** : chaque opération lance un serveur éphémère
+(`spawn → initialize → list/call → kill`). Sûr et déterministe ; un mode
+persistant viendra si la latence l'exige.
+
+**Honnêteté** : un outil qui renvoie `isError: true` est mappé en
+`OmegaError::PluginFailed` (un échec n'est jamais un succès) ; les erreurs
+JSON-RPC sont remontées avec leur code.
+
+## 7. REA appliqué à nos artefacts — `omega/scripts/rea-sweep.py`
+
+Balayage reproductible (`docs/omega/research/rea/SWEEP.md`, régénérable) :
+
+| Cible | Provider | Confiance | Structure |
+|---|---|---|---|
+| `omega/ui/dist` (cockpit bâti) | `rea-javascript-application` | derived | 5 nœuds / 6 arêtes |
+| `omega/ui/src` (sources cockpit) | `rea-javascript-application` | derived | graphe de modules |
+| binaire ELF de nos crates | `pwntools-elf` | **observed** | 44 sections, 12 segments, 2248 symboles, 2349 relocations |
+
+Chaque analyse est conservée **avec ses limites déclarées** (5 à 12 selon la
+cible) : c'est exactement le contrat de provenance d'Omega (`[observed]` vs
+`[derived]`).
+
+**Limites de la machine (constatées, non contournées)** :
+- pas de Ghidra/Hopper/IDA → pas d'analyse binaire profonde (seul `objdump` système) ;
+- pas de navigateur → `analyze-web-bundle` exige un CDP fourni par l'appelant
+  (activé via `REA_CDP_ENDPOINT`/`REA_CDP_TARGET`) ;
+- `REA_PWNTOOLS_PYTHON` doit pointer un Python fourni (venv `python3.12` :
+  pwntools 4.15.0, pyelftools 0.33, unicorn 2.1.2) — REA n'installe jamais de paquets ;
+- entrée limitée à 32 Mio (le binaire debug de 108 Mo est refusé ; on analyse un
+  binaire de crate de 7 Mo).

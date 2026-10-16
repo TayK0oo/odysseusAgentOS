@@ -21,6 +21,8 @@ import type {
   ModelsResponse,
   PluginInfo,
   PolicyResponse,
+  ReaResponse,
+  ReaToolsResponse,
   RunsResponse,
   RunResponse,
   SystemResponse,
@@ -85,3 +87,10 @@ export const getRunEvents = (runId: string) =>
 export const getHarnesses = () => fetchJson<HarnessCatalog>('/api/harnesses');
 
 export const getDissections = () => fetchJson<DissectionsResponse>('/api/dissections');
+
+/* --- W5/W7 : pont MCP REA -------------------------------------------------- */
+
+export const getRea = () => fetchJson<ReaResponse>('/api/rea');
+export const getReaTools = () => fetchJson<ReaToolsResponse>('/api/rea/tools');
+export const postReaCall = (tool: string, args: unknown) =>
+  postJson<unknown>('/api/rea/call', { tool, arguments: args });

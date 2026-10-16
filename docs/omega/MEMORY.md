@@ -62,6 +62,21 @@
   **oral** (`transcripts.json`, 78) et **écran** (`ocr.json`, 78).
 - **Intégration** : fournisseur d'outils MCP (`plugins/mcp-rea`), dossier `apps/rea.json` en cours.
 
+## 4ter. REA branché — pont MCP `omega-mcp` `[observed]`
+
+- **Crate `omega/crates/omega-mcp`** (catégorie *adapters*) : client MCP stdio
+  (`initialize`/`tools/list`/`tools/call`), `McpToolSurface` + `McpToolExecutor`
+  (« un outil = un port ») + `McpContributor`.
+- **REA câblé** dans `omega-server` : plugin **`mcp:rea`** en `Capability::ToolSurface`
+  (visible dans `/api/plugins`) ; lancement `npx -y rea-agents@latest --mcp`.
+- **Endpoints** : `GET /api/rea` (instantané embarqué), `GET /api/rea/tools` (live),
+  `POST /api/rea/call` ; **UI** onglet REA.
+- **Tests** : 6 unitaires + 8 d'intégration (serveur MCP stub, hors réseau).
+- **`omega/scripts/rea-sweep.py`** : balayage reproductible de nos artefacts →
+  `docs/omega/research/rea/SWEEP.md` (3/3 cibles : cockpit JS, sources JS, ELF de crate).
+- Limites machine : pas de Ghidra/Hopper/IDA ; pas de navigateur (CDP requis) ;
+  `REA_PWNTOOLS_PYTHON` = venv python3.12.
+
 ## 5. États de l'art produits `[observed]`
 
 | Doc | Contenu |
