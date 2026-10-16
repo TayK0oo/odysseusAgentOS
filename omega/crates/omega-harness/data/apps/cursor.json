@@ -1,0 +1,316 @@
+{
+  "schema_version": 1,
+  "id": "cursor",
+  "name": "Cursor",
+  "editor": "Anysphere",
+  "oss": false,
+  "language": "TypeScript",
+  "license": "propriétaire",
+  "repo": null,
+  "architecture": "Fork de VS Code en TypeScript : editeur + Agent orchestrateur (instructions + outils + modele, reglages par modele), indexation et recherche locales (Instant Grep), sous-agents a contexte isole, MCP multi-transports, execution locale et cloud (VM dediees).",
+  "entrypoints": [
+    "editeur Cursor (fork VS Code)",
+    "Agent (panneau lateral, Cmd+I) + CLI",
+    "Cloud Agents (VM dediees, cursor.com/agents)",
+    "Team dashboard (rules, MCP, marketplace)"
+  ],
+  "functionalities": [
+    {
+      "domain": "outils",
+      "how": "[documente] Suggestion grisee acceptee par Tab (mot-a-mot via Cmd/Ctrl+Fleche), editions multi-lignes avec imports manquants, sauts predictifs (jump-in-file) et portails inter-fichiers ; reglages par extension ; [infere] modele dedie cote serveur, desactive par l'indicateur Tab. Les rules n'affectent pas Tab.",
+      "id": "cu-tab-inline",
+      "integration": "plugin",
+      "name": "Tab : autocompletion multi-lignes + sauts predictifs",
+      "omega_adapter": "plugins/inline-complete",
+      "omega_capability": "inline-complete",
+      "omega_port": "InlineComplete",
+      "refs": [
+        "https://cursor.com/docs/tab/overview",
+        "https://cursor.com/docs/rules (FAQ : rules sans effet sur Tab)",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Autocompletion IA a la frappe tenant compte des editions recentes, du code environnant et des erreurs de lint, avec sauts au prochain point d'edition."
+    },
+    {
+      "domain": "contexte",
+      "how": "[documente] Moteur maison, regex + word-boundary, presente comme plus rapide que ripgrep sur gros codebases ; tourne sans configuration ; l'Agent construit des motifs (import.*PaymentService) et fouille les references. Index construit et requete localement.",
+      "id": "cu-instant-grep",
+      "integration": "plugin",
+      "name": "Instant Grep : moteur de recherche exact local",
+      "omega_adapter": "plugins/grep-local",
+      "omega_capability": "code-search",
+      "omega_port": "CodeSearch",
+      "refs": [
+        "https://cursor.com/docs/context/codebase-indexing",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Recherche exacte (nom de symbole, chaine d'erreur, motif regex) plus rapide que ripgrep, declenchee automatiquement par l'Agent."
+    },
+    {
+      "domain": "contexte",
+      "how": "[documente] Index construit et interroge sur la machine ; ni chemins ni embeddings du code envoyes pour l'indexation. Seul le contenu des fichiers ouverts par l'Agent peut rejoindre la requete modele (cf. Data Use). [infere] Structure d'index incrementale surveillant le filesystem.",
+      "id": "cu-codebase-index",
+      "integration": "plugin",
+      "name": "Index du codebase 100 % local (privacy)",
+      "omega_adapter": "plugins/code-index-local",
+      "omega_capability": "code-index",
+      "omega_port": "CodeIndex",
+      "refs": [
+        "https://cursor.com/docs/context/codebase-indexing",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Indexation incrementale du depot sans exfiltration : aucun chemin ni embedding n'est televerse pour construire l'index."
+    },
+    {
+      "domain": "agents",
+      "how": "[documente] Triplet instructions (system prompt + rules) + outils + modele choisi ; Cursor ajuste instructions et outils pour chaque modele frontier a mesure de leur sortie. Pas de limite au nombre d'appels d'outils par tache.",
+      "id": "cu-agent-loop",
+      "integration": "plugin",
+      "name": "Agent : boucle instructions + outils + modele",
+      "omega_adapter": "plugins/agent-loop",
+      "omega_capability": "agent-runner",
+      "omega_port": "AgentRunner",
+      "refs": [
+        "https://cursor.com/docs/agent/overview",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Assistant autonome qui edite, cherche et execute des commandes, avec orchestration des composants reglee par modele."
+    },
+    {
+      "domain": "outils",
+      "how": "[documente] Recherche fichiers/dossiers, lecture (dont images analysees par modeles vision), edition, shell (profil terminal configurable), navigateur (screenshots, interactions), generation d'images vers assets/, web search, questions eclaircissantes sans bloquer le tour.",
+      "id": "cu-agent-tools",
+      "integration": "plugin",
+      "name": "Surface d'outils de l'Agent",
+      "omega_adapter": "plugins/agent-tools",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "refs": [
+        "https://cursor.com/docs/agent/overview",
+        "https://cursor.com/docs/agent/tools/browser.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Boite a outils fixe de l'Agent : fichiers, shell supervise, navigateur, web, images, questions utilisateur."
+    },
+    {
+      "domain": "execution",
+      "how": "[documente] Snapshots automatiques avant modifications significatives ; clic sur un checkpoint = apercu puis restauration des fichiers ; restauration = fichiers seuls (messages conserves). Stockes localement, hors Git.",
+      "id": "cu-checkpoints",
+      "integration": "plugin",
+      "name": "Checkpoints : snapshots locaux + revert",
+      "omega_adapter": "plugins/checkpoint-local",
+      "omega_capability": "checkpoint-store",
+      "omega_port": "CheckpointStore",
+      "refs": [
+        "https://cursor.com/docs/agent/overview",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Points de restauration horodates dans la timeline du chat pour annuler une mauvaise piste de l'Agent."
+    },
+    {
+      "domain": "agents",
+      "how": "[documente] Entree = mise en file (traitee apres la tache) ; Cmd+Entree = envoi immediat ; pilotage a chaud delivre au prochain appel d'outil sans couper le travail en cours ; side chats /side avec contexte parent masque ; /goal pour objectif persistant ; recherche de conversations indexee localement.",
+      "id": "cu-queue-steer",
+      "integration": "plugin",
+      "name": "File de messages + pilotage a chaud + side chats",
+      "omega_adapter": "plugins/agent-steer",
+      "omega_capability": "agent-control",
+      "omega_port": "AgentControl",
+      "refs": [
+        "https://cursor.com/docs/agent/overview",
+        "https://cursor.com/docs/agent/agents-window.md"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Interagir avec un agent en cours (file, interruption douce, chats lateraux) sans perdre le travail en vol."
+    },
+    {
+      "domain": "configuration",
+      "how": "[documente] Fichiers .mdc dans .cursor/rules avec frontmatter (alwaysApply, description, globs) ; 4 types : Always, Intelligent (description lue par l'Agent), fichiers specifiques (globs), manuel (@-mention). Precedence : Team > Project > User. Import depuis un plugin via .cursor-plugin/marketplace.json.",
+      "id": "cu-rules",
+      "integration": "plugin",
+      "name": "Project Rules .cursor/rules (.mdc + frontmatter)",
+      "omega_adapter": "plugins/rules-scoped",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "refs": [
+        "https://cursor.com/docs/rules.md",
+        "https://cursor.com/docs/plugins.md",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Instructions persistantes versionnees, chargees par portee (toujours, pertinent, glob de fichiers, manuel)."
+    },
+    {
+      "domain": "configuration",
+      "how": "[documente] Markdown simple a la racine et imbriquable par sous-repertoire, combine des parents vers les enfants (le plus specifique gagne). Alternative sans frontmatter aux .mdc.",
+      "id": "cu-agents-md",
+      "integration": "plugin",
+      "name": "AGENTS.md imbriques",
+      "omega_adapter": "plugins/rules-scoped",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "refs": [
+        "https://cursor.com/docs/rules.md#agentsmd",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Instructions markdown cumulees le long de l'arborescence, sans metadonnees."
+    },
+    {
+      "domain": "agents",
+      "how": "[documente] Fichiers .cursor/agents/*.md (+ compat .claude/.codex) avec frontmatter name/description/model/readonly/is_background ; builtin Explore (recherche) et Browser (DOM bruyant) ; foreground vs background ; imbrication limitee (profondeur 2 depuis 2.5) ; reprise par ID ; facturation au modele execute.",
+      "id": "cu-subagents",
+      "integration": "plugin",
+      "name": "Sous-agents custom + builtin (Explore, Browser)",
+      "omega_adapter": "plugins/subagent-isolated",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner",
+      "refs": [
+        "https://cursor.com/docs/subagents.md",
+        "https://cursor.com/docs/context/codebase-indexing",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Delegation a des assistants specialises a fenetre de contexte propre, paralleles, premier ou arriere-plan."
+    },
+    {
+      "domain": "contexte",
+      "how": "[documente] Contexte separe, modele plus rapide, nombreuses recherches paralleles, seuls les resultats pertinents remontent ; declenche automatiquement ou sur demande explicite. Economie de contexte du fil principal.",
+      "id": "cu-explore-subagent",
+      "integration": "plugin",
+      "name": "Explore subagent : fan-out de recherche isole",
+      "omega_adapter": "plugins/subagent-explore",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner",
+      "refs": [
+        "https://cursor.com/docs/context/codebase-indexing",
+        "https://cursor.com/docs/subagents.md",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Exploration large du codebase dans un contexte jete, ne renvoyant qu'un resume au parent."
+    },
+    {
+      "domain": "extension",
+      "how": "[documente] Tools, Prompts, Resources, Roots, Elicitation, Apps (UI interactive) ; transports stdio/SSE/Streamable HTTP ; config .cursor/mcp.json ou ~/.cursor/mcp.json avec interpolation ${env}/${workspaceFolder} ; OAuth statique ; allowlist entreprise + sandbox reseau par serveur ; isolation des crashes.",
+      "id": "cu-mcp",
+      "integration": "plugin",
+      "name": "MCP : 3 transports + allowlist + sandbox reseau",
+      "omega_adapter": "plugins/mcp-client",
+      "omega_capability": "mcp-client",
+      "omega_port": "McpClient",
+      "refs": [
+        "https://cursor.com/docs/context/mcp",
+        "https://cursor.com/docs/plugins.md",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Connexion outils/donnees externes via MCP avec distribution team, approbation d'outils et controle reseau fin."
+    },
+    {
+      "domain": "routage",
+      "how": "[documente] Modeles Cursor (Grok, Composer) au pool hebdo + tiers (Claude, GPT, Gemini) au prix API ; modes Auto Cost/Balance/Intelligence via Cursor Router ; variantes fast/effort/contexte ; fallback si modele bloque ; [infere] selection par cout/vitesse/reflexion.",
+      "id": "cu-models",
+      "integration": "plugin",
+      "name": "Multi-modeles + Router Auto (cout/vitesse/reflexion)",
+      "omega_adapter": "plugins/model-router",
+      "omega_capability": "router-policy",
+      "omega_port": "ScoringPolicy",
+      "refs": [
+        "https://cursor.com/docs/models-and-pricing.md",
+        "https://cursor.com/docs/cursor-router.md",
+        "https://cursor.com/docs/subagents.md#model-configuration",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Registre de modeles avec routage par compromis economique et parametres par sous-agent."
+    },
+    {
+      "domain": "execution",
+      "how": "[documente] VM isolee par agent : clone, dependances, secrets, reseau ; environnements via setup agentique, snapshot ou Dockerfile ; builds preparatoires ; declenchement iOS/web/desktop/Slack/GitHub/Linear/API ; artefacts + bureau distant ; anciennement Background Agents ; multi-repo possible.",
+      "id": "cu-cloud-agents",
+      "integration": "plugin",
+      "name": "Cloud Agents : VM isolees + environnements + artefacts",
+      "omega_adapter": "plugins/cloud-runner",
+      "omega_capability": "cloud-runner",
+      "omega_port": "CloudRunner",
+      "refs": [
+        "https://cursor.com/docs/cloud-agent.md",
+        "https://cursor.com/docs/subagents.md#cloud-subagents",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Agents distants paralleles sur VM dediees avec PR pretes a merger et controle bureau distant."
+    },
+    {
+      "domain": "execution",
+      "how": "[documente] Chaque sous-agent isole recoit sa copie : worktree Git + branche sur la meme machine, ou VM + clone dedies dans le cloud ; le parent fusionne. Worktrees desactives en multi-root et pour Cloud Agents multi-root.",
+      "id": "cu-worktrees",
+      "integration": "plugin",
+      "name": "Isolation des sous-agents par worktree Git",
+      "omega_adapter": "plugins/worktree-git",
+      "omega_capability": "worktree-manager",
+      "omega_port": "WorktreeManager",
+      "refs": [
+        "https://cursor.com/docs/subagents.md#isolated-project-copies",
+        "https://cursor.com/docs/configuration/worktrees.md",
+        "https://cursor.com/docs/context/codebase-indexing",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Copie isolee du projet par sous-agent editeur concurrent, fusionnee par le parent."
+    },
+    {
+      "domain": "automatisation",
+      "how": "[documente] Hooks commandes dans .cursor/hooks.json (preToolUse, beforeShellExecution, afterFileEdit, beforeSubmitPrompt, subagentStart/Stop, preCompact, stop...) ; aussi team/entreprise ; actifs dans le cloud apres phase exploratoire read-only ; [infere] formatage, lint, audit, policy.",
+      "id": "cu-hooks",
+      "integration": "plugin",
+      "name": "Hooks de cycle de vie (.cursor/hooks.json)",
+      "omega_adapter": "plugins/hooks",
+      "omega_capability": "hook-bus",
+      "omega_port": "HookBus",
+      "refs": [
+        "https://cursor.com/docs/hooks.md",
+        "https://cursor.com/docs/cloud-agent.md",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Code deterministe execute aux points du cycle de vie (outils, fichiers, sous-agents, compaction)."
+    },
+    {
+      "domain": "observabilite",
+      "how": "[documente] Télémétrie d'usage vers les serveurs Anysphere avec Privacy Mode / retention configurable (entreprise) ; [infere] pipeline closed-source, facturation a l'usage indexee dessus. Non repris : Omega mesure en local via omega-otel (sinks Stdout/File), sans exfiltration.",
+      "id": "cu-telemetry-cloud",
+      "integration": "rejected",
+      "name": "Telemetrie cloud proprietaire",
+      "refs": [
+        "https://cursor.com/docs/models-and-pricing.md",
+        "docs/omega/research/HARNESS-LANDSCAPE.md"
+      ],
+      "rust_cost": "S",
+      "status": "rejected",
+      "what": "Mesure d'usage et télémétrie centralisees chez l'editeur, couplées a la facturation."
+    }
+  ]
+}

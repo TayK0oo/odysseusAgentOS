@@ -175,18 +175,22 @@ pub struct Dissections {
 ///
 /// Ajouter une app = déposer `data/apps/<id>.json` + l'ajouter ci-dessous.
 pub const APP_DISSECTIONS: &[&str] = &[
-    include_str!("../data/apps/hermes.json"),
-    include_str!("../data/apps/opencode.json"),
-    include_str!("../data/apps/goose.json"),
-    include_str!("../data/apps/cline.json"),
-    include_str!("../data/apps/openclaw.json"),
-    include_str!("../data/apps/codex.json"),
     include_str!("../data/apps/aider.json"),
-    include_str!("../data/apps/openhands.json"),
+    include_str!("../data/apps/claude-code.json"),
+    include_str!("../data/apps/cline.json"),
+    include_str!("../data/apps/codex.json"),
+    include_str!("../data/apps/cursor.json"),
+    include_str!("../data/apps/devin.json"),
+    include_str!("../data/apps/goose.json"),
     include_str!("../data/apps/gptme.json"),
-    include_str!("../data/apps/plandex.json"),
-    include_str!("../data/apps/zed.json"),
+    include_str!("../data/apps/hermes.json"),
     include_str!("../data/apps/open-interpreter.json"),
+    include_str!("../data/apps/openclaw.json"),
+    include_str!("../data/apps/opencode.json"),
+    include_str!("../data/apps/openhands.json"),
+    include_str!("../data/apps/plandex.json"),
+    include_str!("../data/apps/windsurf.json"),
+    include_str!("../data/apps/zed.json"),
 ];
 
 impl Dissections {
@@ -414,7 +418,7 @@ mod tests {
     fn embedded_dissections_are_valid_and_complete() {
         let d = Dissections::embedded();
         assert!(
-            d.apps.len() >= 10,
+            d.apps.len() >= 16,
             "au moins 10 applications disséquées doivent être ENREGISTRÉES dans APP_DISSECTIONS \
              (un JSON sur disque mais non enregistré est invisible et doit faire échouer ce test)"
         );

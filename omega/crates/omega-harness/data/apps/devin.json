@@ -1,0 +1,284 @@
+{
+  "schema_version": 1,
+  "id": "devin",
+  "name": "Devin",
+  "editor": "Cognition",
+  "oss": false,
+  "language": "(ferme)",
+  "license": "proprietaire",
+  "repo": null,
+  "architecture": "Agent de genie logiciel autonome fonctionnant en sessions cloud longue duree : chaque session demarre d'un snapshot d'environnement (blueprint) dans une VM dediee, expose Shell/IDE/Browser prenables en main, orchestre des sous-sessions paralleles, et se pilote via webapp, Slack/Teams, API et CLI avec handoff local/cloud.",
+  "entrypoints": [
+    "webapp app.devin.ai",
+    "Devin CLI (devin, /handoff, /cloud)",
+    "Devin API v1/v2/v3",
+    "Devin MCP server",
+    "Devin Handoff plugin (Claude Code, Codex, Cursor)",
+    "integrations Slack/Teams/Linear/Jira/GitHub",
+    "automations (Slack, GitHub, Linear, Jira, schedule, webhook)"
+  ],
+  "functionalities": [
+    {
+      "domain": "execution",
+      "how": "Documente : chaque session demarre d'une copie fraiche du snapshot actif de l'organisation, tire le dernier code au demarrage, et jette ses modifications a la fin sauf PR/push. L'utilisateur peut mettre la session en pause, prendre la main dans l'IDE/le shell (mode writable), puis reprendre en indiquant ses modifications ; les side chats permettent d'interroger sans interrompre le travail principal. Infere : persistance entre reveils via snapshot + journal d'evenements rejouable.",
+      "id": "dv-long-session",
+      "integration": "plugin",
+      "name": "Sessions longues + workspace persistant + reprise/prise en main",
+      "omega_adapter": "plugins/session-persistent",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (persist/resume)",
+      "refs": [
+        "https://docs.devin.ai/onboard-devin/environment/blueprints.md",
+        "https://docs.devin.ai/work-with-devin/devin-session-tools.md",
+        "https://docs.devin.ai/get-started/first-run.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Sessions cloud longue duree sur VM dediee avec workspace persistant, pause/reprise, prise en main humaine (takeover IDE/shell) et side chats read-only non interruptifs."
+    },
+    {
+      "domain": "agents",
+      "how": "Documente : la session coordinatrice decoupe le travail, lance des sessions enfants (prompt, playbook, tags, limite ACU), leur envoie des messages, est reveillee automatiquement a leur fin, suit leur consommation ACU, et peut les mettre en veille ou les terminer. Infere : file de coordination + reveil evenementiel au-dessus du journal de sessions.",
+      "id": "dv-managed-parallel",
+      "integration": "plugin",
+      "name": "Sessions managees en parallele (coordinateur + enfants)",
+      "omega_adapter": "plugins/subagent-isolated",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/message/sleep/terminate)",
+      "refs": [
+        "https://docs.devin.ai/work-with-devin/advanced-capabilities.md",
+        "https://docs.devin.ai/use-cases/gallery/parallelize-migration"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Un coordinateur delegue a une equipe de sessions enfants isolees (une VM chacune), les supervise, resout les conflits et compile les resultats."
+    },
+    {
+      "domain": "automatisation",
+      "how": "Documente : Devin ecrit un script Python ordinaire utilisant les primitives register_workflow/agent/pipeline/parallel/log ; chaque appel agent() est cle par un hash (prompt, schema, reglages) et rejoue son resultat enregistre a la reprise ; les agents tournent par defaut sur VM separee (echange via branches git) ou en VM partagee ; budget max 7 jours. Infere : orchestrateur deterministe + magasin de resultats content-addresse.",
+      "id": "dv-dynamic-workflows",
+      "integration": "plugin",
+      "name": "Dynamic Workflows (orchestration deterministe + reprise)",
+      "omega_adapter": "plugins/workflow-dag",
+      "omega_capability": "workflow-engine",
+      "omega_port": "WorkflowEngine (register/agent/pipeline/replay)",
+      "refs": [
+        "https://docs.devin.ai/work-with-devin/dynamic-workflows.md",
+        "https://docs.devin.ai/product-guides/skills.md"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Un script Python deterministe orchestre des agents (fan-out, pipeline audit-fix-verify, boucles), pipe leurs sorties JSON-schema entre etapes, et reprend ou il s'est arrete."
+    },
+    {
+      "domain": "outils",
+      "how": "Documente : onglet Progress unifiant commandes shell, edits et activite browser ; historique de commandes copiable et navigable dans le temps ; IDE VSCode complet (Cmd+K, Cmd+I, completion) bascule read-only/writable ; browser interactif (test d'apps locales, screenshots/videos, CAPTCHA/MFA manuels, persistance cookies, profils browser restaures via blueprint) ; Computer Use (desktop complet) si active ; Devin execute lots d'actions concurrentes (browser + shell + lectures). Infere : sandbox VM + multiplexage d'outils + capture d'ecran/video.",
+      "id": "dv-session-tools",
+      "integration": "plugin",
+      "name": "Outils de session Shell/IDE/Browser + Computer Use",
+      "omega_adapter": "plugins/tool-devin-workspace",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (shell/ide/browser/computer)",
+      "refs": [
+        "https://docs.devin.ai/work-with-devin/devin-session-tools.md",
+        "https://docs.devin.ai/work-with-devin/computer-use.md",
+        "https://docs.devin.ai/work-with-devin/browser-auth.md",
+        "https://docs.devin.ai/work-with-devin/testing-and-recordings.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Shell (historique copiable, navigation temporelle), IDE embarque prenable en main, browser interactif et Computer Use, avec execution d'actions concurrentes."
+    },
+    {
+      "domain": "extension",
+      "how": "Documente : Slack (sessions depuis tout canal, threads synchronises, code channel dedie), Teams (@Devin AI + mots-cles inline), GitHub (PR, commentaires de review, acces repo), GitLab (MR, pipelines), Bitbucket, Linear (tickets -> PR via labels/@mentions), Jira (agent Rovo ou service user OAuth), Databricks/MongoDB/PagerDuty/Pylon, PR templates decouverts automatiquement. Infere : adaptateurs OAuth/webhook par fournisseur + mapping thread <-> session.",
+      "id": "dv-chat-tracker-integrations",
+      "integration": "plugin",
+      "name": "Integrations Slack/Teams/GitHub/Linear/Jira (+ Data/PagerDuty)",
+      "omega_adapter": "plugins/channel-slack + plugins/tracker-linear + plugins/vcs-github",
+      "omega_capability": "channel-connector",
+      "omega_port": "Channel / Tracker / Vcs",
+      "refs": [
+        "https://docs.devin.ai/integrations/slack.md",
+        "https://docs.devin.ai/integrations/microsoft-teams.md",
+        "https://docs.devin.ai/integrations/gh.md",
+        "https://docs.devin.ai/integrations/linear.md",
+        "https://docs.devin.ai/integrations/jira.md",
+        "https://docs.devin.ai/integrations/overview.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Demarrage et pilotage de sessions depuis Slack/Teams, tickets Linear/Jira convertis en PR, et revue/commentaires GitHub/GitLab/Bitbucket."
+    },
+    {
+      "domain": "outils",
+      "how": "Documente : diffs organises logiquement, detection copie/deplacement, bug catcher (severe/non-severe), scan securite (CWE, critique/warning, non desactivable), chat codebase-aware, edition de code depuis le chat, actions merge/close/draft/auto-merge, stacked PRs (diff par couche, merge atomique), auto-review (declencheurs, modes, self-enrollment, limites de depense ACU par PR), auto-fix (bots allowlist), /devin review depuis un commentaire, respect de REVIEW.md/AGENTS.md/CLAUDE.md. Infere : graphe de diff + classifieurs bugs/securite + moteur de policy.",
+      "id": "dv-review",
+      "integration": "plugin",
+      "name": "Devin Review (revue de PR augmentee + auto-review + auto-fix)",
+      "omega_adapter": "plugins/review-assistant",
+      "omega_capability": "code-review",
+      "omega_port": "Reviewer (diff/bugs/security/auto-fix)",
+      "refs": [
+        "https://docs.devin.ai/work-with-devin/devin-review.md",
+        "https://docs.devin.ai/work-with-devin/stacked-prs.md"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Plateforme de revue : diffs intelligents, bug catcher, scan securite CWE, chat contextuel, auto-review configurable et auto-fix des bugs detectes."
+    },
+    {
+      "domain": "contexte",
+      "how": "Documente : SKILL.md au standard Agent Skills decouverts dans 6 chemins (.agents/.devin/.github/.claude/.cognition/.windsurf), sources indexees + disque (re-scan au clone), frontmatter (name, description, allowed-tools, argument-hint, triggers), invocation auto ou @skills:nom + substitution $ARGUMENTS/$1..$9, une seule skill active a la fois, suggestion auto de skills par Devin avec bouton Create PR ; Knowledge historique (triggers, auto-generation depuis README, import .rules/.mdc/.cursorrules/AGENTS.md) en migration automatique vers Skills-in-Plugins. Infere : index de skills + chargement paresseux du corps.",
+      "id": "dv-skills-knowledge",
+      "integration": "plugin",
+      "name": "Skills SKILL.md + Knowledge a triggers (+ migration)",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "refs": [
+        "https://docs.devin.ai/product-guides/skills.md",
+        "https://docs.devin.ai/onboard-devin/knowledge-onboarding.md",
+        "https://docs.devin.ai/product-guides/plugins.md",
+        "https://agentskills.io/specification"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Procedures reutilisables SKILL.md versionnees en repo (decouverte auto, invocation @skills:), et Knowledge d'organisation migree vers Skills-in-Plugins."
+    },
+    {
+      "domain": "memoire",
+      "how": "Documente : memory drive = depot Git de notes Markdown (MEMORY.md + index), charge en debut de session, Devin edite les notes liees a la session source, commit + merge inter-sessions avec resolution de conflits, carte Updated memory ; Dreaming = session de fond ~quotidienne qui consolide, elague, reorganise ; memoire personnelle par organisation, desactivable, hors automations. Base sur le spec ouvert AgentMemoryRepo. Infere : checkout par session + merge trois-voies + GC programme.",
+      "id": "dv-memory-dreaming",
+      "integration": "plugin",
+      "name": "Memory drive + Dreaming (consolidation de fond)",
+      "omega_adapter": "plugins/memory-bounded",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (recall/add/replace/patch/remove)",
+      "refs": [
+        "https://docs.devin.ai/product-guides/memory.md",
+        "https://github.com/AgentMemoryRepo/agentmemoryrepo"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Preferences/corrections/lecons persistantes en depot Git personnel, apprises automatiquement et reorganisees par une session de fond Dreaming."
+    },
+    {
+      "domain": "automatisation",
+      "how": "Documente : playbook = prompt reutilisable partageable (Overview, Procedure imperative MECE, Specifications, Advice, Forbidden Actions, Required from User), macros !nom, historique de versions avec revert, scopes organisation/entreprise/systeme, attachement par macro dans le prompt d'une session ; Devin peut generer/ameliorer des playbooks depuis des sessions reussies/ratees via Advanced Capabilities. Infere : templates versionnes + expansion de macros.",
+      "id": "dv-playbooks",
+      "integration": "plugin",
+      "name": "Playbooks (prompts reutilisables + macros + versions)",
+      "omega_adapter": "plugins/playbook-store",
+      "omega_capability": "playbook-store",
+      "omega_port": "PlaybookStore (list/attach/version)",
+      "refs": [
+        "https://docs.devin.ai/product-guides/creating-playbooks.md",
+        "https://docs.devin.ai/product-guides/using-playbooks.md",
+        "https://docs.devin.ai/work-with-devin/advanced-capabilities.md"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Bibliotheque de prompts detailles partageables (procedure, specs, interdits), invocables par macro et versionnes."
+    },
+    {
+      "domain": "automatisation",
+      "how": "Documente : trigger (Slack, GitHub, GitLab, Linear, Jira, Pylon, PagerDuty, schedule RRULE, webhook signe) + conditions + preflight (filtre LLM ou script Python/Node/Bash avec EVENT/STATE/LAST_RUN/OUTPUT_FILE, deduplication par id, cap 50 items) + actions (start session, message session, triage persistant, email) + garde-fous (limite ACU, rate limit, queue bornee, network policy intersectee) + templates prets + provision Terraform. Infere : bus d'evenements + scheduler persistant + sandbox de preflight.",
+      "id": "dv-automations",
+      "integration": "plugin",
+      "name": "Automations event-driven + preflight + schedules + webhooks",
+      "omega_adapter": "plugins/scheduler-cron + plugins/channel-dispatch",
+      "omega_capability": "scheduler-job",
+      "omega_port": "Scheduler / Trigger (fire/filter/dispatch)",
+      "refs": [
+        "https://docs.devin.ai/product-guides/automations.md",
+        "https://docs.devin.ai/product-guides/auto-triage.md",
+        "https://docs.devin.ai/product-guides/devin-oncall.md",
+        "https://docs.devin.ai/product-guides/scheduled-sessions.md"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Workflows declenches par evenements (messages, CI, tickets, alertes, cron, webhooks) avec filtre preflight, file bornee et budgets ACU."
+    },
+    {
+      "domain": "execution",
+      "how": "Documente : /handoff du CLI embarque contexte conversation + branche + diff non commite (100 Ko) vers une session cloud sur VM fraiche, et inversement recupere la branche PR cloud en local ; plugin open-source devin-handoff (repo+branche+git diff) pour Claude Code/Codex/Cursor ; SSH (devin ssh/forward/scp), subagents CLI, ACP (JetBrains/Zed/Xcode), sandbox CLI, routing Adaptive/Fusion ; API v1/v2/v3 + Devin MCP (sessions, playbooks, knowledge, schedules) ; Outposts self-hosted (worker, fleet API, contrat spawn). Infere : serialisation de contexte + Sessions API comme primitive.",
+      "id": "dv-api-cli-handoff",
+      "integration": "plugin",
+      "name": "API + CLI + /handoff bidirectionnel + ACP/SSH + Outposts",
+      "omega_adapter": "plugins/handoff-bridge",
+      "omega_capability": "task-handoff",
+      "omega_port": "Handoff (package/launch/reattach)",
+      "refs": [
+        "https://docs.devin.ai/work-with-devin/devin-handoff.md",
+        "https://docs.devin.ai/cli/handoff.md",
+        "https://docs.devin.ai/cli/index.md",
+        "https://github.com/club-cog/devin-handoff",
+        "https://docs.devin.ai/cloud/outposts/overview.md",
+        "https://docs.devin.ai/work-with-devin/devin-mcp.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Handoff local<->cloud avec reprise de contexte, CLI locale, API/MCP de pilotage des sessions, et workers self-hosted Outposts."
+    },
+    {
+      "domain": "execution",
+      "how": "Documente : blueprint YAML (initialize/maintenance/knowledge/post-build/clone, multi-documents, actions GitHub, secrets $VAR, pieces jointes, workspaces monorepo, blueprints git-backed .devin/blueprint.yaml) ; builds (~24 h, statuts queued/building/success/partial/failed, pinning, differential builds) produisant un snapshot VM unique par organisation (3 niveaux entreprise/organisation/repo, additifs) ; sessions bootant une copie fraiche avec knowledge du repo et commandes maintenance suggerees ; VPN non-MFA, VPN/macos/windows/android-emulation, OIDC cloud, TestFlight. Infere : pipeline build-image + registre de snapshots.",
+      "id": "dv-env-blueprints",
+      "integration": "plugin",
+      "name": "Environnements blueprint -> build -> snapshot",
+      "omega_adapter": "plugins/sandbox-docker",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend (build/snapshot/boot)",
+      "refs": [
+        "https://docs.devin.ai/onboard-devin/environment/blueprints.md",
+        "https://docs.devin.ai/onboard-devin/environment/blueprint-reference.md",
+        "https://docs.devin.ai/onboard-devin/environment.md",
+        "https://docs.devin.ai/onboard-devin/agents-md.md"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Environnements declaratifs versionnes construits en snapshots VM bootables (runtimes, dependances, secrets, commandes de test/lint)."
+    },
+    {
+      "domain": "securite",
+      "how": "Documente : profils nommaux (network allowlist hostnames/CIDR, allowlist MCP, git read-only/full, retrait token gh, Devin MCP read-only) lies en hierarchie (entreprise > organisation > automations > automation > session, intersection en mode mandatory, resolution au boot/wake) ; secrets (organisation/perso/repo/session, cookies, TOTP) ; OIDC workload identity (AWS/GCP/Vault/JFrog/Databricks) ; AI guardrails (prompt injection, exfiltration) ; attribution filtering ; RBAC/SSO/SCIM, IP allowlists, customer managed keys. Infere : firewall egress par session + proxy git + jetons ephemeres.",
+      "id": "dv-security-profiles",
+      "integration": "plugin",
+      "name": "Security profiles + secrets + OIDC + guardrails",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy + SandboxBackend",
+      "refs": [
+        "https://docs.devin.ai/product-guides/security-profiles.md",
+        "https://docs.devin.ai/product-guides/secrets.md",
+        "https://docs.devin.ai/product-guides/oidc.md",
+        "https://docs.devin.ai/enterprise/features/ai-guardrails.md",
+        "https://docs.devin.ai/admin/security.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Politiques de securite reutilisables et hierarchiques (reseau, MCP, git, tokens) avec enforcement mandatory, secrets et identites OIDC ephemeres."
+    },
+    {
+      "domain": "observabilite",
+      "how": "Documente : Session Insights (metriques ACU/user-messages/taille XS-XL/categorie, timeline d'incidents rouge/jaune/vert, prompt ameliore avec diffs, action items machine/repo, usage knowledge utile vs trompeuse, generation auto pour sessions L/XL, API de generation) ; ACU (facturation, limites org/utilisateur, coach d'efficacite, analytics perso) ; testing & recordings video comme preuve ; Session Insights alimentant playbooks/skills. Infere : journal d'evenements + classifieur + summarizer.",
+      "id": "dv-insights-metering",
+      "integration": "plugin",
+      "name": "Session Insights + metering ACU + preuves video",
+      "omega_adapter": "omega-otel::StdoutSink",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink + TraceReplayer",
+      "refs": [
+        "https://docs.devin.ai/product-guides/session-insights.md",
+        "https://docs.devin.ai/admin/billing/usage.md",
+        "https://docs.devin.ai/work-with-devin/testing-and-recordings.md",
+        "https://docs.devin.ai/work-with-devin/security-swarm.md",
+        "https://docs.devin.ai/work-with-devin/code-scans.md"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Analyse post-session (timeline, prompt ameliore, actions correctives), comptage ACU par taille/categorie, et enregistrements video des tests."
+    }
+  ]
+}

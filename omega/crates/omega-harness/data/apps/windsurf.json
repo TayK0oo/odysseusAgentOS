@@ -1,0 +1,275 @@
+{
+  "schema_version": 1,
+  "id": "windsurf",
+  "name": "Windsurf / Cascade",
+  "editor": "Cognition",
+  "oss": false,
+  "language": "Rust/TypeScript (inféré)",
+  "license": "propriétaire",
+  "repo": null,
+  "architecture": "IDE agentique (fork VS Code [inféré]) dont le panneau Cascade orchestre un agent principal, un agent de planification en tâche de fond et des sous-agents de retrieval ; personnalisation par fichiers markdown découverts (.devin/, héritage .windsurf/) et extension par MCP + hooks shell ; isolation des tâches parallèles par git worktrees.",
+  "entrypoints": [
+    "Devin Desktop (ex-Windsurf Editor), panneau Cascade (Cmd/Ctrl+L)",
+    "Plugins JetBrains / VS Code / Visual Studio / Vim / Jupyter (Cascade Write/Chat)",
+    "Devin CLI (agent Devin Local, successeur de Cascade)",
+    "mcp_config.json + fichiers .devin (rules, workflows, skills, hooks.json)"
+  ],
+  "functionalities": [
+    {
+      "domain": "agents",
+      "how": "[documenté] Un agent de planification spécialisé raffine le plan long terme en arrière-plan pendant que le modèle sélectionné exécute les actions court terme ; la Todo list est affichée dans la conversation et modifiable en langage naturel ; le plan s'auto-actualise à l'arrivée d'une Memory. Aucun détail d'implémentation interne n'est publié (binaire fermé).",
+      "id": "wi-plan-todo",
+      "integration": "plugin",
+      "name": "Plan continu + Todo list (agent de planification en tâche de fond)",
+      "omega_adapter": "plugins/task-planner-cascade",
+      "omega_capability": "task-planner",
+      "omega_port": "TaskPlanner (refine/track)",
+      "refs": [
+        "https://docs.devin.ai/desktop/cascade/cascade.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Cascade maintient un plan long terme raffiné en continu par un agent de planification dédié, avec Todo list suivie dans la conversation."
+    },
+    {
+      "domain": "agents",
+      "how": "[documenté] Sélecteur sous la zone de saisie (raccourci Cmd/Ctrl+.) ; Code = tous outils, Plan = exploration + questions à choix multiples + plan écrit dans un fichier Markdown externe persistant (~/.windsurf/plans ou ~/.devin/plans, réutilisable par @-mention), Ask = lecture seule (outils de recherche uniquement) ; mots-clés megaplan/ultraplan/masterplan pour planification renforcée.",
+      "id": "wi-modes",
+      "integration": "plugin",
+      "name": "Modes Code / Plan / Ask (+ Write/Chat)",
+      "omega_adapter": "plugins/agent-modes",
+      "omega_capability": "agent-modes",
+      "omega_port": "AgentModePolicy (permissions par mode)",
+      "refs": [
+        "https://docs.devin.ai/desktop/cascade/modes.md"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Trois modes d'agent (Code tout-outils, Plan avec fichier de plan externe, Ask lecture seule) commutables à chaud."
+    },
+    {
+      "domain": "contexte",
+      "how": "[documenté] Déclenché automatiquement quand une requête exige une recherche de code ; modèles maison SWE-grep / SWE-grep-mini (RL, jusqu'à 8 appels d'outils parallèles par tour, 4 tours max) restreints à grep/read/glob pour rester multi-OS ; seul le résultat ciblé remonte à Cascade. Implémentation modèle fermée, comportement [inféré] côté orchestration.",
+      "id": "wi-fast-context",
+      "integration": "plugin",
+      "name": "Fast Context (sous-agent de retrieval SWE-grep)",
+      "omega_adapter": "omega-context::FastRetriever",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (retrieve)",
+      "refs": [
+        "https://docs.devin.ai/desktop/context-awareness/fast-context.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Sous-agent de retrieval spécialisé qui explore le codebase en parallèle et ne renvoie que les extraits pertinents, jusqu'à 20x plus vite."
+    },
+    {
+      "domain": "contexte",
+      "how": "[documenté] Index local du codebase + techniques M-Query (RAG maison) ; contexte par défaut = fichier courant + fichiers ouverts + extraits récupérés ; épinglage manuel (pinning) recommandé avec parcimonie ; indexation distante possible (Teams/Enterprise) ; fichiers exclus via .devinignore (syntaxe gitignore, héritage .codeiumignore).",
+      "id": "wi-rag-mquery",
+      "integration": "plugin",
+      "name": "Moteur de contexte RAG + pinning (M-Query)",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (ingest/assemble)",
+      "refs": [
+        "https://docs.devin.ai/desktop/context-awareness/overview.md",
+        "https://docs.devin.ai/desktop/context-awareness/devin-ignore.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Indexation RAG du codebase (M-Query) avec contexte par défaut, épinglage explicite et exclusion par .devinignore."
+    },
+    {
+      "domain": "memoire",
+      "how": "[documenté] Générées automatiquement quand Cascade juge un contexte digne d'être retenu, ou sur demande ('create a memory of ...') ; stockées localement dans ~/.codeium/windsurf/memories/, scopées au workspace, récupérées quand jugées pertinentes ; gratuites (hors crédits) ; la doc recommande les Rules/AGENTS.md pour le savoir durable.",
+      "id": "wi-memories",
+      "integration": "plugin",
+      "name": "Memories auto-générées (portée workspace)",
+      "omega_adapter": "plugins/memory-bounded",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (recall/add)",
+      "refs": [
+        "https://docs.devin.ai/desktop/cascade/memories.md"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Cascade génère et rappelle automatiquement des faits utiles, stockés localement et scopés au workspace."
+    },
+    {
+      "domain": "configuration",
+      "how": "[documenté] Fichiers .devin/rules/*.md (préféré, héritage .windsurf/rules/, legacy .windsurfrules racine) + global_rules.md (~/.codeium/windsurf/, 6000 car.) + règles système Entreprise (/etc/devin/rules, read-only) ; chaque règle déclare trigger: always_on | glob (+globs) | model_decision (description seule en prompt, corps à la demande) | manual (@rule-name) ; 12 000 car. par fichier ; découverte récursive jusqu'au git root avec déduplication.",
+      "id": "wi-rules",
+      "integration": "plugin",
+      "name": "Rules à 4 modes d'activation (always_on/glob/model_decision/manual)",
+      "omega_adapter": "omega-config (rules layers)",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers + activation)",
+      "refs": [
+        "https://docs.devin.ai/desktop/cascade/memories.md"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Règles utilisateur versionnables (global/workspace/système) chargées selon 4 modes d'activation qui bornent leur coût en contexte."
+    },
+    {
+      "domain": "configuration",
+      "how": "[documenté] AGENTS.md / agents.md découverts dans tout le workspace (insensible à la casse, remontée au git root) et injectés dans le même moteur que les Rules, mode déduit de l'emplacement : racine = always-on, sous-répertoire = glob auto <dir>/** ; aucun frontmatter requis.",
+      "id": "wi-agents-md",
+      "integration": "plugin",
+      "name": "AGENTS.md scopés par emplacement",
+      "omega_adapter": "omega-config (agents-md discovery)",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (discovery + scoping)",
+      "refs": [
+        "https://docs.devin.ai/desktop/cascade/agents-md.md"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Fichiers AGENTS.md fournissant des instructions scopées automatiquement par leur emplacement dans l'arborescence."
+    },
+    {
+      "domain": "automatisation",
+      "how": "[documenté] Markdown dans .devin/workflows/ (préféré, héritage .windsurf/) + globaux ~/.codeium/windsurf/global_workflows/ + système Entreprise + built-in (/plan) ; invocation manuelle exclusive via /nom (jamais auto-invoqué, à l'inverse des Skills) ; composables (un workflow en appelle d'autres) ; précédence système > workspace > global > built-in ; 12 000 car. par fichier.",
+      "id": "wi-workflows",
+      "integration": "plugin",
+      "name": "Workflows markdown invocables en /slash (manuels uniquement)",
+      "omega_adapter": "plugins/workflow-runner",
+      "omega_capability": "workflow-runner",
+      "omega_port": "WorkflowRunner (discover/invoke)",
+      "refs": [
+        "https://docs.devin.ai/desktop/cascade/workflows.md"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Séquences d'étapes réutilisables en markdown, déclenchées uniquement à la main par commande /nom."
+    },
+    {
+      "domain": "extension",
+      "how": "[documenté] Dossier .devin/skills/<nom>/ (héritage .windsurf/skills/, globaux ~/.codeium/windsurf/skills/ ou ~/.config/devin/skills partagé avec la CLI, système Entreprise, compat .agents/skills/ et .claude/skills/) avec SKILL.md (frontmatter name + description) + scripts/templates/checklists ; progressive disclosure : seuls nom+description en contexte, corps et ressources chargés à l'invocation (auto par le modèle ou @mention).",
+      "id": "wi-skills",
+      "integration": "plugin",
+      "name": "Skills SKILL.md + progressive disclosure",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "refs": [
+        "https://docs.devin.ai/desktop/cascade/skills.md",
+        "https://agentskills.io/specification"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Procédures multi-étapes avec fichiers supports, divulguées progressivement (nom+description puis corps à l'usage)."
+    },
+    {
+      "domain": "outils",
+      "how": "[documenté] Fichier mcp_config.json (macOS/Linux ~/.config/devin/, Windows %APPDATA%\\devin\\) ; transports stdio / Streamable HTTP / SSE + OAuth ; plafond de 100 outils actifs, bascule par serveur dans l'UI, disabledTools par outil ; interpolation ${env:VAR} et ${file:chemin} pour les secrets ; allowlist admin Entreprise par regex ancrée (commande + args, tout non-listé bloqué dès la première règle).",
+      "id": "wi-mcp",
+      "integration": "plugin",
+      "name": "MCP natif + allowlist admin par regex",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index + hydrate)",
+      "refs": [
+        "https://docs.devin.ai/desktop/cascade/mcp.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Serveurs MCP déclarés en JSON (stdio/HTTP/SSE) avec plafond d'outils, désactivation fine et gouvernance par allowlist regex."
+    },
+    {
+      "domain": "execution",
+      "how": "[documenté] JSON fusionné système → utilisateur → workspace (.devin/hooks.json, héritage .windsurf/hooks.json) + dashboard cloud Entreprise ; 12 événements (pre_/post_ read_code, write_code, run_command, mcp_tool_use, user_prompt, cascade_response, transcript, setup_worktree) ; contexte JSON sur stdin, sortie via exit code (2 = blocage, pre-hooks seuls) ; scripts arbitraires (bash/powershell) ; transcript JSONL 0600, 100 fichiers max, avec suivi des règles déclenchées.",
+      "id": "wi-hooks",
+      "integration": "plugin",
+      "name": "Hooks de cycle de vie (12 événements, blocage par exit 2)",
+      "omega_adapter": "plugins/hook-bus",
+      "omega_capability": "hook-bus",
+      "omega_port": "HookBus (pre/post + policy)",
+      "refs": [
+        "https://docs.devin.ai/desktop/cascade/hooks.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Commandes shell exécutées aux points clés du workflow de l'agent, avec blocage déterministe (exit 2) et audit des réponses."
+    },
+    {
+      "domain": "execution",
+      "how": "[documenté] Survol du prompt d'origine → flèche de revert, ou via la table des matières ; revert de tout l'arbre à l'état du pas choisi (actuellement irréversible) ; snapshots nommés créables depuis la conversation et réutilisables à tout moment.",
+      "id": "wi-checkpoints",
+      "integration": "plugin",
+      "name": "Checkpoints nommés + revert par pas",
+      "omega_adapter": "plugins/checkpoint-store",
+      "omega_capability": "checkpoint-store",
+      "omega_port": "CheckpointStore (snapshot/revert)",
+      "refs": [
+        "https://docs.devin.ai/desktop/cascade/cascade.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Snapshots nommés de l'état du projet et retour arrière au pas de conversation choisi."
+    },
+    {
+      "domain": "execution",
+      "how": "[documenté] Mode Worktree dans le sélecteur en début de session (non déplaçable ensuite) ; un worktree git isolé par conversation sous ~/.windsurf/worktrees/<repo>/ (nom aléatoire) ; bouton Merge vers le workspace ; hook post_setup_worktree (avec $ROOT_WORKSPACE_PATH) pour .env et dépendances ; nettoyage auto (20 max, plus anciens d'abord, suppression à la fin de la conversation) ; visibilité SCM via git.showDevinWorktrees.",
+      "id": "wi-worktrees",
+      "integration": "plugin",
+      "name": "Sessions isolées en git worktrees (+ hook de setup)",
+      "omega_adapter": "plugins/worktree-isolated",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend (isolate/merge/cleanup)",
+      "refs": [
+        "https://docs.devin.ai/desktop/cascade/worktrees.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Chaque session Cascade tourne dans son propre git worktree isolé, fusionnable ensuite, avec setup et nettoyage automatiques."
+    },
+    {
+      "domain": "contexte",
+      "how": "[documenté] Le texte sélectionné (éditeur/terminal) est inclus automatiquement ; Cascade observe les actions temps réel de l'utilisateur ('dites Continue') ; @-mention de conversations passées : récupération des résumés, checkpoints et passages pertinents uniquement (jamais la conversation entière) ; envoi des problèmes du panneau Problems (tout ou par fichier) ; Explain & Fix sur erreur surlignée ;Queued messages pendant l'exécution.",
+      "id": "wi-realtime-awareness",
+      "integration": "plugin",
+      "name": "Awareness temps réel + @-mention de conversations",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (awareness/recall)",
+      "refs": [
+        "https://docs.devin.ai/desktop/cascade/cascade.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Cascade suit les actions temps réel de l'utilisateur et rappelle les conversations passées par résumé ciblé via @-mention."
+    },
+    {
+      "domain": "routage",
+      "how": "[documenté] Bouton arena dans le sélecteur de modèle : chaque modèle exécute le prompt dans sa session + worktree propres ; groupes Battle (Frontier/Fast/Hybrid) à modèles masqués jusqu'au choix ; bouton 'X is better' pour converger (les autres conversations sont écartées, le message suivant part à tous) ; facturation = somme des coûts unitaires ; git requis, fichiers suivis uniquement (+ hook de setup).",
+      "id": "wi-arena",
+      "integration": "plugin",
+      "name": "Arena mode (comparaison multi-modèles aveugle)",
+      "omega_adapter": "omega-router::ArenaSelector",
+      "omega_capability": "router-policy",
+      "omega_port": "ScoringPolicy/Selector (fan-out + converge)",
+      "refs": [
+        "https://docs.devin.ai/desktop/cascade/arena.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Exécution parallèle du même prompt par plusieurs modèles isolés, avec convergence sur l'approche jugée meilleure."
+    },
+    {
+      "domain": "routage",
+      "how": "[documenté] Catalogue de dizaines de modèles (SWE, Claude, GPT, Gemini, Grok, ...) chacun avec coûts entrée/sortie/cache et multiplicateur de crédits (0.25x à 320x) ; routage Adaptive (sélection auto par tâche, recommandé) et Fusion (modèle frontière + sidekick économe) ; facturation au crédit/prompt. Mécanique de facturation SaaS propriétaire, incompatible avec l'exigence self-hosted et anti-lock-in d'Omega : on reprend le routage, pas la monnaie.",
+      "id": "wi-models-billing",
+      "integration": "rejected",
+      "name": "Catalogue de modèles à crédits propriétaires",
+      "refs": [
+        "https://docs.devin.ai/desktop/models.md",
+        "https://docs.devin.ai/desktop/adaptive.md"
+      ],
+      "rust_cost": "M",
+      "status": "rejected",
+      "what": "Routage multi-modèles facturé en crédits propriétaires avec multiplicateurs par modèle et effort (rejeté : monnaie SaaS)."
+    }
+  ]
+}

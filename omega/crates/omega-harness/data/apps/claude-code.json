@@ -1,0 +1,353 @@
+{
+  "schema_version": 1,
+  "id": "claude-code",
+  "name": "Claude Code",
+  "editor": "Anthropic",
+  "oss": false,
+  "language": "TypeScript",
+  "license": "propriétaire",
+  "repo": null,
+  "architecture": "CLI agentique propriétaire (TypeScript) : boucle d'agent sur fichiers de config déclaratifs (CLAUDE.md, skills, agents, hooks, MCP) ; politiques de contexte matures (compaction structurée, prompt caching par préfixe, tool search, progressive disclosure) ; télémétrie OpenTelemetry complète.",
+  "entrypoints": [
+    "claude CLI (sessions interactives, headless -p, --agent)",
+    "VS Code / JetBrains IDE extensions",
+    "Desktop app (sessions locales, Cowork, tâches planifiées)",
+    "cloud sessions (claude.ai/code) + Agent SDK"
+  ],
+  "functionalities": [
+    {
+      "domain": "contexte",
+      "how": "Documenté (https://code.claude.com/docs/en/context-window + https://code.claude.com/docs/en/how-claude-code-works, cf. RE-OPENCODE-CLAUDECODE.md §3.1) : l'auto-compaction vide d'abord les vieux outputs d'outils puis résume, avec garde anti-thrash (arrêt après quelques tentatives si un contenu trop gros bloque) ; le résumé structuré remplace le verbatim (requêtes/intention, concepts clés, fichiers + extraits, erreurs/corrections, tâches pendantes, état) ; au redémarrage : system prompt + CLAUDE.md + MCP rechargés (hors liste des descriptions de skills), re-lecture des ≤ 5 fichiers modifiés les plus récents, ré-injection du corps de chaque skill invoqué plafonnée à 5 000 tokens/skill. Contrôles : section Compact Instructions de CLAUDE.md, /compact <focus>, autoCompactWindow 100k-1M par sous-agent, hooks PreCompact/PostCompact (matcher manual|auto).",
+      "id": "cc-compaction",
+      "integration": "plugin",
+      "name": "Compaction structurée + rechargement ciblé",
+      "omega_adapter": "omega-context (ContextBudget estimate/compact + résumé structuré + réhydratation ciblée)",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextBudget (estimate/compact)",
+      "refs": [
+        "https://code.claude.com/docs/en/context-window",
+        "https://code.claude.com/docs/en/how-claude-code-works",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §3.1"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Compaction auto/manuelle en résumé structuré remplaçant le verbatim, avec rechargement ciblé au redémarrage (instructions, ≤ 5 fichiers récents, corps des skills ≤ 5 000 tokens/skill) et garde anti-thrash."
+    },
+    {
+      "domain": "contexte",
+      "how": "Documenté (https://platform.claude.com/docs/en/build-with-claude/prompt-caching + https://code.claude.com/docs/en/prompt-caching, cf. RE-OPENCODE-CLAUDECODE.md §3.2) : deux modes, automatic (breakpoint top-level avançant au dernier bloc cacheable) et explicit (cache_control par bloc, max 4 breakpoints) ; hiérarchie tools → system → messages (toute modification invalide son niveau et les suivants) ; lookback window 20 blocs ; TTL 5 min par défaut (refresh gratuit à la lecture) ou 1 h à 2x le prix input ; métriques cache_creation_input_tokens / cache_read_input_tokens / input_tokens (tokens après le dernier breakpoint) ; minimums de longueur par modèle ; piège : breakpoint sur bloc mutable (timestamp) = jamais de hit ; par sous-agent : experimental.cacheTtl 5m|1h.",
+      "id": "cc-prompt-cache",
+      "integration": "plugin",
+      "name": "Prompt caching par préfixe (breakpoints + TTL)",
+      "omega_adapter": "plugins/prompt-cache-policy (breakpoints ≤ 4, ordre tools→system→messages, TTL 5m/1h, affinité parent/fork/self)",
+      "omega_capability": "context-engine",
+      "omega_port": "PromptCachePolicy (plan/affinity)",
+      "refs": [
+        "https://platform.claude.com/docs/en/build-with-claude/prompt-caching",
+        "https://code.claude.com/docs/en/prompt-caching",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §3.2"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Cache de préfixe de prompt : ≤ 4 breakpoints ordonnés tools→system→messages, TTL 5 min / 1 h, métriques cache_read/cache_creation, TTL par sous-agent."
+    },
+    {
+      "domain": "outils",
+      "how": "Documenté (https://code.claude.com/docs/en/mcp, section scale-with-mcp-tool-search, cf. RE-OPENCODE-CLAUDECODE.md §3.3) : au démarrage seuls noms d'outils + instructions de serveur chargent ; définitions complètes différées et chargées à la demande via l'outil ToolSearch (blocs tool_reference). Contrôle : ENABLE_TOOL_SEARCH = unset (différé) / true / auto / auto:N (précharge si < N % de la fenêtre) / false, avec repli auto (ANTHROPIC_BASE_URL non-first-party, vieux modèles, Foundry/Azure) ; par serveur alwaysLoad, par outil _meta.anthropic/alwaysLoad ; descriptions plafonnées 4 096 car. (amont) vs 16 384 car. (search) ; WaitForMcpServers remplace la recherche quand elle est off.",
+      "id": "cc-tool-search",
+      "integration": "plugin",
+      "name": "Tool search MCP (schémas différés)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index + hydrate)",
+      "refs": [
+        "https://code.claude.com/docs/en/mcp",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §3.3"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Schémas d'outils MCP différés : index noms+descriptions au démarrage, schémas complets hydratés à la demande via ToolSearch, avec alwaysLoad par serveur/outil."
+    },
+    {
+      "domain": "contexte",
+      "how": "Documenté (https://code.claude.com/docs/en/skills, observé par webfetch le 2026-10-16, cf. RE-OPENCODE-CLAUDECODE.md §3.4) : suit le standard ouvert Agent Skills (agentskills.io) étendu ; progressive disclosure : au démarrage seules description (+ when_to_use) chargent, tronquées à 1 536 car., corps chargé à l'usage, ré-injecté ≤ 5 000 tokens/skill après compaction ; frontmatter : description, when_to_use, disable-model-invocation, user-invocable, allowed-tools/disallowed-tools, model, effort, context:fork (+ agent, background), paths (globs d'activation), hooks (+ once), shell, metadata, license, compatibility ; commandes custom fusionnées (.claude/commands/x.md ≡ .claude/skills/x/SKILL.md) ; injection dynamique !commande / @fichier / ${CLAUDE_PROJECT_DIR} ; détection live + /reload-skills ; corpus local : vidéo 7664901404997192982 (5 skills favoris, mémoire persistante → auto-évolutif) et 7686601511652150560 (un seul plugin = N skills).",
+      "id": "cc-skills",
+      "integration": "plugin",
+      "name": "Skills à progressive disclosure (standard Agent Skills)",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "refs": [
+        "https://code.claude.com/docs/en/skills",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §3.4",
+        "docs/omega/research/loucash/videos.json:7664901404997192982",
+        "docs/omega/research/loucash/videos.json:7686601511652150560"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Skills SKILL.md + frontmatter riche au standard Agent Skills : seules les descriptions (≤ 1 536 car.) chargent au démarrage, corps hydraté à l'usage, activation par globs, hooks et tools scopés."
+    },
+    {
+      "domain": "extension",
+      "how": "Documenté (https://code.claude.com/docs/en/skills + https://code.claude.com/docs/en/commands, observé par webfetch) : les commandes custom ont fusionné dans les skills ; frontmatter argument-hint ([issue-number]) et arguments (substitution $name positionnelle) ; skillOverrides en settings (off / user-invocable-only) ; skill dossier-symlinké ou skill-dossier-promu-plugin (.claude-plugin/plugin.json dans un dossier de skill ⇒ plugin <name>@skills-dir) ; nom réservé anthropic-skills pour les skills synchronisés claude.ai ; commandesbuilt-in vs bundled skills vs skills utilisateur avec règles de précédence documentées (/name court vs /anthropic-skills:name).",
+      "id": "cc-commands",
+      "integration": "plugin",
+      "name": "Commandes slash fusionnées dans les skills",
+      "omega_adapter": "plugins/command-md (template + $args + argument-hint + overrides)",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore",
+      "refs": [
+        "https://code.claude.com/docs/en/skills",
+        "https://code.claude.com/docs/en/commands"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Commandes /name déclaratives en markdown fusionnées avec les skills : arguments positionnels, hints d'autocomplétion, overrides de visibilité, précédence nom court / nom complet."
+    },
+    {
+      "domain": "agents",
+      "how": "Documenté (https://code.claude.com/docs/en/sub-agents, observé par webfetch le 2026-10-16, cf. RE-OPENCODE-CLAUDECODE.md §3.5) : markdown + frontmatter name/description (requis) + tools/disallowedTools, model (alias/ID/inherit, ordre : paramètre d'invocation > frontmatter > CLAUDE_CODE_SUBAGENT_MODEL > conversation), permissionMode, maxTurns, autoCompactWindow 100k-1M, skills (préchargées en entier), mcpServers, hooks, memory (user/project/local), background, omitClaudeMd, effort, isolation:worktree, initialPrompt, experimental.cacheTtl ; built-ins Explore (read-only), Plan, general-purpose ; Explore/Plan démarrent sans CLAUDE.md ni git status ; budget descriptions custom plafonné 15 000 tokens (warning) ; contexte isolé, seul un résumé remonte ; restrictions plugin (hooks/mcpServers/permissionMode ignorés) ; CLI --agents JSON + --append-subagent-system-prompt ; corpus local : vidéo récap subagents (RE-OPENCODE-CLAUDECODE.md §3.9).",
+      "id": "cc-subagents",
+      "integration": "plugin",
+      "name": "Sous-agents isolés à frontmatter riche",
+      "omega_adapter": "plugins/subagent-isolated (spawn/resume, isolation worktree, modèle/effort/TTL par invocation)",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/resume)",
+      "refs": [
+        "https://code.claude.com/docs/en/sub-agents",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §3.5",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §3.9"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Sous-agents markdown à contexte isolé (seul un résumé remonte) : tools, modèle, permissionMode, skills préchargées, mémoire persistante, isolation worktree, built-ins Explore/Plan/general-purpose."
+    },
+    {
+      "domain": "execution",
+      "how": "Documenté (https://code.claude.com/docs/en/agent-view, liens depuis https://code.claude.com/docs/en/sub-agents observés par webfetch) : background:true (défaut avec context:fork) exécute le sous-agent en arrière-plan avec notification à terminaison ; agent teams : équipe coordonnée de sessions supervisées par Claude ; cross-session messaging + ListAgents ; agent-view : supervision multi-sessions parallèles depuis un point unique ; --agent (agent principal custom) avec tools: Agent(type) en allowlist de délégation ; profondeur de délégation limitée (Agent retiré au-delà).",
+      "id": "cc-background",
+      "integration": "plugin",
+      "name": "Sessions d'arrière-plan + équipes d'agents",
+      "omega_adapter": "plugins/subagent-isolated (background + notify) + plugins/agent-team",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn background/resume/notify)",
+      "refs": [
+        "https://code.claude.com/docs/en/agent-view",
+        "https://code.claude.com/docs/en/sub-agents"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Exécution en arrière-plan avec notification, équipes d'agents supervisées, messagerie inter-sessions et supervision multi-sessions parallèles."
+    },
+    {
+      "domain": "extension",
+      "how": "Documenté (https://code.claude.com/docs/en/plugins/overview + https://code.claude.com/docs/en/plugins/components, observé par webfetch le 2026-10-16, cf. RE-OPENCODE-CLAUDECODE.md §3.6) : un plugin = un dossier chargé comme une unité (manifeste .claude-plugin/plugin.json + skills/ + agents/ + hooks/hooks.json + .mcp.json + output-styles/) ; distribué par marketplace (.claude-plugin/marketplace.json, catalogue non hébergé) ; scopes user/project/local ; namespacing /plugin:skill et serveurs plugin:<plugin>:<server> (outils mcp__plugin_<plugin>_<server>__<tool>) ; coût mesuré (Context cost en marketplace officielle, /plugin Installed + Not used recently, page measure) ; plugin skills chargées récursivement avec identifiant scopé ; trust workspace requis avant exécution.",
+      "id": "cc-plugins",
+      "integration": "plugin",
+      "name": "Plugins (dossier de composants + marketplace + scopes)",
+      "omega_adapter": "omega-registry (manifeste + marketplace resolver + scopes + namespacing)",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "refs": [
+        "https://code.claude.com/docs/en/plugins/overview",
+        "https://code.claude.com/docs/en/plugins/components",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §3.6"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Plugin = dossier versionné (skills+agents+hooks+MCP) installé comme une unité depuis une marketplace-catalogue, avec scopes user/project/local, namespacing et mesure du coût contexte."
+    },
+    {
+      "domain": "automatisation",
+      "how": "Documenté (https://code.claude.com/docs/en/hooks, observé par webfetch le 2026-10-16 : ~4 200 lignes de référence, cf. RE-OPENCODE-CLAUDECODE.md §3.7) : ~30 événements (SessionStart/End, Setup, UserPromptSubmit/Expansion, PreToolUse/PostToolUse/PostToolUseFailure/PostToolBatch, PermissionRequest/Denied, Notification, MessageDisplay, SubagentStart/Stop, TaskCreated/Completed, TeammateIdle, Stop/StopFailure, InstructionsLoaded, ConfigChange, CwdChanged, DirectoryAdded, FileChanged, WorktreeCreate/Remove, PreCompact/PostCompact, Pre/PostModelSwitch, Elicitation/ElicitationResult) ; 5 types de handler (command, http, mcp_tool, prompt, agent) ; matcher (exact/regex JS) + if (syntaxe permission) ; décision via exit code + JSON stdout (permissionDecision, additionalContext) ; async/asyncRewake/once/onFailure ; hooks de skill (session entière) et de sous-agent (durée de vie) ; fusion multi-niveaux + allowManagedHooksOnly ; /hooks inspecteur lecture seule.",
+      "id": "cc-hooks",
+      "integration": "plugin",
+      "name": "Hooks de cycle de vie (30+ événements, 5 handlers)",
+      "omega_adapter": "plugins/hook-bus (matcher + if + décision exit-code/JSON + async)",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (+ hook dispatch)",
+      "refs": [
+        "https://code.claude.com/docs/en/hooks",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §3.7"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Automatisation déclarative sur ~30 événements de cycle de vie avec 5 types de handlers, filtres matcher+if et décisions structurées (exit code + JSON)."
+    },
+    {
+      "domain": "securite",
+      "how": "Documenté (https://code.claude.com/docs/en/permissions + https://code.claude.com/docs/en/permission-modes, cf. RE-OPENCODE-CLAUDECODE.md §3.5/§3.7) : modes default/acceptEdits/auto/dontAsk/bypassPermissions/plan ; règles ordonnées allow/ask/deny par outil (Bash(rm *), Edit(*.ts), mcp__<server>__*) ; auto mode : classifieur évaluant les appels + revue du rapport final ; workspace trust dialog conditionnant hooks/serveurs inline ; plan mode : session lecture seule + sous-agent Plan de recherche ; hook PermissionRequest intercepte chaque décision, PermissionDenied + retry:true autorise une nouvelle tentative.",
+      "id": "cc-permissions",
+      "integration": "plugin",
+      "name": "Permissions allow/ask/deny + modes (plan, auto)",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy (evaluate/ruleset)",
+      "refs": [
+        "https://code.claude.com/docs/en/permissions",
+        "https://code.claude.com/docs/en/permission-modes",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §3.7"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Règles allow/ask/deny par outil avec 6 modes de permission (dont plan lecture seule et auto à classifieur), trust de workspace et interception par hooks."
+    },
+    {
+      "domain": "observabilite",
+      "how": "Documenté (https://code.claude.com/docs/en/monitoring-usage, observé par webfetch le 2026-10-16, cf. RE-OPENCODE-CLAUDECODE.md §3.8) : export OTel standard via CLAUDE_CODE_ENABLE_TELEMETRY=1 (OTEL_METRICS_EXPORTER otlp/prometheus/console/none, OTEL_LOGS_EXPORTER otlp/console/none, traces beta via CLAUDE_CODE_ENHANCED_TELEMETRY_BETA) ; hiérarchie claude_code.interaction → llm_request / tool (→ blocked_on_user + execution, sous-spans de sous-agent imbriqués) / hook ; attributs gen_ai.* + cache_read_tokens/cache_creation_tokens ; redaction par défaut + gates opt-in (OTEL_LOG_USER_PROMPTS/TOOL_DETAILS/TOOL_CONTENT/RAW_API_BODIES, plafond 60 KB) ; contrôle admin : managed settings verrouillent la destination (variables dev conflictuelles retirées), OTEL_* ignorés dans .claude/settings.json de repo ; propagation W3C TRACEPARENT (sous-processus, requêtes modèle/MCP, inbound en -p/SDK).",
+      "id": "cc-otel",
+      "integration": "plugin",
+      "name": "Export OpenTelemetry (métriques/logs/traces + gates)",
+      "omega_adapter": "omega-otel::{Stdout,File}Sink + omega-otel::Provenance",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "refs": [
+        "https://code.claude.com/docs/en/monitoring-usage",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §3.8"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Télémétrie OTel complète (métriques, événements, traces beta) avec hiérarchie de spans documentée, redaction fail-closed par gates et destination verrouillable par policy admin."
+    },
+    {
+      "domain": "memoire",
+      "how": "Documenté (https://code.claude.com/docs/en/memory, cf. RE-OPENCODE-CLAUDECODE.md §3.1/§5 F19) : hiérarchie CLAUDE.md (managed policy > user > project > local, toujours chargée) + fichiers imbriqués chargés à la demande (path-glob, traversal paresseux) ; auto-memory : MEMORY.md bornée tenue par le système (≈ 200 lignes / 25 KB) ; memory: user|project|local par sous-agent (apprentissage inter-sessions) ; règles path-spécifiques ; audit d'instructions (/doctor prompt-audit) détectant le contenu dérivable du code à migrer en skills ; événement InstructionsLoaded + hook associé.",
+      "id": "cc-memory",
+      "integration": "plugin",
+      "name": "Mémoire hiérarchique (CLAUDE.md + auto-memory bornée)",
+      "omega_adapter": "plugins/memory-bounded (CLAUDE.md layers + MEMORY.md 25KB + audit)",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (recall/add/replace)",
+      "refs": [
+        "https://code.claude.com/docs/en/memory",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §5"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Instructions hiérarchiques (CLAUDE.md managé→local) + mémoire auto bornée tenue par le système, avec chargement paresseux imbriqué et audit de migration vers les skills."
+    },
+    {
+      "domain": "execution",
+      "how": "Documenté (https://code.claude.com/docs/en/worktrees + https://code.claude.com/docs/en/sub-agents isolation:worktree, observé par webfetch) : isolation: worktree donne au sous-agent une copie isolée du repo branchée par défaut sur la branche par défaut (nettoyage auto si inchangée) ; garde-fous d'exécution (vérification du working directory, blocage des redirections git vers le checkout principal, refus des commandes non vérifiables) appliqués aussi en PowerShell (check répertoire) ; hooks WorktreeCreate/WorktreeRemove remplaçant le comportement git par défaut ; sessions worktree liées (--worktree) avec recherche de skills limitée à la racine du worktree (repli main checkout) ; vérification ${CLAUDE_PROJECT_DIR} vs cwd dans les hooks.",
+      "id": "cc-worktrees",
+      "integration": "plugin",
+      "name": "Isolation par worktree git + garde-fous",
+      "omega_adapter": "plugins/sandbox-worktree (git worktree + vérification cwd/commande + cleanup)",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend (execute/fetch_file/cleanup)",
+      "refs": [
+        "https://code.claude.com/docs/en/worktrees",
+        "https://code.claude.com/docs/en/sub-agents",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §5"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Sous-agents et sessions exécutés dans des worktrees git isolés avec garde-fous (cwd, redirections git, commandes non vérifiables) et nettoyage automatique."
+    },
+    {
+      "domain": "automatisation",
+      "how": "Documenté (https://code.claude.com/docs/en/routines + https://code.claude.com/docs/en/scheduled-tasks, vérifiés 200 le 2026-10-16 ; routines = cloud sessions) : tâches planifiées desktop (locales, avec ~/.claude/skills) vs routines cloud (sessions fraîches ne chargeant que les skills du compte claude.ai + projet, plugins locaux ignorés) ; disable-model-invocation bloque aussi l'exécution planifiée d'une skill ; skills verify/simplify auto-exécutées avant chaque commit quand présentes (conditions de lieu/invocation documentées) ; boucle /loop + skill /batch parmi les bundled skills.",
+      "id": "cc-routines",
+      "integration": "plugin",
+      "name": "Tâches planifiées + routines cloud",
+      "omega_adapter": "plugins/scheduler-cron (local + cloud-runner + skill verify/simplify pre-commit)",
+      "omega_capability": "scheduler-job",
+      "omega_port": "Scheduler",
+      "refs": [
+        "https://code.claude.com/docs/en/routines",
+        "https://code.claude.com/docs/en/scheduled-tasks",
+        "https://code.claude.com/docs/en/skills"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Planification locale (desktop) et cloud (routines en sessions fraîches) avec skills de vérification pré-commit et garde disable-model-invocation."
+    },
+    {
+      "domain": "agents",
+      "how": "Documenté (https://code.claude.com/docs/en/permission-modes + https://code.claude.com/docs/en/sub-agents built-in Plan, liens observés par webfetch) : plan mode = session lecture seule (Write/Edit refusés) où la recherche est déléguée au sous-agent Plan à contexte séparé ; le plan est présenté avant toute modification ; ExitPlanMode retiré des sous-agents sauf permissionMode:plan ; transition EnterPlanMode/ExitPlanMode traçable par hooks.",
+      "id": "cc-plan-mode",
+      "integration": "plugin",
+      "name": "Plan mode (lecture seule + sous-agent de recherche)",
+      "omega_adapter": "plugins/plan-mode (deny Write/Edit + délégation Plan + rappel)",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore",
+      "refs": [
+        "https://code.claude.com/docs/en/permission-modes",
+        "https://code.claude.com/docs/en/sub-agents"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Mode d'analyse avant édition : session read-only, recherche déléguée au sous-agent Plan, plan validé avant modification."
+    },
+    {
+      "domain": "outils",
+      "how": "Documenté (https://code.claude.com/docs/en/mcp, cf. RE-OPENCODE-CLAUDECODE.md §3.3) : client MCP multi-transport (stdio/http/sse/ws) ; serveurs inline scopés au sous-agent (mcpServers, règle de trust du dossier, déconnexion à la fin) vs .mcp.json de plugin ; namespacing plugin (mcp__plugin_<plugin>_<server>__<tool>) ; prompts MCP exposés comme commandes ; elicitation (Elicitation/ElicitationResult) pour saisie utilisateur mid-tool ; --strict-mcp-config, allowlists/denylists managed, allowedMcpServers ; WaitForMcpServers ; statut cached et connexion paresseuse.",
+      "id": "cc-mcp",
+      "integration": "plugin",
+      "name": "Client MCP multi-transport + serveurs scopés",
+      "omega_adapter": "plugins/mcp-client (stdio/http/sse/ws + trust + elicitation)",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "refs": [
+        "https://code.claude.com/docs/en/mcp",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §3.3"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Client MCP (4 transports) avec serveurs inline scopés aux sous-agents, namespacing plugin, prompts-as-commands, elicitation et contrôles managed."
+    },
+    {
+      "domain": "configuration",
+      "how": "Documenté (https://code.claude.com/docs/en/settings + https://code.claude.com/docs/en/settings-reference, observé par webfetch : fusion multi-niveaux, variables ignorées en repo) : couches managed > cli > env > user > project > local avec précédence définie ; settings.json par portée + .claude/settings.local.json gitignoré ; managed policy (allowManagedHooksOnly, allowlists MCP, availableModels, strictPluginOnlyCustomization) ; variables OTEL_* et credentials ignorées en settings de repo (anti-exfiltration) ; --setting-sources et --strict-mcp-config / --bare / --safe-mode pour les runs contraints ; direnv-like CwdChanged pour gestion réactive d'environnement.",
+      "id": "cc-settings",
+      "integration": "plugin",
+      "name": "Settings en couches + policy managée",
+      "omega_adapter": "omega-config (couches + precedence + policy managée)",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "refs": [
+        "https://code.claude.com/docs/en/settings",
+        "https://code.claude.com/docs/en/settings-reference",
+        "https://code.claude.com/docs/en/hooks"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Configuration en couches fusionnées (managed→local) avec policy organisationnelle, variables sensibles interdites en repo et flags de runs contraints."
+    },
+    {
+      "domain": "execution",
+      "how": "Documenté (https://code.claude.com/docs/en/headless + https://code.claude.com/docs/en/github-actions, vérifiés 200) : mode non-interactif claude -p (prompt + --agents fichier JSON, --append-system-prompt, --output-format) ; Agent SDK (TypeScript/Python, additionalDirectories, TRACEPARENT inbound) ; GitHub Actions / exécution CI avec --init-only/--init/--maintenance (événement Setup) ; bare mode (démarrage rapide sans skills/hooks non-plugin) ; CLAUDE_CODE_SYNC_SKILLS pour runs non-interactifs ; credential helpers (apiKeyHelper) et auth multi-provider (Bedrock/Foundry/Vertex).",
+      "id": "cc-ci-headless",
+      "integration": "plugin",
+      "name": "Headless + SDK + CI (runs non-interactifs)",
+      "omega_adapter": "omega-server (run non-interactif + SDK surface)",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner",
+      "refs": [
+        "https://code.claude.com/docs/en/headless",
+        "https://code.claude.com/docs/en/github-actions",
+        "https://code.claude.com/docs/en/sub-agents"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Exécution non-interactive (-p, Agent SDK, CI/Setup) avec surfaces réduites (bare/safe), sync de skills et propagation de trace entrante."
+    },
+    {
+      "domain": "extension",
+      "how": "ECARTE : documenté (https://code.claude.com/docs/en/plugins/mods/overview, liens depuis https://code.claude.com/docs/en/hooks observés par webfetch) : les mods sont des hooks JS in-process pouvant dessiner dans l'interface ; un runtime JS embarqué est hors périmètre du cœur Rust d'Omega (même décision que oc-codemode-lsp) ; les 4 autres types de hooks (command/http/mcp_tool/prompt/agent) couvrent le besoin via processus externes ; remplacement prévu : WASM sandboxé si besoin.",
+      "id": "cc-mods-js",
+      "integration": "rejected",
+      "name": "Mods JS in-process (écarté : runtime JS)",
+      "omega_adapter": null,
+      "omega_capability": null,
+      "omega_port": null,
+      "refs": [
+        "https://code.claude.com/docs/en/hooks",
+        "docs/omega/reverse-eng/RE-OPENCODE-CLAUDECODE.md §6.3"
+      ],
+      "rust_cost": "L",
+      "status": "rejected",
+      "what": "ECARTE : hooks JavaScript in-process avec accès UI, reposant sur un runtime JS embarqué hors périmètre du cœur Rust (remplacement : WASM sandboxé)."
+    }
+  ]
+}
