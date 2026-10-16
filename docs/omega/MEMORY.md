@@ -53,6 +53,15 @@
   limites Claude Code via modèles OSS (#27), mémoire + skill auto-évolutive (#26),
   second cerveau Obsidian (#50), alternatives gratuites installées par prompt (#5).
 
+## 4bis. Ressource identifiée — REA (reverse-engineering) `[observed]`
+
+- **REA = `morluto/rea`** (★~250k, MIT, npm `rea-agents`) : MCP de reverse-engineering
+  (binaires natifs, JS/Electron, .NET, APK, WASM, EVM, firmware, réseau, process), local,
+  résultats avec preuves. Identifié depuis le corpus **vidéo #3** (`docs/omega/research/REA.md`).
+- **Correctif de méthode** : le corpus est désormais lu à 3 niveaux — légendes,
+  **oral** (`transcripts.json`, 78) et **écran** (`ocr.json`, 78).
+- **Intégration** : fournisseur d'outils MCP (`plugins/mcp-rea`), dossier `apps/rea.json` en cours.
+
 ## 5. États de l'art produits `[observed]`
 
 | Doc | Contenu |
