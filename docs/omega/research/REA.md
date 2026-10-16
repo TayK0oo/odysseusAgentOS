@@ -118,3 +118,26 @@ cible) : c'est exactement le contrat de provenance d'Omega (`[observed]` vs
   pwntools 4.15.0, pyelftools 0.33, unicorn 2.1.2) — REA n'installe jamais de paquets ;
 - entrée limitée à 32 Mio (le binaire debug de 108 Mo est refusé ; on analyse un
   binaire de crate de 7 Mo).
+
+## 8. REA appliqué aux harnais clones — `--harnesses`
+
+Même balayage, ciblé sur les dépôts OSS que nous avons disséqués à la main
+(`docs/omega/research/rea/HARNESS-SWEEP.md`) :
+
+| Harnais | Statut | Limites déclarées |
+|---|---|---|
+| `cline` | ✅ analysé | 5567 |
+| `opencode` | ✅ analysé | 9466 |
+| `openhands` | ✅ analysé | 4025 |
+| `codex` | ✅ analysé | 9 |
+| `open-interpreter` | ✅ analysé | 9 |
+| `openclaw` | ⚠️ `resource_constraint` | clone de **945 Mo** : REA épuise sa capacité de résultat (`extensions/memory-core/src/tools.runtime.ts`) |
+
+Le nombre élevé de limites sur cline/opencode/openhands est **informatif** : ce
+sont des monorepos à résolution dynamique, et REA déclare explicitement tout ce
+qu'il ne peut pas prouver statiquement. `openclaw` doit être ciblé sur un
+sous-dossier (ou le clone réduit) — limite documentée, non contournée.
+
+**Intérêt pour Omega** : ces graphes sont une **seconde source** (machine) à
+confronter à nos dissections manuelles (`data/apps/*.json`) — piste de
+vérification croisée des statuts `adopted/planned`.
