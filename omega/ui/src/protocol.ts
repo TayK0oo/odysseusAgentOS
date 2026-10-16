@@ -64,13 +64,15 @@ export interface RouterDecision {
   reason: string;
 }
 
-/** Réponse de `POST /api/run` : décision + résumé rejoué (preuve). */
+/** Réponse de `POST /api/run` : décision + résumé rejoué (preuve) + réponse du modèle. */
 export interface RunResponse {
   run_id: string;
   /** `RunStatus` sérialisé (`omega-core`, kebab-case). */
   status: 'ok' | 'failed' | 'cancelled';
   decision: RouterDecision;
   summary: RunSummary;
+  /** Dernière réponse du modèle, relue dans le journal (`infer.completed`). */
+  answer?: string;
 }
 
 /* --- Miroirs de `omega-otel::replay` (W8, rejoué sans ré-exécuter) --------- */
@@ -104,11 +106,12 @@ export interface RunSummary {
   outcome_conflict: boolean;
 }
 
-/** Réponse de `GET /api/trace/:run_id` : séquence rejouée + résumé. */
+/** Réponse de `GET /api/trace/:run_id` : séquence rejouée + résumé + réponse. */
 export interface TraceResponse {
   run_id: string;
   replayed: ReplayedRun;
   summary: RunSummary;
+  answer?: string;
 }
 
 /** Corps d'erreur JSON de l'API (statuts 4xx/5xx). */

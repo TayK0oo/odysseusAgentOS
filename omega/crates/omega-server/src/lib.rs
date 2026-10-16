@@ -27,5 +27,5 @@ pub use dto::{
     TraceResponse,
 };
 pub use pipeline::{execute_run, local_candidate};
-pub use routes::create_router;
+pub use routes::{create_router, create_router_with_ui};
 pub use state::{build_app_state, build_app_state_with, AppState};

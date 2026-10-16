@@ -17,6 +17,7 @@ use axum::{Json, Router};
 use omega_otel::TraceReplayer;
 use omega_ports::EventStore;
 use omega_types::{Capability, OmegaError};
+use tower_http::services::{ServeDir, ServeFile};
 
 use crate::dto::{
     ApiErrorBody, ApiRunRequest, HealthResponse, PluginEntry, RunResponse, TraceResponse,
@@ -92,6 +93,26 @@ impl IntoResponse for ApiError {
 /// Les chemins sont absolus (`/api/...`) : le routeur est montable tel quel
 /// (binaire) ou imbrique derriere un prefixe.
 pub fn create_router(state: AppState) -> Router {
+    api_router(state)
+}
+
+/// Routeur API + service statique de l'UI buildee (`omega/ui/dist`).
+///
+/// Une origine unique : le cockpit React est servi sur `/` et parle a `/api`
+/// (proxy inutile). `ui_dir` absent/introuvable → API seule (l'UI de dev reste
+/// utilisable via `vite`).
+pub fn create_router_with_ui(state: AppState, ui_dir: Option<std::path::PathBuf>) -> Router {
+    let router = api_router(state);
+    match ui_dir {
+        Some(dir) if dir.is_dir() => {
+            let index = dir.join("index.html");
+            router.fallback_service(ServeDir::new(dir).fallback(ServeFile::new(index)))
+        }
+        _ => router,
+    }
+}
+
+fn api_router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health))
         .route("/api/plugins", get(plugins))
@@ -148,11 +169,12 @@ async fn trace(
     // Run inconnu → journal vide → sequence vide + issue `unknown` (200, pas 404 :
     // l'UI affiche « run inconnu » au lieu d'une erreur).
     let summary = TraceReplayer::summarize(&run_id, journal.clone());
-    let replayed = TraceReplayer::replay(&run_id, journal);
+    let replayed = TraceReplayer::replay(&run_id, journal.clone());
     Ok(Json(TraceResponse {
         run_id,
         replayed,
         summary,
+        answer: crate::pipeline::last_answer(&journal),
     }))
 }
 
@@ -282,5 +304,68 @@ mod tests {
         // Smoke test : le routeur se construit (les handlers sont testes
         // directement ci-dessus, sans reseau).
         let _ = create_router(state);
+    }
+
+    #[tokio::test]
+    async fn ui_dir_is_served_and_api_still_works() {
+        // (W7 inc3) UI buildee servie sur `/`, API intacte sur `/api`.
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        let dir = std::env::temp_dir().join(format!("omega-ui-test-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        std::fs::write(
+            dir.join("index.html"),
+            "<!doctype html><title>Omega Cockpit</title>",
+        )
+        .unwrap();
+
+        let (state, _) = test_state("routes-ui");
+        let app = create_router_with_ui(state, Some(dir.clone()));
+
+        let res = app
+            .clone()
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert!(String::from_utf8_lossy(&body).contains("Omega Cockpit"));
+
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn missing_ui_dir_leaves_api_only() {
+        // (W7 inc3) `ui_dir` absent -> API seule, pas d'erreur de construction.
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+        let (state, _) = test_state("routes-noui");
+        let app = create_router_with_ui(state, Some("/n-existe-pas-omega".into()));
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
     }
 }

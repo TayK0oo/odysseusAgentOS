@@ -22,6 +22,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 async-trait = { workspace = true }
 axum = { version = "0.7" }
+tower-http = { version = "0.6", features = ["fs"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync"] }
 
 [[bin]]
@@ -31,3 +32,6 @@ path = "src/main.rs"
 [lib]
 name = "omega_server"
 path = "src/lib.rs"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }

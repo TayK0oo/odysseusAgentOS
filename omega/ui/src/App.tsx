@@ -1,22 +1,30 @@
 import { useEffect, useState } from 'react';
-import { getPlugins, getTrace, postRun } from './api';
+import { getHealth, getPlugins, getTrace, postRun } from './api';
 import type {
   Message,
   PluginInfo,
-  RouterDecisionDto,
-  RunEvent,
+  RouterDecision,
   RunResponse,
   TraceResponse,
 } from './protocol';
 
 /**
- * Omega Cockpit — 5 panneaux branchés sur `omega-server` (W7 inc2).
- * Chaque appel API a trois états (chargement / données / erreur) ; si l'API
- * est injoignable, le panneau bascule sur ses fixtures hors-ligne avec un
- * bandeau explicite — jamais un écran vide.
+ * Omega Cockpit — 5 panneaux branchés sur `omega-server`.
+ *
+ * Chaque panneau a trois états (chargement / données / erreur) ; si l'API est
+ * injoignable, il bascule sur des fixtures hors-ligne avec un bandeau explicite
+ * — jamais un écran vide.
  */
 
 type Panel = 'cockpit' | 'plugins' | 'router' | 'traces' | 'context';
+
+const PANELS: { id: Panel; label: string }[] = [
+  { id: 'cockpit', label: 'Cockpit' },
+  { id: 'plugins', label: 'Plugins' },
+  { id: 'router', label: 'Router' },
+  { id: 'traces', label: 'Traces' },
+  { id: 'context', label: 'Contexte' },
+];
 
 /* --- Fixtures hors-ligne (repli si l'API est injoignable) ------------------ */
 
@@ -26,94 +34,126 @@ const FIXTURE_PLUGINS: PluginInfo[] = [
   { schema_version: 1, id: 'file', capability: 'event-store', version: '1', active: true },
 ];
 
-const FIXTURE_DECISION: RouterDecisionDto = {
-  schema_version: 1,
+const FIXTURE_DECISION: RouterDecision = {
   model_id: 'ollama/qwen2.5-coder:7b',
   score: 0.91,
-  reason: 'task=T2 eligible=1 pareto=1',
+  reason: 'task=T2 eligible=1 pareto=1 selected=ollama/qwen2.5-coder:7b',
 };
 
-const FIXTURE_EVENTS: RunEvent[] = [
-  { schema_version: 1, run_id: 'live-1', name: 'run.started', payload: null },
-  { schema_version: 1, run_id: 'live-1', name: 'step.completed', payload: { operation: 'assemble' } },
-  { schema_version: 1, run_id: 'live-1', name: 'step.completed', payload: { operation: 'infer' } },
-  { schema_version: 1, run_id: 'live-1', name: 'run.completed', payload: null },
-];
+/* --- Petits composants ----------------------------------------------------- */
 
-function Banner({ kind, text }: { kind: 'loading' | 'offline'; text: string }) {
+function Banner({ kind, text }: { kind: 'loading' | 'error' | 'offline'; text: string }) {
+  if (kind === 'loading') return <p className="banner loading">{text || 'Chargement…'}</p>;
+  if (kind === 'error') return <p className="banner error">Erreur : {text}</p>;
+  return <p className="banner offline">Hors-ligne : {text} — repli sur fixtures.</p>;
+}
+
+function Card({ k, v }: { k: string; v: React.ReactNode }) {
   return (
-    <p role={kind === 'loading' ? 'status' : 'alert'}>
-      {kind === 'loading' ? 'Chargement…' : `Hors-ligne : ${text} (repli sur fixtures).`}
-    </p>
+    <div className="card">
+      <div className="k">{k}</div>
+      <div className="v">{v}</div>
+    </div>
   );
 }
 
-/* --- Panneaux --------------------------------------------------------------- */
+function StatusBadge({ status }: { status: string }) {
+  return <span className={`badge ${status === 'ok' ? 'ok' : 'ko'}`}>{status}</span>;
+}
+
+function DecisionCards({ d }: { d: RouterDecision }) {
+  return (
+    <div className="cards">
+      <Card k="Modèle" v={<code>{d.model_id}</code>} />
+      <Card
+        k="Score"
+        v={
+          <>
+            {d.score.toFixed(3)}
+            <div className="bar">
+              <i style={{ width: `${Math.max(0, Math.min(1, d.score)) * 100}%` }} />
+            </div>
+          </>
+        }
+      />
+    </div>
+  );
+}
+
+function Answer({ text }: { text?: string }) {
+  if (!text) return null;
+  return (
+    <div className="answer">
+      <h3>Réponse du modèle</h3>
+      {text}
+    </div>
+  );
+}
+
+/* --- Panneaux -------------------------------------------------------------- */
 
 function Cockpit({ onRun }: { onRun: (r: RunResponse) => void }) {
   const [input, setInput] = useState('Résume Omega en trois points.');
-  const [state, setState] = useState<
-    | { kind: 'idle' }
-    | { kind: 'loading' }
-    | { kind: 'done'; run: RunResponse }
-    | { kind: 'error'; message: string }
-  >({ kind: 'idle' });
+  const [busy, setBusy] = useState(false);
+  const [run, setRun] = useState<RunResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function launch() {
-    const messages: Message[] = [{ role: 'user', content: input }];
-    setState({ kind: 'loading' });
+    if (busy || input.trim().length === 0) return;
+    setBusy(true);
+    setError(null);
     try {
-      const run = await postRun(messages);
-      onRun(run);
-      setState({ kind: 'done', run });
+      const messages: Message[] = [{ role: 'user', content: input }];
+      const r = await postRun(messages);
+      setRun(r);
+      onRun(r);
     } catch (e) {
-      setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+      setRun(null);
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
-    <section>
+    <section className="panel">
       <h2>Cockpit</h2>
-      <p>
-        <label>
-          Message :{' '}
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            size={48}
-            aria-label="Message à envoyer"
-          />
-        </label>{' '}
-        <button onClick={() => void launch()} disabled={state.kind === 'loading'}>
-          Lancer le run
-        </button>
+      <p className="hint">
+        Un run complet : classification déterministe → sélection Pareto → assemblage →
+        inférence locale (coût nul) → journal durable.
       </p>
-      {state.kind === 'loading' && <Banner kind="loading" text="" />}
-      {state.kind === 'error' && <Banner kind="offline" text={state.message} />}
-      {state.kind === 'done' && (
-        <div>
-          <p>
-            Run <code>{state.run.run_id}</code> : <code>{state.run.status}</code>,{' '}
-            {state.run.summary.steps_completed}/
-            {state.run.summary.steps_completed + state.run.summary.steps_failed} étapes,
-            modèle <code>{state.run.decision.model_id}</code>.
+      <div className="row">
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          aria-label="Message à envoyer"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void launch();
+          }}
+        />
+        <button className="primary" onClick={() => void launch()} disabled={busy}>
+          {busy ? 'Run…' : 'Lancer le run'}
+        </button>
+      </div>
+      {busy && <Banner kind="loading" text="Inférence locale en cours…" />}
+      {error !== null && <Banner kind="error" text={error} />}
+      {run !== null && (
+        <>
+          <div className="cards">
+            <Card k="Run" v={<code>{run.run_id}</code>} />
+            <Card k="Statut" v={<StatusBadge status={run.status} />} />
+            <Card
+              k="Étapes"
+              v={`${run.summary.steps_completed}/${run.summary.steps_completed + run.summary.steps_failed}`}
+            />
+            <Card k="Événements journal" v={run.summary.total_events} />
+          </div>
+          <DecisionCards d={run.decision} />
+          <p className="hint">
+            Raison du routage : <code>{run.decision.reason}</code>
           </p>
-          <p>
-            Raison : <code>{state.run.decision.reason}</code>
-          </p>
-        </div>
-      )}
-      {state.kind !== 'done' && (
-        <div>
-          <p>Exemple hors-ligne (run <code>live-1</code>) :</p>
-          <ol>
-            {FIXTURE_EVENTS.map((e, i) => (
-              <li key={i}>
-                <code>{e.name}</code>
-              </li>
-            ))}
-          </ol>
-        </div>
+          <Answer text={run.answer} />
+        </>
       )}
     </section>
   );
@@ -139,8 +179,9 @@ function Plugins() {
 
   const shown = plugins ?? FIXTURE_PLUGINS;
   return (
-    <section>
+    <section className="panel">
       <h2>Plugin Explorer</h2>
+      <p className="hint">Capacités câblées dans le registre (quarantaine déjà appliquée).</p>
       {plugins === null && error === null && <Banner kind="loading" text="" />}
       {error !== null && <Banner kind="offline" text={error} />}
       <table>
@@ -160,7 +201,11 @@ function Plugins() {
               <td>
                 <code>{p.capability}</code>
               </td>
-              <td>{p.active ? 'oui' : 'non'}</td>
+              <td>
+                <span className={`badge ${p.active ? 'ok' : 'ko'}`}>
+                  {p.active ? 'oui' : 'non'}
+                </span>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -169,87 +214,100 @@ function Plugins() {
   );
 }
 
-function Router({ lastRun }: { lastRun: RunResponse | null }) {
+function RouterPanel({ lastRun }: { lastRun: RunResponse | null }) {
+  const d = lastRun?.decision ?? FIXTURE_DECISION;
   return (
-    <section>
+    <section className="panel">
       <h2>Router Dashboard</h2>
-      {lastRun === null ? (
-        <div>
-          <p>Aucun run cette session — exemple hors-ligne :</p>
-          <p>
-            Modèle : <code>{FIXTURE_DECISION.model_id}</code> (score{' '}
-            {FIXTURE_DECISION.score.toFixed(2)})
-          </p>
-          <p>
-            Raison : <code>{FIXTURE_DECISION.reason}</code>
-          </p>
-        </div>
-      ) : (
-        <div>
-          <p>
-            Run <code>{lastRun.run_id}</code> → modèle :{' '}
-            <code>{lastRun.decision.model_id}</code> (score {lastRun.decision.score.toFixed(2)})
-          </p>
-          <p>
-            Raison : <code>{lastRun.decision.reason}</code>
-          </p>
-        </div>
-      )}
+      <p className="hint">
+        Décision de routage : classifieur de tâche déterministe (zéro LLM) puis sélecteur
+        Pareto + préférence self-hosted (marge 0.05).
+      </p>
+      {lastRun === null && <Banner kind="offline" text="aucun run cette session — exemple" />}
+      <DecisionCards d={d} />
+      <div className="cards">
+        <Card k="Run" v={lastRun ? <code>{lastRun.run_id}</code> : '—'} />
+        <Card k="Tâche" v={<code>{d.reason.split(' ')[0]}</code>} />
+      </div>
+      <p className="hint">
+        Raison complète : <code>{d.reason}</code>
+      </p>
     </section>
   );
 }
 
 function Traces({ lastRun }: { lastRun: RunResponse | null }) {
-  const [runId, setRunId] = useState(lastRun?.run_id ?? 'live-1');
+  const [runId, setRunId] = useState(lastRun?.run_id ?? '');
   const [trace, setTrace] = useState<TraceResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (lastRun) setRunId(lastRun.run_id);
+  }, [lastRun]);
+
   async function load() {
-    setLoading(true);
+    if (runId.trim().length === 0) return;
+    setBusy(true);
     setError(null);
     try {
-      setTrace(await getTrace(runId));
+      setTrace(await getTrace(runId.trim()));
     } catch (e) {
       setTrace(null);
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   }
 
   return (
-    <section>
+    <section className="panel">
       <h2>Trace Viewer / Replay</h2>
-      <p>Séquence rejouée sans ré-exécuter (cf. `TraceReplayer`).</p>
-      <p>
-        <label>
-          Run :{' '}
-          <input value={runId} onChange={(e) => setRunId(e.target.value)} aria-label="Run à rejouer" />
-        </label>{' '}
-        <button onClick={() => void load()} disabled={loading}>
-          Rejouer
-        </button>
+      <p className="hint">
+        Rejoue un journal sans ré-exécuter les effets (preuve de traçabilité).
       </p>
-      {loading && <Banner kind="loading" text="" />}
-      {error !== null && <Banner kind="offline" text={error} />}
+      <div className="row">
+        <input
+          type="text"
+          value={runId}
+          placeholder="identifiant de run (ex. run-1)"
+          onChange={(e) => setRunId(e.target.value)}
+          aria-label="Run à rejouer"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void load();
+          }}
+        />
+        <button className="primary" onClick={() => void load()} disabled={busy}>
+          {busy ? '…' : 'Rejouer'}
+        </button>
+      </div>
+      {busy && <Banner kind="loading" text="" />}
+      {error !== null && <Banner kind="error" text={error} />}
       {trace !== null && (
-        <div>
-          <p>
-            {trace.summary.steps_completed}/{trace.summary.steps_completed + trace.summary.steps_failed}{' '}
-            étapes, {trace.summary.total_events} événements, issue{' '}
-            <code>{trace.replayed.outcome}</code>
-            {trace.replayed.outcome_conflict && ' (conflit : premier marqueur retenu)'}
-            {trace.replayed.ignored_events > 0 && ` (${trace.replayed.ignored_events} ignorés)`}
-          </p>
-          <ol>
+        <>
+          <div className="cards">
+            <Card k="Issue" v={<code>{trace.replayed.outcome}</code>} />
+            <Card
+              k="Étapes"
+              v={`${trace.summary.steps_completed}/${trace.summary.steps_completed + trace.summary.steps_failed}`}
+            />
+            <Card k="Événements" v={trace.summary.total_events} />
+            <Card k="Ignorés" v={trace.summary.ignored_events} />
+          </div>
+          {trace.replayed.outcome_conflict && (
+            <Banner kind="offline" text="double marqueur terminal — premier retenu" />
+          )}
+          <ol className="steps">
             {trace.replayed.steps.map((s) => (
               <li key={`${s.seq}-${s.operation_id}`}>
-                <code>{s.operation_id}</code> — {s.status} (seq {s.seq})
+                <span className="seq">#{s.seq}</span>
+                <code>{s.operation_id}</code>
+                <span className={`badge ${s.status === 'completed' ? 'ok' : 'ko'}`}>{s.status}</span>
               </li>
             ))}
           </ol>
-        </div>
+          <Answer text={trace.answer} />
+        </>
       )}
     </section>
   );
@@ -257,10 +315,20 @@ function Traces({ lastRun }: { lastRun: RunResponse | null }) {
 
 function Context() {
   return (
-    <section>
+    <section className="panel">
       <h2>Context Inspector</h2>
-      <p>Budget : estimation déterministe, coupes journalisées (`AssembleReport`).</p>
-      <p>Inspection live du budget par run : suivi prévu (endpoint dédié, incrément suivant).</p>
+      <p className="hint">
+        Économie de contexte : estimation déterministe (chars/4), budget avec coupes
+        journalisées, tool search BM25 + gate rarest-token, progressive disclosure des skills.
+      </p>
+      <div className="cards">
+        <Card k="Estimation tokens" v={<code>ceil(chars / 4)</code>} />
+        <Card k="Budget défaut" v={<code>8000</code>} />
+        <Card k="Contexte exigé" v={<code>4000</code>} />
+      </div>
+      <p className="hint">
+        Inspection live du contexte par run : endpoint dédié prévu (incrément suivant).
+      </p>
     </section>
   );
 }
@@ -268,22 +336,40 @@ function Context() {
 export default function App() {
   const [panel, setPanel] = useState<Panel>('cockpit');
   const [lastRun, setLastRun] = useState<RunResponse | null>(null);
-  const panels: Panel[] = ['cockpit', 'plugins', 'router', 'traces', 'context'];
+  const [online, setOnline] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getHealth()
+      .then(() => setOnline(true))
+      .catch(() => setOnline(false));
+  }, []);
+
+  const statusText =
+    online === null ? 'Connexion…' : online ? 'API en ligne' : 'API injoignable';
+
   return (
-    <main>
-      <h1>Omega Cockpit</h1>
-      <nav>
-        {panels.map((p) => (
-          <button key={p} onClick={() => setPanel(p)} aria-pressed={panel === p}>
-            {p}
+    <div className="app">
+      <header className="top">
+        <h1>
+          Omega <span>Cockpit</span>
+        </h1>
+        <div className="status" role="status">
+          <span className={`dot ${online === null ? '' : online ? 'online' : 'offline'}`} />
+          {statusText}
+        </div>
+      </header>
+      <nav className="tabs">
+        {PANELS.map((p) => (
+          <button key={p.id} onClick={() => setPanel(p.id)} aria-pressed={panel === p.id}>
+            {p.label}
           </button>
         ))}
       </nav>
       {panel === 'cockpit' && <Cockpit onRun={setLastRun} />}
       {panel === 'plugins' && <Plugins />}
-      {panel === 'router' && <Router lastRun={lastRun} />}
+      {panel === 'router' && <RouterPanel lastRun={lastRun} />}
       {panel === 'traces' && <Traces lastRun={lastRun} />}
       {panel === 'context' && <Context />}
-    </main>
+    </div>
   );
 }

@@ -35,6 +35,11 @@ pub struct ServerConfig {
     pub event_dir: PathBuf,
     /// Budget de contexte (tokens) du moteur d'assemblage.
     pub max_tokens: usize,
+    /// Repertoire de l'UI buildee (`omega/ui/dist`) servi sur `/`.
+    ///
+    /// `None` → API seule. Defaut : chemin de compilation `../../ui/dist`
+    /// (relatif a la crate), surchargeable par `OMEGA_UI_DIR`.
+    pub ui_dir: Option<PathBuf>,
 }
 
 impl Default for ServerConfig {
@@ -45,8 +50,15 @@ impl Default for ServerConfig {
             ollama_model: DEFAULT_OLLAMA_MODEL.to_string(),
             event_dir: std::env::temp_dir().join("omega-server"),
             max_tokens: DEFAULT_MAX_TOKENS,
+            ui_dir: Some(default_ui_dir()),
         }
     }
+}
+
+/// Repertoire par defaut de l'UI buildee, resolu a la compilation
+/// (`<crate>/../../ui/dist` == `omega/ui/dist`).
+pub fn default_ui_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ui/dist")
 }
 
 impl ServerConfig {
@@ -76,6 +88,14 @@ impl ServerConfig {
             if !dir.trim().is_empty() {
                 cfg.event_dir = PathBuf::from(dir);
             }
+        }
+        // `OMEGA_UI_DIR=""` (vide) desactive le service statique de l'UI.
+        if let Ok(dir) = std::env::var("OMEGA_UI_DIR") {
+            cfg.ui_dir = if dir.trim().is_empty() {
+                None
+            } else {
+                Some(PathBuf::from(dir))
+            };
         }
         cfg
     }

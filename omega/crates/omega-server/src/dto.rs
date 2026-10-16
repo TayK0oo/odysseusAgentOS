@@ -98,13 +98,16 @@ impl PluginEntry {
     }
 }
 
-/// Corps de `POST /api/run` (succes) : `summary` = `RunSummary` serialise.
+/// Corps de `POST /api/run` (succes) : `summary` = `RunSummary` serialise,
+/// `answer` = derniere reponse du modele relue dans le journal (`infer.completed`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RunResponse {
     pub run_id: String,
     pub status: RunStatus,
     pub decision: RouterDecision,
     pub summary: RunSummary,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub answer: Option<String>,
 }
 
 /// Corps de `GET /api/trace/:run_id` : journal rejoue + resume deterministe.
@@ -113,6 +116,8 @@ pub struct TraceResponse {
     pub run_id: String,
     pub replayed: ReplayedRun,
     pub summary: RunSummary,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub answer: Option<String>,
 }
 
 /// Corps d'erreur JSON (toujours versionne, pour l'UI).
@@ -235,6 +240,7 @@ mod tests {
             status: RunStatus::Ok,
             decision: RouterDecision::new("ollama/qwen2.5-coder:7b", 0.91, "task=T3 eligible=1"),
             summary,
+            answer: Some("bonjour".to_string()),
         };
         assert_eq!(round_trip(&resp), resp);
     }
@@ -249,6 +255,7 @@ mod tests {
             run_id: "run-x".to_string(),
             replayed,
             summary,
+            answer: None,
         };
         assert_eq!(round_trip(&resp), resp);
         assert_eq!(resp.summary.total_events, 0);

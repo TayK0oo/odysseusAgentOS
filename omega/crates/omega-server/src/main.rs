@@ -11,7 +11,7 @@
 
 use std::net::SocketAddr;
 
-use omega_server::{build_app_state_with, create_router, ServerConfig};
+use omega_server::{build_app_state_with, create_router_with_ui, ServerConfig};
 
 #[tokio::main]
 async fn main() {
@@ -23,6 +23,16 @@ async fn main() {
             std::process::exit(1);
         }
     };
+    let ui = cfg.ui_dir.clone();
+    match &ui {
+        Some(dir) if dir.is_dir() => println!("omega-server: UI servie depuis {}", dir.display()),
+        Some(dir) => eprintln!(
+            "omega-server: UI absente ({} introuvable) — API seule. \
+             Buildez-la : cd omega/ui && npm run build",
+            dir.display()
+        ),
+        None => println!("omega-server: service statique de l'UI desactive (OMEGA_UI_DIR vide)"),
+    }
     let addr = SocketAddr::from(([127, 0, 0, 1], cfg.port));
     let listener = match tokio::net::TcpListener::bind(addr).await {
         Ok(listener) => listener,
@@ -32,7 +42,7 @@ async fn main() {
         }
     };
     println!("omega-server: ecoute sur http://{addr}");
-    if let Err(err) = axum::serve(listener, create_router(state)).await {
+    if let Err(err) = axum::serve(listener, create_router_with_ui(state, ui)).await {
         eprintln!("omega-server: erreur de service : {err}");
         std::process::exit(1);
     }

@@ -441,6 +441,19 @@ impl Operation for InferOperation {
                 messages,
             })
             .await?;
+        // Réponse journalisée (event-sourced) : la sortie du modèle vit dans le
+        // journal durable, pas seulement dans l'état — l'UI la relit sans
+        // ré-exécuter l'inférence (traçabilité, W8).
+        ctx.publish(Event::new(
+            "infer.completed",
+            serde_json::json!({
+                "model": self.model.0.clone(),
+                "role": format!("{:?}", response.message.role).to_lowercase(),
+                "content": response.message.content.clone(),
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+            }),
+        ));
         ctx.state.0 = serde_json::to_value(response)
             .map_err(|e| OmegaError::Config(format!("sérialisation réponse : {e}")))?;
         Ok(())

@@ -62,6 +62,25 @@ ruff check . && pytest -q
 python3 docs/omega/research/loucash/enrich.py
 ```
 
+### Lancer le système complet (Rust + cockpit UI)
+
+```bash
+# Prerequis : Ollama en fond + le modele local
+ollama pull qwen2.5-coder:7b
+OLLAMA_NUM_CTX=32768 ollama serve     # contexte 32k (defaut Ollama = 4096)
+
+# Une seule commande : build UI + serveur, puis sert tout sur une origine
+omega/scripts/run-local.sh            # -> http://127.0.0.1:8787  (port 8787)
+omega/scripts/run-local.sh 9000       # port explicite
+```
+
+Le cockpit (React) et l'API (`/api/health|plugins|run|trace/:id`) sont servis par
+`omega-server` sur la même origine. Onglets : **Cockpit** (run local de bout en bout
++ réponse du modèle), **Plugins** (capacités du registre), **Router** (décision Pareto),
+**Traces** (rejeu d'un journal sans ré-exécuter), **Contexte** (budget/estimation).
+
+Repli sans Ollama : `cd omega && cargo run -p omega-app --example live_ollama`.
+
 ## 5. Conventions (résumé — détail dans RULES-OMEGA.md)
 
 - **Commits :** Conventional Commits (`feat|fix|docs|refactor|chore|test(scope): …`).

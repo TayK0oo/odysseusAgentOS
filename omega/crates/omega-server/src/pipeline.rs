@@ -11,7 +11,9 @@ use omega_ports::EventStore;
 use omega_providers::local_record;
 use omega_router::selector::ParetoSelector;
 use omega_router::{CompositeScoringPolicy, HeuristicTaskClassifier, TaskClassifier};
-use omega_types::{Capabilities, Message, ModelId, OmegaError, OmegaResult, RoutingRequest};
+use omega_types::{
+    Capabilities, DurableEvent, Message, ModelId, OmegaError, OmegaResult, RoutingRequest,
+};
 
 use crate::config::REQUIRED_CONTEXT;
 use crate::dto::RunResponse;
@@ -22,6 +24,20 @@ use crate::state::AppState;
 /// provider (`ollama/<modèle>`) pour que la décision réfère l'inférence réelle.
 pub fn local_candidate(model: &str) -> omega_types::ModelRecord {
     local_record(model, Some(32768))
+}
+
+/// Dernière réponse de modèle lue dans le journal (`infer.completed`).
+///
+/// La sortie du modèle est un événement durable (W8) : l'UI la restitue **sans
+/// ré-exécuter** l'inférence. `None` si le run n'a pas d'inférence aboutie.
+pub fn last_answer(journal: &[DurableEvent]) -> Option<String> {
+    journal
+        .iter()
+        .rev()
+        .find(|e| e.name == "infer.completed")
+        .and_then(|e| e.payload.get("content"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
 }
 
 /// Execute un run complet et retourne la reponse d'API.
@@ -65,8 +81,9 @@ pub async fn execute_run(
     }
     let outcome = app.run(input).await?;
 
-    // 4. Preuve par le journal : resume rejoue (deterministe).
+    // 4. Preuve par le journal : resume rejoue (deterministe) + reponse du modele.
     let journal = state.store.read_run(&outcome.run_id)?;
+    let answer = last_answer(&journal);
     let summary = TraceReplayer::summarize(&outcome.run_id, journal);
 
     Ok(RunResponse {
@@ -74,6 +91,7 @@ pub async fn execute_run(
         status: outcome.status,
         decision,
         summary,
+        answer,
     })
 }
 
@@ -229,5 +247,21 @@ pub mod tests {
         let (state, _) = test_state("pipeline-empty");
         let err = execute_run(&state, vec![], None).await.unwrap_err();
         assert!(matches!(err, OmegaError::Config(_)));
+    }
+
+    #[tokio::test]
+    async fn pipeline_exposes_model_answer_from_journal() {
+        // La reponse du modele vient du journal (`infer.completed`), pas d'un
+        // etat cache : l'UI la restitue sans re-executer l'inference (W8).
+        let (state, _) = test_state("pipeline-answer");
+        let messages = vec![Message::new(omega_types::Role::User, "bonjour")];
+        let resp = execute_run(&state, messages, Some("ans-1".to_string()))
+            .await
+            .unwrap();
+        let answer = resp.answer.expect("reponse presente dans le journal");
+        assert!(answer.starts_with("echo:"), "{answer}");
+        // Le journal contient bien l'evenement dedie.
+        let journal = state.store.read_run("ans-1").unwrap();
+        assert!(journal.iter().any(|e| e.name == "infer.completed"));
     }
 }
