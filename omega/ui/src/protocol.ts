@@ -119,3 +119,135 @@ export interface ApiErrorBody {
   schema_version: number;
   error: string;
 }
+
+/* --- Miroirs de `omega-server::system` (W7 inc4) -------------------------- */
+
+export interface CrateInfo {
+  name: string;
+  layer: number;
+  role: string;
+  deps: string[];
+}
+
+export interface CapabilityInfo {
+  name: string;
+  regime: 'slot' | 'ensemble';
+  active: string[];
+}
+
+export interface OllamaInfo {
+  base_url: string;
+  model: string;
+}
+
+export interface SystemCounts {
+  crates: number;
+  capabilities: number;
+  capabilities_wired: number;
+}
+
+export interface SystemResponse {
+  schema_version: number;
+  crates: CrateInfo[];
+  capabilities: CapabilityInfo[];
+  counts: SystemCounts;
+  ollama: OllamaInfo;
+}
+
+export interface RawModel {
+  id: string;
+  provider: string;
+  context_length?: number | null;
+}
+
+export interface QualityAxes {
+  reasoning: number;
+  code: number;
+  agentic: number;
+  knowledge: number;
+  chat: number;
+  vision: number;
+}
+
+export interface Capabilities {
+  function_calling: boolean;
+  multimodal: boolean;
+  structured_output: boolean;
+  reasoning: boolean;
+}
+
+export interface ModelRecord {
+  id: string;
+  provider: string;
+  context_length: number;
+  cost_input_per_1m: number;
+  cost_output_per_1m: number;
+  tokens_per_second: number;
+  ttft_ms: number;
+  axes: QualityAxes;
+  capabilities: Capabilities;
+  tier: 'FastCheap' | 'Standard' | 'Elite' | 'SelfHosted';
+}
+
+export interface ModelsResponse {
+  schema_version: number;
+  installed: RawModel[];
+  record: ModelRecord;
+}
+
+export interface ClassifyResponse {
+  schema_version: number;
+  task: string;
+  task_code: string;
+  weights: Record<string, number>;
+}
+
+export interface RunEntry {
+  run_id: string;
+  events: number;
+  steps_completed: number;
+  steps_failed: number;
+  outcome: 'completed' | 'failed' | 'unknown';
+}
+
+export interface RunsResponse {
+  schema_version: number;
+  runs: RunEntry[];
+}
+
+export interface PolicyRule {
+  prefix: string;
+  decision: 'allow' | 'prompt' | 'forbidden';
+  reason?: string | null;
+}
+
+export interface PolicyResponse {
+  schema_version: number;
+  strict: boolean;
+  rules: PolicyRule[];
+  default: string;
+  note: string;
+}
+
+export interface EvaluateResponse {
+  schema_version: number;
+  command: string;
+  decision: string;
+  reason?: string | null;
+  compound: boolean;
+  substitution: boolean;
+  effective: string;
+}
+
+export interface ContextSample {
+  chars: number;
+  tokens: number;
+}
+
+export interface ContextResponse {
+  schema_version: number;
+  estimator: string;
+  max_tokens: number;
+  required_context: number;
+  sample: ContextSample[];
+}

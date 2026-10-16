@@ -209,6 +209,8 @@ pub mod tests {
                 app: Arc::new(app),
                 store: store.clone(),
                 model: "test-model".to_string(),
+                ollama_url: "http://localhost:11434".to_string(),
+                max_tokens: 8000,
             },
             store,
         )

@@ -161,6 +161,16 @@ impl RuleBasedExecPolicy {
         self.strict
     }
 
+    /// Règles ordonnées (inspection/tests).
+    pub fn rules(&self) -> &[ExecRule] {
+        &self.rules
+    }
+
+    /// Décision par défaut (aucune règle ne matche).
+    pub fn default_decision(&self) -> ExecDecision {
+        self.default.clone()
+    }
+
     /// Évalue une commande : en mode strict, toute substitution donne
     /// `Forbidden` ; sinon première règle dont le préfixe matche (nom de
     /// commande normalisé en minuscules), sinon défaut.

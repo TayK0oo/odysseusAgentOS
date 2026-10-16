@@ -1,16 +1,22 @@
 /**
- * Client HTTP de l'API `omega-server` (W7 inc2).
- * Même origine (`/api/...`, proxy Vite vers `localhost:8787` en dev) ;
- * toute erreur réseau/HTTP remonte en exception → l'appelant bascule sur
- * les fixtures hors-ligne (`App.tsx`).
+ * Client HTTP de l'API `omega-server`.
+ * Même origine (`/api/...`) : en production l'UI est servie par le serveur ;
+ * en dev, Vite proxifie vers `localhost:8787`. Toute erreur remonte en exception.
  */
 
 import { SCHEMA_VERSION } from './protocol';
 import type {
+  ClassifyResponse,
+  ContextResponse,
+  EvaluateResponse,
   HealthResponse,
   Message,
+  ModelsResponse,
   PluginInfo,
+  PolicyResponse,
+  RunsResponse,
   RunResponse,
+  SystemResponse,
   TraceResponse,
 } from './protocol';
 
@@ -25,30 +31,37 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const body = await res.text().catch(() => '');
     throw new Error(`API ${res.status} (${url}) : ${body.slice(0, 200)}`);
   }
-  const data = (await res.json()) as T;
-  return data;
+  return (await res.json()) as T;
 }
 
-export function getHealth(): Promise<HealthResponse> {
-  return fetchJson<HealthResponse>('/api/health');
-}
-
-export function getPlugins(): Promise<PluginInfo[]> {
-  return fetchJson<PluginInfo[]>('/api/plugins');
-}
-
-export function postRun(messages: Message[], runId?: string): Promise<RunResponse> {
-  return fetchJson<RunResponse>('/api/run', {
+function postJson<T>(url: string, payload: unknown): Promise<T> {
+  return fetchJson<T>(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      schema_version: SCHEMA_VERSION,
-      messages,
-      run_id: runId ?? null,
-    }),
+    body: JSON.stringify(payload),
   });
 }
 
-export function getTrace(runId: string): Promise<TraceResponse> {
-  return fetchJson<TraceResponse>(`/api/trace/${encodeURIComponent(runId)}`);
-}
+export const getHealth = () => fetchJson<HealthResponse>('/api/health');
+export const getPlugins = () => fetchJson<PluginInfo[]>('/api/plugins');
+export const getSystem = () => fetchJson<SystemResponse>('/api/system');
+export const getModels = () => fetchJson<ModelsResponse>('/api/models');
+export const getRuns = () => fetchJson<RunsResponse>('/api/runs');
+export const getPolicy = () => fetchJson<PolicyResponse>('/api/policy');
+export const getContext = () => fetchJson<ContextResponse>('/api/context');
+
+export const postRun = (messages: Message[], runId?: string) =>
+  postJson<RunResponse>('/api/run', {
+    schema_version: SCHEMA_VERSION,
+    messages,
+    run_id: runId ?? null,
+  });
+
+export const postClassify = (text: string) =>
+  postJson<ClassifyResponse>('/api/classify', { text });
+
+export const postEvaluate = (command: string) =>
+  postJson<EvaluateResponse>('/api/policy/evaluate', { command });
+
+export const getTrace = (runId: string) =>
+  fetchJson<TraceResponse>(`/api/trace/${encodeURIComponent(runId)}`);

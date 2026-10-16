@@ -321,3 +321,86 @@ ol.steps li .seq {
   font-family: var(--mono);
   font-size: 12px;
 }
+
+/* --- Extensions W7 inc4 --------------------------------------------------- */
+
+h3 {
+  font-size: 14px;
+  margin: 20px 0 8px;
+  color: var(--text);
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.chip.ok {
+  color: var(--accent-2);
+  border-color: #2c5f4c;
+}
+
+.chip.warn {
+  color: var(--warn);
+  border-color: #5a4d27;
+}
+
+.chip.ko {
+  color: var(--err);
+  border-color: #5a2733;
+}
+
+tr.dim td {
+  opacity: 0.55;
+}
+
+ul.layers,
+ul.axes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+ul.layers li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+ul.layers li code {
+  color: var(--accent);
+  min-width: 150px;
+}
+
+ul.axes li {
+  display: grid;
+  grid-template-columns: 110px 1fr 56px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+button.link {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+  padding: 0;
+}

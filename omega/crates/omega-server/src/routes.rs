@@ -27,7 +27,7 @@ use crate::state::AppState;
 
 /// Toutes les capacites exposees par `GET /api/plugins`, dans un ordre stable
 /// (l'ordre de priorite intra-capacite vient d'`App::active_ids`).
-const ALL_CAPABILITIES: &[Capability] = &[
+pub(crate) const ALL_CAPABILITIES: &[Capability] = &[
     Capability::LlmProvider,
     Capability::CatalogSource,
     Capability::ModelRegistry,
@@ -63,14 +63,14 @@ pub struct ApiError {
 }
 
 impl ApiError {
-    fn bad_request(msg: String) -> Self {
+    pub(crate) fn bad_request(msg: String) -> Self {
         Self {
             status: StatusCode::BAD_REQUEST,
             body: ApiErrorBody::new(msg),
         }
     }
 
-    fn from_domain(err: OmegaError) -> Self {
+    pub(crate) fn from_domain(err: OmegaError) -> Self {
         let status = match &err {
             OmegaError::Io(_) => StatusCode::BAD_GATEWAY,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
@@ -79,6 +79,12 @@ impl ApiError {
             status,
             body: ApiErrorBody::new(err.to_string()),
         }
+    }
+
+    /// Statut HTTP (inspection/tests).
+    #[cfg(test)]
+    pub(crate) fn status(&self) -> StatusCode {
+        self.status
     }
 }
 
@@ -118,6 +124,15 @@ fn api_router(state: AppState) -> Router {
         .route("/api/plugins", get(plugins))
         .route("/api/run", post(run))
         .route("/api/trace/:run_id", get(trace))
+        // W7 inc4 : inspection du système (architecture, modèles, classifieur,
+        // runs, politique, contexte).
+        .route("/api/system", get(crate::system::system))
+        .route("/api/models", get(crate::system::models))
+        .route("/api/classify", post(crate::system::classify))
+        .route("/api/runs", get(crate::system::runs))
+        .route("/api/policy", get(crate::system::policy))
+        .route("/api/policy/evaluate", post(crate::system::evaluate))
+        .route("/api/context", get(crate::system::context))
         .with_state(Arc::new(state))
 }
 

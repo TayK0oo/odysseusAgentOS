@@ -18,6 +18,7 @@ omega-context = { workspace = true }
 omega-otel = { workspace = true }
 omega-router = { path = "../omega-router" }
 omega-providers = { path = "../omega-providers" }
+omega-sandbox = { path = "../omega-sandbox" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 async-trait = { workspace = true }

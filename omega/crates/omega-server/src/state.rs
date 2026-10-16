@@ -26,6 +26,10 @@ pub struct AppState {
     pub store: Arc<FileEventStore>,
     /// Nom du modele local (candidat de selection + inference).
     pub model: String,
+    /// URL de base d'Ollama (catalogue `/api/tags`).
+    pub ollama_url: String,
+    /// Budget de contexte (tokens) du moteur d'assemblage.
+    pub max_tokens: usize,
 }
 
 /// Contributeur `llm-provider` : expose l'`OllamaProvider` au registre.
@@ -94,6 +98,8 @@ pub fn build_app_state_with(cfg: &ServerConfig) -> OmegaResult<AppState> {
         app: Arc::new(app),
         store,
         model: cfg.ollama_model.clone(),
+        ollama_url: cfg.ollama_base_url.clone(),
+        max_tokens: cfg.max_tokens,
     })
 }
 

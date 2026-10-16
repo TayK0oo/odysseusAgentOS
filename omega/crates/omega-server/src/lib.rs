@@ -20,6 +20,7 @@ mod dto;
 mod pipeline;
 mod routes;
 mod state;
+mod system;
 
 pub use config::ServerConfig;
 pub use dto::{
