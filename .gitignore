@@ -108,3 +108,6 @@ compound.config.json
 *.error.log
 _scratch/
 /odysseus/
+
+# corpus TikTok : audio hors depot, transcriptions versionnees
+!docs/omega/research/loucash/transcripts.json
