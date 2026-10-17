@@ -37,6 +37,16 @@ D. Combine unifie       omega_complet.py      une seule feuille de route pour Om
 - Limites constatees (non contournees) : `resource_constraint` sur les depots
   tres volumineux (Void, Qwen Code, OpenClaw), pas de Ghidra/Hopper/IDA, pas de
   navigateur (CDP requis pour `analyze-web-bundle`).
+- **Limite majeure, constatee sur le terrain** : REA n'a **pas d'analyseur de
+  source Python/Rust/Go**. Sur ces depots, `analyze` retombe sur
+  `rea-javascript-application` (il ne voit que le JS incident) : le graphe est
+  minuscule (`graph_nodes: 3`) et `confidence: derived`. **La preuve machine ne
+  corrobore donc que le clonage, les etoiles, le langage et la licence** — tout le
+  fond technique vient de la lecture du clone (`fichier:ligne`). Les dissections
+  doivent le declarer explicitement (c'est fait pour gpt-engineer, CrewAI,
+  MetaGPT, LangGraph, GPT Pilot, Tabby). REA reste **pleinement probant sur le
+  JS/TS** (Gemini CLI, Continue, Kilo Code, AgentGPT, OpenCode, Cline) et sur les
+  binaires ELF (`pwntools-elf`, `confidence: observed`).
 
 ## C. Dissection — un agent par harnais
 
