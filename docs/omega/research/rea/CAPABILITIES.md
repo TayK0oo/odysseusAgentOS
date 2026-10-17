@@ -33,11 +33,24 @@ ne les embarque pas et **n'installe jamais** rien lui-même.
 | **WASM** | **wabt** (`wasm2wat`) | ✅ | `REA_WABT_BIN_DIRECTORY` |
 | **Signaux logiques** | **sigrok-cli** | ✅ | `REA_SIGROK_COMMAND` |
 | **Interception réseau** | **mitmdump** | ✅ | `REA_MITMDUMP_COMMAND` |
+| **Déobfuscation JavaScript** | **wakaru 1.14.0** | ✅ | `REA_WAKARU_COMMAND` |
+| **Android via MCP** | **jadx-ai-mcp 6.4.1** (jar) | ✅ | `REA_JADX_MCP_JAR` |
 
-**Résultat mesurable** : `rea providers` est passé de **4 providers** (dont 1
-inutilisable) à **5 providers**, dont **Ghidra avec 21 groupes d'opérations
-disponibles** — c'est-à-dire la décompilation et l'analyse de fonctions sur
-**n'importe quel binaire**, y compris notre moteur Rust.
+**Résultat mesurable** — `rea providers` liste maintenant **7 providers** :
+
+| Provider | État |
+|---|---|
+| `ghidra` | ✅ **available** (21 groupes d'ops) |
+| `rea-artifact-graph` | ✅ available (5 ops) |
+| `rea-dotnet-static` | ✅ available (3 ops) |
+| `sqlite` | ✅ available |
+| `native-macos` | ⛔ `unsupported_host` (pas macOS) |
+| `hopper` | ⛔ unavailable (payant) |
+| `ida` | ⛔ unavailable (payant) |
+
+**Preuve d'analyse profonde** (notre propre binaire Rust, provider `rea-workflow`) :
+**1 458 procédures**, **2 668 chaînes**, 44 segments, `image_base 0x100000` —
+conservée dans `docs/omega/research/rea/evidence/ghidra-omega-crate-elf.summary.json`.
 
 ## 3. Ce qui reste **impossible** (et pourquoi)
 
