@@ -2,7 +2,7 @@
 
 **Milestone:** v0.2 — NOYAU Phase A→D
 **Created:** 2026-10-17
-**Status:** In Progress
+**Status:** Complete
 
 ## Phase 1: NOYAU Phase A — squelette ✅
 
@@ -24,7 +24,9 @@
 **Goal:** Provider externe de sous-agents (Claude Code/Codex/ACP) + marketplace/atelier de plugins.
 **Depends on:** Phase 3
 
-## Phase 5: Fermeture des 3 trous
+## Phase 5: Fermeture des 3 trous ✅
 
 **Goal:** Ingérer les 3 fichiers modèles hors dépôt, MEMORY auto-généré, INDEX racine régénérable.
 **Depends on:** Phase 1
+
+## All phases complete! Milestone v0.2 done.
