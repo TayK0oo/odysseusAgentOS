@@ -1,0 +1,24 @@
+{
+  "id": "gpt-pilot",
+  "name": "GPT Pilot",
+  "repo": "Pythagora-io/gpt-pilot",
+  "stars": 33654,
+  "language": "Python",
+  "license": "NOASSERTION",
+  "nature": "python",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_1bd564912823baa1484147b7be3bdb5bb94693f93881b52c19a374faa6fd5e13",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "f8fd746dda5f05d7d5bfcd432bc981359817f58f03c7c46d44b84dd4f328126c"
+  },
+  "counts": {
+    "graph_nodes": 614,
+    "graph_edges": 784
+  },
+  "limitations_count": 7
+}

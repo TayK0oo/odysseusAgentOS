@@ -1,0 +1,24 @@
+{
+  "id": "langgraph",
+  "name": "LangGraph",
+  "repo": "langchain-ai/langgraph",
+  "stars": 43380,
+  "language": "Python",
+  "license": "MIT",
+  "nature": "other",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_8abbd5145b340eddcaac9d33362587b0cfc0cc017c222890b25cb62e8a56a3db",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "9295666e70a671f5681f3b3e52648400fc66b6f3060522579ea6a22d29cd1bfc"
+  },
+  "counts": {
+    "graph_nodes": 89,
+    "graph_edges": 109
+  },
+  "limitations_count": 6
+}

@@ -1,0 +1,24 @@
+{
+  "id": "metagpt",
+  "name": "MetaGPT",
+  "repo": "geekan/MetaGPT",
+  "stars": 70887,
+  "language": "Python",
+  "license": "MIT",
+  "nature": "python",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_f9dc49e5c2c417c4655a654920d786ed112e051091828090741bb3f5648c82d9",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "3265af9eb1077f3ab7e3d397e1434743b1c3c7a718679d8f47dfb936e4b5b819"
+  },
+  "counts": {
+    "graph_nodes": 249,
+    "graph_edges": 325
+  },
+  "limitations_count": 7
+}

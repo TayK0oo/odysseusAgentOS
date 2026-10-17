@@ -1,0 +1,24 @@
+{
+  "id": "crush",
+  "name": "Crush",
+  "repo": "charmbracelet/crush",
+  "stars": 28674,
+  "language": "Go",
+  "license": "NOASSERTION",
+  "nature": "go",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_9001047720c19566671aac242ac0c757e35243c01d9261f851a25d55c54c1bdb",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "cdd7a9828450eda5516396cc69e5cc29f07032cd950e0c3af409287b8a969c63"
+  },
+  "counts": {
+    "graph_nodes": 15,
+    "graph_edges": 15
+  },
+  "limitations_count": 8
+}

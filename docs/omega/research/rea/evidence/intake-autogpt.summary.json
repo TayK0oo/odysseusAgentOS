@@ -1,0 +1,24 @@
+{
+  "id": "autogpt",
+  "name": "AutoGPT",
+  "repo": "Significant-Gravitas/AutoGPT",
+  "stars": 187614,
+  "language": "Python",
+  "license": "NOASSERTION",
+  "nature": "other",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_7f447ff1df9072a3b2bcb2c62dfc12945475275fd123c19d2b177c08c562615b",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "f49048b56ea2253ba1fb67700271b82a86408af7a7ee1fd970a053a655eaa8d0"
+  },
+  "counts": {
+    "graph_nodes": 14136,
+    "graph_edges": 15594
+  },
+  "limitations_count": 6294
+}

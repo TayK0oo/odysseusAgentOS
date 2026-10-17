@@ -1,0 +1,14 @@
+{
+  "id": "qwen-code",
+  "name": "Qwen Code",
+  "repo": "QwenLM/qwen-code",
+  "stars": 28528,
+  "language": "TypeScript",
+  "license": "Apache-2.0",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "unavailable",
+  "code": "resource_constraint",
+  "message": "The parent's result capacity was exhausted after retaining static facts for packages/live-host/src/preload/audio-engine.ts; remaining sources were not analyzed"
+}

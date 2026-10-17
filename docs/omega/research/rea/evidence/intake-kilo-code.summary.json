@@ -1,0 +1,24 @@
+{
+  "id": "kilo-code",
+  "name": "Kilo Code",
+  "repo": "Kilo-Org/kilocode",
+  "stars": 27627,
+  "language": "TypeScript",
+  "license": "MIT",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_1d445d65dad83b6b19f2d566af78a39f3db74814c24e45df136a1108c0532da5",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "8b13d032cbe4f3daf77e1c678acdebb59c7d5ae0c7d14acb3b053474544073a3"
+  },
+  "counts": {
+    "graph_nodes": 24843,
+    "graph_edges": 26397
+  },
+  "limitations_count": 11687
+}

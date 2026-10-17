@@ -1,0 +1,24 @@
+{
+  "id": "gpt-engineer",
+  "name": "GPT Engineer",
+  "repo": "AntonOsika/gpt-engineer",
+  "stars": 55024,
+  "language": "Python",
+  "license": "MIT",
+  "nature": "python",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_18307aac2fe0fd68dbcc088c75af9262b799510742b8f4f9281b0374aefdbb02",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "cc3ea3a89a370f79b2fbd4863abc42daee4b6ff82a35ef6d598828593615e40c"
+  },
+  "counts": {
+    "graph_nodes": 3,
+    "graph_edges": 2
+  },
+  "limitations_count": 5
+}
