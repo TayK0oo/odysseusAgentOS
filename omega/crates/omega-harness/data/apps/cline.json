@@ -332,7 +332,10 @@
       ],
       "rust_cost": "L",
       "status": "rejected",
-      "what": "Backend SaaS (auth, sessions distantes, dashboard) : dependance operateur incompatible avec l'exigence self-hosted d'Omega."
+      "what": "Backend SaaS (auth, sessions distantes, dashboard) : dependance operateur incompatible avec l'exigence self-hosted d'Omega.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null
     }
   ]
 }

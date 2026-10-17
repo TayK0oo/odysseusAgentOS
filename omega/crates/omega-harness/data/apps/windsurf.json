@@ -269,7 +269,10 @@
       ],
       "rust_cost": "M",
       "status": "rejected",
-      "what": "Routage multi-modèles facturé en crédits propriétaires avec multiplicateurs par modèle et effort (rejeté : monnaie SaaS)."
+      "what": "Routage multi-modèles facturé en crédits propriétaires avec multiplicateurs par modèle et effort (rejeté : monnaie SaaS).",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null
     }
   ]
 }

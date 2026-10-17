@@ -310,7 +310,10 @@
       ],
       "rust_cost": "S",
       "status": "rejected",
-      "what": "Mesure d'usage et télémétrie centralisees chez l'editeur, couplées a la facturation."
+      "what": "Mesure d'usage et télémétrie centralisees chez l'editeur, couplées a la facturation.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null
     }
   ]
 }

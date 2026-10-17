@@ -205,7 +205,9 @@
       ],
       "rust_cost": "S",
       "status": "adopted",
-      "what": "Deux niveaux de cibles de tracing pour controler ce qui est exportable (sans PII) vs journalise localement."
+      "what": "Deux niveaux de cibles de tracing pour controler ce qui est exportable (sans PII) vs journalise localement.",
+      "omega_capability": null,
+      "omega_port": null
     },
     {
       "domain": "observabilite",

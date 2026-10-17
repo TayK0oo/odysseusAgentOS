@@ -354,7 +354,8 @@
       ],
       "rust_cost": "S",
       "status": "rejected",
-      "what": "Aucune capacite computer-use (controle d'ecran/souris) : l'execution reste shell + fichiers + patch."
+      "what": "Aucune capacite computer-use (controle d'ecran/souris) : l'execution reste shell + fichiers + patch.",
+      "omega_adapter": null
     }
   ]
 }
