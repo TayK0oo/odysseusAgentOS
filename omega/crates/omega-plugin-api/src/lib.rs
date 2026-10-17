@@ -11,7 +11,7 @@
 
 use std::sync::Arc;
 
-use omega_registry::{Manifest, Registry, RegistryBuilder};
+use omega_registry::{Manifest, Registration, Registry, RegistryBuilder};
 use omega_types::{Capability, OmegaError, OmegaResult};
 
 /// Contexte d'installation : configuration effective disponible a l'instantiation.
@@ -52,7 +52,7 @@ pub fn install<F: PluginFactory>(
     factory: &F,
     builder: &mut RegistryBuilder,
     ctx: &InstallContext,
-) -> OmegaResult<()> {
+) -> OmegaResult<Registration> {
     let manifest = factory.manifest();
     let instance = factory.instantiate(ctx)?;
     builder.register_typed::<F::Instance>(manifest, instance)
@@ -77,7 +77,7 @@ impl<F: PluginFactory> Contributor for FactoryContributor<F> {
     }
 
     fn contribute(&self, builder: &mut RegistryBuilder, ctx: &InstallContext) -> OmegaResult<()> {
-        install(&self.factory, builder, ctx)
+        install(&self.factory, builder, ctx).map(|_| ())
     }
 }
 

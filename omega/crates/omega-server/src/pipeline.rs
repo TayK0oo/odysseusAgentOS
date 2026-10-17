@@ -165,6 +165,7 @@ pub mod tests {
                 Manifest::new("stub", Capability::LlmProvider, "1"),
                 self.provider.clone(),
             )
+            .map(|_| ())
         }
     }
 
@@ -186,6 +187,7 @@ pub mod tests {
                 Manifest::new("stub-file", Capability::EventStore, "1"),
                 self.store.clone(),
             )
+            .map(|_| ())
         }
     }
 

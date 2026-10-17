@@ -90,6 +90,39 @@ impl LayeredConfig {
     pub fn get(&self, key: &str) -> Option<Value> {
         self.merged().get(key).cloned()
     }
+
+    /// Provenance d'une valeur : la couche (la plus haute en precedence) qui la fournit.
+    /// Règle n°2 du noyau : toute valeur de config vient d'une couche identifiable.
+    pub fn source_of(&self, key: &str) -> Option<ConfigLayerSource> {
+        let mut ordered = self.layers.clone();
+        ordered.sort_by_key(|l| l.source.precedence());
+        let mut found: Option<ConfigLayerSource> = None;
+        for layer in ordered {
+            if layer.values.contains_key(key) || has_nested(&layer.values, key) {
+                found = Some(layer.source);
+            }
+        }
+        found
+    }
+
+    /// Valeur effective + sa couche d'origine (provenance).
+    pub fn get_with_provenance(&self, key: &str) -> Option<(Value, ConfigLayerSource)> {
+        self.get(key).map(|v| (v, self.source_of(key).unwrap_or(ConfigLayerSource::Defaults)))
+    }
+}
+
+/// Indique si une table contient (recursivement) la cle `a.b.c`.
+fn has_nested(map: &serde_json::Map<String, Value>, key: &str) -> bool {
+    let mut cursor = map;
+    let mut segs = key.split('.').peekable();
+    while let Some(seg) = segs.next() {
+        match cursor.get(seg) {
+            Some(Value::Object(m)) if segs.peek().is_some() => cursor = m,
+            Some(_) => return true,
+            None => return false,
+        }
+    }
+    true
 }
 
 #[cfg(test)]
@@ -128,5 +161,16 @@ mod tests {
         // insere dans l'ordre inverse de la precedence : le resultat doit rester identique
         let cfg = LayeredConfig::new().with(a).with(b);
         assert_eq!(cfg.get("x"), Some(json!(1)));
+    }
+
+    #[test]
+    fn provenance_reports_originating_layer() {
+        let cfg = LayeredConfig::new()
+            .with(ConfigLayer::new(ConfigLayerSource::User).set("model", json!("cheap")))
+            .with(ConfigLayer::new(ConfigLayerSource::Project).set("model", json!("standard")));
+        assert_eq!(cfg.source_of("model"), Some(ConfigLayerSource::Project));
+        let (v, src) = cfg.get_with_provenance("model").unwrap();
+        assert_eq!(v, json!("standard"));
+        assert_eq!(src, ConfigLayerSource::Project);
     }
 }

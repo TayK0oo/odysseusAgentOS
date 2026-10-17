@@ -561,7 +561,7 @@ mod tests {
             builder: &mut RegistryBuilder,
             _ctx: &InstallContext,
         ) -> OmegaResult<()> {
-            builder.register_dyn(self.manifest.clone(), self.provider.clone())
+            builder.register_dyn(self.manifest.clone(), self.provider.clone()).map(|_| ())
         }
     }
 
@@ -580,7 +580,7 @@ mod tests {
             builder: &mut RegistryBuilder,
             _ctx: &InstallContext,
         ) -> OmegaResult<()> {
-            builder.register_dyn(self.manifest.clone(), self.engine.clone())
+            builder.register_dyn(self.manifest.clone(), self.engine.clone()).map(|_| ())
         }
     }
 
@@ -602,6 +602,7 @@ mod tests {
                 Manifest::new("store", Capability::EventStore, "1"),
                 self.store.clone(),
             )
+            .map(|_| ())
         }
     }
 

@@ -613,7 +613,7 @@ impl Contributor for McpContributor {
             Arc::new(McpToolSurface::new(self.spec.clone()).with_prefix(self.prefix.clone()));
         let manifest =
             Manifest::new(surface.name(), Capability::ToolSurface, "1").with_priority(10);
-        builder.register_typed::<McpToolSurface>(manifest, surface)
+        builder.register_typed::<McpToolSurface>(manifest, surface).map(|_| ())
     }
 }
 

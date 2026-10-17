@@ -80,6 +80,24 @@ struct TraitEntry {
     quarantined: bool,
 }
 
+/// Handle retourné par une inscription : permet de **défaire** l'inscription
+/// (effet réversible — règle n°1 du noyau, DeepSeek Harness `ctx.effect`).
+///
+/// `dispose` retire l'entrée `(capability, id)` du registre ; `Drop` ne fait
+/// rien d'automatique (le registre doit être mutable pour désinscrire).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Registration {
+    pub capability: Capability,
+    pub id: String,
+}
+
+impl Registration {
+    /// Défait l'inscription associée dans `registry`.
+    pub fn dispose(self, registry: &mut Registry) {
+        registry.unregister(self.capability, &self.id);
+    }
+}
+
 /// Registre de capacites, immuable en usage, construit par [`RegistryBuilder`].
 #[derive(Default)]
 pub struct Registry {
@@ -161,9 +179,14 @@ impl Registry {
         &mut self,
         manifest: Manifest,
         instance: Arc<dyn Any + Send + Sync>,
-    ) -> OmegaResult<()> {
+    ) -> OmegaResult<Registration> {
         let expected = Any::type_id(&*instance);
-        self.register_inner(manifest, instance, expected)
+        let reg = Registration {
+            capability: manifest.capability,
+            id: manifest.id.clone(),
+        };
+        self.register_inner(manifest, instance, expected)?;
+        Ok(reg)
     }
 
     /// Enregistre une implementation en fixant le type attendu a `TypeId::of::<T>()`.
@@ -174,10 +197,15 @@ impl Registry {
         &mut self,
         manifest: Manifest,
         instance: Arc<T>,
-    ) -> OmegaResult<()> {
+    ) -> OmegaResult<Registration> {
         let expected = TypeId::of::<T>();
+        let reg = Registration {
+            capability: manifest.capability,
+            id: manifest.id.clone(),
+        };
         let any_instance: Arc<dyn Any + Send + Sync> = instance;
-        self.register_inner(manifest, any_instance, expected)
+        self.register_inner(manifest, any_instance, expected)?;
+        Ok(reg)
     }
 
     /// Enregistre un **trait object** (`Arc<dyn Trait>`) pour une capacite.
@@ -190,8 +218,12 @@ impl Registry {
         &mut self,
         manifest: Manifest,
         instance: Arc<T>,
-    ) -> OmegaResult<()> {
+    ) -> OmegaResult<Registration> {
         let cap = manifest.capability;
+        let reg = Registration {
+            capability: cap,
+            id: manifest.id.clone(),
+        };
 
         if self
             .trait_entries
@@ -218,7 +250,7 @@ impl Registry {
                 .cmp(&a.manifest.priority)
                 .then_with(|| a.manifest.id.cmp(&b.manifest.id))
         });
-        Ok(())
+        Ok(reg)
     }
 
     /// Resout le premier trait object actif du type demande (`Arc<dyn Provider>`...).
@@ -246,9 +278,13 @@ impl Registry {
         Err(OmegaError::TypeMismatch(cap))
     }
 
-    /// Retire toutes les entrees `(cap, id)` — qu'elles soient actives ou quarantinees.
+    /// Retire toutes les entrees `(cap, id)` — qu'elles soient actives ou quarantinees,
+    /// dans **les deux** voies (`entries` et `trait_entries`) : effet réversible complet.
     pub fn unregister(&mut self, cap: Capability, id: &str) {
         if let Some(list) = self.entries.get_mut(&cap) {
+            list.retain(|e| e.manifest.id != id);
+        }
+        if let Some(list) = self.trait_entries.get_mut(&cap) {
             list.retain(|e| e.manifest.id != id);
         }
     }
@@ -257,7 +293,7 @@ impl Registry {
         &mut self,
         cap: Capability,
         id: &str,
-        register: impl FnOnce(&mut Self) -> OmegaResult<()>,
+        register: impl FnOnce(&mut Self) -> OmegaResult<Registration>,
     ) -> OmegaResult<()> {
         let snapshot = self.entries.clone();
         self.unregister(cap, id);
@@ -427,7 +463,7 @@ impl RegistryBuilder {
         &mut self,
         manifest: Manifest,
         instance: Arc<dyn Any + Send + Sync>,
-    ) -> OmegaResult<()> {
+    ) -> OmegaResult<Registration> {
         self.registry.register(manifest, instance)
     }
 
@@ -435,7 +471,7 @@ impl RegistryBuilder {
         &mut self,
         manifest: Manifest,
         instance: Arc<T>,
-    ) -> OmegaResult<()> {
+    ) -> OmegaResult<Registration> {
         self.registry.register_typed(manifest, instance)
     }
 
@@ -443,7 +479,7 @@ impl RegistryBuilder {
         &mut self,
         manifest: Manifest,
         instance: Arc<T>,
-    ) -> OmegaResult<()> {
+    ) -> OmegaResult<Registration> {
         self.registry.register_dyn(manifest, instance)
     }
 

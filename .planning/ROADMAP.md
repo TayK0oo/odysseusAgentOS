@@ -1,36 +1,30 @@
-# ROADMAP — Omega
+# Roadmap: odysseusAgentOS-omega (Omega)
 
-Bootstrappé depuis `docs/omega/` via `/gsd-ingest-docs` (2026-10-17).
+**Milestone:** v0.2 — NOYAU Phase A→D
+**Created:** 2026-10-17
+**Status:** In Progress
 
-## Completed (already shipped — not tracked by GSD)
+## Phase 1: NOYAU Phase A — squelette
 
-Phases 0–9 du plan Omega sont livrées et vérifiées (tests workspace verts, clippy/fmt/graphe).
-Détail : `docs/omega/MEMORY.md` §8 (backlog) et `docs/omega/02-WORKSTREAMS.md`.
+**Goal:** Effets réversibles dans le registre, couches nommées dans la config, guard monotone, matrice d'événements vérifiée.
+**Depends on:** None
 
-- Phase 0 — Fondation (W0)
-- Phase 1 — Recherche & veille (W1)
-- Phase 2 — Socle plugin (W2) — 33 tests
-- Phase 3 — Routing intelligent (W4) — 86+ tests
-- Phase 4 — Moteur Rust (W3) — 109 tests
-- Phase 5 — Économie de contexte (W6) — 40 tests
-- Phase 6 — Traçabilité + Sandbox (W8/W9) — 180 tests
-- Phase 7 — Reverse-engineering (W5) — 275 tests
-- Phase 8 — Cockpit UI (W7) — 265 tests
-- Phase 9 — Économie & self-hosting (W10 inc1)
+## Phase 2: NOYAU Phase B — coutures
 
-## Remaining (tracked by GSD)
+**Goal:** Implémenter les 3 ports orphelins (MemoryStore, Hook, SubagentRunner) et le reload atomique par plugin.
+**Depends on:** Phase 1
 
-- [ ] **Phase 1 — NOYAU Phase A (squelette)** : effets réversibles, couches nommées, guard monotone, matrice d'événements. *(coût S — prochain)*
-- [ ] **Phase 2 — NOYAU Phase B (coutures)** : adaptateurs MemoryStore/Hook/SubagentRunner, reload atomique. *(coût M)*
-- [ ] **Phase 3 — NOYAU Phase C (capacités lourdes)** : sandbox réel, compaction LLM double couche. *(coût M/L)*
-- [ ] **Phase 4 — NOYAU Phase D (industrialisation)** : provider externe de sous-agents, marketplace plugins. *(coût L)*
-- [ ] **Phase 5 — Fermeture des 3 trous** : ingérer les 3 fichiers modèles, MEMORY auto-généré, INDEX racine. *(coût S)*
+## Phase 3: NOYAU Phase C — capacités lourdes
 
-## Prochaine phase à planifier
+**Goal:** Sandbox réel (namespace + FS + réseau, fail-closed) et compaction LLM double couche.
+**Depends on:** Phase 2
 
-**Phase 1 — NOYAU Phase A.** Commande : `/gsd-plan-phase 1`.
+## Phase 4: NOYAU Phase D — industrialisation
 
-## Notes
+**Goal:** Provider externe de sous-agents (Claude Code/Codex/ACP) + marketplace/atelier de plugins.
+**Depends on:** Phase 3
 
-- W8/W9 revue indépendante encore en attente de quota Go (voir MEMORY backlog).
-- Les phases completed sont déjà livrées ; ne pas les re-exécuter.
+## Phase 5: Fermeture des 3 trous
+
+**Goal:** Ingérer les 3 fichiers modèles hors dépôt, MEMORY auto-généré, INDEX racine régénérable.
+**Depends on:** Phase 1

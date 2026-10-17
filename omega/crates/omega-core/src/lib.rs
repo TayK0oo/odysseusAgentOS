@@ -52,6 +52,17 @@ impl EventBus for InMemoryBus {
     }
 }
 
+/// Matrice d'événements vérifiée (règle n°7 du noyau) : pour chaque événement
+/// canonique, son producteur déclaré. Un test de cohérence vérifie que la matrice
+/// est non vide et sans doublon de nom d'événement.
+pub const EVENT_MATRIX: &[(&str, &str)] = &[
+    ("run.started", "AgentLoop"),
+    ("run.completed", "AgentLoop"),
+    ("run.cancelled", "AgentLoop"),
+    ("step.started", "AgentLoop"),
+    ("step.completed", "AgentLoop"),
+];
+
 struct CancellationInner {
     flag: AtomicBool,
     notify: Notify,
@@ -614,5 +625,16 @@ mod tests {
                 String::from_utf8_lossy(&output.stderr)
             );
         }
+    }
+
+    #[test]
+    fn event_matrix_is_consistent() {
+        // Matrice d'événements : non vide, sans doublon de nom d'événement.
+        assert!(!EVENT_MATRIX.is_empty());
+        let mut names: Vec<&str> = EVENT_MATRIX.iter().map(|(n, _)| *n).collect();
+        let before = names.len();
+        names.sort();
+        names.dedup();
+        assert_eq!(names.len(), before, "doublon dans EVENT_MATRIX");
     }
 }

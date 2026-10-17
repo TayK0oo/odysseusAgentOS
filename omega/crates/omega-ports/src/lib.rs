@@ -167,6 +167,44 @@ pub trait PermissionPolicy: Send + Sync {
     fn evaluate(&self, action: &str, resource: &str) -> PermissionEffect;
 }
 
+/// Composition monotone de politiques de permission : l'intersection (la plus
+/// restrictive gagne). Règle n°4 du noyau — une politique ne fait qu'interdire,
+/// jamais élargir. `Deny > Ask > Allow`.
+pub struct IntersectionPermissionPolicy {
+    policies: Vec<Box<dyn PermissionPolicy>>,
+}
+
+impl IntersectionPermissionPolicy {
+    pub fn new(policies: Vec<Box<dyn PermissionPolicy>>) -> Self {
+        Self { policies }
+    }
+
+    pub fn push(&mut self, policy: Box<dyn PermissionPolicy>) {
+        self.policies.push(policy);
+    }
+}
+
+impl PermissionPolicy for IntersectionPermissionPolicy {
+    fn name(&self) -> &str {
+        "intersection"
+    }
+    fn evaluate(&self, action: &str, resource: &str) -> PermissionEffect {
+        let mut result = PermissionEffect::Allow;
+        for p in &self.policies {
+            let e = p.evaluate(action, resource);
+            // monotonie : on ne peut qu'aller vers plus restrictif
+            result = match (result, e) {
+                (_, PermissionEffect::Deny) => PermissionEffect::Deny,
+                (PermissionEffect::Deny, _) => PermissionEffect::Deny,
+                (_, PermissionEffect::Ask) => PermissionEffect::Ask,
+                (PermissionEffect::Ask, _) => PermissionEffect::Ask,
+                _ => PermissionEffect::Allow,
+            };
+        }
+        result
+    }
+}
+
 /// Executeur de sous-agents. Regime : *ensemble*.
 #[async_trait]
 pub trait SubagentRunner: Send + Sync {
@@ -317,5 +355,24 @@ mod tests {
             }
         }
         let _s: Arc<dyn EventStore> = Arc::new(Dummy);
+    }
+
+    #[test]
+    fn permission_policy_intersection_is_monotone() {
+        struct AllowAll;
+        impl PermissionPolicy for AllowAll {
+            fn name(&self) -> &str { "allow" }
+            fn evaluate(&self, _: &str, _: &str) -> PermissionEffect { PermissionEffect::Allow }
+        }
+        struct AskSome;
+        impl PermissionPolicy for AskSome {
+            fn name(&self) -> &str { "ask" }
+            fn evaluate(&self, _: &str, _: &str) -> PermissionEffect { PermissionEffect::Ask }
+        }
+        let mut p = IntersectionPermissionPolicy::new(vec![Box::new(AllowAll), Box::new(AskSome)]);
+        // composition = intersection : la plus restrictive gagne, jamais l'union
+        assert_eq!(p.evaluate("x", "y"), PermissionEffect::Ask);
+        p.push(Box::new(AllowAll));
+        assert_eq!(p.evaluate("x", "y"), PermissionEffect::Ask);
     }
 }

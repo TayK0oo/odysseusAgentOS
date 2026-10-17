@@ -352,6 +352,7 @@ impl omega_plugin_api::Contributor for HarnessCatalogContributor {
             ),
             std::sync::Arc::new(self.catalog),
         )
+        .map(|_| ())
     }
 }
 

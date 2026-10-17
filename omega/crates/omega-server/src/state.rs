@@ -50,6 +50,7 @@ impl Contributor for ProviderContributor {
             Manifest::new("ollama", Capability::LlmProvider, "1"),
             self.provider.clone(),
         )
+        .map(|_| ())
     }
 }
 
@@ -68,6 +69,7 @@ impl Contributor for StoreContributor {
             Manifest::new("file", Capability::EventStore, "1"),
             self.store.clone(),
         )
+        .map(|_| ())
     }
 }
 
