@@ -140,6 +140,10 @@ impl ContextEngine for DefaultContextEngine {
         false
     }
 
+    fn max_tokens(&self) -> usize {
+        self.budget.max_tokens()
+    }
+
     async fn assemble(&self, messages: Vec<Message>) -> OmegaResult<Vec<Message>> {
         let (result, report) = self.assemble_sync(&messages);
         if report.over_budget {

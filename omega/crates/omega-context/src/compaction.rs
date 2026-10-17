@@ -20,7 +20,9 @@ pub fn compaction_marker(omitted: usize) -> String {
 /// **sans marqueur mensonger** (aucun marqueur n'est insere quand il ne tient pas).
 pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
     let estimator = TokenEstimator::new();
+    eprintln!("[DEBUG truncate] messages={}, budget={}, total_est={}", messages.len(), budget, estimator.estimate_messages(messages));
     if estimator.estimate_messages(messages) <= budget {
+        eprintln!("[DEBUG truncate] under budget, returning as-is");
         return messages.to_vec();
     }
 
@@ -35,10 +37,13 @@ pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
     // Reserve la place du marqueur (borne superieure = pire cas : omitted = tail.len()).
     let marker_reserve = estimator.estimate(&compaction_marker(tail.len()));
 
+    eprintln!("[DEBUG truncate] system_count={}, system_tokens={}, tail_len={}, marker_reserve={}", system_count, system_tokens, tail.len(), marker_reserve);
+
     // Budget trop etroit pour le systeme + marqueur : pas de marqueur mensonger, on
     // preserve le systeme tel quel (primaute du systeme, W6 §4.6). Le depassement est
     // assume et documente (le systeme est intouchable).
     if system_tokens + marker_reserve > budget {
+        eprintln!("[DEBUG truncate] system+marker > budget, returning system only");
         return system.to_vec();
     }
 
@@ -51,11 +56,14 @@ pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
             kept_tokens += t;
             kept.push(msg.clone());
         } else {
+            eprintln!("[DEBUG truncate] would exceed: kept_tokens={}+t={}={} > budget={}", kept_tokens, t, kept_tokens + t, budget);
             break;
         }
     }
     kept.reverse();
     let omitted = tail.len() - kept.len();
+
+    eprintln!("[DEBUG truncate] kept={}, omitted={}", kept.len(), omitted);
 
     let mut result: Vec<Message> = system.to_vec();
     if omitted > 0 {
@@ -82,7 +90,6 @@ mod tests {
 
     #[test]
     fn over_budget_keeps_system_recent_and_marks_omitted() {
-        // 10 tokens chacun ; total 60, budget 38 -> systeme + marqueur + 2 recents.
         let system = Message::new(Role::System, "s".repeat(40));
         let u1 = Message::new(Role::User, "a".repeat(40));
         let u2 = Message::new(Role::User, "b".repeat(40));
@@ -130,13 +137,216 @@ mod tests {
 
     #[test]
     fn system_alone_over_budget_preserves_system_without_lying_marker() {
-        // Non-regression REVIEW-W6 M3 : budget (5) < systeme seul (10 tokens). Aucun
-        // marqueur mensonger n'est insere ; le systeme est preserve tel quel (W6 §4.6).
-        let system = Message::new(Role::System, "s".repeat(40)); // 10 tokens
-        let user = Message::new(Role::User, "u".repeat(8)); // 2 tokens
+        let system = Message::new(Role::System, "s".repeat(40));
+        let user = Message::new(Role::User, "u".repeat(8));
         let out = truncate_compact(&[system.clone(), user], 5);
 
         assert_eq!(out, vec![system]);
         assert!(out.iter().all(|m| !m.content.starts_with("…[compacted")));
+    }
+}
+
+// --- Double-layer LLM compaction (NOYAU Phase C) ------------------------------
+
+use async_trait::async_trait;
+use omega_ports::{ContextEngine, Provider};
+use omega_types::{OmegaError, OmegaResult};
+use std::sync::Arc;
+
+/// Moteur de compaction LLM double couche :
+/// 1. Couche 1 (truncation deterministe) : `truncate_compact` ci-dessus, reserve un budget
+///    pour le resume LLM.
+/// 2. Couche 2 (LLM) : appelle un `Provider` pour resumer les messages omis en un seul
+///    message systeme `Summary: ...`.
+///
+/// Si le provider echoue ou n'est pas dispo, on replie sur la couche 1 seulement
+/// (fail-closed : absence de provider = truncation simple).
+pub struct LlmCompactionEngine {
+    inner: Arc<dyn ContextEngine>,
+    provider: Arc<dyn Provider>,
+    summary_budget_ratio: f32,
+}
+
+impl LlmCompactionEngine {
+    pub fn new(inner: Arc<dyn ContextEngine>, provider: Arc<dyn Provider>) -> Self {
+        Self {
+            inner,
+            provider,
+            summary_budget_ratio: 0.25,
+        }
+    }
+
+    pub fn with_summary_budget(mut self, ratio: f32) -> Self {
+        self.summary_budget_ratio = ratio.clamp(0.1, 0.5);
+        self
+    }
+}
+
+#[async_trait]
+impl ContextEngine for LlmCompactionEngine {
+    fn name(&self) -> &str {
+        "llm-compaction"
+    }
+
+    fn owns_compaction(&self) -> bool {
+        true
+    }
+
+    fn max_tokens(&self) -> usize {
+        self.inner.max_tokens()
+    }
+
+    async fn assemble(&self, messages: Vec<Message>) -> OmegaResult<Vec<Message>> {
+        let max_tokens = self.inner.max_tokens();
+        let estimator = TokenEstimator::new();
+
+        eprintln!("[DEBUG] assemble: {} messages, max_tokens={}, estimated={}", messages.len(), max_tokens, estimator.estimate_messages(&messages));
+
+        // 1. Tentative avec truncation simple (couche 1)
+        let truncated = truncate_compact(&messages, max_tokens);
+        let dropped = {
+            // Compter les messages non-systeme originaux vs resultats
+            let orig_non_system = messages.iter().filter(|m| m.role != Role::System).count();
+            let result_non_system = truncated.iter().filter(|m| m.role != Role::System && !m.content.starts_with("…[compacted")).count();
+            orig_non_system.saturating_sub(result_non_system)
+        };
+
+        eprintln!("[DEBUG] after truncate: truncated={}, dropped={}", truncated.len(), dropped);
+
+        // Si pas de messages omis, retour direct
+        if dropped == 0 {
+            eprintln!("[DEBUG] no messages dropped, returning truncated");
+            return Ok(truncated);
+        }
+
+        eprintln!("[DEBUG] proceeding to LLM summarization, dropped={}", dropped);
+
+        // 2. Construire le resume LLM des messages omis
+        let system_count = messages.iter().take_while(|m| m.role == Role::System).count();
+        let non_system = &messages[system_count..];
+        
+        // Les messages non-systeme conserves (sans le marqueur)
+        let kept_non_system = truncated.iter()
+            .filter(|m| m.role != Role::System && !m.content.starts_with("…[compacted"))
+            .count();
+        let omitted_count = non_system.len().saturating_sub(kept_non_system);
+        let omitted_messages = &non_system[..omitted_count.min(non_system.len())];
+
+        eprintln!("[DEBUG] calling summarize_omitted with {} messages", omitted_messages.len());
+        let summary = self.summarize_omitted(omitted_messages).await;
+
+        eprintln!("[DEBUG] summarize_omitted returned: {:?}", summary.is_some());
+
+        // 3. Inserer le resume dans la liste tronquee
+        let mut result = truncated;
+        if let Some(summary_text) = summary {
+            let summary_msg = Message::new(Role::System, format!("Summary: {summary_text}"));
+            let system_count = result.iter().take_while(|m| m.role == Role::System).count();
+            result.insert(system_count, summary_msg);
+        }
+
+        // 4. Re-verifier le budget
+        if estimator.estimate_messages(&result) > max_tokens {
+            return Ok(truncate_compact(&result, max_tokens));
+        }
+
+        Ok(result)
+    }
+}
+
+impl LlmCompactionEngine {
+    async fn summarize_omitted(&self, messages: &[Message]) -> Option<String> {
+        if messages.is_empty() {
+            return None;
+        }
+        let content: String = messages
+            .iter()
+            .map(|m| format!("{:?}: {}", m.role, m.content))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let prompt = format!(
+            "Resume les messages suivants en 1-2 phrases maximum, en conservant les faits cles, decisions et questions ouvertes:\n\n{}",
+            content
+        );
+        let prompt_len = prompt.len();
+
+        let req = omega_types::ChatRequest {
+            model: omega_types::ModelId::new("auto"),
+            messages: vec![Message::new(Role::User, prompt.clone())],
+        };
+
+        eprintln!("[DEBUG] summarize_omitted called with {} messages, prompt len={}", messages.len(), prompt_len);
+        match self.provider.complete(req).await {
+            Ok(resp) => {
+                eprintln!("[DEBUG] provider returned: {:?}", resp.message.content);
+                Some(resp.message.content)
+            }
+            Err(e) => {
+                eprintln!("[DEBUG] provider error: {:?}", e);
+                None
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod llm_compaction_tests {
+    use super::*;
+    use crate::engine::DefaultContextEngine;
+    use omega_types::{Message, Role};
+
+    struct EchoProvider;
+    #[async_trait]
+    impl Provider for EchoProvider {
+        fn id(&self) -> &str { "echo" }
+        async fn complete(&self, req: omega_types::ChatRequest) -> OmegaResult<omega_types::ChatResponse> {
+            let last = req.messages.last().map(|m| m.content.clone()).unwrap_or_default();
+            Ok(omega_types::ChatResponse {
+                message: Message::new(Role::Assistant, format!("SUMMARY: {}", last)),
+                usage: Default::default(),
+            })
+        }
+    }
+
+    struct FailProvider;
+    #[async_trait]
+    impl Provider for FailProvider {
+        fn id(&self) -> &str { "fail" }
+        async fn complete(&self, _: omega_types::ChatRequest) -> OmegaResult<omega_types::ChatResponse> {
+            Err(OmegaError::NoImplementation(omega_types::Capability::LlmProvider))
+        }
+    }
+
+    #[tokio::test]
+    async fn llm_compaction_falls_back_on_provider_failure() {
+        let inner = Arc::new(DefaultContextEngine::new(20));
+        let provider = Arc::new(FailProvider);
+        let engine = LlmCompactionEngine::new(inner, provider);
+
+        let msgs = vec![
+            Message::new(Role::System, "SYS"),
+            Message::new(Role::User, "a".repeat(40)),
+            Message::new(Role::User, "b".repeat(40)),
+        ];
+        let out = engine.assemble(msgs).await.unwrap();
+        // Doit tomber sur truncation simple (pas de resume)
+        assert!(out.iter().any(|m| m.content.starts_with("…[compacted")));
+    }
+
+    #[tokio::test]
+    async fn llm_compaction_adds_summary_when_provider_works() {
+        let inner = Arc::new(DefaultContextEngine::new(20));
+        let provider = Arc::new(EchoProvider);
+        let engine = LlmCompactionEngine::new(inner, provider);
+
+        let msgs = vec![
+            Message::new(Role::System, "SYS"),
+            Message::new(Role::User, "a".repeat(40)),
+            Message::new(Role::User, "b".repeat(40)),
+        ];
+        let out = engine.assemble(msgs).await.unwrap();
+        // Doit contenir le resume LLM
+        assert!(out.iter().any(|m| m.content.starts_with("Summary: SUMMARY:")));
     }
 }

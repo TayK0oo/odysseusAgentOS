@@ -28,6 +28,9 @@ pub trait ContextEngine: Send + Sync {
     fn owns_compaction(&self) -> bool;
     /// Assemble le contexte effectif a envoyer au modele.
     async fn assemble(&self, messages: Vec<Message>) -> OmegaResult<Vec<Message>>;
+    /// Plafond de tokens du moteur (pour compaction LLM double couche).
+    /// Impl par defaut : 4000.
+    fn max_tokens(&self) -> usize { 4000 }
 }
 
 /// Memoire persistante. Regime : *slot exclusif*.

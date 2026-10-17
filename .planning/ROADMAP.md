@@ -4,12 +4,12 @@
 **Created:** 2026-10-17
 **Status:** In Progress
 
-## Phase 1: NOYAU Phase A — squelette
+## Phase 1: NOYAU Phase A — squelette ✅
 
 **Goal:** Effets réversibles dans le registre, couches nommées dans la config, guard monotone, matrice d'événements vérifiée.
 **Depends on:** None
 
-## Phase 2: NOYAU Phase B — coutures
+## Phase 2: NOYAU Phase B — coutures ✅
 
 **Goal:** Implémenter les 3 ports orphelins (MemoryStore, Hook, SubagentRunner) et le reload atomique par plugin.
 **Depends on:** Phase 1
