@@ -1,0 +1,24 @@
+{
+  "id": "deepseek-harness",
+  "name": "DeepSeek Harness",
+  "repo": "deepseek-ai/deepseek-harness",
+  "stars": 251234,
+  "language": "TypeScript",
+  "license": "MIT",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "deja clone",
+  "status": "analyzed",
+  "evidence_id": "ev_a1d6444cc9ec4e426e349d101d49ffed378a503a89bbcbe92d079576276f7e94",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "5d087612daf0865527c43ee9767c93a67c4a8ce240888d93174f15f730e23c77"
+  },
+  "counts": {
+    "graph_nodes": 23593,
+    "graph_edges": 26647
+  },
+  "limitations_count": 11358
+}

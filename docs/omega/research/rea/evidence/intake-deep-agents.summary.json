@@ -1,0 +1,24 @@
+{
+  "id": "deep-agents",
+  "name": "Deep Agents",
+  "repo": "langchain-ai/deepagents",
+  "stars": 30347,
+  "language": "Python",
+  "license": "MIT",
+  "nature": "other",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_c7f37c9961251836ef2263aa5925b2c3ad197c85c68df90904adc1dfdb2e5482",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "38e84798d4803780fd745f4f065598f9f5748d922df1aae371de4a8af53cd7a6"
+  },
+  "counts": {
+    "graph_nodes": 326,
+    "graph_edges": 413
+  },
+  "limitations_count": 6
+}

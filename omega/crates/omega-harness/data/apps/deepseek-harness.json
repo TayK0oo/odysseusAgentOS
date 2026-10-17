@@ -1,0 +1,846 @@
+{
+  "schema_version": 1,
+  "id": "deepseek-harness",
+  "name": "DeepSeek Harness",
+  "editor": "DeepSeek",
+  "oss": true,
+  "language": "TypeScript",
+  "license": "MIT",
+  "repo": "https://github.com/deepseek-ai/deepseek-harness",
+  "architecture": "Monorepo pnpm (packages/*, apps/*, vendor/*, native/*) bati sur Cordis, un framework de plugins TypeScript VENDORISE (vendor/cordis) : un plugin est un objet qui implemente Service, il declare ses dependances par inject, contribue des evenements typés et des effets REVERSIBLES a un contexte partage, et chaque composant du produit — adaptateur modele, registre d'outils, log de session et boucle d'agent — est un plugin remplacable depuis la configuration. Une instance dsh est un arbre de plugins compose au boot a partir de couches ordonnees : bundles d'un PROFILE (web/headless/sdk/sdk-minimal/acp), patch cordis.patch.yml du profil, patch du Harness home, overlays --patch, chaque ligne etant adressable par id ; les capacites sont des COUTURES (Service Definition + Service Provider + Consumer) reliees a des cles ctx.<key>, ce qui fait qu'un seul echange de provider deplace tout un sous-systeme (fs, subprocess, sandbox, subagents, telemetry).",
+  "entrypoints": [
+    "dsh CLI (apps/cli, profils web/headless/sdk/sdk-minimal/acp/desktop)",
+    "dsh web (Web UI servie par host/webserver, http://127.0.0.1:3080 par defaut)",
+    "dsh headless (runner one-shot sans serveur)",
+    "dsh sdk (serveur JSON-RPC) et dsh sdk-minimal (bundle autonome)",
+    "dsh acp (serveur Agent Client Protocol, automatisation)",
+    "application desktop Electron (apps/desktop + desktop-host, profil reserve)",
+    "python/sdk-runtime (wheel embarquant le CLI, profil sdk)"
+  ],
+  "functionalities": [
+    {
+      "domain": "extension",
+      "how": "Context est un proxy dont le registre de plugins est mixe sur ctx (ctx.plugin/ctx.inject) ; la classe abstraite Service s'enregistre via super(ctx,'name') et construit un callable tracable ; Inject.resolve normalise les declarations array/objet/heritage de classe, et RegistryService.plugin() cree un Fiber par appel ctx.plugin() ; un plugin dont un service injecte manque reste en attente (activation pilotee par disponibilite de service, pas par ordre de ligne).",
+      "id": "dsh-cordis-service-registry",
+      "integration": "plugin",
+      "name": "Contexte = depot de services (cle stable ctx.<key> + inject)",
+      "omega_adapter": "omega-registry::Registry",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "refs": [
+        "vendor/cordis/src/context.ts:29-48",
+        "vendor/cordis/src/service.ts:11-68",
+        "vendor/cordis/src/registry.ts:195-330",
+        "docs/cordis-primer.md:9-13"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Un service revendique une cle stable ctx.<key> (ctx.tools, ctx.llm, ctx.sessions) ; les plugins se trouvent par cle au lieu d'importer une implementation concrete, et l'ordre de chargement se declare par dependances de services, pas par sequence manuelle."
+    },
+    {
+      "domain": "extension",
+      "how": "Fiber suit les etats INACTIVE/LOADING/ACTIVE/UNLOADING/DISPOSED ; effect(execute) execute immediatement et collecte les disposers, execute en ordre inverse a l'appel du disposer ou a l'unload ; la garde effectInertia neutralise un disposer reentrant ; ctx.plugin() enregistre le disposer de l'enfant chez le parent seulement apres assignation complete du disposer (un observateur synchrone peut disposer le child ou le parent sans fuite). Rien a patcher : on monte un plugin a cote.",
+      "id": "dsh-cordis-effects-disposal",
+      "integration": "plugin",
+      "name": "Effets reversibles + cycle de vie Fiber (disposal ordonnee)",
+      "omega_adapter": "omega-plugin-api (effets reversibles, planned)",
+      "omega_capability": "registry",
+      "omega_port": "Registre (Scope/effets)",
+      "refs": [
+        "vendor/cordis/src/fiber.ts:79-116",
+        "vendor/cordis/src/fiber.ts:144",
+        "vendor/cordis/src/fiber.ts:184-331",
+        "docs/cordis-primer.md:13",
+        "docs/cordis-primer.md:45"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Toute inscription (section de prompt, schema d'outil, adaptateur, provider, listener) passe par ctx.effect()/ctx.on() et retourne un disposer ; unload et reload demonte exactement ce que le plugin a installe, en ordre inverse, sans undo manuel."
+    },
+    {
+      "domain": "extension",
+      "how": "Events.dispatch filtre les listeners par mode declare ; emit synchrone (sans await), parallel via Promise.allSettled, serial en boucle await jusqu'a une valeur de bail, bail synchrone jusqu'a la premiere valeur de bail, waterfall en around-middleware : le listener recoit (..., next), next() delegue et propage la valeur de retour, un retour sans next() court-circuite ; prepend:true force l'ordre en tete ; le tag @mode declaratif est verifie par le catalogue genere contre les sites de dispatch reels.",
+      "id": "dsh-cordis-dispatch-modes",
+      "integration": "plugin",
+      "name": "5 modes de dispatch types (emit/waterfall/parallel/serial/bail)",
+      "omega_adapter": "omega-plugin-api (Hook live + waterfall, planned)",
+      "omega_capability": "registry",
+      "omega_port": "Registre (Hook/evenements)",
+      "refs": [
+        "vendor/cordis/src/events.ts:27-32",
+        "vendor/cordis/src/events.ts:53-88",
+        "vendor/cordis/src/events.ts:183-235",
+        "docs/cordis-primer.md:15-35"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Chaque evenement declare son mode de dispatch, qui fait partie de son contrat public, et ne peut etre emis que par la methode correspondante : observer, envelopper (around-middleware), fan-out parallele, ordonner, ou s'arreter au premier bail."
+    },
+    {
+      "domain": "extension",
+      "how": "EntryOptions = {id,name,config?,group?,disabled?,inject?} ; Entry.id se prefixe par l'id du parent (EntryTree.sep) pour un id globalement unique ; l'etat disabled effectif est un OR sur soi et tous ses parents, et un disabled !!js est evalue contre le contexte du loader ; Fiber.update distingue une modification volatile de config (sans remount) d'un changement structurel ; cordis:include et cordis:group sont des builtins du Loader (un include preserve les expressions imbriquees jusqu'a l'activation de la cible et n'interpole que le config et le disabled de chaque entree).",
+      "id": "dsh-cordis-loader-config",
+      "integration": "plugin",
+      "name": "Loader de config : entrees id/name/config/group/disabled/inject + !!js",
+      "omega_adapter": "omega-registry::Manifest + omega-config (planned)",
+      "omega_capability": "registry",
+      "omega_port": "Registre (manifeste plugin)",
+      "refs": [
+        "vendor/loader/src/config/entry.ts:10-22",
+        "vendor/loader/src/config/entry.ts:67-93",
+        "vendor/loader/src/config/entry.ts:105-149",
+        "vendor/include/src/index.ts:18-20",
+        "vendor/include/src/index.ts:129-136"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "L'arbre de plugins est un fichier YAML d'entrees adressables par id : nom de module, config, groupe imbrique, disabled evaluable, inject ; un patch cible une entree par id et remplace tout son config (restater les champs conserves)."
+    },
+    {
+      "domain": "extension",
+      "how": "dsh.profile liste les bundles d'un profil et dsh.bundle pointe le fichier de patch d'un bundle (declares dans leur propre package.json) ; les couches s'appliquent sur une liste d'entrees vide — bundles ordonnes du profil, cordis.patch.yml du profil, patch home, puis overlays --patch — et un patch remplace le config entier de la ligne cible ou insere des lignes ; un preset patch applique ces operations dans le config.plugins de la declaration ; dsh-base est la premiere couche partagee (adaptateurs modele, outils, persistance, sandbox et approval, settings, credentials, telemetrie), web-app/headless/sdk-app/acp-app ajoutent une surface, sdk-minimal est l'exception qui possede son arbre complet ; dsh --profile web --dump-config montre l'arbre effectif.",
+      "id": "dsh-profiles-bundles",
+      "integration": "plugin",
+      "name": "Profils + bundles + couches de patch ordonnees (patch par id)",
+      "omega_adapter": "omega-config (couches + precedence) + omega-registry (planned)",
+      "omega_capability": "registry",
+      "omega_port": "Registre (composition par couches)",
+      "refs": [
+        "docs/architecture.md:13-27",
+        "packages/boot/app-boot/src/profile.ts",
+        "packages/boot/app-boot/README.md:45-61",
+        "packages/bundle/base/cordis.patch.yml:1-30"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Un harnais qui tourne est un arbre de plugins compose au boot par couches ordonnees et patchables : les bundles d'un profil, puis le patch du profil, puis le patch home, puis les overlays d'invocation."
+    },
+    {
+      "domain": "extension",
+      "how": "Le service et le CLI dsh plugin partagent operations.ts ; une bascule ecrit seulement disabled dans la derniere surcharge correspondante du cordis.patch.yml (id + assertion de nom de module), et supprime la surcharge quand les couches bundle donnent deja l'etat demande ; inspect(spec) lit ce que nomme un spec AVANT toute installation (pnpm view pour un nom de registre, lecture de package.json pour un chemin absolu, forme seule pour git/tarball) et distingue invalid-spec/already-installed/not-found/not-a-package/not-a-bundle/network/unknown ; les registres sont interroges en cascade (registry puis fallbackRegistries, un registre prive demande seul) ; un echec ou une annulation restaure package.json et pnpm-lock.yaml snapshotés avant pnpm (mais pas pnpm-workspace.yaml, volontairement) ; la compatibilite DSH est verifiee avant pnpm (engines.dsh, sinon chaque peerDependencies dsh-*) et une exemption exacte package@version -> version runtime DSH vit dans compatibility.json du profil et n'est jamais heritee par un upgrade ; les bundles de gestion restent proteges et un bundle casse reste listable avec une erreur sans pouvoir etre active.",
+      "id": "dsh-plugin-manager",
+      "integration": "plugin",
+      "name": "Gestionnaire de plugins (install/enable/remove + compatibilite de version)",
+      "omega_adapter": "omega-registry (quarantaine) + omega-plugin-manager (planned)",
+      "omega_capability": "registry",
+      "omega_port": "Registre (installation/versionnement)",
+      "refs": [
+        "packages/boot/plugin-manager/README.md:31-104",
+        "packages/boot/plugin-manager/README.md:148-162",
+        "packages/boot/plugin-manager/src/operations.ts",
+        "packages/boot/plugin-manager/src/patch.ts",
+        "packages/boot/plugin-manager/src/registry.ts"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Activer/desactiver des lignes, selectionner des bundles, installer ou retirer des bundles externes, depuis le Web ou depuis un agent, sans editer la config a la main ; chaque action d'outil exige danger-full-access ou une approbation, et les changements valent pour toutes les sessions du profil."
+    },
+    {
+      "domain": "extension",
+      "how": "DshHmr ouvre un watcher sur les racines, collecte d'abord les fichiers externes (un changement externe declenche toujours un rechargement complet) puis classe les autres en acceptes/declines selon le loadCache ESM ; chaque plugin est une unite de rechargement atomique (resolution du nom en file URL) : dispose puis reintroduction, avec un debounce (defaut 100 ms) et un evenement hmr/reload ; le gestionnaire de plugins partage la meme file d'attente et le meme verrou d'ecriture de profil, de sorte que ses ecritures de config et les reloads ne s'entrelacent pas (pnpm tourne hors file) ; le YAML du profil controle le mode : base active dsh-hmr config-only, headless/SDK/ACP le desactivent, sdk-minimal l'omet.",
+      "id": "dsh-hmr",
+      "integration": "plugin",
+      "name": "Hot reload : config-only vs module, file d'attente serialisee",
+      "omega_adapter": "omega-registry (empreinte + reload, planned)",
+      "omega_capability": "registry",
+      "omega_port": "Registre (reload)",
+      "refs": [
+        "vendor/hmr/src/index.ts:97-166",
+        "vendor/hmr/src/index.ts:255-398",
+        "vendor/hmr/src/index.ts:407-420",
+        "packages/boot/plugin-manager/README.md:98",
+        "docs/architecture.md:27"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Le rechargement a chaud est un plugin coordonne : rechargement config-only ou module, unites atomiques par plugin, debounce, et serialisation avec les ecritures de gestion du profil."
+    },
+    {
+      "domain": "extension",
+      "how": "Une scope key a une chaine (scopeChainOf) ; ctx.isolate(name,label) cree un shadow du map d'isolation et deux isolate du meme label joignent leurs scopes ; la resolution de registre combine une couche globale et une couche scopee (une restriction scopee ne peut pas masquer un nom global) ; restrict() exige un contexte scope et leve une erreur explicite sinon, pour qu'une restriction ne masque pas tous les agents ; ctx.plugin peut etre monte dans agent.ctx pour toute la duree de vie de l'agent ; dans le Loader, une ligne group donne un unique realm isolate a un provider ET a ses consommateurs ensemble.",
+      "id": "dsh-scope",
+      "integration": "plugin",
+      "name": "Enregistrements scopes par agent (agent.ctx + realm isole)",
+      "omega_adapter": "omega-registry (Scope : fermeture = revelation de la couche precedente, planned)",
+      "omega_capability": "registry",
+      "omega_port": "Registre (Scope)",
+      "refs": [
+        "packages/core/scope/src/index.ts:105-201",
+        "docs/subsystems/scope.md:1-60",
+        "vendor/cordis/src/context.ts:114-124",
+        "docs/architecture.md:146"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Une inscription peut etre portee par un scope : les listeners scopes ne recoivent que les appels de cet agent, et un depassement de couche est impossible ; un contexte enfant peut isoler un service sans affecter le parent."
+    },
+    {
+      "domain": "extension",
+      "how": "tool-cordis expose le montage de plugins a l'agent ; cordis-host-runner maintient un runtime de paquets Cordis dynamiques (DynamicCordisRunnerService) et un registre d'inspection cross-realm (ctx.cordisInspect) que tool-cordis consomme ; l'inspector experimental expose l'arbre runtime et le client runner porte la meme chose cote navigateur. Consequence doctrinale : l'auto-extension est une capacite d'agent, pas un mode de developpement resident.",
+      "id": "dsh-tool-cordis",
+      "integration": "plugin",
+      "name": "Agent qui monte et inspecte des plugins (tool-cordis + runner dynamique)",
+      "omega_adapter": "omega-registry + omega-plugin-api (planned)",
+      "omega_capability": "registry",
+      "omega_port": "Registre (montage a chaud)",
+      "refs": [
+        "packages/extensions/tool-cordis/src/index.ts:21",
+        "packages/extensions/cordis-host-runner/src/index.ts:103-141",
+        "docs/capability-seams.md:294-295",
+        "docs/subsystems/extensions.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Le modele peut inspecter et monter des plugins Cordis a chaud dans son propre process : ajouter une capacite sans redemarrer ni editer la configuration a la main."
+    },
+    {
+      "domain": "configuration",
+      "how": "loadLayeredEnv lit UNE fois le repertoire d'invocation et le Harness home : le .env du repertoire d'invocation prime sur celui du home, et les deux restent sous l'environnement herite ; les variables qui decident du demarrage (PATH, DSH_*, XDG_* et assimilables) sont refusees depuis les fichiers et doivent etre exportees, et les 4 noms de proxy n'acceptent que le fichier home (jamais celui du repertoire d'invocation, qui arrive avec un clone) ; cordis.patch.yml est la couche de retouche utilisateur, appliquee apres toutes les couches bundle (patch du profil d'abord, puis patch home qui prime), et peut interpoler des expressions !!js evaluees au boot contre le contexte du plugin ; un patch nommant une entree inexistante avertit, un fichier vide fait echouer le boot (desactiver la couche avec []).",
+      "id": "dsh-config-layers",
+      "integration": "plugin",
+      "name": "Couches de configuration : env, patches, settings, editor",
+      "omega_adapter": "omega-config (couches + precedence)",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "refs": [
+        "docs/architecture.md:25",
+        "packages/boot/app-boot/README.md:58-63",
+        "packages/settings/settings/src/index.ts:223",
+        "packages/boot/config-editor/src/index.ts:26"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Les preferences machine vivent dans le Harness home en couches ordonnees et a precedence explicite (env herite > .env du repertoire > .env du home, puis patch du profil > patch home), avec une separation stricte des variables qui decident du demarrage."
+    },
+    {
+      "domain": "configuration",
+      "how": "CredentialProvider est un service abstrait ; ctx.credentials resout PAR OPERATION, donc un credential tourne atteint la toute prochaine requete ; le controleur de settings expose des vues sans valeur et un stockage en ecriture seule, et chaque refus est classe a la projection, pas sur la definition de la couture ; ctx.authorization enregistre des flux d'obtention (un flux = le credential qu'il ecrit) et possede la conversation plus le cycle une-tentative-par-cle, jamais le protocole ; ctx.deepseekAccount gere l'autorisation navigateur et les credentials locaux cote hote, les consommateurs UI ne recevant qu'un etat sans tokens.",
+      "id": "dsh-credentials-seam",
+      "integration": "plugin",
+      "name": "Couture credentials : references en config, valeurs chez le provider",
+      "omega_adapter": "omega-config (refs de secrets, planned)",
+      "omega_capability": "credentials",
+      "omega_port": "CredentialProvider",
+      "refs": [
+        "packages/credentials/credentials/src/index.ts:118-171",
+        "docs/capability-seams.md:652-654",
+        "docs/subsystems/credentials.md"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "La configuration ne porte que des references de secrets ; les providers possedent les valeurs et les resolvent par operation, donc une rotation atteint la requete suivante, et l'interface ne voit jamais la valeur."
+    },
+    {
+      "domain": "agents",
+      "how": "AgentLoop extends Service implements AgentFactory : le driver concret s'enregistre par ctx.effect(() => ctx.agents.setFactory(this)) et declare ses projections de session (turnBoundary, inbox) via ctx.sessionProjections.register dans le meme effet ; AgentRegistry possede la voie d'enregistrement/deregistration d'un Agent vivant comme un effet Cordis ; la liste globale des entrees requises contient agent-loop a cote de webserver, web-runtime, modules, connection, headless-runner, acp et sdk-jsonrpc-server : si une entree requise ne peut pas activer, le demarrage dispose toute l'application et sort non-zero, tandis qu'une entree optionnelle en echec avertit et laisse ses voisins tourner.",
+      "id": "dsh-agent-loop-as-plugin",
+      "integration": "plugin",
+      "name": "La boucle d'agent est elle-meme un plugin remplacable",
+      "omega_adapter": "omega-core::agent-loop (planned)",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore / AgentFactory",
+      "refs": [
+        "packages/core/agent-loop/src/index.ts:341-410",
+        "packages/core/agent/src/index.ts:160-171",
+        "packages/boot/app-boot/README.md:43",
+        "packages/boot/app-boot/README.md:98-111",
+        "docs/architecture.md:62-63"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Le driver par defaut implemente l'interface Agent et s'enregistre comme service ; il figure dans la liste des entrees requises, et n'importe quel autre driver peut le remplacer depuis la configuration — le noyau ne patche rien."
+    },
+    {
+      "domain": "agents",
+      "how": "Sequence exacte : claim du prochain input et d'un message en file, assemblage des sections de prompt et des schemas d'outils, agent/pre-step (waterfall : un listener peut reecrire ou rejeter ; un premier claim rejete ou vide ferme un turn durable SANS step), step/start, agent/request -> prepareCall qui resout la route reelle avant de committer (une annulation pendant l'une des deux phases async ne commit ni system ni users), reconciliation du prompt et admission unique des users, gel de l'historique derive du log, stream de l'appel lie, tool/call* -> tools/pre-execute -> tools/execute -> tools/post-execute -> tool/result*, step/end, puis turn/end via agent/turn-stopping (serial, sans next) ; les retries ne repetent ni l'assemblage ni pre-step ; un step en echec enregistre les tool/result manquants. Invariant : model-visible = logged.",
+      "id": "dsh-turn-step-lifecycle",
+      "integration": "plugin",
+      "name": "Cycle turn/step : pre-step, request, freeze, annulation",
+      "omega_adapter": "omega-core (planned)",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore (turn/step)",
+      "refs": [
+        "docs/architecture.md:79-116",
+        "packages/core/agent/src/runtime-types.ts:320-393",
+        "packages/core/agent-loop/src/assistant-stream.ts",
+        "packages/core/agent-loop/src/runtime-context.ts"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Un step = une requete modele plus les outils qu'elle appelle ; un turn = zero ou plusieurs steps, ouvert avant le premier input reclame et clos quand plus rien n'est du ; tout input visible par le modele est un fait du log."
+    },
+    {
+      "domain": "agents",
+      "how": "SubagentRuntime est un registre de PROVIDERS NOMMES : chaque backend s'enregistre sous un nom unique et un tool de delegation choisit un provider ; SubagentManager possede demarrage, admission des messages, capacite, relations de parente et destruction ; startActivation ne rend la main qu'apres acceptation de l'enfant (la publication EST l'aboutissement, le handle peut annuler cette execution exacte) ; maxActiveSubagents (defaut 8) limite les enfants vivants par arbre d'activation avec un refus ACTIVATION_LIMIT_REACHED et sans file d'attente, et maxDepth (defaut 1, 'provider-managed' accepte) borne la recursion avec un header de session autoritaire et monotone ; delivery='parent' emet un avis de completion en role user, delivery='caller' laisse le resultat a l'appelant ; deux faits durables (subagent/descriptor log-only, subagent/catalog versionne v0/v1/v2) gardent les enfants decouvrables et recontinuables apres disposal ; les echecs sont codes (CONTINUATION_UNAVAILABLE, UNAUTHORIZED, DUPLICATE_CHILD, UNSUPPORTED_CAPABILITY).",
+      "id": "dsh-subagent-seam",
+      "integration": "plugin",
+      "name": "Couture subagent : un service, N providers nommes",
+      "omega_adapter": "omega-ports::SubagentRunner + omega-core (planned)",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/resume)",
+      "refs": [
+        "packages/subagent/subagent/src/index.ts:142-269",
+        "packages/subagent/subagent/src/depth.ts:1-23",
+        "packages/subagent/subagent/src/manager.ts",
+        "packages/subagent/subagent/README.md:51-73",
+        "docs/subsystems/subagent.md"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Deleguer du travail par providers nommes : les enfants locaux gardent une session durable relisible et recontinuable, les externes executent une fois, et tous partagent admission, capacite, annulation, propriete et decouverte."
+    },
+    {
+      "domain": "agents",
+      "how": "subagent-claude-code monte le Claude Agent SDK en routant son spawn custom par le proprietaire de processus partage (ctx.subprocess.spawn), avec un nom de provider configurable (defaut claude-code) et la profondeur 'provider-managed' ; subagent-codex fait de meme avec l'app-server Codex (resolution du package @openai/codex via createRequire) ; subagent-acp recoit un enfant d'un autre runtime par ACP ; les providers externes conservent leur propre systeme de permissions, n'ont pas de session locale et mintent un SubagentRun.id dans le namespace partage — une collision avec un Agent, une Session ou une activation residente rejette le demarrage en DUPLICATE_CHILD et dispose le nouveau handle sans remplacer l'execution existante.",
+      "id": "dsh-subagent-external-clis",
+      "integration": "plugin",
+      "name": "Monter Claude Code et Codex comme providers de sous-agents",
+      "omega_adapter": "omega-ports::SubagentRunner (adaptateurs CLI externes, planned)",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (providers externes)",
+      "refs": [
+        "packages/subagent/subagent-claude-code/src/index.ts:30-138",
+        "packages/subagent/subagent-claude-code/src/process.ts:41-46",
+        "packages/subagent/subagent-codex/src/index.ts:30-122",
+        "packages/subagent/subagent-codex/src/run.ts:40-51",
+        "docs/capability-seams.md:423-424"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Un harnais etranger devient un provider de delegation : l'enfant est le vrai CLI ou app-server de l'autre produit, execute une fois, sans session locale — c'est ainsi que Claude Code et Codex sont montes."
+    },
+    {
+      "domain": "agents",
+      "how": "hooks-claude-code lit une config Claude Code (hooks.json ou un fichier de settings portant une cle hooks) et couvre le sous-ensemble de hooks commande de l'outil de reference, dont SubagentStop qui lit le repertoire final committe de l'enfant apres disposal ; hooks-codex couvre cinq points (session start, prompt submission, before et after tool execution, stop) ; un hook peut bloquer un prompt ou un appel d'outil avec une raison VISIBLE PAR LE MODELE, ajouter du contexte de conversation, ou forcer un step supplementaire ; les processus de hook et le cwd de leur payload suivent le repertoire courant de la session (CLAUDE_PROJECT_DIR le suit sauf projectDir configure) ; un hook de stop en echec avertit sans casser le run.",
+      "id": "dsh-hooks-bridges",
+      "integration": "plugin",
+      "name": "Ponts de hooks Claude Code et Codex (reutiliser une config existante)",
+      "omega_adapter": "omega-plugin-api (Hook) + omega-sandbox (planned)",
+      "omega_capability": "hook",
+      "omega_port": "Hook",
+      "refs": [
+        "packages/experimental/hooks-claude-code/README.md:21-40",
+        "packages/experimental/hooks-codex/README.md:1-30",
+        "packages/experimental/claude-code-mods",
+        "docs/subsystems/claude-code-mods.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Un harnais etranger n'a pas seulement ses sous-agents : sa configuration de hooks doit marcher telle quelle — les hooks commande se declenchent aux memes moments dans les runs d'agent, au lieu d'etre reecrits en plugins natifs."
+    },
+    {
+      "domain": "agents",
+      "how": "AgentPresetRegistry monte avec empressement les revisions de preset declarees en YAML, lie les Agents et les lecteurs a froid aux contributions SCOPEES, et retient une revision retiree jusqu'a ce que son dernier utilisateur la relache ; un preset patch applique des operations (remplacement de ligne par id, insertion) DANS le config.plugins de la declaration, avec la meme precedence de couches que le profil ; une ligne de service dans un preset doit porter un realm isolate, sinon elle affecte la session entiere ; les lignes de preset restent en lecture seule pour le gestionnaire de plugins ('il ne peut pas editer la composition d'un preset d'agent').",
+      "id": "dsh-agent-presets",
+      "integration": "plugin",
+      "name": "Presets d'agent : composition par session + revisions retirees retenues",
+      "omega_adapter": "plugins/agent-preset (planned)",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore (presets)",
+      "refs": [
+        "packages/preset/agent-preset-registry/src/index.ts:52",
+        "docs/architecture.md:25",
+        "docs/architecture.md:146",
+        "docs/subsystems/slots.md",
+        "packages/boot/plugin-manager/README.md:143"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Donner a UNE session un jeu de capacites different sans toucher aux autres : une composition YAML montee a la demande, avec des revisions retirees conservees jusqu'a ce que le dernier utilisateur les relache."
+    },
+    {
+      "domain": "agents",
+      "how": "PlanModeController (Service) replie l'etat plan/mode journalise, flushe les selections utilisateur aux frontieres de turn, rend la guidance possedee par le deploiement, enregistre la commande /plan et garde le schema de sortie de plan STABLE entre transitions ; l'outil exit_plan_mode reste dans le schema visible par le modele meme quand le plan est inactif (pour ne pas faire varier le catalogue d'outils et casser le prefixe de cache), rejette les appels hors mode plan, et en mode plan presente le plan sur la couture user-questions (approuver / continuer a planifier avec un retour) ; l'approbation journalise plan/mode inactif a la frontiere du step.",
+      "id": "dsh-plan-mode",
+      "integration": "plugin",
+      "name": "Plan mode : etat de collaboration + outil exit_plan_mode stable",
+      "omega_adapter": "plugins/plan-mode (planned)",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore + ContextEngine",
+      "refs": [
+        "packages/plan/plan-mode/src/index.ts:69-175",
+        "docs/subsystems/plan.md",
+        "docs/tool-catalog.md:25",
+        "docs/capability-seams.md:671"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Un mode de collaboration ou l'agent propose avant d'agir : l'etat est replie du log, la sortie de plan passe par une approbation humaine, et le schema de l'outil de sortie ne bouge jamais pour ne pas invalider le cache."
+    },
+    {
+      "domain": "outils",
+      "how": "ToolDefinition etend ToolSchema : description, parametres decrits par un DSL (ValueSchemaSpec : string/number/integer/boolean/null/array/object/json/oneOf, avec description/title/default/format) materialises une seule fois en JSON Schema valide ; la presentation UI (presentCall/presentResult) est separee de l'execution ; la definition porte projectContent (contenu prepare, installe avant tools/post-execute, les remplacements de politique restant autoritaires) et finalizeContent (invariant de contenu synchrone, execute en dernier) ; le registre expose les definitions visibles apres restrictions, shadowing scope et insertion du transport reserve ; register() retourne un disposer.",
+      "id": "dsh-tool-definition",
+      "integration": "plugin",
+      "name": "Contrat d'outil schema-first + DSL de types + presentation",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "refs": [
+        "packages/core/tools/src/index.ts:224-260",
+        "packages/core/tools/src/index.ts:1071-1094",
+        "packages/core/tools/src/schema.ts:12-103",
+        "docs/subsystems/tools.md:5",
+        "docs/tool-catalog.md:7-20"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Un outil est une definition a schema d'entree typé qui rejoint l'assemblage du prompt : le schema est la seule source des types rendus au modele, et la vue de presentation (UI) est distincte du resultat d'execution."
+    },
+    {
+      "domain": "outils",
+      "how": "ctx.tools.execute() exige un signal readonly possede par l'appelant, materialise une seule fois les arguments parses en ToolExecution, puis enchaine : tools/pre-execute (waterfall allow/deny/ask, reordonnable) -> guards monotones enregistres -> tools/execute (wrappers around-dispatch : timeout, retry, metriques) -> projectContent -> tools/post-execute (accept/block/remplace, ajout de contexte) -> finalizeContent -> tools/result (notification synchrone sur une issue immuable et sans perte) ; seul l'etage tools/execute peut remplacer le signal exige ; un throw de pipeline est normalise en isError apres un snapshot sans perte du resultat candidat ; les additionalContexts de la fournee active sont injectes en user/message en FIFO APRES les tool/result enregistres, donc l'adjacence appel/resultat est preservee.",
+      "id": "dsh-tool-guarded-pipeline",
+      "integration": "plugin",
+      "name": "Pipeline d'execution garde (pre -> guards -> execute -> post -> result)",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy + ToolExecutor",
+      "refs": [
+        "packages/core/tools/src/index.ts:154-205",
+        "packages/core/tools/src/index.ts:1135-1152",
+        "docs/tool-execution-pipeline.md:6-63",
+        "docs/subsystems/tools.md:180-186",
+        "docs/subsystems/tools.md:398"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Tous les appels d'outil traversent un pipeline unique ou politique, hooks, sandbox, timeout et reecriture de resultat s'inserent sans toucher la boucle, et l'issue qui atteint le modele est une seule valeur figee."
+    },
+    {
+      "domain": "outils",
+      "how": "Un ToolGuard est une politique finale pre-dispatch, scope-aware, dont le type de retour n'a deliberement AUCUN resultat 'allow' : undefined preserve la decision du waterfall et une raison retournee ne peut que REDUIRE la permission, donc un listener tardif ne peut pas annuler un refus ; un guard de contexte simple est global, un guard enregistre via agent.ctx ne vaut que pour cet agent, et l'evaluation part de la couche la plus lointaine ; repeat-tool-reminder ecoute agent/pre-step pour rappeler au modele qu'il repete un appel avec des arguments identiques ; timeout-policy applique une echeance ; guard() retourne le disposer exact qui desenregistre le guard.",
+      "id": "dsh-shipped-guards",
+      "integration": "plugin",
+      "name": "Guards livres : rappel d'outil repetitif, policy de timeout",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "refs": [
+        "packages/guard/repeat-tool-reminder/src/index.ts:35-169",
+        "packages/guard/timeout-policy/src/index.ts:55",
+        "docs/subsystems/tools.md:325-333",
+        "docs/subsystems/tools.md:542-551"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Deux guards fournis en plugins montrent le modele d'extension d'une politique : une couche qui ne peut QUE reduire la permission, enregistrable globalement ou pour un seul agent, et jamais annulable par un listener plus tardif."
+    },
+    {
+      "domain": "outils",
+      "how": "ECARTE pour le noyau Rust : en mode ptc le registre n'emet plus qu'un transport reserve (run_code) et les autres capacites visibles sont declarees dans une section SDK generee dans le langage du runtime charge ; un programme appelle les outils par des bindings planifies sous le contrat de concurrence natif (starts ordonnes par soumission, corps concurrents jusqu'a maxParallelSubCalls) qui RE-ENTRENT le pipeline garde complet ; chaque sous-appel porte le token parent, journalise tool/ptc-dispatch et omet additionalContexts pour preserver l'adjacence appel/resultat ; le pont exige un runtime JS/Python in-process (ptc-runtime-node, experimental-ptc-runtime-python) et un pont de types. On garde les lecons de structure (un seul transport, sous-appels re-entrants, budget de parallelisme, schema fige a la construction) mais pas le runtime : un equivalent WASM sandboxe serait requis, hors perimetre actuel.",
+      "id": "dsh-ptc-runtime",
+      "integration": "rejected",
+      "name": "PTC (programmatic tool calling) via run_code — ECARTE (runtime JS/Python)",
+      "omega_adapter": null,
+      "omega_capability": null,
+      "omega_port": null,
+      "refs": [
+        "packages/core/tools/src/ptc.ts",
+        "packages/core/tools/src/ptc-calls.ts",
+        "packages/ptc-runtime/ptc-runtime/src/index.ts:104",
+        "docs/subsystems/ptc-runtime.md",
+        "docs/tool-execution-pipeline.md:63",
+        "docs/tool-catalog.md:23"
+      ],
+      "rust_cost": "L",
+      "status": "rejected",
+      "what": "ECARTE : en mode PTC le modele n'appelle plus les outils un par un mais ecrit du code qui les appelle par des bindings typés ; le gain (un seul outil au schema stable, parallélisme controle, sous-appels gardes) est reel, mais le runtime JS/Python in-process est hors perimetre du noyau Rust."
+    },
+    {
+      "domain": "outils",
+      "how": "mcp-client supporte les transports stdio et streamable HTTP ; la connexion negocie, puis enregistre des definitions d'outils dans ctx.tools (dont des schemas JSON bruts non connaissables statiquement, ce qui explique pourquoi le catalogue d'outils est genere en BOOTANT chaque plugin) et une couture ctx.mcpResources scopee par agent ; les serveurs de ressources fournissent les outils list/read ; la reconnexion et le cycle de negociation sont couverts par des tests dedies ; l'egress est restreint.",
+      "id": "dsh-mcp-client",
+      "integration": "plugin",
+      "name": "Client MCP : transports, outils et ressources, egress, reconnexion",
+      "omega_adapter": "omega-mcp (client MCP)",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (import externe)",
+      "refs": [
+        "packages/mcp/mcp-client/src/index.ts:52-80",
+        "packages/mcp/mcp-client/src/tools.ts",
+        "packages/mcp/mcp-resources/src/index.ts",
+        "docs/subsystems/mcp.md",
+        "docs/capability-seams.md:622"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Monter des serveurs MCP pour importer leurs outils et ressources dans le registre du harnais, avec politique d'egress, negociation et reconnexion — sans que le noyau connaisse MCP."
+    },
+    {
+      "domain": "securite",
+      "how": "SandboxPolicy et SandboxExecutionPolicy declarent modes et limites ; ConfinedArgv est ce que le consommateur passe (jamais un argv nu) ; la classification par dialecte et les regles d'echec de runner sont explicites, et SandboxUnavailableError est fail-closed ; fs-sandbox et terminal-bash sont des consommateurs ; les providers fs et subprocess partagent un SEUL monde d'execution, donc pointer les deux vers un sandbox distant deplace Bash, PTY et LSP ensemble, sans fork de provider par surface.",
+      "id": "dsh-sandbox-seam",
+      "integration": "plugin",
+      "name": "Couture sandbox : modes d'application, argv confine, fail-closed",
+      "omega_adapter": "omega-sandbox::LocalSandboxBackend",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend",
+      "refs": [
+        "packages/sandbox/sandbox/src/index.ts:40-132",
+        "packages/sandbox/sandbox/src/roots.ts",
+        "packages/sandbox/sandbox/src/escalation.ts",
+        "docs/subsystems/sandbox.md:9-98",
+        "docs/architecture.md:134"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Confiner les processus lances sans le savoir dans la boucle : le consommateur emballe son argv, un backend sandbox l'applique, et l'absence de backend applicable est un echec explicite plutot qu'une execution non confinee."
+    },
+    {
+      "domain": "securite",
+      "how": "ctx.approval est un service (ApprovalService) et l'evenement approval/request est un WATERFALL, donc une politique peut repondre en court-circuitant sans next() ; chaque session porte une policy courante (setApprovalPolicy) ; un appel en attente se resout sur une promesse neutre vis-a-vis de l'interface (ask()), et le refus comme l'acceptation sont audites ; dans le pipeline d'outils, ctx.approval resout les 'ask' AVANT les guards monotones — donc une politique proprietaire qui ne doit pas etre reordonnee s'enregistre comme guard ; un canal absent, injoignable, refuse, annule ou en timeout donne un refus (deny) ; une approbation autorise UNE fois et ne change pas le mode de permission de la session.",
+      "id": "dsh-approval-seam",
+      "integration": "plugin",
+      "name": "Couture d'approbation : prompt one-shot, absence = refus",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "refs": [
+        "packages/interaction/user-approval/src/index.ts:100-150",
+        "docs/subsystems/approval.md:31-160",
+        "docs/tool-execution-pipeline.md:16-42"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Un appel qui demande une approbation declenche un prompt unique ; si le canal est absent, injoignable, refuse ou annule, l'appel est refuse — le fail-closed est la valeur par defaut, jamais l'inverse."
+    },
+    {
+      "domain": "securite",
+      "how": "PermissionPresetService expose le tableau des presets (read-only, auto, custom, danger-full-access) et le preset courant ; le preset 'auto' de la session courante est enregistre en fixe ; un ecart de l'utilisateur produit un 'custom' DERIVE plutot qu'un preset faussement nomme ; le basculement emet permission/preset ; un preset peut etre attache a une composition d'agent ou a la session ; le mode de permission de session est distinct d'une approbation ponctuelle (qui ne le modifie pas), donc une action dangereuse autorisee ne promeut pas la session.",
+      "id": "dsh-permission-presets",
+      "integration": "plugin",
+      "name": "Presets de permission (read-only/auto/custom/danger-full-access)",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "refs": [
+        "docs/subsystems/permission-presets.md:9-81",
+        "docs/capability-seams.md:230",
+        "docs/capability-seams.md:379",
+        "docs/subsystems/approval.md:31"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Un tableau de presets resument un etat de permission en un choix lisible, avec un preset custom derive quand l'utilisateur s'ecarte du tableau au lieu d'un nom de preset mensonger."
+    },
+    {
+      "domain": "securite",
+      "how": "fs-observation-policy est un plugin qui s'abonne aux evenements fs/* comme GATE d'evenement (la fleche pointillee du graphe de capacites relie svc_fs a pkg_fs_observation_policy) ; les checks de lecture-avant-edition restent SOUS tool-fs, sur les evenements fs/write-intent et fs/edit-intent, donc ils ne polluent ni la boucle ni le registre d'outils ; les racines d'ecriture du sandbox et l'identite du projet d'origine restent figees meme quand le repertoire de travail change ; cote service de fichiers, chaque lecture (stat, texte page, fenetre d'octets, listing) est confinee par lstat, containment et une re-verification de stat.",
+      "id": "dsh-fs-observation-policy",
+      "integration": "plugin",
+      "name": "Porte d'observation FS : write-intent/edit-intent et lecture-avant-edition",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "refs": [
+        "packages/fs/fs-observation-policy/src/index.ts:106",
+        "docs/tool-execution-pipeline.md:19-63",
+        "docs/subsystems/filesystem.md",
+        "docs/capability-seams.md:607",
+        "docs/capability-seams.md:640"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Les mutations de fichiers passent par une porte d'evenements (write-intent, edit-intent) qui applique observation et lecture-avant-edition, sans que l'outil de fichiers connaisse la politique."
+    },
+    {
+      "domain": "execution",
+      "how": "ctx.subprocess est la couture de spawn ; bash-local et bash-sandbox implementent ctx.shell ; pwsh-local fait de meme pour PowerShell ; terminal-bash implemente ctx.terminals (PTY persistant) et tool-terminal est son consommateur ; fs-ssh, sandbox-ssh et subprocess-ssh deplacent tout l'arbre vers une machine distante ; ctx.shellEnv est un registre d'environnement gere pour bash/pwsh ; le tool bash consomme ctx.shell, ctx.shellEnv, ctx.workingDirectory et s'enregistre dans ctx.jobs pour run_in_background ; le sandbox emballe l'argv avant spawn, donc changer de backend sandbox deplace Bash, PTY et LSP ensemble.",
+      "id": "dsh-shell-subprocess-pty",
+      "integration": "plugin",
+      "name": "Coutures shell / subprocess / terminal PTY / SSH",
+      "omega_adapter": "omega-sandbox + omega-plugin-api (planned)",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "refs": [
+        "docs/capability-seams.md:204-227",
+        "docs/capability-seams.md:561-567",
+        "docs/subsystems/shell.md",
+        "docs/subsystems/subprocess.md",
+        "docs/subsystems/terminal.md",
+        "docs/tool-catalog.md:27"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Executer des commandes par coutures interchangeables : subprocess, executeurs bash et pwsh, terminaux PTY persistants, transport SSH — chaque couche etant un plugin qui peut etre remplace par un backend distant."
+    },
+    {
+      "domain": "execution",
+      "how": "acp/acp monte un serveur ACP (Config + apply) au-dessus de ctx.agents : sessions, mises a jour de tour, approbations et un pont MCP ; le profil dsh acp est un bundle dedie (dsh-acp-app) et le CLI expose dsh acp ; cote delegation, subagent-acp est un provider EXTERNE (execution unique, pas de session locale), et l'experimental claude-code-mods porte un pont de mods Claude Code. Le meme harnais est donc a la fois client et serveur du meme protocole d'agent.",
+      "id": "dsh-acp-server",
+      "integration": "service",
+      "name": "Serveur ACP (Agent Client Protocol) + enfants ACP",
+      "omega_adapter": null,
+      "omega_capability": null,
+      "omega_port": null,
+      "refs": [
+        "packages/acp/acp/src/index.ts:75-97",
+        "packages/acp/acp/src/session.ts",
+        "packages/acp/acp/src/updates.ts",
+        "docs/capability-seams.md:211",
+        "docs/architecture.md:43"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Exposer le harnais en serveur d'automatisation pour des clients d'editeur, et consommer des agents distants comme enfants par le meme protocole — le harnais etant les deux cotes a la fois."
+    },
+    {
+      "domain": "contexte",
+      "how": "Chaque assistant/message embarque le flux compact timé exact qui a produit son contenu ; assistant/attempt retient les tentatives reglees (echouees, retentees, annulees, en erreur de stream) SANS ajouter d'historique modele ; le format est versionne (v0 session.jsonl[.zstd], v1+ session.vN.jsonl[.zstd]) et les chemins de generation committes ne sont jamais renommes, remplaces ou supprimes ; une chaine de migrations adjacentes compose vN -> vN+1 une fois avant de rendre des evenements logiques courants (un en-tete de version future est refuse) ; la REPARATION d'une queue interrompue non scellee reste une responsabilite du consommateur de handle, et une migration n'insere un turn/end manquant que pour le redemarrage borne deja scelle par un turn/start ulterieur ; le backend JSONL possede framing physique, compression, selection de generation et publication exclusive.",
+      "id": "dsh-session-log",
+      "integration": "plugin",
+      "name": "Log de session append-only, generations versionnees et migrations",
+      "omega_adapter": "omega-app::FileEventStore + omega-otel::TraceReplayer",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (create/open/stat/list/export)",
+      "refs": [
+        "docs/architecture.md:118-126",
+        "packages/session/session-persistence/src/index.ts:137",
+        "docs/subsystems/persistence.md:9-116",
+        "docs/subsystems/persistence.md:327-343"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Le log de session est la source du contexte que voit le modele : l'historique est PROJETE depuis les faits durables, fork, resume, transcript, telemetrie et persistance derivent des memes reglements, et tout ce qui est visible par le modele est journalise."
+    },
+    {
+      "domain": "contexte",
+      "how": "SessionProjectionRegistry possede ctx.sessionProjections ; une ProjectionDefinition replie les faits committes de maniere incrementale, stateOf() lit un seul etat typé, et snapshot() sert un batch de vues clientes recadrees ; l'entrainement empresse garde un watermark par session et le controleur de session sert les baselines puis pousse les valeurs changees ; un lecteur hote doit soit exiger ce service pendant l'activation, soit echouer explicitement quand le registre ou la cle requise manque — un contributeur ne peut pas retomber silencieusement sur une valeur par defaut ; une couture obligatoire est ainsi documentee et testable.",
+      "id": "dsh-session-projections",
+      "integration": "plugin",
+      "name": "Couture de projections de session (fold incremental + snapshot)",
+      "omega_adapter": "omega-context::DefaultContextEngine (planned)",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (projections)",
+      "refs": [
+        "packages/session/session-projection/src/index.ts:48-199",
+        "docs/subsystems/session-projection.md",
+        "docs/architecture.md:126",
+        "docs/capability-seams.md:674"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Un domaine enregistre une unite de repli qui fold les evenements committes ; les consommateurs lisent un etat typé unique sans relire le log, et l'absence de la couture echoue explicitement au lieu de produire un resultat faux."
+    },
+    {
+      "domain": "contexte",
+      "how": "CompactionEngine est un service abstrait (couture) et BasicCompactionEngine l'implementation par defaut ; ToolResultPruner reecrit les resultats d'outil courants trop gros par des remplacements de surface REJOUABLES a noeud unique AVANT la compaction par resume, donc le log reste la source de verite ; TokenMeter possede des replis par session isoles et des mesures immuables revisionnees partagees par les consommateurs de pression, y compris un compteur de rejeu ; l'evenement waterfall agent/request-error heberge la pression apres appel, l'offload d'images et le retry ; compaction-image-offload deplace les images hors du prefixe modele.",
+      "id": "dsh-compaction-pipeline",
+      "integration": "plugin",
+      "name": "Compaction : couture + moteur basic + token meter + pruner de resultats",
+      "omega_adapter": "omega-context::{ContextBudget,truncate_compact}",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (estimate/compact)",
+      "refs": [
+        "packages/compaction/compaction/src/index.ts:119",
+        "packages/compaction/compaction-basic/src/index.ts:113",
+        "packages/compaction/compaction-tool-result-pruner/src/index.ts:44",
+        "packages/llm/token-meter/src/index.ts:101",
+        "docs/subsystems/compaction.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Maintenir le contexte sous pression en trois temps : mesurer, elaguer les resultats d'outil trop gros SANS modele, puis compacter en resume — chaque etape etant rejouable depuis le log, avec recuperation apres depassement."
+    },
+    {
+      "domain": "contexte",
+      "how": "ctx.systemPrompt est un registre d'assemblage (PromptSection/PromptContext/AssembledSection) consomme par la boucle, le registre d'outils et plusieurs outils (fs, terminal, web) ; le prompt ne voyage QUE comme historique system/message, donc un rendu vide efface tous les noeuds systeme actifs (aucun ancien prompt ne reste visible au modele) et un nouveau prompt s'ajoute APRES l'historique cache sur les routes capables, tandis qu'une route incapable le consolide au premier noeud systeme ; les changements d'outils sont independants des capacites et fournissent leurs declarations au provider ; le contexte runtime (enonces de delegation de sous-agent, sandbox-policy et approval-policy, time-context, tmux-context, agent-instructions) est projete au fallback de pre-step.",
+      "id": "dsh-system-prompt-assembly",
+      "integration": "plugin",
+      "name": "Assemblage du prompt systeme et des schemas d'outils",
+      "omega_adapter": "omega-context::DefaultContextEngine (partiel)",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (assemble)",
+      "refs": [
+        "packages/core/system-prompt/src/index.ts:42-93",
+        "docs/subsystems/system-prompt.md",
+        "docs/architecture.md:110",
+        "docs/capability-seams.md:668"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Collecter les sections de prompt et les schemas d'outils visibles pour chaque step dans un registre, en gardant un regime de prefixe compatible cache et une seule representation durable du prompt."
+    },
+    {
+      "domain": "memoire",
+      "how": "ctx.skills est un registre de SkillProvider ; une SkillDefinition porte name/provider/resourceBase/content et une SkillInvocationPolicy ; isModelInvocable et isUserInvocable filtrent par surface, donc une skill utilisateur n'apparait pas au modele ; renderSkillContent() produit le bloc injecte ; SkillProviderControl expose observation et controle (activation/desactivation) ; le catalogue est addresse par session (sessionSkillCatalog) sans activer un agent a froid ; tool-skill est le consommateur modele et skill-filesystem, skill-office, skill-badge sont des providers.",
+      "id": "dsh-skill-providers",
+      "integration": "plugin",
+      "name": "Providers de skills + disclosure progressive",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "refs": [
+        "packages/skill/skill/src/index.ts:126-278",
+        "docs/subsystems/skills.md",
+        "docs/capability-seams.md:183",
+        "docs/capability-seams.md:636"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Un registre de providers de skills ou chaque skill a une politique d'invocation (modele vs utilisateur), un contenu et une base de ressource ; le catalogue reste requetable sans activer d'agent, et le contenu n'entre dans le prompt qu'a l'invocation."
+    },
+    {
+      "domain": "routage",
+      "how": "LlmRuntime possede ctx.llm ; LlmAdapter est la classe abstraite d'adaptateur, avec LlmError typé et assertUsableApiKey ; llm-deepseek et llm-pi-ai sont les adaptateurs livres et llm-replay un adaptateur de test ; PreparingLlmCall/PreparedAdapterCall separent la PREPARATION (resolution de route, modele, credentials, max tokens) de l'EXECUTION ; ctx.deepseekLlmApiExtensions laisse des plugins preparer des champs top-level independants que l'adaptateur officiel fusionne et dont il commit l'etat de livraison APRES acceptation HTTP ; les capacites de raisonnement et les defauts de max tokens appartiennent a l'adaptateur, pas a l'appelant.",
+      "id": "dsh-llm-adapter-seam",
+      "integration": "plugin",
+      "name": "Registre d'adaptateurs LLM + extensions de fil officielles",
+      "omega_adapter": "omega-providers::OllamaProvider",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider",
+      "refs": [
+        "packages/llm/llm/src/index.ts:96-354",
+        "packages/llm/deepseek-llm-api-extensions/src/index.ts",
+        "docs/capability-seams.md:628-629",
+        "docs/subsystems/llm-streaming.md"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Des adaptateurs enregistrent des implementations de provider sur un service de stream neutre vis-a-vis du provider ; la boucle et la compaction appellent ce service, et des plugins peuvent enrichir la requete officielle sans forker l'adaptateur."
+    },
+    {
+      "domain": "observabilite",
+      "how": "OTel (Service, cle ctx.otel) expose createEventReporter (canaux d'evenements ordinaires, batching par nombre) et createSessionLogReporter (canaux de log de session bornes en octets, ou autorisation et REDACTION precedent le rapport) ; monter le service ne cree aucune file, aucune identite et aucune connexion reseau, et la telemetrie produit n'exporte que les evenements EXPLICITEMENT soumis via OTLP/HTTP, donc monter seul ne collecte rien ; session-telemetry est une couture qui capture, redige et remet les enregistrements a UN SEUL backend, dont la sortie quitte le process ; le consommateur injecte possede l'arret du canal et son echeance externe.",
+      "id": "dsh-otel-telemetry",
+      "integration": "plugin",
+      "name": "OTel : canaux de rapport independants, montage passif",
+      "omega_adapter": "omega-otel::{Stdout,File}Sink",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "refs": [
+        "packages/telemetry/otel/src/index.ts:1-30",
+        "packages/session/session-telemetry/src/index.ts:65-148",
+        "docs/subsystems/otel.md",
+        "docs/capability-seams.md:656-658"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Un service partage cree des canaux de rapport independants (evenements ordinaires, log de session borne et redige) ; le simple montage ne collecte rien et l'export n'a lieu que par un consommateur injecte qui draine son canal pendant son disposal."
+    },
+    {
+      "domain": "observabilite",
+      "how": "Trois domaines : les evenements de SESSION sont des faits durables appendes au log et diffuses par session/event (a utiliser quand le fait doit survivre a un reload) ; les evenements d'AGENT (agent/*) portent un Agent vivant (inbox, step, status, request, validation, continuation) pour observer ou intercepter du travail en vol ; les evenements de CAPACITE attachent politique et adaptateurs a une couture (fs/*, tools/*, telemetry/*) sans importer la boucle ; une matrice producteur/consommateur generee liste chaque evenement, son mode declare et ses sites de dispatch, et le generateur VERIFIE les declarations contre les sites reels ; turn/step/system/user/assistant/tool sont durables, le reste est un point d'extension live.",
+      "id": "dsh-event-taxonomy",
+      "integration": "plugin",
+      "name": "Taxonomie d'evenements en trois domaines + matrice generee verifiee",
+      "omega_adapter": "omega-otel::Provenance + omega-app::FileEventStore",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "refs": [
+        "docs/architecture.md:67-77",
+        "docs/event-producer-consumer.md:10-16",
+        "docs/cordis-primer.md:27",
+        "docs/cordis-primer.md:43"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Choisir le bon domaine d'evenement est la premiere decision d'un changement : fait durable de session, evenement d'agent vivant, ou evenement de capacite pour la politique — avec une matrice generee qui empeche une declaration de mode de mentir sur son site de dispatch."
+    },
+    {
+      "domain": "ui",
+      "how": "ctx.webServer porte l'enregistrement de routes (WebRoute/WebUpgradeRoute, TLS, hotes wildcard et loopback, Config) ; ctx.connection possede l'authentification navigateur et le dispatch HTTP partage, les adaptateurs API enregistrant endpoints et streams ; ctx.typert est un registre de types runtime (les plugins enregistrent des contributions zod, directement ou via dsh-typert-loader) et l'api-gateway associe des descripteurs Remote GENERES a des services Cordis vivants, resout les identites enregistrees et expose des appels unaires par le carrier RPC partage ; ctx.remoteAccess decide quelles methodes un Peer non-proprietaire peut appeler (politiques par role, filtrage des listes, snapshot de droits par Peer) ; cote client, un graphe de modules ordonne (orderByModuleGraph) et des boot injections activent les plugins client dans le meme document.",
+      "id": "dsh-web-server-protocol",
+      "integration": "service",
+      "name": "Serveur web + transport authentifie + projection typée des services",
+      "omega_adapter": "omega-server (cockpit + /api/health|plugins|run|trace)",
+      "omega_capability": null,
+      "omega_port": null,
+      "refs": [
+        "packages/host/webserver/src/index.ts:47-181",
+        "packages/api/gateway/src/index.ts:209",
+        "packages/client/modules/src/index.ts:508-603",
+        "docs/capability-seams.md:619-647",
+        "docs/architecture.md:53"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Un serveur HTTP ou les plugins enregistrent des routes, un transport navigateur authentifie, et une projection typée des services Cordis en methodes distantes — une seule origine servant l'interface et l'API, sans couche de contrat ecrite a la main."
+    },
+    {
+      "domain": "ui",
+      "how": "Profils livres : web, headless, sdk, sdk-minimal, acp (plus un profil desktop reserve a Electron) ; dsh --profile <name> --dump-config imprime la liste d'entrees composee avec les expressions !!js verbatim, groupee par fichier source et par couche de patch ayant modifie chaque ligne, en UN document YAML chargeable ; --dump-config-schema importe chaque module compose pour lire son schema (donc a n'executer que sur un profil de confiance) ; dsh plugin gere les bundles installes ; installFailLoud ecrit un unique diagnostic etiquete puis attend le hook de release sous un delai fixe et sort 1, sans rendre la main a l'operation echouee ; une entree requise en echec fait disposer toute l'application et sortir non-zero, et une matrice documente 13 motifs de panne au demarrage, en HMR, ou fatals.",
+      "id": "dsh-cli-profiles",
+      "integration": "service",
+      "name": "CLI dsh : profils nommes, dump de config/schema, audit de demarrage",
+      "omega_adapter": null,
+      "omega_capability": null,
+      "omega_port": null,
+      "refs": [
+        "docs/cli-help.md:21-166",
+        "packages/boot/app-boot/README.md:36-43",
+        "packages/boot/app-boot/README.md:71-81",
+        "packages/boot/app-boot/README.md:98-111",
+        "apps/cli/src/bin.ts",
+        "apps/cli/src/plugin.ts"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Le meme lanceur demarre des surfaces differentes par profil nomme, laisse imprimer la configuration et le schema effectifs avant de booter, et echoue loud avec un diagnostic agrege quand une entree requise ne peut pas activer."
+    },
+    {
+      "domain": "automatisation",
+      "how": "ctx.jobs est un registre de jobs (JobRegistry, service abstrait) et les outils job_* les lisent ou les arretent ; le tool bash s'enregistre dans ctx.jobs au demarrage pour run_in_background — sans registre de jobs, ou avec enableRunInBackground false, le tool enregistre un schema foreground-only SANS le parametre, donc le catalogue d'outils reflete la composition ; ctx.schedule gere des messages planifies par l'hote ; ctx.webhookRuntime execute des regles de CONFIANCE montees par un provider (webhook-github) pour demarrer une session depuis un evenement externe ; ctx.workflowEngine execute des scripts (workflow-ptc pour le mode PTC) et tool-ralph s'appuie dessus ; ctx.goals gere un objectif de meme session et continue via agent/*.",
+      "id": "dsh-jobs-schedule-webhook-workflow",
+      "integration": "service",
+      "name": "Jobs d'arriere-plan, planification, webhooks, moteur de workflow",
+      "omega_adapter": null,
+      "omega_capability": null,
+      "omega_port": null,
+      "refs": [
+        "packages/jobs/jobs/src/index.ts:88",
+        "packages/schedule/schedule/src/index.ts:99",
+        "packages/experimental/webhook/src/index.ts:58",
+        "packages/workflow/workflow/src/index.ts:130",
+        "docs/subsystems/jobs.md",
+        "docs/subsystems/schedule.md",
+        "docs/subsystems/webhook.md",
+        "docs/subsystems/workflow.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Faire tourner du travail hors du tour : jobs d'arriere-plan lisibles et arretables par des outils, messages planifies, demarrage de session depuis un webhook de confiance, et scripts de workflow — chaque domaine etant un service compose, pas un mode du noyau."
+    },
+    {
+      "domain": "agents",
+      "how": "ctx.agentTeams est la couture de coordination (Experimental Agent Teams) : elle expose un roster durable et un etat de tache durable plus une messagerie directe par inbox, au-dessus de sous-agents RECONTINUABLES (les enfants locaux gardent une session durable et acceptent des messages ulterieurs) ; agent-team et agent-team-profile fournissent le domaine et une composition de profil, tool-agent-team le consommateur modele ; les transitions d'identite passent par agent/created (serial, avant le travail en file avec rollback d'une initialisation echouee) et les mouvements d'inbox par agent/inbox/* (emit) ; le developpement est declare experimental et opt-in.",
+      "id": "dsh-agent-teams",
+      "integration": "plugin",
+      "name": "Agent Teams (experimental) : roster durable + inbox directe",
+      "omega_adapter": "omega-core (planned)",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore (roster)",
+      "refs": [
+        "docs/subsystems/agent-team.md",
+        "docs/architecture.md:136",
+        "docs/capability-seams.md:251-253",
+        "packages/experimental/agent-team"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Coordination opt-in de plusieurs agents : un roster et un etat de taches durables, et une messagerie directe par inbox posee sur des sous-agents recontinuables plutot que sur un orchestrateur central."
+    },
+    {
+      "domain": "contexte",
+      "how": "ctx.spillStore est une couture de stockage de spill (SpillStore abstrait) avec spill-local comme backend et spill-policy comme politique de declenchement ; ctx.attachments est la couture de stockage binaire durable (AttachmentStore abstrait, attachment-local) : l'hote commit les images acceptees AVANT les evenements de session, et les adaptateurs de provider resolvent des references durables AUTORISEES en contenu natif (llm-deepseek, llm-pi-ai, tool-fs) ; le nettoyage au demarrage supprime les spill locaux orphelins d'un run precedent.",
+      "id": "dsh-spill-attachments",
+      "integration": "service",
+      "name": "Spill store + stockage d'attachements durables",
+      "omega_adapter": "omega-context (planned)",
+      "omega_capability": null,
+      "omega_port": null,
+      "refs": [
+        "packages/spill/spill/src/index.ts:45",
+        "packages/attachment/attachment/src/index.ts:53",
+        "docs/subsystems/spill.md",
+        "docs/subsystems/attachment.md",
+        "docs/capability-seams.md:269-270",
+        "docs/capability-seams.md:625-626"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Sortir du contexte ce qui est trop gros : un seam de spill pour les resultats volumineux, et un magasin binaire durable pour les images committe AVANT les evenements de session, referencable par le modele et resolvable par le provider."
+    }
+  ]
+}
