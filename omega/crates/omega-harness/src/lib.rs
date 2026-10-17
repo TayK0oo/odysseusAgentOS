@@ -185,6 +185,7 @@ pub const APP_DISSECTIONS: &[&str] = &[
     include_str!("../data/apps/crewai.json"),
     include_str!("../data/apps/crush.json"),
     include_str!("../data/apps/cursor.json"),
+    include_str!("../data/apps/deep-agents.json"),
     include_str!("../data/apps/deepseek-harness.json"),
     include_str!("../data/apps/devin.json"),
     include_str!("../data/apps/dsh-desktop.json"),
@@ -436,7 +437,7 @@ mod tests {
     fn embedded_dissections_are_valid_and_complete() {
         let d = Dissections::embedded();
         assert!(
-            d.apps.len() >= 34,
+            d.apps.len() >= 35,
             "au moins 10 applications disséquées doivent être ENREGISTRÉES dans APP_DISSECTIONS \
              (un JSON sur disque mais non enregistré est invisible et doit faire échouer ce test)"
         );
