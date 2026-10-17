@@ -1,7 +1,7 @@
 ---
 description: SFD Planner — décompose les objectifs en tâches, estime les tokens, assigne les agents
 mode: subagent
-model: opencode/deepseek-v4-pro
+model: opencode/deepseek-v4.1-flash-free
 permission:
   edit: allow
   bash: deny

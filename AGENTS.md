@@ -10,6 +10,23 @@
 
 ---
 
+## 0. RÈGLE GLOBALE — modèles des sous-agents (impérative)
+
+> **Tout sous-agent part sur un modèle GRATUIT.** Un modèle payant n'est utilisé
+> qu'en **exception justifiée**, uniquement parmi `opencode-go/*` (inclus dans
+> l'abonnement Go), et seulement après un **échec gratuit constaté** — cité dans
+> le message de délégation. Les modèles `opencode/*` payants (Zen = solde) sont
+> **interdits**.
+
+- Référence : `docs/omega/rules/MODEL-POLICY.md` · machine : `docs/omega/rules/model-policy.json`
+- Vérification : `python3 omega/scripts/model_policy.py --check` (liste live) ou `--for <usage>`
+- Gratuits par défaut : `opencode/space-bunny-free` (code), `opencode/deepseek-v4.1-flash-free`
+  (analyse), `opencode/mimo-v2.6-flash-free` / `opencode/nemotron-3.5-lightning-free`
+  (léger), `opencode/longcat-2.5-preview-free` (multimodal/1M), `opencode/jev-1.13-free` (réponses typées).
+- Quota Go : 20 %/5 h, 50 %/semaine, 100 %/mois **par modèle** — ne pas l'épuiser avec des sous-agents.
+
+---
+
 ## 1. Qu'est-ce que ce projet
 
 Un **harnais d'agent universel** où **chaque composant est un plugin interchangeable**.

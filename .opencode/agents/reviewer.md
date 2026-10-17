@@ -1,7 +1,7 @@
 ---
 description: SFD Reviewer — audite le code, vérifie la qualité, détecte les vulnérabilités. TDD checklist + comment quality + pattern appropriateness.
 mode: subagent
-model: opencode/deepseek-v4-pro
+model: opencode/deepseek-v4.1-flash-free
 permission:
   edit: deny
   bash: allow

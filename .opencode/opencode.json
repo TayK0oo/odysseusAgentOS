@@ -1,0 +1,30 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agents": {
+    "general": {
+      "model": "opencode/deepseek-v4.1-flash-free"
+    },
+    "explore": {
+      "model": "opencode/mimo-v2.6-flash-free"
+    },
+    "executor": {
+      "model": "opencode/space-bunny-free"
+    },
+    "reviewer": {
+      "model": "opencode/deepseek-v4.1-flash-free"
+    },
+    "planner": {
+      "model": "opencode/deepseek-v4.1-flash-free"
+    },
+    "auto-evolve": {
+      "model": "opencode/deepseek-v4.1-flash-free"
+    },
+    "sfd-orchestrator": {
+      "model": "opencode/deepseek-v4.1-flash-free"
+    }
+  },
+  "instructions": [
+    ".opencode/rules/*.md",
+    "AGENTS.md"
+  ]
+}
