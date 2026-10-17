@@ -222,6 +222,44 @@ def main() -> int:
             if b["refs"]:
                 L.append("  - preuves : " + ", ".join(f"`{x}`" for x in b["refs"][:4]))
             L.append("")
+    # --- 2bis. Le noyau : architecture de plugins (ce que le corpus impose) ---
+    CORE_PATTERNS = (
+        "registry", "plugin", "seam", "config-source", "hook", "extension", "couture",
+        "event-store", "provenance", "sandbox-backend", "exec-policy", "permission-policy",
+        "subagent-runner", "tool-surface", "tool", "lifecycle", "agent-runtime", "agent-store",
+    )
+    core = [r for r in rows if any(pat in r["cap"].lower() for pat in CORE_PATTERNS)]
+    core.sort(key=lambda r: (-len(r["apps"]), -r["popularity"]))
+    L.append("## 2bis. Le noyau — ce que le corpus impose a l'architecture de plugins")
+    L.append("")
+    L.append(
+        "Capacites qui touchent au **squelette** (registre, coutures, couches, effets, "
+        "politiques, sous-agents). C'est la partie ou une erreur de conception se paie "
+        "dans tout le systeme : a traiter **en premier**, avant les fonctionnalites."
+    )
+    L.append("")
+    L.append("| Capacite | Harnais | Cout | Exemplaire de reference | Detail a copier |")
+    L.append("|---|---|---|---|---|")
+    for r in core:
+        b = r["best"]
+        how = b["how"].replace("|", "/")[:150]
+        L.append(
+            f"| `{r['cap']}` | {len(r['apps'])} | {r['min_cost']} | `{b['app']}` — *{b['name']}` | {how} |"
+        )
+    L.append("")
+    L.append("### Regles de conception deduites (appliquees a toutes les capacites ci-dessus)")
+    L.append("")
+    for rule in [
+        "**Effets reversibles** : toute inscription (registre, hook, timer, watcher) retourne un disposer ; rien ne fuit au unload.",
+        "**Couches nommees** : toute valeur de configuration vient d'une couche identifiable et est tracable jusqu'a sa source.",
+        "**Reload atomique** : un plugin se recharge entier ; les ecritures de config sont serialisees avec les reloads.",
+        "**Guard monotone** : les politiques ne peuvent que restreindre, jamais elargir (pas de variante permissive).",
+        "**Fail-closed** : a chaque couture, l'absence de canal, de provider ou de decision = refus, jamais execution.",
+        "**Couture explicite** : chaque sous-systeme interchangeable est relie a une cle stable ; echanger le provider deplace tout le sous-systeme d'un coup.",
+        "**Matrice d'evenements verifiee** : producteurs et consommateurs declares et controles automatiquement (pas d'evenement orphelin).",
+    ]:
+        L.append(f"- {rule}")
+    L.append("")
     L.append("## 3. Feuille de route par phase")
     L.append("")
     for phase_cost in ("S", "M", "L"):
