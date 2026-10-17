@@ -6,14 +6,14 @@
 
 | # | Harnais | Etoiles | Forks | Langage | Licence | Derniere activite | Disseque |
 |---|---|---|---|---|---|---|---|
-| 1 | DeepSeek Harness | 251,245 | 30,211 | TypeScript | MIT | 2026-10-16 | oui |
-| 2 | OpenCode | 214,396 | 28,775 | TypeScript | MIT | 2026-10-17 | oui |
+| 1 | DeepSeek Harness | 251,248 | 30,211 | TypeScript | MIT | 2026-10-16 | oui |
+| 2 | OpenCode | 214,399 | 28,775 | TypeScript | MIT | 2026-10-17 | oui |
 | 3 | AutoGPT | 187,617 | 45,917 | Python | NOASSERTION | 2026-10-17 | oui |
 | 4 | Claude Code | 151,269 | 26,851 | TypeScript | — | 2026-10-16 | oui |
-| 5 | Codex CLI | 129,552 | 20,392 | Rust | Apache-2.0 | 2026-10-17 | oui |
+| 5 | Codex CLI | 129,553 | 20,392 | Rust | Apache-2.0 | 2026-10-17 | oui |
 | 6 | Gemini CLI | 107,412 | 14,724 | TypeScript | Apache-2.0 | 2026-10-17 | oui |
 | 7 | Zed | 91,834 | 11,090 | Rust | NOASSERTION | 2026-10-17 | oui |
-| 8 | OpenHands | 91,083 | 12,079 | TypeScript | MIT | 2026-10-17 | oui |
+| 8 | OpenHands | 91,083 | 12,080 | TypeScript | MIT | 2026-10-17 | oui |
 | 9 | MetaGPT | 70,889 | 9,017 | Python | MIT | 2026-01-21 | oui |
 | 10 | Cline | 70,429 | 7,682 | TypeScript | Apache-2.0 | 2026-10-17 | oui |
 | 11 | Open Interpreter | 68,589 | 5,904 | Rust | Apache-2.0 | 2026-10-11 | oui |
@@ -26,7 +26,7 @@
 | 18 | Continue | 36,234 | 5,480 | TypeScript | Apache-2.0 | 2026-10-14 | oui |
 | 19 | Tabby | 33,916 | 1,793 | Rust | NOASSERTION | 2026-06-30 | oui |
 | 20 | GPT Pilot | 33,654 | 3,457 | Python | NOASSERTION | 2026-06-18 | oui |
-| 21 | DSH Desktop | 31,121 | 1,458 | TypeScript | MIT | 2026-10-16 | oui |
+| 21 | DSH Desktop | 31,124 | 1,458 | TypeScript | MIT | 2026-10-16 | oui |
 | 22 | Deep Agents | 30,347 | 4,274 | Python | MIT | 2026-10-17 | **non** |
 | 23 | Void | 28,752 | 2,657 | TypeScript | Apache-2.0 | 2026-06-02 | oui |
 | 24 | Crush | 28,675 | 2,338 | Go | NOASSERTION | 2026-10-17 | oui |
@@ -46,7 +46,7 @@
 | 38 | Claude Engineer | 11,215 | 1,158 | Python | — | 2024-12-12 | **non** |
 | 39 | GitHub Copilot Chat | 9,962 | 2,026 | TypeScript | MIT | 2026-05-20 | **non** |
 | 40 | Bloop | 9,481 | 601 | Rust | Apache-2.0 | 2024-12-04 | **non** |
-| 41 | DSH Web | 8,836 | 574 | TypeScript | Apache-2.0 | 2026-10-16 | **non** |
+| 41 | DSH Web | 8,836 | 574 | TypeScript | Apache-2.0 | 2026-10-16 | oui |
 | 42 | Sweep | 7,706 | 468 | Jupyter Notebook | NOASSERTION | 2025-09-18 | **non** |
 | 43 | gptme | 4,454 | 451 | Python | MIT | 2026-10-17 | oui |
 | 44 | Refact.ai | 3,533 | 319 | Rust | BSD-3-Clause | 2026-05-30 | **non** |
@@ -73,7 +73,7 @@
 | 65 | Windsurf / Cascade | 0 | 0 | — | — | — | oui |
 | 66 | v0 | 0 | 0 | — | — | — | **non** |
 
-## Ecarts a combler (21 harnais OSS non disseques, par popularite)
+## Ecarts a combler (20 harnais OSS non disseques, par popularite)
 
 | Harnais | Etoiles | Depot |
 |---|---|---|
@@ -91,7 +91,6 @@
 | Claude Engineer | 11,215 | `Doriandarko/claude-engineer` |
 | GitHub Copilot Chat | 9,962 | `microsoft/vscode-copilot-chat` |
 | Bloop | 9,481 | `BloopAI/bloop` |
-| DSH Web | 8,836 | `zhu1090093659/dsh-web` |
 | Sweep | 7,706 | `sweepai/sweep` |
 | Refact.ai | 3,533 | `smallcloudai/refact` |
 | Nanocoder | 2,519 | `Nano-Collective/nanocoder` |
