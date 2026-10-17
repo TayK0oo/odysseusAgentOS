@@ -31,6 +31,9 @@ use omega_registry::Registry;
 use omega_types::{
     Capability, ChatRequest, DurableEvent, Message, ModelId, OmegaError, OmegaResult,
 };
+use std::time::Duration;
+use tokio::process::Command as TokioCommand;
+use tokio::time;
 
 mod store;
 
@@ -1233,5 +1236,210 @@ mod tests {
             app.active_ids(Capability::LlmProvider),
             vec!["b".to_string()]
         );
+    }
+}
+
+// --- Provider externe de sous-agents (NOYAU Phase D) --------------------------
+
+use std::process::Stdio;
+
+/// Configuration pour un provider externe de sous-agents.
+#[derive(Debug, Clone)]
+pub struct ExternalSubagentConfig {
+    /// Commande de base (ex. "claude", "codex", "acp")
+    pub command: String,
+    /// Arguments fixes (ex. ["--print", "--model", "sonnet"])
+    pub args: Vec<String>,
+    /// Variables d'environnement à définir
+    pub env: Vec<(String, String)>,
+    /// Timeout par défaut
+    pub timeout: std::time::Duration,
+    /// Répertoire de travail
+    pub working_dir: Option<std::path::PathBuf>,
+}
+
+impl Default for ExternalSubagentConfig {
+    fn default() -> Self {
+        Self {
+            command: "claude".into(),
+            args: vec!["--print".into()],
+            env: vec![],
+            timeout: std::time::Duration::from_secs(300),
+            working_dir: None,
+        }
+    }
+}
+
+/// Runner de sous-agents via processus externe (Claude Code, Codex, ACP).
+///
+/// Fail-closed : si le binaire n'est pas trouvé ou échoue, l'erreur est propagée
+/// sans fallback silencieux (règle n°5 du noyau).
+pub struct ExternalSubagentRunner {
+    config: ExternalSubagentConfig,
+}
+
+impl ExternalSubagentRunner {
+    pub fn new(config: ExternalSubagentConfig) -> Self {
+        Self { config }
+    }
+
+    /// Vérifie si le binaire est disponible (fail-closed).
+    pub fn check_available(&self) -> OmegaResult<()> {
+        let mut cmd = TokioCommand::new("which");
+        cmd.arg(&self.config.command);
+        let output = std::process::Command::new("which")
+            .arg(&self.config.command)
+            .output()
+            .map_err(|e| OmegaError::Io(format!("which {}: {}", self.config.command, e)))?;
+        if !output.status.success() {
+            return Err(OmegaError::ForbiddenCommand {
+                command: self.config.command.clone(),
+                reason: format!("binaire '{}' introuvable dans PATH", self.config.command),
+            });
+        }
+        Ok(())
+    }
+
+    async fn run_external(&self, prompt: &str) -> OmegaResult<String> {
+        // Construire la commande complète
+        let mut cmd = TokioCommand::new(&self.config.command);
+        cmd.args(&self.config.args);
+        cmd.arg(prompt);
+
+        if let Some(dir) = &self.config.working_dir {
+            cmd.current_dir(dir);
+        }
+
+        for (k, v) in &self.config.env {
+            cmd.env(k, v);
+        }
+
+        cmd.stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        // Lancer avec timeout
+        let child = cmd
+            .spawn()
+            .map_err(|e| OmegaError::Io(format!("spawn {}: {}", self.config.command, e)))?;
+
+        let output = tokio::time::timeout(self.config.timeout, child.wait_with_output()).await;
+
+        match output {
+            Err(_) => Err(OmegaError::CommandTimeout {
+                command: self.config.command.clone(),
+                timeout_ms: self.config.timeout.as_millis() as u64,
+            }),
+            Ok(Err(e)) => Err(OmegaError::Io(format!("wait {}: {}", self.config.command, e))),
+            Ok(Ok(out)) => {
+                if !out.status.success() {
+                    let stderr = String::from_utf8_lossy(&out.stderr);
+                    return Err(OmegaError::PluginFailed(
+                        self.config.command.clone(),
+                        format!("exit {}: {}", out.status.code().unwrap_or(-1), stderr),
+                    ));
+                }
+                Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl SubagentRunner for ExternalSubagentRunner {
+    fn name(&self) -> &str {
+        "external-subagent"
+    }
+
+    async fn spawn(&self, spec: &str) -> OmegaResult<String> {
+        // Vérification fail-closed au premier spawn
+        self.check_available()?;
+        
+        // Construire le prompt selon le format attendu par le provider
+        // Pour Claude Code: le spec est passé directement
+        // Pour Codex: format JSON
+        let prompt = if self.config.command == "codex" {
+            serde_json::json!({
+                "prompt": spec,
+                "mode": "subagent"
+            }).to_string()
+        } else {
+            spec.to_string()
+        };
+
+        let result = self.run_external(&prompt).await?;
+        Ok(result)
+    }
+}
+
+/// Contributeur pour enregistrer un ExternalSubagentRunner.
+pub struct ExternalSubagentContributor {
+    config: ExternalSubagentConfig,
+}
+
+impl ExternalSubagentContributor {
+    pub fn new(config: ExternalSubagentConfig) -> Self {
+        Self { config }
+    }
+
+    /// Crée un contributeur pour Claude Code (nécessite `claude` dans PATH).
+    pub fn claude_code() -> Self {
+        Self::new(ExternalSubagentConfig {
+            command: "claude".into(),
+            args: vec!["--print".into()],
+            ..Default::default()
+        })
+    }
+
+    /// Crée un contributeur pour Codex (nécessite `codex` dans PATH).
+    pub fn codex() -> Self {
+        Self::new(ExternalSubagentConfig {
+            command: "codex".into(),
+            args: vec!["exec".into(), "--json".into()],
+            ..Default::default()
+        })
+    }
+}
+
+impl omega_plugin_api::Contributor for ExternalSubagentContributor {
+    fn name(&self) -> &str {
+        // Stocker le nom pour le retourner par référence
+        // Note: on leak la string volontairement (nom court, durée de vie du process)
+        Box::leak(format!("external-subagent-{}", self.config.command).into_boxed_str())
+    }
+
+    fn contribute(
+        &self,
+        builder: &mut omega_registry::RegistryBuilder,
+        _ctx: &omega_plugin_api::InstallContext,
+    ) -> OmegaResult<()> {
+        let runner = Arc::new(ExternalSubagentRunner::new(self.config.clone()));
+        // Fail-closed: si le binaire n'est pas dispo, l'enregistrement échoue
+        runner.check_available()?;
+        builder
+            .register_dyn(
+                omega_registry::Manifest::new(
+                    self.config.command.clone(),
+                    omega_types::Capability::SubagentRunner,
+                    "1",
+                ),
+                runner,
+            )
+            .map(|_| ())
+    }
+}
+
+#[cfg(test)]
+mod external_subagent_tests {
+    use super::*;
+
+    #[test]
+    fn external_runner_check_available_fails_gracefully() {
+        let runner = ExternalSubagentRunner::new(ExternalSubagentConfig {
+            command: "omega-nonexistent-binary-xyz-123".into(),
+            ..Default::default()
+        });
+        let err = runner.check_available().unwrap_err();
+        assert!(matches!(err, OmegaError::ForbiddenCommand { .. }));
     }
 }

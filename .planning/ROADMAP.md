@@ -14,7 +14,7 @@
 **Goal:** Implémenter les 3 ports orphelins (MemoryStore, Hook, SubagentRunner) et le reload atomique par plugin.
 **Depends on:** Phase 1
 
-## Phase 3: NOYAU Phase C — capacités lourdes
+## Phase 3: NOYAU Phase C — capacités lourdes ✅
 
 **Goal:** Sandbox réel (namespace + FS + réseau, fail-closed) et compaction LLM double couche.
 **Depends on:** Phase 2
