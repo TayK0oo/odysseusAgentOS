@@ -95,6 +95,24 @@
 - **Limite majeure** : REA n'analyse pas Python/Rust/Go (preuve machine limitée au
   JS/TS et aux ELF) ; le fond vient de la lecture du clone (`fichier:ligne`).
 
+## 4quinquies. Règle globale des modèles + toolchain REA complet `[observed]`
+
+- **RÈGLE GLOBALE (impérative)** : sous-agents sur modèles **gratuits** par défaut ;
+  payant uniquement `opencode-go/*` et **après échec gratuit constaté**.
+  - `docs/omega/rules/MODEL-POLICY.md` + `model-policy.json` (machine) ;
+  - `omega/scripts/model_policy.py` : `--check` (cohérence live), `--list-free`,
+    `--for <usage>`, `--apply-agents` ;
+  - appliqué dans `~/.config/opencode/opencode.json` ET `.opencode/opencode.json`
+    (agents general/explore/executor/reviewer/planner/auto-evolve/sfd-orchestrator) ;
+  - 11 gratuits vérifiés le 17/10 ; `opencode/*` payants (Zen = solde) **interdits**.
+- **Toolchain REA** : Ghidra 12.1.4 (analyse binaire profonde, 21 groupes d'ops,
+  JDK 25), jadx, apktool, tshark, binwalk, unblob, frida, adb, rizin, gdb,
+  ilspycmd, wabt, sigrok-cli, mitmdump, chromium — installés et déclarés.
+  - env : `/etc/profile.d/rea-tools.sh`, `~/.config/environment.d/rea-tools.conf`,
+    `docs/omega/rules/rea-tools.env` ; notre pont charge ce fichier automatiquement.
+  - inventaire vérifié : `docs/omega/research/rea/CAPABILITIES.md`.
+  - impossible : macOS (structurel), Hopper/IDA/JEB (payants).
+
 ## 5. États de l'art produits `[observed]`
 
 | Doc | Contenu |
