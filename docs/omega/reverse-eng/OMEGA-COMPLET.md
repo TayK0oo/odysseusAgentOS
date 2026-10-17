@@ -4,8 +4,8 @@
 
 ## 1. Synthese
 
-- harnais disseques : **32**
-- fonctionnalites inventoriees : **683** (adoptees 149 · planifiees 516 · ecartees 18)
+- harnais disseques : **33**
+- fonctionnalites inventoriees : **709** (adoptees 152 · planifiees 538 · ecartees 19)
 - capacites visees (regroupees) : **106**
 - popularite : **mesuree** (API GitHub, somme des etoiles des harnais demandeurs)
 - preuves REA (intake machine) disponibles pour : 0 harnais
@@ -14,31 +14,31 @@
 
 | Capacite | Harnais | Popularite (etoiles) | Cout min | Famille |
 |---|---|---|---|---|
-| `context-engine` | 28 | 1,773,151 | S | Contexte & memoire de travail |
-| `subagent-runner` | 21 | 1,483,595 | S | Orchestration |
-| `tool-surface` | 20 | 1,198,347 | S | Outils & surface d'action |
-| `config-source` | 18 | 976,416 | S | Configuration & extension |
-| `registry` | 14 | 1,339,101 | S | Configuration & extension |
-| `agent-store` | 12 | 1,123,860 | S | Orchestration |
-| `event-store` | 12 | 1,045,800 | S | Observabilite & tracabilite |
-| `memory-store` | 12 | 448,945 | S | Contexte & memoire de travail |
-| `exec-policy` | 11 | 782,943 | S | Execution & securite |
-| `(execution)` | 10 | 984,881 | S | Execution & securite |
-| `sandbox-backend` | 10 | 398,720 | M | Execution & securite |
-| `(ui)` | 9 | 770,045 | M | Observabilite & tracabilite |
-| `scheduler-job` | 9 | 394,448 | M | Orchestration |
-| `telemetry-sink` | 8 | 292,326 | S | Observabilite & tracabilite |
+| `context-engine` | 28 | 1,773,166 | S | Contexte & memoire de travail |
+| `subagent-runner` | 21 | 1,483,610 | S | Orchestration |
+| `tool-surface` | 20 | 1,198,358 | S | Outils & surface d'action |
+| `config-source` | 19 | 1,007,541 | S | Configuration & extension |
+| `registry` | 15 | 1,370,237 | S | Configuration & extension |
+| `event-store` | 13 | 1,076,935 | S | Observabilite & tracabilite |
+| `agent-store` | 12 | 1,123,874 | S | Orchestration |
+| `exec-policy` | 12 | 814,076 | S | Execution & securite |
+| `memory-store` | 12 | 448,944 | S | Contexte & memoire de travail |
+| `sandbox-backend` | 11 | 429,841 | M | Execution & securite |
+| `(execution)` | 10 | 984,894 | S | Execution & securite |
+| `(ui)` | 9 | 770,056 | M | Observabilite & tracabilite |
+| `scheduler-job` | 9 | 394,449 | M | Orchestration |
+| `telemetry-sink` | 9 | 323,448 | S | Observabilite & tracabilite |
+| `permission-policy` | 8 | 737,551 | S | Execution & securite |
 | `skill-store` | 8 | 231,063 | S | Contexte & memoire de travail |
-| `permission-policy` | 7 | 706,419 | S | Execution & securite |
-| `(automatisation)` | 7 | 636,264 | M | Autres |
-| `tool` | 7 | 432,950 | S | Outils & surface d'action |
-| `llm-provider` | 6 | 464,156 | S | Routage & modeles |
+| `(automatisation)` | 7 | 636,274 | M | Autres |
+| `tool` | 7 | 432,961 | S | Outils & surface d'action |
+| `llm-provider` | 6 | 464,159 | S | Routage & modeles |
 | `router-policy` | 5 | 271,956 | S | Routage & modeles |
-| `hook` | 4 | 429,075 | M | Orchestration |
+| `hook` | 4 | 429,086 | M | Orchestration |
 | `agent-server` | 4 | 281,649 | M | Orchestration |
 | `task-classifier` | 4 | 222,581 | S | Routage & modeles |
-| `channel` | 4 | 221,223 | M | Orchestration |
-| `agent-loop` | 4 | 118,610 | S | Orchestration |
+| `channel` | 4 | 221,222 | M | Orchestration |
+| `agent-loop` | 4 | 118,609 | S | Orchestration |
 | `hook-bus` | 4 | 4,454 | S | Orchestration |
 
 ## 2. Le combine, capacite par capacite
@@ -48,7 +48,7 @@
 #### `(automatisation)` — 7 harnais, cout M
 
 - **harnais demandeurs** : autogpt, continue, deepseek-harness, goose, langgraph, qwen-code, tabby
-- **popularite cumulee** : 636,264 etoiles
+- **popularite cumulee** : 636,274 etoiles
 - **adaptateurs proposes** : `omega-app (planificateur cron + index de jobs)`, `omega-core (scheduler cron + taches persistees)`, `omega-sandbox::LocalSandboxBackend (worktrees) + omega-server (API de revue)`, `omega-server (ingress webhook) + omega-app (mapping payload -> nœud)`, `omega/scripts/run-local.sh + omega-server (build UI + serveur une seule origine)`
 - **exemplaire de reference** : `deepseek-harness` — *Jobs d'arriere-plan, planification, webhooks, moteur de workflow* (port `—`, cout M)
   - comment il le fait : ctx.jobs est un registre de jobs (JobRegistry, service abstrait) et les outils job_* les lisent ou les arretent ; le tool bash s'enregistre dans ctx.jobs au demarrage pour run_in_background — sans registre de jobs, ou avec enableRunInBackground false, le tool enregistre un schema foreground-only SANS le parametre, donc le catalogue d'outils reflete la composition ; ctx.schedule gere des messages p
@@ -57,7 +57,7 @@
 #### `workflow-engine` — 3 harnais, cout S
 
 - **harnais demandeurs** : crewai, devin, langgraph
-- **popularite cumulee** : 103,160 etoiles
+- **popularite cumulee** : 103,159 etoiles
 - **adaptateurs proposes** : `plugins/flow-runtime (DAG etatise + persistance + human-in-the-loop)`, `plugins/workflow-dag`, `plugins/workflow-graph (graphe d'etats + canaux, au-dessus de omega-app::App)`, `plugins/workflow-graph::errors (route d'erreur vers un noud)`, `plugins/workflow-graph::routing (BranchSpec + Send fan-out)`
 - **exemplaire de reference** : `langgraph` — *Graphe d'etats declaratif (StateGraph -> CompiledStateGraph)* (port `WorkflowEngine (build/compile/run)`, adaptateur `plugins/workflow-graph (graphe d'etats + canaux, au-dessus de omega-app::App)`, cout L)
   - comment il le fait : StateGraph(Generic[StateT, ContextT, InputT, OutputT]) expose add_node (5 surcharges, inferance du schema d'entree/retour via get_type_hints, detection de Command Literal pour les destinations, noud error_handler interne `__error_handler__<node>`), add_edge (accepte une liste de sources = barriere named), add_conditional_edges (path callable/Runnable + path_map optionnel), add_sequence ; validate(
@@ -66,7 +66,7 @@
 #### `credentials` — 1 harnais, cout S
 
 - **harnais demandeurs** : deepseek-harness
-- **popularite cumulee** : 251,234 etoiles
+- **popularite cumulee** : 251,245 etoiles
 - **adaptateurs proposes** : `omega-config (refs de secrets, planned)`
 - **exemplaire de reference** : `deepseek-harness` — *Couture credentials : references en config, valeurs chez le provider* (port `CredentialProvider`, adaptateur `omega-config (refs de secrets, planned)`, cout S)
   - comment il le fait : CredentialProvider est un service abstrait ; ctx.credentials resout PAR OPERATION, donc un credential tourne atteint la toute prochaine requete ; le controleur de settings expose des vues sans valeur et un stockage en ecriture seule, et chaque refus est classe a la projection, pas sur la definition de la couture ; ctx.authorization enregistre des flux d'obtention (un flux = le credential qu'il ecr
@@ -183,7 +183,7 @@
 #### `edit-apply` — 1 harnais, cout S
 
 - **harnais demandeurs** : aider
-- **popularite cumulee** : 49,587 etoiles
+- **popularite cumulee** : 49,588 etoiles
 - **adaptateurs proposes** : `plugins/edit-search-replace`, `plugins/edit-udiff-patch`, `plugins/edit-wholefile`
 - **exemplaire de reference** : `aider` — *Formats diff unifie et patch V4A* (port `EditApplier (apply_udiff/apply_patch)`, adaptateur `plugins/edit-udiff-patch`, cout M)
   - comment il le fait : UnifiedDiffCoder parse des diffs unifies standards ; PatchCoder implemente un mini-langage de patch V4A (ActionType/Chunk/PatchAction) avec parseur derive de apply_patch ; application atomique par fichier.
@@ -192,7 +192,7 @@
 #### `lint-check` — 1 harnais, cout S
 
 - **harnais demandeurs** : aider
-- **popularite cumulee** : 49,587 etoiles
+- **popularite cumulee** : 49,588 etoiles
 - **adaptateurs proposes** : `plugins/lint-after-edit`
 - **exemplaire de reference** : `aider` — *Linter multi-langage apres edition* (port `LintCheck (lint_file)`, adaptateur `plugins/lint-after-edit`, cout S)
   - comment il le fait : Classe Linter avec registre par langage (set_linter), lint() dispatchant vers py_compile/flake8 ou commandes externes ; lint_python_compile et basic_lint en repli sans dependance ; appels automatiques apres chaque edition.
@@ -201,7 +201,7 @@
 #### `vcs-commit` — 1 harnais, cout S
 
 - **harnais demandeurs** : aider
-- **popularite cumulee** : 49,587 etoiles
+- **popularite cumulee** : 49,588 etoiles
 - **adaptateurs proposes** : `plugins/git-auto-commit`
 - **exemplaire de reference** : `aider` — *Git auto-commit + message genere* (port `VcsCommit (commit/message)`, adaptateur `plugins/git-auto-commit`, cout S)
   - comment il le fait : auto_commit appelle GitRepo.commit avec les fichiers edites ; le message est genere par le weak_model via get_commit_message ; attribution configurable (author vs committer, Co-authored-by, prefixe aider:) ; dirty_commit sauvegarde l'etat pre-edit.
@@ -210,7 +210,7 @@
 #### `hitl-gate` — 1 harnais, cout L
 
 - **harnais demandeurs** : langgraph
-- **popularite cumulee** : 43,382 etoiles
+- **popularite cumulee** : 43,381 etoiles
 - **adaptateurs proposes** : `plugins/hitl-gate (pause repriseable par thread, au-dessus de omega-app::EventStore)`
 - **exemplaire de reference** : `langgraph` — *Human-in-the-loop : interrupt() reprendable + Command(resume/goto)* (port `HumanGate (interrupt/resume)`, adaptateur `plugins/hitl-gate (pause repriseable par thread, au-dessus de omega-app::EventStore)`, cout L)
   - comment il le fait : interrupt(value, response_schema=...) leve GraphInterrupt (exception GraphBubbleUp donc non capturee par le retry) la premiere fois ; au rejeu du noud la valeur est lue dans le scratchpad/resume-map, avec appariement par ordre pour plusieurs interrupt dans un meme noud. Le client reprend via Command(resume=<valeur>|{interrupt_id: valeur}, goto=..., update=..., graph=Command.PARENT) ; le checkpoint
@@ -219,7 +219,7 @@
 #### `retry-policy` — 1 harnais, cout M
 
 - **harnais demandeurs** : langgraph
-- **popularite cumulee** : 43,382 etoiles
+- **popularite cumulee** : 43,381 etoiles
 - **adaptateurs proposes** : `plugins/retry-policy (policies par tache, hors du routeur modele)`
 - **exemplaire de reference** : `langgraph` — *Politiques de retry et de timeout par noud (backoff, jitter, idle)* (port `RetryPolicy (attempt/backoff)`, adaptateur `plugins/retry-policy (policies par tache, hors du routeur modele)`, cout M)
   - comment il le fait : RetryPolicy(NamedTuple) {initial_interval=0.5, backoff_factor=2, max_interval=128, max_attempts=3, jitter, retry_on} et TimeoutPolicy (frozen) {run_timeout, idle_timeout, refresh_on: auto|heartbeat} portes par tache (PregelExecutableTask.retry_policy/timeout) ; run_with_retry/arun_with_retry (_retry.py) resolvent la premiere politique correspondante, attendent interval*backoff^(n-1)+jitter et lace
@@ -228,7 +228,7 @@
 #### `stream-surface` — 1 harnais, cout M
 
 - **harnais demandeurs** : langgraph
-- **popularite cumulee** : 43,382 etoiles
+- **popularite cumulee** : 43,381 etoiles
 - **adaptateurs proposes** : `omega-server (flux SSE du cockpit, a ajouter au POST /api/run)`
 - **exemplaire de reference** : `langgraph` — *Streaming multi-modes (values/updates/messages/custom/checkpoints/tasks/debug)* (port `StreamSink (values/updates/messages/custom)`, adaptateur `omega-server (flux SSE du cockpit, a ajouter au POST /api/run)`, cout M)
   - comment il le fait : StreamMode = Literal["values","updates","checkpoints","tasks","debug","messages","custom"] ; stream()/astream() acceptent une ou plusieurs modes et un print_mode de debug ; une couche v2/v3 ajoute astream_events(version v1|v2|v3) et un bus StreamMux qui dispatche les ProtocolEvent (seq monotone, namespace) a des StreamTransformer extensibles (required_stream_modes, projections exposees sur le run 
@@ -453,23 +453,23 @@
 
 ### Configuration & extension
 
-#### `config-source` — 18 harnais, cout S
+#### `config-source` — 19 harnais, cout S
 
-- **harnais demandeurs** : agentgpt, aider, autogpt, claude-code, codex, continue, crewai, cursor, hermes, kilo-code, langgraph, opencode, plandex, rea, tabby, void, windsurf, zed
-- **popularite cumulee** : 976,416 etoiles
-- **adaptateurs proposes** : `omega-config`, `omega-config (agents-md discovery)`, `omega-config (auth providers)`, `omega-config (couches + precedence + policy managée)`, `omega-config (couches + precedence)`, `omega-config (couches + precedence) + omega-providers::Capabilities (patch)`, `omega-config (feature flags)`, `omega-config (init wizard)`, `omega-config (oauth credentials)`, `omega-config (profils)`, `omega-config (resolution de blocs a ajouter)`, `omega-config (rules layers)`, `omega-types (allow-list de types serialisables du journal, a porter sur FileEventStore)`, `plugins/agent-profiles`, `plugins/catalog-poll + omega-providers::CatalogSource`, `plugins/rules-inject`, `plugins/rules-scoped`
-- **exemplaire de reference** : `void` — *Overrides de capacites par modele (corriger une detection)* (port `ConfigSource (layers)`, adaptateur `omega-config (couches + precedence) + omega-providers::Capabilities (patch)`, cout S)
-  - comment il le fait : modelOverrideKeys (modelCapabilities.ts:208-216) limite l'override a 7 cles seulement : contextWindow, reservedOutputTokenSpace, supportsSystemMessage, specialToolFormat, supportsFIM, reasoningCapabilities, additionalOpenAIPayload. Le type OverridesOfModel est un Record a deux niveaux provider -> modele -> Partial<ModelOverrides> (voidSettingsTypes.ts:505-514). Le commentaire du catalogue l'assume
-  - preuves : `src/vs/workbench/contrib/void/common/modelCapabilities.ts:208-221`, `src/vs/workbench/contrib/void/common/modelCapabilities.ts:254-256`, `src/vs/workbench/contrib/void/common/voidSettingsTypes.ts:505-514`, `src/vs/workbench/contrib/void/electron-main/llmMessage/sendLLMMessage.impl.ts:1483-1522`
+- **harnais demandeurs** : agentgpt, aider, autogpt, claude-code, codex, continue, crewai, cursor, dsh-desktop, hermes, kilo-code, langgraph, opencode, plandex, rea, tabby, void, windsurf, zed
+- **popularite cumulee** : 1,007,541 etoiles
+- **adaptateurs proposes** : `omega-config`, `omega-config (ConfigLayerSource + precedence)`, `omega-config (LayeredConfig + ConfigLayerSource)`, `omega-config (LayeredConfig + precedence)`, `omega-config (agents-md discovery)`, `omega-config (auth providers)`, `omega-config (couches + precedence + policy managée)`, `omega-config (couches + precedence)`, `omega-config (couches + precedence) + omega-providers::Capabilities (patch)`, `omega-config (feature flags)`, `omega-config (init wizard)`, `omega-config (oauth credentials)`, `omega-config (profils)`, `omega-config (resolution de blocs a ajouter)`, `omega-config (rules layers)`, `omega-types (allow-list de types serialisables du journal, a porter sur FileEventStore)`, `plugins/agent-profiles`, `plugins/catalog-poll + omega-providers::CatalogSource`, `plugins/rules-inject`, `plugins/rules-scoped`
+- **exemplaire de reference** : `dsh-desktop` — *Canaux de release isoles (stable/beta) verifies par en-tetes* (port `ConfigSource (canal de release comme couche de configuration isolee)`, adaptateur `omega-config (ConfigLayerSource + precedence)`, cout M)
+  - comment il le fait : `upstream.json` enregistre pour chaque canal le commit amont, la version source, la version du runtime empaquete et le manifeste vendorise ; `activeChannel` est `beta`. Les verifications et telechargements envoient `X-DSH-Desktop-Channel: stable|beta` ; une verification envoie aussi la version courante et un UUID d'installation genere localement et persiste (jamais derive du materiel), un telechar
+  - preuves : `upstream.json:1-14`, `dsh-plugin-desktop/src/update-checker.ts:11-30`, `dsh-plugin-desktop/src/update-checker.ts:56-77`, `dsh-plugin-desktop/src/update-download.ts`
 
-#### `registry` — 14 harnais, cout S
+#### `registry` — 15 harnais, cout S
 
-- **harnais demandeurs** : aider, autogpt, claude-code, cline, continue, crewai, deepseek-harness, gemini-cli, goose, kilo-code, metagpt, opencode, qwen-code, void
-- **popularite cumulee** : 1,339,101 etoiles
-- **adaptateurs proposes** : `omega-config (couches + precedence) + omega-registry (planned)`, `omega-plugin-api (Hook live + waterfall, planned)`, `omega-plugin-api (Hook live par point d'interception)`, `omega-plugin-api (HookBus — cible)`, `omega-plugin-api (Transform rejouable + Hook live + reload par domaine)`, `omega-plugin-api (dispatch de hooks a ecrire sur le port Hook)`, `omega-plugin-api (effets reversibles, planned)`, `omega-registry`, `omega-registry (Scope : fermeture = revelation de la couche precedente)`, `omega-registry (Scope : fermeture = revelation de la couche precedente, planned)`, `omega-registry (Slot/Ensemble + quarantaine)`, `omega-registry (empreinte + reload, planned)`, `omega-registry (empreinte source + reload)`, `omega-registry (entrees declenchees utilisateur) + plugins/command-toml`, `omega-registry (manifeste + marketplace resolver + scopes + namespacing)`, `omega-registry (port EnvBackend nouveau, un plugin par environnement)`, `omega-registry (quarantaine) + omega-plugin-manager (planned)`, `omega-registry (slots modeles)`, `omega-registry + omega-plugin-api (planned)`, `omega-registry::Manifest + omega-config (planned)`, `omega-registry::Registry (Slot/Ensemble + quarantaine)`, `omega-registry::Registry (Slot/Ensemble + quarantaine) + plugins/extension-installer`, `plugins/marketplace`
-- **exemplaire de reference** : `void` — *Diagramme de services (3 couches + canaux IPC)* (port `Registre`, adaptateur `omega-registry::Registry (Slot/Ensemble + quarantaine)`, cout M)
-  - comment il le fait : Le guide officiel (VOID_CODEBASE_GUIDE.md) impose deux contournements : bundler React dans le navigateur, ou porter le code dans electron-main/ et ouvrir un canal. Concretement : sendLLMMessageService.ts (browser) appelle un ProxyChannel 'void-channel-send-llm-message' vers electron-main/llmMessage/sendLLMMessage.impl.ts ; metricsService.ts fait pareil vers metricsMainService.ts ; mcpService.ts ve
-  - preuves : `VOID_CODEBASE_GUIDE.md (section 'VSCode Rundown')`, `src/vs/workbench/contrib/void/browser/toolsService.ts:127-136`, `src/vs/workbench/contrib/void/browser/toolsService.ts:593`, `src/vs/workbench/contrib/void/common/sendLLMMessageTypes.ts:142-151`
+- **harnais demandeurs** : aider, autogpt, claude-code, cline, continue, crewai, deepseek-harness, dsh-desktop, gemini-cli, goose, kilo-code, metagpt, opencode, qwen-code, void
+- **popularite cumulee** : 1,370,237 etoiles
+- **adaptateurs proposes** : `omega-config (couches + precedence) + omega-registry (planned)`, `omega-plugin-api (Hook live + waterfall, planned)`, `omega-plugin-api (Hook live par point d'interception)`, `omega-plugin-api (HookBus — cible)`, `omega-plugin-api (Transform rejouable + Hook live + reload par domaine)`, `omega-plugin-api (dispatch de hooks a ecrire sur le port Hook)`, `omega-plugin-api (effets reversibles, planned)`, `omega-registry`, `omega-registry (EntryInfo id opaque + quarantine)`, `omega-registry (EntryInfo par capacite ; la porte reste un script CI)`, `omega-registry (EntryInfo porte le contrat public ; le reste reste hors registre)`, `omega-registry (Manifest versionne par capacite)`, `omega-registry (Scope : fermeture = revelation de la couche precedente)`, `omega-registry (Scope : fermeture = revelation de la couche precedente, planned)`, `omega-registry (Slot/Ensemble + quarantaine)`, `omega-registry (empreinte + reload, planned)`, `omega-registry (empreinte source + reload)`, `omega-registry (entrees declenchees utilisateur) + plugins/command-toml`, `omega-registry (manifeste + marketplace resolver + scopes + namespacing)`, `omega-registry (port EnvBackend nouveau, un plugin par environnement)`, `omega-registry (quarantaine) + omega-plugin-manager (planned)`, `omega-registry (replace/unregister)`, `omega-registry (resolve optionnel + isolation de fibre)`, `omega-registry (slots modeles)`, `omega-registry + omega-plugin-api (planned)`, `omega-registry::Manifest + omega-config (planned)`, `omega-registry::Registry (Slot/Ensemble + quarantaine)`, `omega-registry::Registry (Slot/Ensemble + quarantaine) + plugins/extension-installer`, `plugins/marketplace`
+- **exemplaire de reference** : `dsh-desktop` — *Marketplace : contrats JSON Schema publics + types generes* (port `Registre (manifeste de source declare, validation a l'entree, catalogue normalise)`, adaptateur `omega-registry (Manifest versionne par capacite)`, cout M)
+  - comment il le fait : `contracts/schemas.ts:21-38` compile `catalog-source`, `catalog-query`, `catalog-provider-page` et `catalog-snapshot` avec Ajv 2020 (`strict:true`, `allErrors:true`, `validateFormats:true`, `ajv-formats`), lus depuis `docs/schemas/*.schema.json` au demarrage ; les types TS correspondants sont generes dans `contracts/generated/`. Toute donnee distante est normalisee avant d'atteindre le client, et 
+  - preuves : `dsh-community-market/src/contracts/schemas.ts:21-38`, `dsh-community-market/src/contracts/validate.ts`, `dsh-community-market/src/contracts/generated/catalog-source.ts`, `dsh-community-market/src/adapters/standard-http.ts`
 
 #### `(extension)` — 3 harnais, cout M
 
@@ -510,7 +510,7 @@
 #### `context-engine` — 28 harnais, cout S
 
 - **harnais demandeurs** : agentgpt, aider, autogpt, claude-code, cline, codex, continue, crewai, crush, deepseek-harness, gemini-cli, goose, gpt-engineer, gpt-pilot, gptme, hermes, kilo-code, langgraph, metagpt, openclaw, opencode, openhands, plandex, qwen-code, tabby, void, windsurf, zed
-- **popularite cumulee** : 1,773,151 etoiles
+- **popularite cumulee** : 1,773,166 etoiles
 - **adaptateurs proposes** : `omega-context (CompactionModel derriere ContextBudget) + plugins/tool-output-masking`, `omega-context (ContextBudget estimate/compact + resume structure)`, `omega-context (ContextBudget estimate/compact + résumé structuré + réhydratation ciblée)`, `omega-context (a etendre : index vectoriel + recherche semantique)`, `omega-context::ContextBudget`, `omega-context::ContextBudget (a etendre : epoch + promotion d'input)`, `omega-context::ContextBudget + plugins/paginated-tools (Page{index,total,has_next})`, `omega-context::ContextContributor`, `omega-context::ContextContributor (DirectoryStr, budget partagé) + DefaultContextEngine`, `omega-context::ContextContributor (SystemInfo + OpenFiles + SelectionStaging)`, `omega-context::DefaultContextEngine`, `omega-context::DefaultContextEngine (fichiers hierarchiques) + nouveau MemoryStore (souvenirs)`, `omega-context::DefaultContextEngine (index + retrieval a ajouter)`, `omega-context::DefaultContextEngine (index de docs a ajouter)`, `omega-context::DefaultContextEngine (injection de metacompteurs de run)`, `omega-context::DefaultContextEngine (partiel)`, `omega-context::DefaultContextEngine (pipeline retrieval + rerank)`, `omega-context::DefaultContextEngine (planned)`, `omega-context::DefaultContextEngine (regles injectees au prompt)`, `omega-context::FastRetriever`, `omega-context::PromptCacheTelemetry`, `omega-context::TokenEstimator + ContextBudget`, `omega-context::compaction (deterministe existant, resume LLM a ajouter)`, `omega-context::contributor (registre de contributors de contexte)`, `omega-context::truncate_compact`, `omega-context::truncate_compact (partiel)`, `omega-context::{ContextBudget,truncate_compact}`, `plugins/agents-md-merge`, `plugins/context-autoload`, `plugins/context-compress`, `plugins/context-condenser`, `plugins/context-file-picker (selection de fichiers versionnable + .gitignore)`, `plugins/context-normalize (black + rustfmt, registre par extension)`, `plugins/context-per-step`, `plugins/convo-summarize`, `plugins/fim-autocomplete (PrefixSuffix + PredictionStrategy + PostProcess)`, `plugins/knowledge-sources (sources typees + index vectoriel)`, `plugins/lm-vector (port LongTermMemory nouveau, backend vectoriel local)`, `plugins/loop-guard`, `plugins/project-map`, `plugins/prompt-cache`, `plugins/prompt-cache-policy (breakpoints ≤ 4, ordre tools→system→messages, TTL 5m/1h, affinité parent/fork/self)`, `plugins/prompt-cache-policy (breakpoints<=4, TTL 5m/1h)`, `plugins/quick-edit (FimTags + ContextBudget::enforce)`, `plugins/rag-backend (port RetrievalBackend nouveau, un plugin par index)`, `plugins/repomap-pagerank`, `plugins/structured-output (schema derive + validation + revision partielle)`, `plugins/thread-from-summary`, `plugins/todos`
 - **exemplaire de reference** : `gpt-engineer` — *Selection de fichiers par TOML commente, ouverte dans l'editeur* (port `ContextBudget (selection + budget de contexte)`, adaptateur `plugins/context-file-picker (selection de fichiers versionnable + .gitignore)`, cout M)
   - comment il le fait : applications/cli/file_selector.py : le fichier .gpteng/file_selection.toml est genere avec l'arbre complet ou chaque entree est commentee (COMMENT : 'Remove # to select a file or turn off linting'), puis ouvert dans l'editeur ($EDITOR ou gedit/notepad/nvim/write/nano/vim/emacs, :212-247) ; les lignes non commentees = fichiers selectionnes (:271-342). Filtrage : get_current_files (:379-416) saute l
@@ -519,7 +519,7 @@
 #### `memory-store` — 12 harnais, cout S
 
 - **harnais demandeurs** : claude-code, codex, crewai, devin, gemini-cli, gpt-engineer, gptme, hermes, kilo-code, langgraph, openclaw, windsurf
-- **popularite cumulee** : 448,945 etoiles
+- **popularite cumulee** : 448,944 etoiles
 - **adaptateurs proposes** : `omega-context::NamespaceStore (a creer : le port MemoryStore existe mais sans adaptateur namespace/index)`, `plugins/auto-memory (extraction batch + inbox de validation)`, `plugins/memory-bounded`, `plugins/memory-bounded (CLAUDE.md layers + MEMORY.md 25KB + audit)`, `plugins/memory-fs (workspace K/V sur disque ; port MemoryStore existe mais AUCUN adaptateur dans le dépôt)`, `plugins/memory-fts`, `plugins/memory-hierarchical (derriere MemoryStore)`, `plugins/memory-imports (resolution de references)`, `plugins/memory-layered`, `plugins/memory-local`, `plugins/memory-recall (profondeur adaptive)`, `plugins/memory-unified (analyse LLM + score composite + backend vectoriel)`
 - **exemplaire de reference** : `langgraph` — *Store memoire hierarchique : namespaces, recherche, TTL, index vectoriel* (port `MemoryStore (recall/remember + namespaces)`, adaptateur `omega-context::NamespaceStore (a creer : le port MemoryStore existe mais sans adaptateur namespace/index)`, cout L)
   - comment il le fait : BaseStore (ABC) : get/put/delete/search/list_namespaces avec ops batchees (GetOp/SearchOp/PutOp/ListNamespacesOp), MatchCondition (prefix/suffix), InvalidNamespaceError, TTLConfig et IndexConfig {dims, embed, fields (JSON path)} ; InMemoryStore (dictionnaire + vector search optionnel) et un backend Postgres (langgraph.store.postgres) partagent le meme contrat ; injecte dans les nouds via le parame
@@ -537,7 +537,7 @@
 #### `(contexte)` — 2 harnais, cout M
 
 - **harnais demandeurs** : deepseek-harness, tabby
-- **popularite cumulee** : 285,150 etoiles
+- **popularite cumulee** : 285,161 etoiles
 - **adaptateurs proposes** : `omega-context (planned)`
 - **exemplaire de reference** : `deepseek-harness` — *Spill store + stockage d'attachements durables* (port `—`, adaptateur `omega-context (planned)`, cout M)
   - comment il le fait : ctx.spillStore est une couture de stockage de spill (SpillStore abstrait) avec spill-local comme backend et spill-policy comme politique de declenchement ; ctx.attachments est la couture de stockage binaire durable (AttachmentStore abstrait, attachment-local) : l'hote commit les images acceptees AVANT les evenements de session, et les adaptateurs de provider resolvent des references durables AUTOR
@@ -562,46 +562,46 @@
 
 ### Execution & securite
 
-#### `exec-policy` — 11 harnais, cout S
+#### `exec-policy` — 12 harnais, cout S
 
-- **harnais demandeurs** : aider, autogpt, continue, crewai, crush, deepseek-harness, gemini-cli, gpt-pilot, openclaw, rea, void
-- **popularite cumulee** : 782,943 etoiles
-- **adaptateurs proposes** : `omega-sandbox::RuleBasedExecPolicy`, `omega-sandbox::RuleBasedExecPolicy (extension au niveau outil)`, `omega-sandbox::RuleBasedExecPolicy (mode plan = deny-by-default hors lecture)`, `omega-sandbox::RuleBasedExecPolicy (profil lecture seule)`, `omega-sandbox::RuleBasedExecPolicy + LocalSandboxBackend (regles deny sur chemins de secrets)`, `omega-sandbox::{RuleBasedExecPolicy,LocalSandboxBackend}`, `plugins/hooks-runner`, `plugins/lint-feedback (diagnostics -> tool_result)`, `plugins/reflect-lint-test`
+- **harnais demandeurs** : aider, autogpt, continue, crewai, crush, deepseek-harness, dsh-desktop, gemini-cli, gpt-pilot, openclaw, rea, void
+- **popularite cumulee** : 814,076 etoiles
+- **adaptateurs proposes** : `omega-sandbox::RuleBasedExecPolicy`, `omega-sandbox::RuleBasedExecPolicy (extension au niveau outil)`, `omega-sandbox::RuleBasedExecPolicy (mode plan = deny-by-default hors lecture)`, `omega-sandbox::RuleBasedExecPolicy (profil lecture seule)`, `omega-sandbox::RuleBasedExecPolicy + LocalSandboxBackend`, `omega-sandbox::RuleBasedExecPolicy + LocalSandboxBackend (regles deny sur chemins de secrets)`, `omega-sandbox::{RuleBasedExecPolicy,LocalSandboxBackend}`, `plugins/hooks-runner`, `plugins/lint-feedback (diagnostics -> tool_result)`, `plugins/reflect-lint-test`
 - **exemplaire de reference** : `void` — *Boucle de retour lint apres ecriture* (port `ExecPolicy`, adaptateur `plugins/lint-feedback (diagnostics -> tool_result)`, cout M)
   - comment il le fait : Dans callTool.rewrite_file et callTool.edit_file, le retour n'est pas resolu immediatement : result: lintErrorsPromise avec un timeout(2000) puis _getLintErrors(uri) (toolsService.ts:413-445). _getLintErrors (574-588) lit IMarkerService, filtre Error | Warning, plafonne a 100 marqueurs et projette en { code, message, startLineNumber, endLineNumber }. Le texte remis au modele est conditionne par in
   - preuves : `src/vs/workbench/contrib/void/browser/toolsService.ts:391-395`, `src/vs/workbench/contrib/void/browser/toolsService.ts:413-445`, `src/vs/workbench/contrib/void/browser/toolsService.ts:469-474`, `src/vs/workbench/contrib/void/browser/toolsService.ts:515-532`
 
+#### `sandbox-backend` — 11 harnais, cout M
+
+- **harnais demandeurs** : claude-code, devin, dsh-desktop, gemini-cli, gptme, hermes, openhands, plandex, rea, void, windsurf
+- **popularite cumulee** : 429,841 etoiles
+- **adaptateurs proposes** : `omega-sandbox::LocalSandboxBackend`, `omega-sandbox::LocalSandboxBackend (a etendre : isolation namespace + FS)`, `omega-sandbox::LocalSandboxBackend + RuleBasedExecPolicy + ApprovalQueue (persistant a ajouter)`, `plugins/diff-sandbox`, `plugins/sandbox-docker`, `plugins/sandbox-docker-wasmtime`, `plugins/sandbox-rea-capture`, `plugins/sandbox-worktree (git worktree + vérification cwd/commande + cleanup)`, `plugins/sandbox-{docker,ssh,modal,…}`, `plugins/worktree-isolated`, `plugins/worktree-isolation (derriere SandboxBackend)`
+- **exemplaire de reference** : `dsh-desktop` — *Fenetres locales durcies (sandbox, partition dediee, pas de popup ni de webview)* (port `SandboxBackend (fenetres et vues locales en sandbox, origine unique)`, adaptateur `omega-sandbox::LocalSandboxBackend`, cout M)
+  - comment il le fait : `createDesktopLocalWindow()` impose `contextIsolation: true`, `nodeIntegration: false`, `nodeIntegrationInSubFrames: false`, `sandbox: true`, `webSecurity: true`, `webviewTag: false`, `spellcheck: false`, et un `partition` qui doit matcher `/^dsh-[a-z0-9-]+$/` (partition memoire dediee, sinon TypeError) ; il pose `setWindowOpenHandler(() => ({action:'deny'}))` et `will-attach-webview` → `preventDe
+  - preuves : `dsh-plugin-desktop/src/local-window-policy.ts:19-46`, `dsh-plugin-desktop/src/desktop-network.ts:58-70`, `dsh-plugin-desktop/src/index.ts:430-445`, `dsh-plugin-desktop/src/electron-platform.ts`
+
 #### `(execution)` — 10 harnais, cout S
 
 - **harnais demandeurs** : autogpt, continue, crewai, crush, deepseek-harness, gemini-cli, kilo-code, langgraph, opencode, qwen-code
-- **popularite cumulee** : 984,881 etoiles
+- **popularite cumulee** : 984,894 etoiles
 - **adaptateurs proposes** : `omega-app (CLI omega) + omega-server`, `omega-app (file de travail + verrou distribue)`, `omega-app (orchestrateur de graphe, a extraire du noyau)`, `omega-core (boucle de run + event store)`, `omega-core::AgentLoop + omega-app::App::run (a etendre en boucle outilouverte)`, `omega-protocol (contrats types du serveur, desja exposes en /api/*)`, `omega-sandbox::RuleBasedExecPolicy (garde deterministe de boucle)`, `omega-server (cockpit + /api/health|plugins|run|trace)`, `omega-server (endpoint agent + agent card)`, `omega-server (processus unique : API + cockpit)`, `omega-server (routes /api/run + /api/trace existantes)`, `omega-server + plugins/acp (JSON-RPC stdio sur les memes routes)`
 - **exemplaire de reference** : `kilo-code` — *CLI unique : run headless, serve, attach, remote, pr, github, import, plug* (port `—`, adaptateur `omega-app (CLI omega) + omega-server`, cout M)
   - comment il le fait : packages/opencode/src/cli/cmd contient run.ts (+ run-stdin, run/stream.ts pour le transport), serve.ts, attach.ts, remote.ts, acp.ts, pr.ts (checkout/link/unlink/status sur un lien PR<->session), github.ts (install/run avec GitHub mock event + token), mcp.ts, plug.ts:1-40 (installPlugin/patchPluginConfig/readPluginManifest + resolvePluginTarget), agent.ts, session.ts, import.ts, export.ts, stats.t
   - preuves : `packages/opencode/src/cli/cmd/plug.ts:1-40`, `packages/opencode/src/cli/cmd/pr.ts:1-50`, `packages/opencode/src/cli/cmd/github.ts:1-40`, `packages/opencode/src/cli/cmd/serve.ts`
 
-#### `sandbox-backend` — 10 harnais, cout M
+#### `permission-policy` — 8 harnais, cout S
 
-- **harnais demandeurs** : claude-code, devin, gemini-cli, gptme, hermes, openhands, plandex, rea, void, windsurf
-- **popularite cumulee** : 398,720 etoiles
-- **adaptateurs proposes** : `omega-sandbox::LocalSandboxBackend`, `omega-sandbox::LocalSandboxBackend (a etendre : isolation namespace + FS)`, `omega-sandbox::LocalSandboxBackend + RuleBasedExecPolicy + ApprovalQueue (persistant a ajouter)`, `plugins/diff-sandbox`, `plugins/sandbox-docker`, `plugins/sandbox-docker-wasmtime`, `plugins/sandbox-rea-capture`, `plugins/sandbox-worktree (git worktree + vérification cwd/commande + cleanup)`, `plugins/sandbox-{docker,ssh,modal,…}`, `plugins/worktree-isolated`, `plugins/worktree-isolation (derriere SandboxBackend)`
-- **exemplaire de reference** : `void` — *Terminaux temporaires vs persistants avec raison de resolution* (port `SandboxBackend`, adaptateur `omega-sandbox::LocalSandboxBackend + RuleBasedExecPolicy + ApprovalQueue (persistant a ajouter)`, cout M)
-  - comment il le fait : terminalToolService.ts (388 l.) ; le resultat est toujours { result, resolveReason } avec resolveReason: { type: 'done', exitCode } | { type: 'timeout' } (toolsServiceTypes.ts:7). Constantes : MAX_TERMINAL_INACTIVE_TIME = 8s, MAX_TERMINAL_BG_COMMAND_TIME = 5s, MAX_TERMINAL_CHARS = 100_000 (prompts.ts:29-31). Le texte remis au modele est contextuel : sur timeout de run_command il explique le kill e
-  - preuves : `src/vs/workbench/contrib/void/browser/terminalToolService.ts:1-388`, `src/vs/workbench/contrib/void/common/prompt/prompts.ts:29-31`, `src/vs/workbench/contrib/void/common/toolsServiceTypes.ts:7`, `src/vs/workbench/contrib/void/browser/toolsService.ts:447-463`
-
-#### `permission-policy` — 7 harnais, cout S
-
-- **harnais demandeurs** : autogpt, deepseek-harness, devin, gemini-cli, goose, metagpt, tabby
-- **popularite cumulee** : 706,419 etoiles
+- **harnais demandeurs** : autogpt, deepseek-harness, devin, dsh-desktop, gemini-cli, goose, metagpt, tabby
+- **popularite cumulee** : 737,551 etoiles
 - **adaptateurs proposes** : `omega-sandbox::ApprovalQueue`, `omega-sandbox::ApprovalQueue (demandes d'humain) + omega-server cockpit`, `omega-sandbox::ApprovalQueue + ruleset de mode persiste`, `plugins/folder-trust + plugins/keychain (config-source/permission-policy)`
-- **exemplaire de reference** : `devin` — *Security profiles + secrets + OIDC + guardrails* (port `PermissionPolicy + SandboxBackend`, adaptateur `omega-sandbox::ApprovalQueue`, cout M)
-  - comment il le fait : Documente : profils nommaux (network allowlist hostnames/CIDR, allowlist MCP, git read-only/full, retrait token gh, Devin MCP read-only) lies en hierarchie (entreprise > organisation > automations > automation > session, intersection en mode mandatory, resolution au boot/wake) ; secrets (organisation/perso/repo/session, cookies, TOTP) ; OIDC workload identity (AWS/GCP/Vault/JFrog/Databricks) ; AI 
-  - preuves : `https://docs.devin.ai/product-guides/security-profiles.md`, `https://docs.devin.ai/product-guides/secrets.md`, `https://docs.devin.ai/product-guides/oidc.md`, `https://docs.devin.ai/enterprise/features/ai-guardrails.md`
+- **exemplaire de reference** : `dsh-desktop` — *Aucun pont IPC generique : canaux nommes ou routes loopback filtrees* (port `PermissionPolicy (controle d'origine sur chaque route privee)`, adaptateur `omega-sandbox::ApprovalQueue`, cout S)
+  - comment il le fait : Chaque besoin a son module de preload : `preload-locale.ts`, `preload-material.ts`, `preload-menu.ts`, `preload-keyboard.ts`, `preload-browser.ts`, `preload-permissions.ts`, `preload-settings.ts`, `preload-theme.ts` — tous commentes « no generic IPC bridge » et n'exposent que des fonctions nommees via `contextBridge.exposeInMainWorld` (dsh-desktop-next/src/preload-app.ts:1-2). Cote Host, chaque ro
+  - preuves : `dsh-plugin-desktop/src/index.ts:88-96`, `dsh-plugin-desktop/src/index.ts:238-262`, `dsh-plugin-desktop/src/desktop-settings-contract.ts:5-43`, `dsh-desktop-next/src/preload-app.ts:1-47`
 
 #### `checkpoint-store` — 3 harnais, cout M
 
 - **harnais demandeurs** : cursor, langgraph, windsurf
-- **popularite cumulee** : 43,382 etoiles
+- **popularite cumulee** : 43,381 etoiles
 - **adaptateurs proposes** : `omega-app::FileEventStore (lecture du journal) — ecriture `as_node` a ajouter`, `plugins/checkpoint-local`, `plugins/checkpoint-store`, `plugins/checkpoint-store (JSONL + index thread, sur le contrat EventStore existant)`
 - **exemplaire de reference** : `langgraph` — *Checkpointing : BaseCheckpointSaver + backends memory/sqlite/postgres* (port `CheckpointStore (put/get_tuple/list)`, adaptateur `plugins/checkpoint-store (JSONL + index thread, sur le contrat EventStore existant)`, cout L)
   - comment il le fait : Contrat BaseCheckpointSaver : get_tuple/list/put/put_writes/delete_thread/delete_for_runs + serde interchangeable (JsonPlusSerializer par defaut) ; les ecritures pendantes sont stockees separement (put_writes) pour permettre la reprise apres crash au milieu d'un pas. Implementations : InMemorySaver (dictionnaire + PersistentDict optionnel), SqliteSaver (leger, synchrone), BasePostgresSaver (UPSERT
@@ -610,7 +610,7 @@
 #### `worktree-isolate` — 1 harnais, cout L
 
 - **harnais demandeurs** : zed
-- **popularite cumulee** : 91,833 etoiles
+- **popularite cumulee** : 91,834 etoiles
 - **adaptateurs proposes** : `plugins/worktree-isolate`
 - **exemplaire de reference** : `zed` — *Isolation par worktree par fil* (port `WorktreeIsolate (spawn/archive/restore)`, adaptateur `plugins/worktree-isolate`, cout L)
   - comment il le fait : ThreadOptions.use_new_worktree + worktree_name + base ref (thread.rs:843-850) : le fil nait dans un workspace git worktree dedie ; build_root_plan / workspaces_for_archive (thread_worktree_archive.rs:112,928) et restore_archive_checkpoint (thread_worktree_archive.rs:778) archivent et restaurent l'etat du worktree.
@@ -626,28 +626,28 @@
 
 ### Observabilite & tracabilite
 
-#### `event-store` — 12 harnais, cout S
+#### `event-store` — 13 harnais, cout S
 
-- **harnais demandeurs** : agentgpt, claude-code, crewai, crush, deepseek-harness, devin, gemini-cli, metagpt, open-interpreter, opencode, qwen-code, void
-- **popularite cumulee** : 1,045,800 etoiles
+- **harnais demandeurs** : agentgpt, claude-code, crewai, crush, deepseek-harness, devin, dsh-desktop, gemini-cli, metagpt, open-interpreter, opencode, qwen-code, void
+- **popularite cumulee** : 1,076,935 etoiles
 - **adaptateurs proposes** : `omega-app::FileEventStore`, `omega-app::FileEventStore (rejeu conversation) + plugins/file-rewind (git ombre)`, `omega-app::FileEventStore + omega-otel::TraceReplayer`, `omega-app::FileEventStore + omega-otel::TraceReplayer (replay d'un saut)`, `omega-app::{File,InMemory}EventStore + omega-context`, `omega-otel::Provenance + omega-app::FileEventStore`, `omega-otel::TraceReplayer`, `omega-otel::TraceReplayer (rejeu depuis journal)`, `omega-registry + omega-app::EventStore (routage cause_by/source/destination)`, `plugins/artifacts-git (port ArtifactPublisher nouveau ; provenance omega-otel::Provenance)`, `plugins/channel-router`, `plugins/hook-bus (matcher + if + décision exit-code/JSON + async)`, `plugins/session-persistent`, `plugins/session-rollout`, `plugins/workspace-router`
-- **exemplaire de reference** : `void` — *Checkpoints dans le fil + voyage temporel multi-fichiers* (port `EventStore`, adaptateur `omega-app::FileEventStore + omega-otel::TraceReplayer (replay d'un saut)`, cout L)
-  - comment il le fait : Trois types : _addUserCheckpoint (994-1002), _addToolEditCheckpoint appele juste apres edit_file/rewrite_file (1004-1016), et les sauts utilisateur. Un VoidFileSnapshot = { snapshottedDiffAreaOfId, entireFileCode } (editCodeServiceTypes.ts:112-119). L'algorithme de saut (1080-1185) est le point fort : _getCheckpointsBetween donne le dernier index par URI sur un intervalle, puis pour l'annulation u
-  - preuves : `src/vs/workbench/contrib/void/browser/chatThreadService.ts:914-1016`, `src/vs/workbench/contrib/void/browser/chatThreadService.ts:1031-1043`, `src/vs/workbench/contrib/void/browser/chatThreadService.ts:1080-1185`, `src/vs/workbench/contrib/void/common/editCodeServiceTypes.ts:92-119`
+- **exemplaire de reference** : `dsh-desktop` — *Trois points de controle rotatifs de configuration declarative* (port `EventStore (etat declaratif versionne et restaurable, hors journal de run)`, adaptateur `omega-app::FileEventStore`, cout M)
+  - comment il le fait : « Exactly three rotating slots are retained. Restoring a slot never launches pnpm and never copies node_modules » ; apres restauration, le premier demarrage sain consomme un « skip marker » au lieu d'ecraser un point de controle (profile-checkpoint.ts:1-10). La liste des fichiers couverts est explicite et versionnee (`MANIFEST_VERSION = 4`, retrocompatible v3 et v2) : `package.json`, `pnpm-lock.ya
+  - preuves : `dsh-plugin-desktop/src/profile-checkpoint.ts:1-10`, `dsh-plugin-desktop/src/profile-checkpoint.ts:41-70`, `dsh-plugin-desktop/src/profile-checkpoint.ts:28-40`, `dsh-plugin-desktop/src/recovery.ts`
 
 #### `(ui)` — 9 harnais, cout M
 
 - **harnais demandeurs** : agentgpt, autogpt, continue, crush, deepseek-harness, gemini-cli, gpt-engineer, gpt-pilot, tabby
-- **popularite cumulee** : 770,045 etoiles
+- **popularite cumulee** : 770,056 etoiles
 - **adaptateurs proposes** : `omega-cli (binaire TUI sur omega-app + omega-server)`, `omega-diff (script deterministe de diff/stream, jamais une tache d'agent)`, `omega-server (cockpit + /api/health|plugins|run|trace)`, `omega-server (cockpit React/TS servi sur la meme origine)`, `omega-server (surface web existante) + surface TUI terminal dediee`, `omega-server::main (cockpit React + /api/run sur 127.0.0.1:8787 -- meme role, pas les memes options)`, `service autocomplete (contexte fourni par omega-context, completions par omega-providers)`, `service next-edit (memes ports contexte/completion que l'autocompletion)`
 - **exemplaire de reference** : `deepseek-harness` — *CLI dsh : profils nommes, dump de config/schema, audit de demarrage* (port `—`, cout M)
   - comment il le fait : Profils livres : web, headless, sdk, sdk-minimal, acp (plus un profil desktop reserve a Electron) ; dsh --profile <name> --dump-config imprime la liste d'entrees composee avec les expressions !!js verbatim, groupee par fichier source et par couche de patch ayant modifie chaque ligne, en UN document YAML chargeable ; --dump-config-schema importe chaque module compose pour lire son schema (donc a n'
   - preuves : `docs/cli-help.md:21-166`, `packages/boot/app-boot/README.md:36-43`, `packages/boot/app-boot/README.md:71-81`, `packages/boot/app-boot/README.md:98-111`
 
-#### `telemetry-sink` — 8 harnais, cout S
+#### `telemetry-sink` — 9 harnais, cout S
 
-- **harnais demandeurs** : aider, crewai, devin, gpt-pilot, metagpt, plandex, tabby, void
-- **popularite cumulee** : 292,326 etoiles
+- **harnais demandeurs** : aider, crewai, devin, dsh-desktop, gpt-pilot, metagpt, plandex, tabby, void
+- **popularite cumulee** : 323,448 etoiles
 - **adaptateurs proposes** : `omega-otel::StdoutSink`, `omega-otel::{Stdout,File}Sink`, `omega-otel::{Stdout,File}Sink + omega-otel::Provenance`, `omega-otel::{Stdout,File}Sink + omega-otel::Provenance (opt-out a ajouter)`, `omega-otel::{Stdout,File}Sink + plugins/budget-guard`, `plugins/eval-harness`
 - **exemplaire de reference** : `void` — *Telemetrie PostHog avec opt-out et evenements de boucle* (port `TelemetrySink`, adaptateur `omega-otel::{Stdout,File}Sink + omega-otel::Provenance (opt-out a ajouter)`, cout S)
   - comment il le fait : MetricsMainService (electron-main/metricsMainService.ts, 162 l.) instancie PostHog('phc_UanIdujHiLp55BkUTjB1AuBXcasVkdqRwgnwRlWESH2', { host: 'https://us.i.posthog.com' }) — la cle de projet est codee en dur dans le binaire. L'opt-out est lu au demarrage : si OPT_OUT_KEY ('void.app.optOutAll', storageKeys.ts:22) est vrai alors client.optOut() sinon optIn() + identify() (127-140). Les identifiants 
@@ -671,6 +671,15 @@
   - comment il le fait : push_ui_message(value, *, state_key="ui", id) retourne un dict-clair d'ecriture canal, delete_ui_message(id) rend un RemoveUIMessage (cle `__delete__` portant l'id) et ui_message_reducer fusionne les messages par id en appliquant les suppressions — le tout expose comme canal d'etat `ui` standard.
   - preuves : `libs/langgraph/langgraph/graph/ui.py:22`, `libs/langgraph/langgraph/graph/ui.py:43`, `libs/langgraph/langgraph/graph/ui.py:61`, `libs/langgraph/langgraph/graph/ui.py:133`
 
+#### `ui-surface` — 2 harnais, cout S
+
+- **harnais demandeurs** : dsh-desktop, open-interpreter
+- **popularite cumulee** : 99,710 etoiles
+- **adaptateurs proposes** : `plugins/cli-tui-surface`
+- **exemplaire de reference** : `dsh-desktop` — *L'UI est un plugin de slots : racine proprietaire + occupants amont* (port `UiSurface (slots root/sidebar/main/rightbar/overlay + ancres DOM stables)`, cout M)
+  - comment il le fait : `applyExtendedShell()` appelle `applyExtendedOwnedShell()` qui fait `ctx.slots.register({ name:'root', children:{ sidebar:{kind:'single'}, main:{kind:'keyed'}, rightbar:{kind:'single'}, 'shell.overlay':{kind:'list'} }, inject: () => ({ layout, platform }) }, ExtendedFrame)` (client/extended-shell.ts:19-49) ; le mode avance fait le meme enregistrement racine (client/advanced-shell.ts:43-44). `insta
+  - preuves : `dsh-plugin-desktop/src/client/extended-shell.ts:19-49`, `dsh-plugin-desktop/src/client/extended-shell.ts:52-87`, `dsh-plugin-desktop/src/client/advanced-shell.ts:43-44`, `dsh-plugin-desktop/src/client/layout-service.ts:7-20`
+
 #### `provenance` — 2 harnais, cout S
 
 - **harnais demandeurs** : crewai, rea
@@ -689,15 +698,6 @@
   - comment il le fait : React 19 + Router 7 + Zustand + React Query : vues conversation/chat/terminal/navigateur/fichiers/reglages/automations ; adaptateur traduisant les actions UI en REST (toAppConversation, suffixes systeme runtime_services) ; entrypoints librairie (build:lib) ; mocks MSW ; client-tools agent->UI (canvas-ui, request-secret, automation-form).
   - preuves : `canvas/docs/architecture.md`, `canvas/src/api/agent-server-adapter.ts:202-414`, `canvas/src/api/conversation-service/agent-server-conversation-service.api.ts:431-1258`, `canvas/src/api/event-service/event-service.api.ts:157`
 
-#### `ui-surface` — 1 harnais, cout M
-
-- **harnais demandeurs** : open-interpreter
-- **popularite cumulee** : 68,589 etoiles
-- **adaptateurs proposes** : `plugins/cli-tui-surface`
-- **exemplaire de reference** : `open-interpreter` — *CLI + exec non-interactif + TUI a slash commands* (port `UiSurface (exec/interact)`, adaptateur `plugins/cli-tui-surface`, cout M)
-  - comment il le fait : interpreter exec 'tache' (stdin -, git diff | ..., -i image, sortie JSON) pour scripts/CI (docs/exec.md) ; TUI plein ecran avec slash commands adaptees au mode (/model, /fast, /permissions, /approvals, /new, /resume, /fork, /compact, /agent, /init, /review, /mcp, /skills, /memories, /hooks...) documentees dans docs/slash_commands.md ; bascule de harnais persistee via config_update (tui/src/app/con
-  - preuves : `docs/exec.md:1-50`, `docs/slash_commands.md:1-80`, `codex-rs/tui/src/app/config_persistence.rs`, `codex-rs/tui/src/config_update.rs:122-123`
-
 #### `ui-rendering` — 1 harnais, cout L
 
 - **harnais demandeurs** : gpt-pilot
@@ -711,7 +711,7 @@
 #### `subagent-runner` — 21 harnais, cout S
 
 - **harnais demandeurs** : aider, autogpt, claude-code, cline, codex, continue, crewai, crush, cursor, deepseek-harness, devin, gemini-cli, gptme, hermes, kilo-code, langgraph, open-interpreter, openclaw, opencode, openhands, zed
-- **popularite cumulee** : 1,483,595 etoiles
+- **popularite cumulee** : 1,483,610 etoiles
 - **adaptateurs proposes** : `omega-app::ExpertRoster (a creer : roster + routines + credentials)`, `omega-app::SubagentRunner (a creer : spawn/resume + budget)`, `omega-ports::SubagentRunner (adaptateur a ecrire)`, `omega-ports::SubagentRunner (adaptateurs CLI externes, planned)`, `omega-ports::SubagentRunner + omega-core (planned)`, `omega-server (run non-interactif + SDK surface)`, `plugins/architect-loop`, `plugins/delegation-tools (outil pair vers SubagentRunner)`, `plugins/subagent-delegation (spawn/resume derriere SubagentRunner)`, `plugins/subagent-explore`, `plugins/subagent-graph (sous-graphe isole + namespace)`, `plugins/subagent-isolated`, `plugins/subagent-isolated (background + notify) + plugins/agent-team`, `plugins/subagent-isolated (spawn/resume, isolation worktree)`, `plugins/subagent-isolated (spawn/resume, isolation worktree, modèle/effort/TTL par invocation)`
 - **exemplaire de reference** : `deepseek-harness` — *Couture subagent : un service, N providers nommes* (port `SubagentRunner (spawn/resume)`, adaptateur `omega-ports::SubagentRunner + omega-core (planned)`, cout L)
   - comment il le fait : SubagentRuntime est un registre de PROVIDERS NOMMES : chaque backend s'enregistre sous un nom unique et un tool de delegation choisit un provider ; SubagentManager possede demarrage, admission des messages, capacite, relations de parente et destruction ; startActivation ne rend la main qu'apres acceptation de l'enfant (la publication EST l'aboutissement, le handle peut annuler cette execution exac
@@ -720,7 +720,7 @@
 #### `agent-store` — 12 harnais, cout S
 
 - **harnais demandeurs** : agentgpt, autogpt, claude-code, crewai, crush, deepseek-harness, gpt-pilot, kilo-code, metagpt, opencode, qwen-code, tabby
-- **popularite cumulee** : 1,123,860 etoiles
+- **popularite cumulee** : 1,123,874 etoiles
 - **adaptateurs proposes** : `omega-core (planned)`, `omega-core::agent-loop (planned)`, `omega-registry (slots_role : profil/but/contraintes/prefixe par plugin)`, `plugins/agent-autonome (function calling)`, `plugins/agent-autonome (objectif → tâches → exécution → synthèse)`, `plugins/agent-declarative`, `plugins/agent-declarative (frontmatter YAML + Ruleset)`, `plugins/agent-identity (schema Agent + system prompt compose)`, `plugins/agent-preset (planned)`, `plugins/command-md`, `plugins/command-md (template + $args + argument-hint + overrides)`, `plugins/lite-agent (run simple + garde contexte)`, `plugins/plan-mode`, `plugins/plan-mode (deny Write/Edit + délégation Plan + rappel)`, `plugins/plan-mode (planned)`, `plugins/reasoning-strategies (a creer)`, `plugins/run-modes (mode de run declarae par plugin)`, `plugins/sop-pipeline (chaine de plugins par etape + Ruleset par role)`, `plugins/subagent-isolated (frontmatter + spawn/reprise)`
 - **exemplaire de reference** : `kilo-code` — *Agents declaratifs (markdown) et modes d'organisation* (port `AgentStore (discover/load/save)`, adaptateur `plugins/agent-declarative`, cout S)
   - comment il le fait : AgentBuilder (opencode/src/kilocode/agent/builder.ts:1-60) definit Scope=global|project, Mode=primary|subagent|all, ID regex, Body{scope, description, mode, model, color, steps, tools[], permission, prompt} + Input/SaveInput avec preview/save en markdown ; les fichiers vivent dans .kilo/agent/*.md (system-prompt.ts:29 recommande explicitement .kilo/ et interdit .kilocode//.opencode/ pour les nouve
@@ -729,7 +729,7 @@
 #### `scheduler-job` — 9 harnais, cout M
 
 - **harnais demandeurs** : aider, claude-code, cline, devin, gptme, hermes, kilo-code, openclaw, openhands
-- **popularite cumulee** : 394,448 etoiles
+- **popularite cumulee** : 394,449 etoiles
 - **adaptateurs proposes** : `plugins/file-watcher`, `plugins/scheduler-cron`, `plugins/scheduler-cron (local + cloud-runner + skill verify/simplify pre-commit)`, `plugins/scheduler-cron + plugins/channel-*`, `plugins/scheduler-cron + plugins/channel-dispatch`, `plugins/scheduler-service`, `plugins/scheduler-wakeup`
 - **exemplaire de reference** : `openhands` — *Automations planifiees + webhooks (backend dedie)* (port `Scheduler (schedule/trigger)`, adaptateur `plugins/scheduler-cron`, cout M)
   - comment il le fait : Backend dedie openhands-automation (paquet PyPI versionne en sync avec le front) servant /api/automation (dont webhooks) ; le front tague les conversations (automationtrigger/id/name/run_id) et propage le contexte d'observabilite ; stack locale via uvx + ingress.
@@ -738,7 +738,7 @@
 #### `hook` — 4 harnais, cout M
 
 - **harnais demandeurs** : cline, codex, deepseek-harness, gemini-cli
-- **popularite cumulee** : 429,075 etoiles
+- **popularite cumulee** : 429,086 etoiles
 - **adaptateurs proposes** : `omega-plugin-api (Hook) + omega-sandbox (planned)`, `omega-plugin-api (adaptateur Hook : declencheur + commande)`, `plugins/hook-command`, `plugins/hook-runner`
 - **exemplaire de reference** : `codex` — *Hooks declaratifs types et abortables* (port `Hook`, adaptateur `plugins/hook-command`, cout M)
   - comment il le fait : HookResult { Success, FailedContinue(err), FailedAbort(err) } avec should_abort_operation() ; Hook = { name, HookFn } ; HookPayload { session_id, cwd, triggered_at, hook_event } ; 12 HookEventName (PreToolUse, PermissionRequest, PostToolUse, Pre/PostCompact, SessionStart/End, UserPromptSubmit, SubagentStart/Stop, Stop, Interrupt), 4 HookHandlerType (Command, McpTool, Prompt, Agent), modes Sync/Asy
@@ -756,7 +756,7 @@
 #### `channel` — 4 harnais, cout M
 
 - **harnais demandeurs** : cline, gemini-cli, langgraph, openclaw
-- **popularite cumulee** : 221,223 etoiles
+- **popularite cumulee** : 221,222 etoiles
 - **adaptateurs proposes** : `plugins/channel-*`, `plugins/voice-capture (provider de transcription derriere un port)`, `plugins/workflow-graph::channels (BinaryOperatorAggregate + Topic)`
 - **exemplaire de reference** : `langgraph` — *Canaux d'etat versionnes + reducers (merge deterministe)* (port `GraphChannel (get/update/checkpoint)`, adaptateur `plugins/workflow-graph::channels (BinaryOperatorAggregate + Topic)`, cout M)
   - comment il le fait : BaseChannel (get/update/consume/checkpoint/from_checkpoint) avec implémentations LastValue, EphemeralValue, BinaryOperatorAggregate (reducer applicatif, detecte l'overwrite via le type Overwrite, egalite des fonctions par identite), Topic (aplatissement + accumulate optionnel), NamedBarrierValue (attente de toutes les sources) et AnyValue ; add_messages (graph/message.py) est le reducer canonique 
@@ -765,7 +765,7 @@
 #### `agent-loop` — 4 harnais, cout S
 
 - **harnais demandeurs** : gpt-engineer, gptme, langgraph, plandex
-- **popularite cumulee** : 118,610 etoiles
+- **popularite cumulee** : 118,609 etoiles
 - **adaptateurs proposes** : `plugins/agent-loop`, `plugins/agent-loop (boucle plan/act sur le routage Omega)`, `plugins/agent-loop (pipeline d'etapes explicite, sans boucle cachee)`, `plugins/agent-tell-build`, `plugins/workflow-fn (entrypoint/task durables)`
 - **exemplaire de reference** : `gpt-engineer` — *Pipeline d'etapes LLM injectables (pas de boucle ReAct)* (port `AgentLoop (pipeline d'etapes)`, adaptateur `plugins/agent-loop (pipeline d'etapes explicite, sans boucle cachee)`, cout M)
   - comment il le fait : CliAgent prend code_gen_fn (gen_code), improve_fn et process_code_fn (execute_entrypoint) en parametres, typees par TypeVar (CodeGenType/CodeProcessor/ImproveType) ; init() enchaine code_gen_fn -> gen_entrypoint -> process_code_fn, improve() n'appelle que improve_fn (entreepoint/execution volontairement commentes) ; chaque etape separee par un prompt systeme distinct (roadmap+generate+philosophie 
@@ -801,7 +801,7 @@
 #### `agent-runner` — 2 harnais, cout M
 
 - **harnais demandeurs** : cursor, zed
-- **popularite cumulee** : 91,833 etoiles
+- **popularite cumulee** : 91,834 etoiles
 - **adaptateurs proposes** : `plugins/agent-loop`
 - **exemplaire de reference** : `zed` — *Boucle agent run_turn streaming annulable* (port `AgentRunner (run_turn/cancel)`, adaptateur `plugins/agent-loop`, cout M)
   - comment il le fait : Thread::run_turn (thread.rs:2843) vide le message partiel, annule le tour en vol, fige le resume, capture les outils actives puis delegue a run_turn_internal (thread.rs:2921) qui streame la completion ; RunningTurn (thread.rs:5090) porte prompt_id, event_stream, outils et canal d'annulation watch. Les evenements (arret/refus/max-tokens/erreur) sont emis via ThreadEventStream.
@@ -846,7 +846,7 @@
 #### `agent-mode` — 1 harnais, cout S
 
 - **harnais demandeurs** : aider
-- **popularite cumulee** : 49,587 etoiles
+- **popularite cumulee** : 49,588 etoiles
 - **adaptateurs proposes** : `plugins/readonly-modes`
 - **exemplaire de reference** : `aider` — *Modes lecture seule ask / context* (port `AgentMode (ask/context/code)`, adaptateur `plugins/readonly-modes`, cout S)
   - comment il le fait : AskCoder repond sans jamais ecrire ; ContextCoder identifie les fichiers a editer, les ajoute au chat et demande une reformulation (reflected_message) au lieu d'editer ; commandes /ask /context /architect basculent de Coder.
@@ -881,7 +881,7 @@
 #### `tool-surface` — 20 harnais, cout S
 
 - **harnais demandeurs** : agentgpt, aider, autogpt, claude-code, continue, crewai, crush, cursor, deepseek-harness, devin, gemini-cli, kilo-code, langgraph, metagpt, openclaw, openhands, qwen-code, rea, void, windsurf
-- **popularite cumulee** : 1,198,347 etoiles
+- **popularite cumulee** : 1,198,358 etoiles
 - **adaptateurs proposes** : `nouveau runtime omega-sandbox::QuickJsBackend (rquickjs)`, `omega-context::ToolSurfaceIndex`, `omega-context::ToolSurfaceIndex (enregistrement de plugins de recherche)`, `omega-context::ToolSurfaceIndex (hydrate un sous-ensemble par turn) + omega-router (parsing)`, `omega-context::ToolSurfaceIndex (index existant) + execution a ajouter via ToolExecutor`, `omega-context::ToolSurfaceIndex + ContextContributor (filtre par effet de bord)`, `omega-context::ToolSurfaceIndex + boucle d'outils du noyau`, `omega-mcp (a etendre : oauth/resources/prompts + McpServerSpec -> serveur)`, `omega-mcp (client MCP)`, `omega-mcp (client MCP, crate existant a etendre)`, `omega-mcp (client, cible)`, `omega-mcp (extension : transports multiples + OAuth)`, `omega-sandbox::LocalSandboxBackend + plugins/shell-pty`, `plugins/agent-cmdloop (parsing de commandes + carte de tool_execution + post-check)`, `plugins/agent-tools`, `plugins/browser-cdp (service Playwright hors noyau)`, `plugins/lsp-bridge`, `plugins/mcp-bridge`, `plugins/mcp-client (stdio/http/sse/ws + trust + elicitation)`, `plugins/mcp-rea`, `plugins/question`, `plugins/skill-activation (outil derriere ToolSurface)`, `plugins/skill-rea`, `plugins/slash-commands`, `plugins/tool-contract (validate/call/stringify par outil)`, `plugins/tool-devin-workspace`, `plugins/tool-registry`, `plugins/web-grounding (derriere ToolSurface)`, `plugins/xml-tool-grammar (parseur streaming tolerant + prompt)`
 - **exemplaire de reference** : `void` — *Grammaire XML de tool calling pour modeles sans tools natifs* (port `ToolSurface (index/hydrate)`, adaptateur `plugins/xml-tool-grammar (parseur streaming tolerant + prompt)`, cout M)
   - comment il le fait : extractGrammar.ts : findPartiallyWrittenToolTagAtEnd (146) detecte une balise ouvertesur en cours (indispensable en streaming), findIndexOfAny (156), parseXMLPrefixToToolCall (168-262) valide que seuls les parametres declares sont retenus (206 allowedParams), extractXMLToolsWrapper (263-364) branche onText/onFinalMessage et reconnait l'identifiant d'ouverture pour attribuer le bon nom d'outil. Le 
@@ -890,7 +890,7 @@
 #### `tool` — 7 harnais, cout S
 
 - **harnais demandeurs** : cline, deepseek-harness, gptme, hermes, openhands, plandex, rea
-- **popularite cumulee** : 432,950 etoiles
+- **popularite cumulee** : 432,961 etoiles
 - **adaptateurs proposes** : `omega-sandbox + omega-plugin-api (planned)`, `plugins/structured-edits`, `plugins/tool-rea-android`, `plugins/tool-rea-captures`, `plugins/tool-rea-crash`, `plugins/tool-rea-dotnet`, `plugins/tool-rea-evm`, `plugins/tool-rea-firmware`, `plugins/tool-rea-functions`, `plugins/tool-rea-js`, `plugins/tool-rea-native`, `plugins/tool-rea-sqlite`, `plugins/tool-rea-wasm`, `plugins/tool-rpc`, `plugins/tool-sdk`, `plugins/tool-shell`, `plugins/tools-exec`
 - **exemplaire de reference** : `rea` — *Routeur multi-providers natifs (Hopper/Ghidra/IDA/Rizin/objdump/Cutter/GDB)* (port `ToolExecutor`, adaptateur `plugins/tool-rea-native`, cout L)
   - comment il le fait : AnalysisProviderRegistry + SessionProviderRouter : une liaison immuable par cible, sélection déterministe sans fallback ; bridge Python Hopper (bridge/hopper_bridge.py), bundle Java Ghidra (bridge/ghidra/), adaptation du MCP upstream ida-pro-mcp, profils Rizin/objdump/GDB, Cutter. Sessions persistantes limitées à la vie du process MCP.
@@ -899,7 +899,7 @@
 #### `mcp-bridge` — 3 harnais, cout M
 
 - **harnais demandeurs** : cline, crewai, zed
-- **popularite cumulee** : 222,040 etoiles
+- **popularite cumulee** : 222,041 etoiles
 - **adaptateurs proposes** : `plugins/mcp-bridge`, `plugins/mcp-client (transports stdio/http/sse + filtres)`
 - **exemplaire de reference** : `crewai` — *Integrations MCP (stdio/HTTP/SSE) + filtres d'outils* (port `McpBridge (connect/list/call)`, adaptateur `plugins/mcp-client (transports stdio/http/sse + filtres)`, cout M)
   - comment il le fait : MCPServerStdio (mcp/config.py:12), MCPServerHTTP (l.53), MCPServerSSE (l.90), chacun avec cache_tools_list (l.47,84,117) ; transports stdio/sse/http (mcp/client.py:39-41) ; ToolFilterContext + filtres (mcp/filters.py:17) ; outil natif MCPTool (tools/mcp_native_tool.py:13) ; tool_resolver.py resout les outils en BaseTool.
@@ -917,7 +917,7 @@
 #### `mention-resolver` — 1 harnais, cout M
 
 - **harnais demandeurs** : zed
-- **popularite cumulee** : 91,833 etoiles
+- **popularite cumulee** : 91,834 etoiles
 - **adaptateurs proposes** : `plugins/mention-resolve`
 - **exemplaire de reference** : `zed` — *@-mentions de fichiers/selections/diffs* (port `MentionResolver (parse/resolve)`, adaptateur `plugins/mention-resolve`, cout M)
   - comment il le fait : MentionUri (mention.rs:20) avec parse (mention.rs:80), parse_hyperlink (mention.rs:292), abs_path/name/tooltip (mention.rs:315-398) ; MentionSet (mention_set.rs:60) attache les mentions aux creases de l'editeur (insert_mention mention_set.rs:113, confirm_mention_for_file/selection/git_diff) et les resout en contenu de contexte.
@@ -965,7 +965,7 @@
 #### `llm-provider` — 6 harnais, cout S
 
 - **harnais demandeurs** : continue, crewai, opencode, openhands, tabby, void
-- **popularite cumulee** : 464,156 etoiles
+- **popularite cumulee** : 464,159 etoiles
 - **adaptateurs proposes** : `omega-providers (catalogue par transforms + scoring communautaire)`, `omega-providers::OllamaProvider`, `omega-providers::OllamaProvider (catalogue multi-fournisseurs a etendre)`, `plugins/llm-registry`
 - **exemplaire de reference** : `openhands` — *Registre LLM multi-providers + fallback + device-login* (port `Provider (complete/stream)`, adaptateur `plugins/llm-registry`, cout M)
   - comment il le fait : LLMRegistry (evenements de registre) + modele LLM pydantic avec mixins retry/outils non-natifs + FallbackStrategy ; router list_models/list_verified/device-login OAuth + passerelle OpenAI-compatible (chat/completions, responses) ; suivi de solde cote UI.
@@ -997,13 +997,13 @@ Capacites qui touchent au **squelette** (registre, coutures, couches, effets, po
 |---|---|---|---|---|
 | `subagent-runner` | 21 | S | `deepseek-harness` — *Couture subagent : un service, N providers nommes` | SubagentRuntime est un registre de PROVIDERS NOMMES : chaque backend s'enregistre sous un nom unique et un tool de delegation choisit un provider ; Su |
 | `tool-surface` | 20 | S | `void` — *Grammaire XML de tool calling pour modeles sans tools natifs` | extractGrammar.ts : findPartiallyWrittenToolTagAtEnd (146) detecte une balise ouvertesur en cours (indispensable en streaming), findIndexOfAny (156),  |
-| `config-source` | 18 | S | `void` — *Overrides de capacites par modele (corriger une detection)` | modelOverrideKeys (modelCapabilities.ts:208-216) limite l'override a 7 cles seulement : contextWindow, reservedOutputTokenSpace, supportsSystemMessage |
-| `registry` | 14 | S | `void` — *Diagramme de services (3 couches + canaux IPC)` | Le guide officiel (VOID_CODEBASE_GUIDE.md) impose deux contournements : bundler React dans le navigateur, ou porter le code dans electron-main/ et ouv |
+| `config-source` | 19 | S | `dsh-desktop` — *Canaux de release isoles (stable/beta) verifies par en-tetes` | `upstream.json` enregistre pour chaque canal le commit amont, la version source, la version du runtime empaquete et le manifeste vendorise ; `activeCh |
+| `registry` | 15 | S | `dsh-desktop` — *Marketplace : contrats JSON Schema publics + types generes` | `contracts/schemas.ts:21-38` compile `catalog-source`, `catalog-query`, `catalog-provider-page` et `catalog-snapshot` avec Ajv 2020 (`strict:true`, `a |
+| `event-store` | 13 | S | `dsh-desktop` — *Trois points de controle rotatifs de configuration declarative` | « Exactly three rotating slots are retained. Restoring a slot never launches pnpm and never copies node_modules » ; apres restauration, le premier dem |
 | `agent-store` | 12 | S | `kilo-code` — *Agents declaratifs (markdown) et modes d'organisation` | AgentBuilder (opencode/src/kilocode/agent/builder.ts:1-60) definit Scope=global/project, Mode=primary/subagent/all, ID regex, Body{scope, description, |
-| `event-store` | 12 | S | `void` — *Checkpoints dans le fil + voyage temporel multi-fichiers` | Trois types : _addUserCheckpoint (994-1002), _addToolEditCheckpoint appele juste apres edit_file/rewrite_file (1004-1016), et les sauts utilisateur. U |
-| `exec-policy` | 11 | S | `void` — *Boucle de retour lint apres ecriture` | Dans callTool.rewrite_file et callTool.edit_file, le retour n'est pas resolu immediatement : result: lintErrorsPromise avec un timeout(2000) puis _get |
-| `sandbox-backend` | 10 | M | `void` — *Terminaux temporaires vs persistants avec raison de resolution` | terminalToolService.ts (388 l.) ; le resultat est toujours { result, resolveReason } avec resolveReason: { type: 'done', exitCode } / { type: 'timeout |
-| `permission-policy` | 7 | S | `devin` — *Security profiles + secrets + OIDC + guardrails` | Documente : profils nommaux (network allowlist hostnames/CIDR, allowlist MCP, git read-only/full, retrait token gh, Devin MCP read-only) lies en hiera |
+| `exec-policy` | 12 | S | `void` — *Boucle de retour lint apres ecriture` | Dans callTool.rewrite_file et callTool.edit_file, le retour n'est pas resolu immediatement : result: lintErrorsPromise avec un timeout(2000) puis _get |
+| `sandbox-backend` | 11 | M | `dsh-desktop` — *Fenetres locales durcies (sandbox, partition dediee, pas de popup ni de webview)` | `createDesktopLocalWindow()` impose `contextIsolation: true`, `nodeIntegration: false`, `nodeIntegrationInSubFrames: false`, `sandbox: true`, `webSecu |
+| `permission-policy` | 8 | S | `dsh-desktop` — *Aucun pont IPC generique : canaux nommes ou routes loopback filtrees` | Chaque besoin a son module de preload : `preload-locale.ts`, `preload-material.ts`, `preload-menu.ts`, `preload-keyboard.ts`, `preload-browser.ts`, `p |
 | `tool` | 7 | S | `rea` — *Routeur multi-providers natifs (Hopper/Ghidra/IDA/Rizin/objdump/Cutter/GDB)` | AnalysisProviderRegistry + SessionProviderRouter : une liaison immuable par cible, sélection déterministe sans fallback ; bridge Python Hopper (bridge |
 | `hook` | 4 | M | `codex` — *Hooks declaratifs types et abortables` | HookResult { Success, FailedContinue(err), FailedAbort(err) } avec should_abort_operation() ; Hook = { name, HookFn } ; HookPayload { session_id, cwd, |
 | `hook-bus` | 4 | S | `gptme` — *Bus de hooks typés (~20 types, sync+async)` | HookType enumere ~20 types en notation pointee (step.pre/post, tool.execute.pre/post, session.start/end, generation.*, loop.continue, tool.confirm, el |
@@ -1027,42 +1027,43 @@ Capacites qui touchent au **squelette** (registre, coutures, couches, effets, po
 
 ## 3. Feuille de route par phase
 
-### Phase 1 — socle (44 capacites)
+### Phase 1 — socle (45 capacites)
 
-- `context-engine` — 28 harnais · 1,773,151 etoiles
-- `subagent-runner` — 21 harnais · 1,483,595 etoiles
-- `tool-surface` — 20 harnais · 1,198,347 etoiles
-- `config-source` — 18 harnais · 976,416 etoiles
-- `registry` — 14 harnais · 1,339,101 etoiles
-- `agent-store` — 12 harnais · 1,123,860 etoiles
-- `event-store` — 12 harnais · 1,045,800 etoiles
-- `memory-store` — 12 harnais · 448,945 etoiles
-- `exec-policy` — 11 harnais · 782,943 etoiles
-- `(execution)` — 10 harnais · 984,881 etoiles
-- `telemetry-sink` — 8 harnais · 292,326 etoiles
+- `context-engine` — 28 harnais · 1,773,166 etoiles
+- `subagent-runner` — 21 harnais · 1,483,610 etoiles
+- `tool-surface` — 20 harnais · 1,198,358 etoiles
+- `config-source` — 19 harnais · 1,007,541 etoiles
+- `registry` — 15 harnais · 1,370,237 etoiles
+- `event-store` — 13 harnais · 1,076,935 etoiles
+- `agent-store` — 12 harnais · 1,123,874 etoiles
+- `exec-policy` — 12 harnais · 814,076 etoiles
+- `memory-store` — 12 harnais · 448,944 etoiles
+- `(execution)` — 10 harnais · 984,894 etoiles
+- `telemetry-sink` — 9 harnais · 323,448 etoiles
+- `permission-policy` — 8 harnais · 737,551 etoiles
 - `skill-store` — 8 harnais · 231,063 etoiles
-- `permission-policy` — 7 harnais · 706,419 etoiles
-- `tool` — 7 harnais · 432,950 etoiles
-- `llm-provider` — 6 harnais · 464,156 etoiles
+- `tool` — 7 harnais · 432,961 etoiles
+- `llm-provider` — 6 harnais · 464,159 etoiles
 - `router-policy` — 5 harnais · 271,956 etoiles
 - `task-classifier` — 4 harnais · 222,581 etoiles
-- `agent-loop` — 4 harnais · 118,610 etoiles
+- `agent-loop` — 4 harnais · 118,609 etoiles
 - `hook-bus` — 4 harnais · 4,454 etoiles
 - `agent-runtime` — 3 harnais · 154,532 etoiles
-- `workflow-engine` — 3 harnais · 103,160 etoiles
+- `workflow-engine` — 3 harnais · 103,159 etoiles
 - `(observabilite)` — 2 harnais · 242,968 etoiles
 - `ui-panel` — 2 harnais · 135,215 etoiles
+- `ui-surface` — 2 harnais · 99,710 etoiles
 - `provenance` — 2 harnais · 59,778 etoiles
-- `credentials` — 1 harnais · 251,234 etoiles
+- `credentials` — 1 harnais · 251,245 etoiles
 - `harness-emulation` — 1 harnais · 68,589 etoiles
 - `orchestrator` — 1 harnais · 59,778 etoiles
 - `clarify-loop` — 1 harnais · 55,024 etoiles
 - `code-emitter` — 1 harnais · 55,024 etoiles
 - `vcs-snapshot` — 1 harnais · 55,024 etoiles
-- `agent-mode` — 1 harnais · 49,587 etoiles
-- `edit-apply` — 1 harnais · 49,587 etoiles
-- `lint-check` — 1 harnais · 49,587 etoiles
-- `vcs-commit` — 1 harnais · 49,587 etoiles
+- `agent-mode` — 1 harnais · 49,588 etoiles
+- `edit-apply` — 1 harnais · 49,588 etoiles
+- `lint-check` — 1 harnais · 49,588 etoiles
+- `vcs-commit` — 1 harnais · 49,588 etoiles
 - `file-system` — 1 harnais · 33,654 etoiles
 - `vcs` — 1 harnais · 33,654 etoiles
 - `(configuration)` — 1 harnais · 28,675 etoiles
@@ -1074,37 +1075,36 @@ Capacites qui touchent au **squelette** (registre, coutures, couches, effets, po
 - `playbook-store` — 1 harnais
 - `workflow-runner` — 1 harnais
 
-### Phase 2 — structure (46 capacites)
+### Phase 2 — structure (45 capacites)
 
-- `sandbox-backend` — 10 harnais · 398,720 etoiles
-- `(ui)` — 9 harnais · 770,045 etoiles
-- `scheduler-job` — 9 harnais · 394,448 etoiles
-- `(automatisation)` — 7 harnais · 636,264 etoiles
-- `hook` — 4 harnais · 429,075 etoiles
+- `sandbox-backend` — 11 harnais · 429,841 etoiles
+- `(ui)` — 9 harnais · 770,056 etoiles
+- `scheduler-job` — 9 harnais · 394,449 etoiles
+- `(automatisation)` — 7 harnais · 636,274 etoiles
+- `hook` — 4 harnais · 429,086 etoiles
 - `agent-server` — 4 harnais · 281,649 etoiles
-- `channel` — 4 harnais · 221,223 etoiles
-- `mcp-bridge` — 3 harnais · 222,040 etoiles
+- `channel` — 4 harnais · 221,222 etoiles
+- `mcp-bridge` — 3 harnais · 222,041 etoiles
 - `(extension)` — 3 harnais · 97,776 etoiles
-- `checkpoint-store` — 3 harnais · 43,382 etoiles
-- `(contexte)` — 2 harnais · 285,150 etoiles
+- `checkpoint-store` — 3 harnais · 43,381 etoiles
+- `(contexte)` — 2 harnais · 285,161 etoiles
 - `extension-host` — 2 harnais · 146,434 etoiles
 - `(agents)` — 2 harnais · 135,942 etoiles
-- `agent-runner` — 2 harnais · 91,833 etoiles
+- `agent-runner` — 2 harnais · 91,834 etoiles
 - `mcp-client` — 2 harnais · 4,454 etoiles
 - `loop-guard` — 1 harnais · 107,412 etoiles
-- `mention-resolver` — 1 harnais · 91,833 etoiles
+- `mention-resolver` — 1 harnais · 91,834 etoiles
 - `agent-host` — 1 harnais · 91,083 etoiles
 - `headless-run` — 1 harnais · 70,429 etoiles
 - `agent-protocol` — 1 harnais · 68,589 etoiles
 - `lifecycle-hook` — 1 harnais · 68,589 etoiles
 - `tool-source` — 1 harnais · 68,589 etoiles
-- `ui-surface` — 1 harnais · 68,589 etoiles
 - `output-guardrail` — 1 harnais · 59,778 etoiles
 - `planner` — 1 harnais · 59,778 etoiles
 - `patch-apply` — 1 harnais · 55,024 etoiles
 - `self-healing` — 1 harnais · 55,024 etoiles
-- `retry-policy` — 1 harnais · 43,382 etoiles
-- `stream-surface` — 1 harnais · 43,382 etoiles
+- `retry-policy` — 1 harnais · 43,381 etoiles
+- `stream-surface` — 1 harnais · 43,381 etoiles
 - `review-loop` — 1 harnais · 33,654 etoiles
 - `completion-provider` — 1 harnais · 27,626 etoiles
 - `session-board` — 1 harnais · 27,626 etoiles
@@ -1126,12 +1126,12 @@ Capacites qui touchent au **squelette** (registre, coutures, couches, effets, po
 ### Phase 3 — lourd (16 capacites)
 
 - `(memoire)` — 1 harnais · 187,617 etoiles
-- `worktree-isolate` — 1 harnais · 91,833 etoiles
+- `worktree-isolate` — 1 harnais · 91,834 etoiles
 - `conversation-store` — 1 harnais · 91,083 etoiles
 - `ui-shell` — 1 harnais · 91,083 etoiles
 - `eval-harness` — 1 harnais · 55,024 etoiles
 - `patch-validate` — 1 harnais · 55,024 etoiles
-- `hitl-gate` — 1 harnais · 43,382 etoiles
+- `hitl-gate` — 1 harnais · 43,381 etoiles
 - `debug-session` — 1 harnais · 33,654 etoiles
 - `persistence` — 1 harnais · 33,654 etoiles
 - `task-execution` — 1 harnais · 33,654 etoiles
@@ -1153,6 +1153,7 @@ Capacites qui touchent au **squelette** (registre, coutures, couches, effets, po
 | `crush` | Exécution du crushrc comme Bash (REFUSÉ) | load.go:981 loadFromConfigPaths exécute le shell config via le moteur shellconfig ; README:256-259 et :322-327 déclarent crushrc et crush.json « trusted code » (tout $(...) de crush.json s'exécute au  |
 | `cursor` | Telemetrie cloud proprietaire | [documente] Télémétrie d'usage vers les serveurs Anysphere avec Privacy Mode / retention configurable (entreprise) ; [infere] pipeline closed-source, facturation a l'usage indexee dessus. Non repris : |
 | `deepseek-harness` | PTC (programmatic tool calling) via run_code — ECARTE (runtime JS/Python) | ECARTE pour le noyau Rust : en mode ptc le registre n'emet plus qu'un transport reserve (run_code) et les autres capacites visibles sont declarees dans une section SDK generee dans le langage du runti |
+| `dsh-desktop` | ECARTE : patcher les versions amont pour etendre le noyau | `patches/` contient `dsh@0.2.1-alpha.5.patch`, `dsh-app-boot@…`, `dsh-client-modules@…`, `dsh-client-ui-conversation@…`, `dsh-client-ui-directory-picker-browse@…` etc., un par version pinnee — le depo |
 | `goose` | App desktop Electron | Ecarte : ui/desktop est une app Electron (forge.config.ts, electron-builder) separee du workspace Rust, avec son cycle de release propre. Omega vise cockpit React servi par omega-server sur une seule  |
 | `gpt-engineer` | Telemetrie RudderStack avec consentement et revue humaine (ECARTE) | applications/cli/learning.py : le consentement est demande une fois et persiste dans le fichier .gpte_consent ('true' = opto, suppression du fichier = retrait) (:183-234) ; human_review_input (:122-17 |
 | `kilo-code` | Passerelle Kilo (compte, solde, modes d'organisation, sessions cloud) | ECARTE parce que c'est un backend SaaS operateur : auth/device-auth.ts:30-98 (device code + polling + etats approved/denied/expired), provider.ts:1-78 (createKilo enveloppe createOpenRouter avec base  |
