@@ -19,7 +19,7 @@
 **Goal:** Sandbox réel (namespace + FS + réseau, fail-closed) et compaction LLM double couche.
 **Depends on:** Phase 2
 
-## Phase 4: NOYAU Phase D — industrialisation
+## Phase 4: NOYAU Phase D — industrialisation ✅
 
 **Goal:** Provider externe de sous-agents (Claude Code/Codex/ACP) + marketplace/atelier de plugins.
 **Depends on:** Phase 3
