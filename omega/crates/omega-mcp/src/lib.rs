@@ -89,10 +89,25 @@ impl McpServerSpec {
 
     /// Spécification du serveur MCP de **REA** (`npx -y rea-agents@latest --mcp`).
     ///
-    /// `REA_PWNTOOLS_PYTHON` doit pointer vers un interpréteur fourni par l'appelant
-    /// (pwntools/pyelftools/Unicorn) : REA n'installe jamais de paquets.
+    /// REA n'installe jamais de paquets et découvre ses moteurs externes par
+    /// variables d'environnement (`GHIDRA_INSTALL_DIR`, `REA_JADX_*`,
+    /// `REA_TSHARK_COMMAND`, `REA_BINWALK_COMMAND`, `REA_BROWSER_EXECUTABLE`...).
+    /// On charge donc le fichier de toolchain, par ordre de priorité :
+    /// 1. `$OMEGA_REA_ENV` (chemin explicite) ;
+    /// 2. `$HOME/.config/omega/rea-tools.env` ;
+    /// 3. `/etc/profile.d/rea-tools.sh` (installation systeme de `install-rea-tools.sh`).
+    ///
+    /// Le fichier est au format shell (`export CLE=valeur`) ; les commentaires et
+    /// lignes vides sont ignorés. `REA_PWNTOOLS_PYTHON` deja present dans
+    /// l'environnement n'est jamais ecrase par le fichier.
     pub fn rea() -> Self {
         let mut spec = Self::new("npx", ["-y", "rea-agents@latest", "--mcp"]);
+        for (key, value) in load_toolchain_env() {
+            if key == "REA_PWNTOOLS_PYTHON" && std::env::var(&key).is_ok() {
+                continue;
+            }
+            spec = spec.with_env(key, value);
+        }
         if let Ok(python) = std::env::var("REA_PWNTOOLS_PYTHON") {
             spec = spec.with_env("REA_PWNTOOLS_PYTHON", python);
         }
@@ -354,6 +369,63 @@ impl Drop for McpClient {
     }
 }
 
+/// Chemin du fichier de toolchain REA, par ordre de priorité (cf. [`McpServerSpec::rea`]).
+pub fn toolchain_env_path() -> Option<std::path::PathBuf> {
+    if let Ok(p) = std::env::var("OMEGA_REA_ENV") {
+        let path = std::path::PathBuf::from(p);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+    let home = std::env::var("HOME").ok()?;
+    for cand in [
+        format!("{home}/.config/omega/rea-tools.env"),
+        "/etc/profile.d/rea-tools.sh".to_string(),
+    ] {
+        let path = std::path::PathBuf::from(cand);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+    None
+}
+
+/// Lit un fichier `export CLE=valeur` et retourne les paires (ordre stable).
+///
+/// Tolère `export` optionnel, les guillemets simples/doubles, les commentaires
+/// et les lignes vides. Ignore `PATH` (déjà géré par le processus parent).
+pub fn load_toolchain_env() -> Vec<(String, String)> {
+    let Some(path) = toolchain_env_path() else {
+        return Vec::new();
+    };
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return Vec::new();
+    };
+    let mut out: Vec<(String, String)> = Vec::new();
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let rest = line.strip_prefix("export ").unwrap_or(line);
+        let Some((key, value)) = rest.split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        if key.is_empty() || key == "PATH" {
+            continue;
+        }
+        let value = value.trim().trim_matches(|c| c == '"' || c == '\'');
+        if value.is_empty() {
+            continue;
+        }
+        out.push((key.to_string(), value.to_string()));
+    }
+    out.sort();
+    out.dedup_by(|a, b| a.0 == b.0);
+    out
+}
+
 /// Instantané embarqué du catalogue REA (`rea doctor`/`capabilities`, capté le
 /// 2026-10-17 pour `rea 6.5.0`). Données versionnées dans `data/` du crate.
 ///
@@ -590,6 +662,48 @@ mod tests {
         let r = json!({"content": [{"type": "text", "text": "hello"}], "isError": true});
         assert_eq!(first_text(&r), "hello");
         assert_eq!(first_text(&json!({})), "<sans texte>");
+    }
+
+    #[test]
+    fn toolchain_env_parses_export_lines() {
+        let dir = std::env::temp_dir().join("omega-mcp-env-test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("rea-tools.env");
+        std::fs::write(
+            &f,
+            "# commentaire\nexport GHIDRA_INSTALL_DIR=/opt/ghidra\nREA_TSHARK_COMMAND=\"/usr/bin/tshark\"\n\nPATH=/should/be/ignored\nVIDE=\n",
+        )
+        .unwrap();
+        // `OMEGA_REA_ENV` pilote la resolution : on isole le test du systeme.
+        std::env::set_var("OMEGA_REA_ENV", &f);
+        let env = load_toolchain_env();
+        std::env::remove_var("OMEGA_REA_ENV");
+        assert_eq!(
+            env,
+            vec![
+                ("GHIDRA_INSTALL_DIR".to_string(), "/opt/ghidra".to_string()),
+                (
+                    "REA_TSHARK_COMMAND".to_string(),
+                    "/usr/bin/tshark".to_string()
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn rea_spec_carries_toolchain_env() {
+        let dir = std::env::temp_dir().join("omega-mcp-env-test2");
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("rea-tools.env");
+        std::fs::write(&f, "export GHIDRA_INSTALL_DIR=/opt/ghidra\n").unwrap();
+        std::env::set_var("OMEGA_REA_ENV", &f);
+        let spec = McpServerSpec::rea();
+        std::env::remove_var("OMEGA_REA_ENV");
+        assert_eq!(
+            spec.env.get("GHIDRA_INSTALL_DIR").map(String::as_str),
+            Some("/opt/ghidra")
+        );
+        assert_eq!(spec.args, vec!["-y", "rea-agents@latest", "--mcp"]);
     }
 
     #[test]

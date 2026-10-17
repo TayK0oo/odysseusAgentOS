@@ -78,7 +78,17 @@ CANDIDATES: list[tuple[str, str, str]] = [
     ("nicepkg/aide", "Aide", "oss"),
     ("Doriandarko/claude-engineer", "Claude Engineer", "oss"),
     ("sst/opencode", "OpenCode (doublon garde pour la mesure)", "oss"),
+    # --- entrants 2026 (veille utilisateur du 17/10) ---
+    ("deepseek-ai/deepseek-harness", "DeepSeek Harness", "oss"),
+    ("langchain-ai/deepagents", "Deep Agents", "oss"),
+    ("anywhere-labs/dsh-desktop", "DSH Desktop", "oss"),
+    ("zhu1090093659/dsh-web", "DSH Web", "oss"),
+    ("MoonshotAI/kimi-cli", "Kimi CLI (archive)", "oss"),
     # --- produits fermes (documentation uniquement) ---
+    ("", "Grok Build", "closed"),
+    ("", "Muse Code", "closed"),
+    ("", "Antigravity CLI", "closed"),
+    ("", "Kiro", "closed"),
     ("", "Cursor", "closed"),
     ("", "Windsurf / Cascade", "closed"),
     ("", "Devin", "closed"),
