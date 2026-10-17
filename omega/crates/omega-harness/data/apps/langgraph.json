@@ -1,0 +1,511 @@
+{
+  "schema_version": 1,
+  "id": "langgraph",
+  "name": "LangGraph",
+  "editor": "LangChain Inc.",
+  "oss": true,
+  "language": "Python",
+  "license": "MIT",
+  "repo": "https://github.com/langchain-ai/langgraph",
+  "architecture": "Bibliotheque d'orchestration d'etats (moteur Pregel : noms = taches, canaux = etat versionne) ; un StateGraph est construit (add_node/add_edge/add_conditional_edges) puis compile() produit un CompiledStateGraph qui herite de Pregel et s'execute par pas superposant une phase de lecture des canaux, de planification de taches et d'ecriture, avec checkpoint a chaque pas. Monorepo de packages separes : libs/langgraph (noyau), libs/checkpoint (BaseCheckpointSaver + store memoire/vectoriel + serde), libs/checkpoint-sqlite/-postgres (backends SQL avec migrations), libs/checkpoint-conformance (suite de conformite des checkpointers), libs/prebuilt (ToolNode, agent ReAct, schemas HITL), libs/sdk-py et libs/sdk-js (clients HTTP du LangGraph API), libs/cli (up/dev/build/validate en docker compose). La durabilite est un mode explicite (sync|async|exit), le human-in-the-loop est un `interrupt()` leve comme exception controllable et reprend par `Command(resume=...)`.",
+  "entrypoints": [
+    "API Python StateGraph/compile/invoke/stream (libs/langgraph)",
+    "API fonctionnelle @entrypoint/@task (libs/langgraph/langgraph/func)",
+    "langgraph CLI (up, dev, build, validate, new — libs/cli)",
+    "langgraph_sdk (clients HTTP threads/runs/assistants/crons — libs/sdk-py)",
+    "RemoteGraph (client d'un deploiement distant — libs/langgraph/langgraph/pregel/remote.py)"
+  ],
+  "functionalities": [
+    {
+      "id": "lg-state-graph",
+      "domain": "agents",
+      "name": "Graphe d'etats declaratif (StateGraph -> CompiledStateGraph)",
+      "what": "Construire un graphe oriente par un schema d'etat partage : des nouds (fonctions/runnables), des aretes statiques, des aretes conditionnelles et des sequences, compiles en un objet executant runnable et introspectable.",
+      "how": "StateGraph(Generic[StateT, ContextT, InputT, OutputT]) expose add_node (5 surcharges, inferance du schema d'entree/retour via get_type_hints, detection de Command Literal pour les destinations, noud error_handler interne `__error_handler__<node>`), add_edge (accepte une liste de sources = barriere named), add_conditional_edges (path callable/Runnable + path_map optionnel), add_sequence ; validate() exige une arete depuis START ; compile() construit un CompiledStateGraph (sous-classe de Pregel) en attachant canaux, nouds et branches (attach_node/attach_edge).",
+      "omega_capability": "workflow-engine",
+      "omega_port": "WorkflowEngine (build/compile/run)",
+      "omega_adapter": "plugins/workflow-graph (graphe d'etats + canaux, au-dessus de omega-app::App)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "libs/langgraph/langgraph/graph/state.py:131",
+        "libs/langgraph/langgraph/graph/state.py:667",
+        "libs/langgraph/langgraph/graph/state.py:928",
+        "libs/langgraph/langgraph/graph/state.py:982",
+        "libs/langgraph/langgraph/graph/state.py:1032",
+        "libs/langgraph/langgraph/graph/state.py:1144",
+        "libs/langgraph/langgraph/graph/state.py:1177",
+        "libs/langgraph/langgraph/graph/state.py:1404",
+        "https://docs.langchain.com/oss/python/langgraph/graph-api"
+      ]
+    },
+    {
+      "id": "lg-state-channels",
+      "domain": "execution",
+      "name": "Canaux d'etat versionnes + reducers (merge deterministe)",
+      "what": "Chaque cle de l'etat est un canal versionne qui sait fusionner les mises a jour concurrentes via un reducer (add, set, union, topic) au lieu d'un simple dictionnaire ecrase.",
+      "how": "BaseChannel (get/update/consume/checkpoint/from_checkpoint) avec implémentations LastValue, EphemeralValue, BinaryOperatorAggregate (reducer applicatif, detecte l'overwrite via le type Overwrite, egalite des fonctions par identite), Topic (aplatissement + accumulate optionnel), NamedBarrierValue (attente de toutes les sources) et AnyValue ; add_messages (graph/message.py) est le reducer canonique des messages (par id, tri par timestamp, troncature).",
+      "omega_capability": "channel",
+      "omega_port": "GraphChannel (get/update/checkpoint)",
+      "omega_adapter": "plugins/workflow-graph::channels (BinaryOperatorAggregate + Topic)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/langgraph/langgraph/channels/base.py:70",
+        "libs/langgraph/langgraph/channels/base.py:90",
+        "libs/langgraph/langgraph/channels/binop.py:66",
+        "libs/langgraph/langgraph/channels/topic.py:23",
+        "libs/langgraph/langgraph/graph/message.py:64"
+      ]
+    },
+    {
+      "id": "lg-conditional-edges",
+      "domain": "routage",
+      "name": "Aretes conditionnelles + Send (map-reduce dynamique)",
+      "what": "Router dynamiquement vers un ou plusieurs nouds depuis une fonction de decision, et declencher la meme tache N fois en parallele avec une entree customisee (map-reduce).",
+      "how": "add_conditional_edges(source, path, path_map) enregistre un BranchSpec (graph/_branch.py) qui route a la sortie du noud ; la fonction peut retourner un nom, END ou une sequence de Send. `Send(node, arg, timeout)` (types.py) pousse une tache avec son propre etat : les taches PUSH sont planifiees en parallele par Pregel et leurs ecritures sont agregees dans les canaux cibles.",
+      "omega_capability": "workflow-engine",
+      "omega_port": "WorkflowEngine (route/Send)",
+      "omega_adapter": "plugins/workflow-graph::routing (BranchSpec + Send fan-out)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/langgraph/langgraph/graph/state.py:982",
+        "libs/langgraph/langgraph/graph/_branch.py:83",
+        "libs/langgraph/langgraph/types.py:738",
+        "libs/langgraph/langgraph/pregel/_algo.py:1140"
+      ]
+    },
+    {
+      "id": "lg-checkpointing",
+      "domain": "memoire",
+      "name": "Checkpointing : BaseCheckpointSaver + backends memory/sqlite/postgres",
+      "what": "Persister l'etat complet du graphe a chaque pas (canaux + ecritures pendantes + metadonnees) sous une cle (thread_id, checkpoint_ns, checkpoint_id), permettant pause/reprise/rejoue.",
+      "how": "Contrat BaseCheckpointSaver : get_tuple/list/put/put_writes/delete_thread/delete_for_runs + serde interchangeable (JsonPlusSerializer par defaut) ; les ecritures pendantes sont stockees separement (put_writes) pour permettre la reprise apres crash au milieu d'un pas. Implementations : InMemorySaver (dictionnaire + PersistentDict optionnel), SqliteSaver (leger, synchrone), BasePostgresSaver (UPSERT_CHECKPOINTS/WRITES/BLOBS + liste MIGRATIONS versionnee) ; un package checkpoint-conformance fournit la suite de tests que tout checkpointer doit passer.",
+      "omega_capability": "checkpoint-store",
+      "omega_port": "CheckpointStore (put/get_tuple/list)",
+      "omega_adapter": "plugins/checkpoint-store (JSONL + index thread, sur le contrat EventStore existant)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "libs/checkpoint/langgraph/checkpoint/base/__init__.py:199",
+        "libs/checkpoint/langgraph/checkpoint/base/__init__.py:262",
+        "libs/checkpoint/langgraph/checkpoint/base/__init__.py:277",
+        "libs/checkpoint/langgraph/checkpoint/base/__init__.py:301",
+        "libs/checkpoint/langgraph/checkpoint/base/__init__.py:344",
+        "libs/checkpoint/langgraph/checkpoint/memory/__init__.py:34",
+        "libs/checkpoint-sqlite/langgraph/checkpoint/sqlite/__init__.py:49",
+        "libs/checkpoint-postgres/langgraph/checkpoint/postgres/base.py:547",
+        "libs/checkpoint-conformance/README.md:1",
+        "https://docs.langchain.com/oss/python/langgraph/checkpointers"
+      ]
+    },
+    {
+      "id": "lg-durable-execution",
+      "domain": "execution",
+      "name": "Execution durable : mode sync|async|exit + reprise sans re-execution",
+      "what": "Choisir explicitement quand le checkpoint est ecrit (a chaque frontiere de pas, en fin de pas, ou seulement a la sortie), et reprendre un run casse exactement la ou il s'etait arrete.",
+      "how": "Le champ `durability: Durability = Literal[\"sync\",\"async\",\"exit\"]` est porte par le PregelLoop (self.durability) : `sync` impose le flush avant de continuer, `async` le laisse en arriere-plan, `exit` ne checkpoint qu'a la sortie ; les ecritures pendantes restent disponibles via put_writes pour la reprise. CORROBORATION Omega : c'est exactement le contrat deja implemente d'omega-app (RunInput.resume reconstruit les operations completes depuis le journal et ne re-execute que le reste, garanties teste crash_after_k_steps_resumes_without_reexecuting / resume_is_deterministic / resume_rejects_changed_plan).",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "omega_adapter": "omega-app::{File,InMemory}EventStore",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "libs/langgraph/langgraph/types.py:98",
+        "libs/langgraph/langgraph/pregel/_loop.py:190",
+        "libs/langgraph/langgraph/pregel/_loop.py:515",
+        "libs/langgraph/langgraph/pregel/_loop.py:1163",
+        "omega/crates/omega-app/src/lib.rs:125",
+        "omega/crates/omega-app/src/lib.rs:788",
+        "https://docs.langchain.com/oss/python/langgraph/durable-execution"
+      ]
+    },
+    {
+      "id": "lg-interrupt-hitl",
+      "domain": "securite",
+      "name": "Human-in-the-loop : interrupt() reprendable + Command(resume/goto)",
+      "what": "Pauser l'execution au sein d'un noud pour soumettre une valeur a un humain, puis reprendre avec sa reponse, sans perdre l'etat ni re-executer les nouds deja valides.",
+      "how": "interrupt(value, response_schema=...) leve GraphInterrupt (exception GraphBubbleUp donc non capturee par le retry) la premiere fois ; au rejeu du noud la valeur est lue dans le scratchpad/resume-map, avec appariement par ordre pour plusieurs interrupt dans un meme noud. Le client reprend via Command(resume=<valeur>|{interrupt_id: valeur}, goto=..., update=..., graph=Command.PARENT) ; le checkpointer est obligatoire. Un schema de reponse (Pydantic/TypedDict/dataclass) est valide a la reprise (pydantic.ValidationError -> re-demande possible).",
+      "omega_capability": "hitl-gate",
+      "omega_port": "HumanGate (interrupt/resume)",
+      "omega_adapter": "plugins/hitl-gate (pause repriseable par thread, au-dessus de omega-app::EventStore)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "libs/langgraph/langgraph/types.py:833",
+        "libs/langgraph/langgraph/types.py:903",
+        "libs/langgraph/langgraph/errors.py:103",
+        "libs/langgraph/langgraph/errors.py:51",
+        "https://docs.langchain.com/oss/python/langgraph/interrupts"
+      ]
+    },
+    {
+      "id": "lg-approval-gate",
+      "domain": "securite",
+      "name": "Schemas d'approbation humaine (accept/ignore/edit/response)",
+      "what": "Decrire une demande d'intervention humaine typee : l'action demandee, les arguments, et les actions permises a l'humain (approuver, ignorer, repondre, editer), plus le type de reponse rendue.",
+      "how": "TypedDicts HumanInterrupt {action_request: ActionRequest{action,args}, config: HumanInterruptConfig{allow_ignore,allow_respond,allow_edit,allow_accept}, description} et HumanResponse {type: accept|ignore|response|args: None|str|ActionRequest}, consommes par interrupt() (prebuilt/interrupt.py, depuis v1.0 deplace vers langchain.agents.interrupt). CORROBORATION Omega : le sous-ensemble approbation/refus existe deja via omega-sandbox::ApprovalQueue (request/approve/deny, consomme par LocalSandboxBackend::Prompt) ; le sous-ensemble edit/reponse reste a construire.",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "libs/prebuilt/langgraph/prebuilt/interrupt.py:51",
+        "libs/prebuilt/langgraph/prebuilt/interrupt.py:87",
+        "omega/crates/omega-sandbox/src/approvals.rs:56",
+        "omega/crates/omega-sandbox/src/backend.rs:4"
+      ]
+    },
+    {
+      "id": "lg-streaming-modes",
+      "domain": "observabilite",
+      "name": "Streaming multi-modes (values/updates/messages/custom/checkpoints/tasks/debug)",
+      "what": "Obtenir le flux du graphe dans la granularite voulue : etat complet, deltas par noud, tokens par appel LLM, donnees custom ecrites par le noud, ou les internes (checkpoints/taches/debug).",
+      "how": "StreamMode = Literal[\"values\",\"updates\",\"checkpoints\",\"tasks\",\"debug\",\"messages\",\"custom\"] ; stream()/astream() acceptent une ou plusieurs modes et un print_mode de debug ; une couche v2/v3 ajoute astream_events(version v1|v2|v3) et un bus StreamMux qui dispatche les ProtocolEvent (seq monotone, namespace) a des StreamTransformer extensibles (required_stream_modes, projections exposees sur le run stream). ToolCallTransformer (prebuilt) reconstruit les appels d'outils en streaming.",
+      "omega_capability": "stream-surface",
+      "omega_port": "StreamSink (values/updates/messages/custom)",
+      "omega_adapter": "omega-server (flux SSE du cockpit, a ajouter au POST /api/run)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/langgraph/langgraph/types.py:131",
+        "libs/langgraph/langgraph/pregel/main.py:2709",
+        "libs/langgraph/langgraph/pregel/main.py:3704",
+        "libs/langgraph/langgraph/stream/_types.py:44",
+        "libs/langgraph/langgraph/stream/_mux.py:26",
+        "libs/prebuilt/langgraph/prebuilt/_tool_call_transformer.py:44",
+        "https://docs.langchain.com/oss/python/langgraph/streaming"
+      ]
+    },
+    {
+      "id": "lg-observability-events",
+      "domain": "observabilite",
+      "name": "Callbacks de vie de graphe (on_interrupt / on_resume)",
+      "what": "Observer les transitions de cycle de vie du graphe (interruption, reprise) depuis un handler de callbacks, sans coupler le noud a l'observabilite.",
+      "how": "GraphCallbackHandler(BaseCallbackHandler) declare on_interrupt(GraphInterruptEvent) et on_resume(GraphResumeEvent) ; les manageurs _GraphCallbackManager / _AsyncGraphCallbackManager propagent les evenements aux handlers configures (sync et async), isole par filtre de handlers. CORROBORATION Omega : les puits d'evenements existent deja (omega-otel::{Stdout,File}Sink impl. TelemetrySink) ; il manque les hooks de graphe pour y alimenter interrupt/resume.",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "omega_adapter": "omega-otel::{Stdout,File}Sink",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "libs/langgraph/langgraph/callbacks.py:43",
+        "libs/langgraph/langgraph/callbacks.py:87",
+        "libs/langgraph/langgraph/callbacks.py:99",
+        "libs/langgraph/langgraph/callbacks.py:219",
+        "omega/crates/omega-otel/src/sinks.rs:16",
+        "omega/crates/omega-otel/src/sinks.rs:41"
+      ]
+    },
+    {
+      "id": "lg-subgraphs",
+      "domain": "agents",
+      "name": "Sous-graphes composes + espaces de noms de checkpoint",
+      "what": "Embarquer un graphe compile comme noud d'un autre graphe, avec isolation de l'etat, propagation du checkpointer parent et streaming/filtrage par namespace.",
+      "how": "Un noud dont l'action est un CompiledStateGraph est reconnu comme sous-graphe (PregelProtocol) ; chaque noud recoit un checkpoint_ns construit par concatenation (parent::nom, task_id en suffixe via NS_SEP/NS_END) et un hash xxh3 du namespace, ce qui donne des cles de checkpoint disjointes ; get_subgraphs(namespace, recurse) parcourt recursivement, stream(subgraphs=True) remonte les evenements internes, et le streaming accepte les cle `(namespace, mode, data)`.",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/resume)",
+      "omega_adapter": "plugins/subagent-graph (sous-graphe isole + namespace)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/langgraph/langgraph/pregel/main.py:1144",
+        "libs/langgraph/langgraph/pregel/main.py:2722",
+        "libs/langgraph/langgraph/pregel/_algo.py:614",
+        "libs/langgraph/langgraph/pregel/_algo.py:623",
+        "https://docs.langchain.com/oss/python/langgraph/use-subgraphs"
+      ]
+    },
+    {
+      "id": "lg-longterm-store",
+      "domain": "memoire",
+      "name": "Store memoire hierarchique : namespaces, recherche, TTL, index vectoriel",
+      "what": "Une memoire longue duree partagee entre threads : items dans un namespace (chemin hierarchique), recherche par prefixe/requete/filtre, TTL par item et index optionnel pour la recherche semantique.",
+      "how": "BaseStore (ABC) : get/put/delete/search/list_namespaces avec ops batchees (GetOp/SearchOp/PutOp/ListNamespacesOp), MatchCondition (prefix/suffix), InvalidNamespaceError, TTLConfig et IndexConfig {dims, embed, fields (JSON path)} ; InMemoryStore (dictionnaire + vector search optionnel) et un backend Postgres (langgraph.store.postgres) partagent le meme contrat ; injecte dans les nouds via le parametre `store=` ou get_store().",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (recall/remember + namespaces)",
+      "omega_adapter": "omega-context::NamespaceStore (a creer : le port MemoryStore existe mais sans adaptateur namespace/index)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "libs/checkpoint/langgraph/store/base/__init__.py:708",
+        "libs/checkpoint/langgraph/store/base/__init__.py:784",
+        "libs/checkpoint/langgraph/store/base/__init__.py:866",
+        "libs/checkpoint/langgraph/store/base/__init__.py:966",
+        "libs/checkpoint/langgraph/store/base/__init__.py:545",
+        "libs/checkpoint/langgraph/store/base/__init__.py:578",
+        "libs/checkpoint/langgraph/store/memory/__init__.py:136",
+        "https://docs.langchain.com/oss/python/langgraph/stores"
+      ]
+    },
+    {
+      "id": "lg-managed-values",
+      "domain": "contexte",
+      "name": "Valeurs gerees (IsLastStep / RemainingSteps) injectees dans l'etat",
+      "what": "Exposer au noud des valeurs calculees par le moteur (reste-t-il des pas ? dernier pas ?) sans les stocker dans l'etat ni les faire remonter par le modele.",
+      "how": "ManagedValue(V) est un ABC dont get(scratchpad) est appele a chaque lecture de canal ; IsLastStep = step == stop - 1 et RemainingSteps = stop - step, exposes comme Annotated[bool, IsLastStepManager] ; les canaux gerees sont exclus des sorties et du streaming via is_managed_value (stream_channels/output_channels filtrants dans compile()).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::DefaultContextEngine (injection de metacompteurs de run)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "libs/langgraph/langgraph/managed/base.py:18",
+        "libs/langgraph/langgraph/managed/is_last_step.py:8",
+        "libs/langgraph/langgraph/graph/state.py:1263"
+      ]
+    },
+    {
+      "id": "lg-retry-timeout",
+      "domain": "execution",
+      "name": "Politiques de retry et de timeout par noud (backoff, jitter, idle)",
+      "what": "Resilience par tache : reessais parametres (backoff exponentiel, jitter, exceptions ciblees) et budgets de temps (wall-clock dur ou idle rafraichi par signaux de progression).",
+      "how": "RetryPolicy(NamedTuple) {initial_interval=0.5, backoff_factor=2, max_interval=128, max_attempts=3, jitter, retry_on} et TimeoutPolicy (frozen) {run_timeout, idle_timeout, refresh_on: auto|heartbeat} portes par tache (PregelExecutableTask.retry_policy/timeout) ; run_with_retry/arun_with_retry (_retry.py) resolvent la premiere politique correspondante, attendent interval*backoff^(n-1)+jitter et lacent NodeTimeoutError/NodeCancelledError ; runtime.heartbeat() rafraichit l'idle.",
+      "omega_capability": "retry-policy",
+      "omega_port": "RetryPolicy (attempt/backoff)",
+      "omega_adapter": "plugins/retry-policy (policies par tache, hors du routeur modele)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/langgraph/langgraph/types.py:427",
+        "libs/langgraph/langgraph/types.py:461",
+        "libs/langgraph/langgraph/pregel/_retry.py:573",
+        "libs/langgraph/langgraph/pregel/_retry.py:660",
+        "libs/langgraph/langgraph/errors.py:191",
+        "libs/langgraph/langgraph/errors.py:150"
+      ]
+    },
+    {
+      "id": "lg-error-handler-nodes",
+      "domain": "execution",
+      "name": "Nouds gestionnaires d'erreur (par noud ou par defaut)",
+      "what": "Router vers un noud dedie quand un noud echoue, au lieu de faire echouer tout le run, avec un handler par defaut applicable au graphe entier.",
+      "how": "add_node(..., error_handler=fn) cree un noud interne `__error_handler__<node>` (StateNodeSpec.is_error_handler=True, error_handler_node relie au noud protege) ; StateGraph.__init__(error_handler=...) pose un defaut qui devient `__default_error_handler__` (refuse s'il existe deja) ; les valeurs de retour du handler sont ecrites dans l'etat comme une mise a jour du noud en echec.",
+      "omega_capability": "workflow-engine",
+      "omega_port": "WorkflowEngine (on_error route)",
+      "omega_adapter": "plugins/workflow-graph::errors (route d'erreur vers un noud)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "libs/langgraph/langgraph/graph/state.py:99",
+        "libs/langgraph/langgraph/graph/state.py:103",
+        "libs/langgraph/langgraph/graph/state.py:331",
+        "libs/langgraph/langgraph/graph/state.py:867",
+        "libs/langgraph/langgraph/graph/state.py:1292"
+      ]
+    },
+    {
+      "id": "lg-toolnode",
+      "domain": "outils",
+      "name": "ToolNode : execution d'outils en noud, injection et gestion d'erreurs",
+      "what": "Un noud executable qui lance des appels d'outils en parallele, injecte l'etat/le store dans les outils, et parametre finement la reaction aux erreurs.",
+      "how": "ToolNode(RunnableCallable) accepte des BaseTool, fonctions (schema infere) ou dicts ; formats d'entree (etat avec messages, liste de messages, tool_calls directs) et sortie (ToolMessage ou Command) ; handle_tool_errors accepte True/str/type/tuple/callable/False avec _default_handle_tool_errors ; InjectedState/InjectedStore/ToolRuntime sont des args injetes non exposes au modele ; les appels sont executes en parallele et serialises.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "omega-context::ToolSurfaceIndex (index existant) + execution a ajouter via ToolExecutor",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/prebuilt/langgraph/prebuilt/tool_node.py:630",
+        "libs/prebuilt/langgraph/prebuilt/tool_node.py:391",
+        "libs/prebuilt/langgraph/prebuilt/tool_node.py:1697",
+        "libs/prebuilt/langgraph/prebuilt/tool_node.py:1787",
+        "libs/prebuilt/langgraph/prebuilt/tool_node.py:1863"
+      ]
+    },
+    {
+      "id": "lg-react-agent",
+      "domain": "agents",
+      "name": "Fabrique d'agent pre-construite (create_react_agent)",
+      "what": "Produire d'un coup un graphe agent complet (modele + outils en boucle jusqu'a condition d'arret) sans assembler le graphe a la main.",
+      "how": "create_react_agent(model, tools, prompt?, response_format?, pre/post_model_hook?, state_schema?, context_schema?, checkpointer?, store?, interrupt_before/after?, version) renvoie un CompiledStateGraph ; le modele est statique ou dynamique (callable (state, runtime) -> BaseChatModel|Runnable) ; observe en v1.0 depreciee au profit de langchain.agents.create_agent (systeme de middleware), ce qui indique la direction d'architecture cible.",
+      "omega_capability": "agent-loop",
+      "omega_port": "AgentLoop (plan/act)",
+      "omega_adapter": "plugins/agent-loop (boucle plan/act sur le routage Omega)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py:278",
+        "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py:309",
+        "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py:313"
+      ]
+    },
+    {
+      "id": "lg-functional-api",
+      "domain": "agents",
+      "name": "API fonctionnelle @entrypoint/@task (workflow lineaire durable)",
+      "what": "Ecrire un workflow durable comme une fonction Python ordinaire : les appels @task sont sauvegardes individuellement, `previous` recupere le retour precedent du thread, et entrypoint.final separe valeur sauvegardee et valeur retournee.",
+      "how": "Le decorateur task (classe _TaskFunction avec attribut `final`) et entrypoint (classe generique avec .final) forment un graphe implicite ; parametres injectables : config, previous (valeur precedente du thread, si checkpointer), runtime (Runtime avec context/store/writer) ; l'ordre d'execution des tasks est rejoue depuis le checkpoint au lieu d'etre re-execute.",
+      "omega_capability": "agent-loop",
+      "omega_port": "AgentLoop (plan/act)",
+      "omega_adapter": "plugins/workflow-fn (entrypoint/task durables)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/langgraph/langgraph/func/__init__.py:59",
+        "libs/langgraph/langgraph/func/__init__.py:110",
+        "libs/langgraph/langgraph/func/__init__.py:262",
+        "libs/langgraph/langgraph/func/__init__.py:476",
+        "https://docs.langchain.com/oss/python/langgraph/functional-api"
+      ]
+    },
+    {
+      "id": "lg-state-inspection",
+      "domain": "observabilite",
+      "name": "Inspection et ecriture de l'etat a chaud (get_state / update_state)",
+      "what": "Lire l'etat courant ou l'historique d'un thread, et injecter une mise a jour comme si elle venait d'un noud donne, depuis l'exterieur du run.",
+      "how": "get_state(config, subgraphs=) construit un StateSnapshot (values, next, config, metadata, tasks, interrupts) depuis le checkpointer ; get_state_history(config, filter, before, limit) itere les checkpoints (lazily via checkpointer.list) ; update_state(config, values, as_node, task_id) / bulk_update_state applique les ecritures via les writers du noud choisi, avec inference de as_node (_infer_as_node) ou erreur Ambiguous update si necessaire.",
+      "omega_capability": "checkpoint-store",
+      "omega_port": "CheckpointStore (history/fork)",
+      "omega_adapter": "omega-app::FileEventStore (lecture du journal) — ecriture `as_node` a ajouter",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/langgraph/langgraph/pregel/main.py:1464",
+        "libs/langgraph/langgraph/pregel/main.py:1514",
+        "libs/langgraph/langgraph/pregel/main.py:2617",
+        "libs/langgraph/langgraph/pregel/main.py:1598",
+        "libs/langgraph/langgraph/types.py:711"
+      ]
+    },
+    {
+      "id": "lg-trace-replay",
+      "domain": "observabilite",
+      "name": "Rejeu d'un journal sans re-execution (replay read-only)",
+      "what": "Reconstruire l'execution passee a partir du journal persiste (sequence d'etapes, issue, evenements ignores) sans rien re-executer — base du debug deterministe.",
+      "how": "Le checkpointer conserve l'historique ordonne des checkpoints (+ put_writes) que get_state_history restitue ; CORROBORATION Omega : cette lecture seule existe deja dans omega-otel::TraceReplayer (replay(run_id, journal) trie par seq, extrait les etapes completed/failed, determine l'issue avec regle du premier marqueur terminal et detection de conflit), expose par GET /api/trace/:run_id. Ce qui manque pour le time-travel complet est le fork/re-execution depuis un checkpoint ancien.",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "omega_adapter": "omega-otel::TraceReplayer",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "omega/crates/omega-otel/src/replay.rs:64",
+        "omega/crates/omega-otel/src/replay.rs:67",
+        "libs/langgraph/langgraph/pregel/main.py:1514",
+        "libs/checkpoint/langgraph/checkpoint/base/__init__.py:277"
+      ]
+    },
+    {
+      "id": "lg-remote-graph",
+      "domain": "execution",
+      "name": "RemoteGraph : client d'un deploiement LangGraph distant",
+      "what": "Appeler un graphe heberge a distance comme s'il etait local : stream/invoke/get_state/update_state derriere une API HTTP, en fusionnant les tracages.",
+      "how": "RemoteGraph(PregelProtocol) wrappe un LangGraphClient (SDK) : stream/astream (nettoyage config, merge des en-tetes de tracing via _merge_tracing_headers), invoke/ainvoke, get_state/aget_state (conversion ThreadState -> StateSnapshot via _create_state_snapshot), get_state_history, bulk_update_state ; les appels distants rejettent les versions de stream non supportees (_reject_v3_unsupported).",
+      "omega_capability": "agent-server",
+      "omega_port": "RemoteGraph (stream/invoke)",
+      "omega_adapter": "omega-server (client HTTP interne du cockpit)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/langgraph/langgraph/pregel/remote.py:118",
+        "libs/langgraph/langgraph/pregel/remote.py:322",
+        "libs/langgraph/langgraph/pregel/remote.py:724",
+        "libs/sdk-py/langgraph_sdk/schema.py:335"
+      ]
+    },
+    {
+      "id": "lg-deploy-cli",
+      "domain": "automatisation",
+      "name": "CLI de deploiement (up/dev/build/validate) + config docker",
+      "what": "Lancer, en local ou en deploiement, un serveur d'execution des graphes a partir d'un fichier de configuration, avec hot-reload en dev et validation de la config.",
+      "how": "langgraph CLI (click) : `up` orchestre docker compose (pull, watch, wait, volumes, port, postgres_uri, license LANGGRAPH_CLOUD_LICENSE_KEY), `dev` lance un serveur en memoire avec reload/debugger/tunnel/SSL (langgraph_api.cli.run_server, Python >=3.11), `build` construit l'image, `validate` charge langgraph.json (graphes, dependances, cles inconnues signalees), `new` egenere un gabarit ; les graphes sont pointes par import python (`module:graph`).",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega/scripts/run-local.sh + omega-server (build UI + serveur une seule origine)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/cli/langgraph_cli/cli.py:276",
+        "libs/cli/langgraph_cli/cli.py:419",
+        "libs/cli/langgraph_cli/cli.py:763",
+        "libs/cli/langgraph_cli/cli.py:871",
+        "libs/cli/langgraph_cli/cli.py:918",
+        "https://docs.langchain.com/oss/python/langgraph/local-server"
+      ]
+    },
+    {
+      "id": "lg-sdk-client",
+      "domain": "execution",
+      "name": "SDK de controle du serveur (threads, runs, assistants, crons)",
+      "what": "Piloter a distance les primitives du serveur : threads, runs (create/stream), assistants (versions) et taches planifiees (crons), avec clients synchrone et asynchrone.",
+      "how": "langgraph_sdk expose Client/SyncClient + sous-clients threads/runs/assistants/cron/store/stream ; les schemas (ThreadState, Run, Cron, Assistant, StreamPart) font foi cote client et cote serveur ; un module auth pose le contrat d'autorisation (BaseUser, AuthContext, handlers authenticate1/2 et filtres par resource Threads*/Runs*/Assistants*/Crons*), et un module encryption chiffre les payloads sensibles.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-protocol (contrats types du serveur, desja exposes en /api/*)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/sdk-py/langgraph_sdk/schema.py:335",
+        "libs/sdk-py/langgraph_sdk/schema.py:364",
+        "libs/sdk-py/langgraph_sdk/schema.py:385",
+        "libs/sdk-py/langgraph_sdk/auth/types.py:374",
+        "libs/sdk-py/langgraph_sdk/_async/client.py"
+      ]
+    },
+    {
+      "id": "lg-serde-allowlist",
+      "domain": "securite",
+      "name": "Serialisation sure : allow-list msgpack stricte + chiffrage des blobs",
+      "what": "Empecher la deserialisation de symboles arbitraires depuis un journal persiste (executon de code a la lecture) et pouvoir chiffrer les checkpoints au repos.",
+      "how": "JsonPlusSerializer (jsonplus.py) supporte une allow-list de modules msgpack ; l'env LANGGRAPH_STRICT_MSGPACK=true (STRICT_MSGPACK_ENABLED dans _msgpack.py) bascule sur l'allow-list integree et bloque les symboles hors liste (LangGraphDeserializationError, message oriente remediation, les prefix de modules sont volontairement non supportes) ; compile() construit meme une allow-list stricte a partir des schemas du graphe (build_serde_allowlist/apply_checkpointer_allowlist) ; EncryptedSerializer enveloppe dumps_typed/loads_typed avec une cle AES fournie par l'appelant.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "omega_adapter": "omega-types (allow-list de types serialisables du journal, a porter sur FileEventStore)",
+      "integration": "native",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/checkpoint/langgraph/checkpoint/serde/jsonplus.py:104",
+        "libs/checkpoint/langgraph/checkpoint/serde/jsonplus.py:150",
+        "libs/checkpoint/langgraph/checkpoint/serde/_msgpack.py:12",
+        "libs/checkpoint/langgraph/checkpoint/serde/encrypted.py:8",
+        "libs/langgraph/langgraph/graph/state.py:1241"
+      ]
+    },
+    {
+      "id": "lg-ui-messages",
+      "domain": "ui",
+      "name": "Messages d'interface pousses depuis un noud (push_ui_message)",
+      "what": "Laisser un noud publier dans l'UI (blocs de contenu, chargements, etc.) via un canal d'etat dedie, avec un reducer qui sait aussi retirer.",
+      "how": "push_ui_message(value, *, state_key=\"ui\", id) retourne un dict-clair d'ecriture canal, delete_ui_message(id) rend un RemoveUIMessage (cle `__delete__` portant l'id) et ui_message_reducer fusionne les messages par id en appliquant les suppressions — le tout expose comme canal d'etat `ui` standard.",
+      "omega_capability": "ui-panel",
+      "omega_port": "UiPanel",
+      "omega_adapter": "omega-ui (panneaux du cockpit, canal de messages a ajouter)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "libs/langgraph/langgraph/graph/ui.py:22",
+        "libs/langgraph/langgraph/graph/ui.py:43",
+        "libs/langgraph/langgraph/graph/ui.py:61",
+        "libs/langgraph/langgraph/graph/ui.py:133",
+        "libs/langgraph/langgraph/graph/ui.py:165"
+      ]
+    }
+  ]
+}

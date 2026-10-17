@@ -1,0 +1,371 @@
+{
+  "schema_version": 1,
+  "id": "gpt-pilot",
+  "name": "GPT Pilot",
+  "editor": "Pythagora",
+  "oss": true,
+  "language": "Python",
+  "license": "FSL-1.1-MIT",
+  "repo": "https://github.com/Pythagora-io/gpt-pilot",
+  "architecture": "Noyau Python (pythagora-core) qui orchestre, via une machine a etats SQLAlchemy/SQLite, une equipe d'agents specialises (Wizard, Spec Writer, Architecte, Tech Lead, Developpeur, Code Monkey, Frontend, Chasseur de bogues, Depanneur) chacun pilote par un LLM ; une CLI lance un serveur IPC (localhost:8222) consomme par une extension VS Code ou une UI console, et des templates (Vite React, Node/Express) generent le squelette de l'application cible ; la telemetrie remonte vers l'API cloud de Pythagora.",
+  "entrypoints": [
+    "gpt-pilot CLI (main.py -> core.cli.main.run_pythagora)",
+    "CLI directe (core/cli/main.py : run_pythagora, start_new_project, run_pythagora_session)",
+    "Serveur IPC (core/ui/api_server.py, port 8222) pour l'extension VS Code",
+    "UI console plain (core/ui/console.py, PlainConsoleUI)",
+    "Orchestre d'agents (core/agents/orchestrator.py, Orchestrator)"
+  ],
+  "functionalities": [
+    {
+      "id": "gp-llm-multi-provider",
+      "domain": "routage",
+      "name": "Clients LLM multi-fournisseurs + configuration par agent",
+      "what": "Appels LLM vers OpenAI, Anthropic, Groq, Azure et Relace, avec modele et temperature configurables par agent.",
+      "how": "core/llm/openai_client.py, core/llm/anthropic_client.py, core/llm/groq_client.py, core/llm/azure_client.py, core/llm/relace_client.py ; core/llm/base.py:36 BaseLLMClient.for_provider ; core/agents/base.py:175 get_llm instancie le client par agent et journalise chaque requete via log_llm_request ; example-config.json blocs llm. et agent.{default}.provider/model/temperature.",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider",
+      "omega_adapter": "omega-providers::OllamaProvider",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "core/llm/openai_client.py",
+        "core/llm/anthropic_client.py",
+        "core/llm/groq_client.py",
+        "core/llm/azure_client.py",
+        "core/llm/relace_client.py",
+        "core/llm/base.py:36",
+        "core/agents/base.py:175",
+        "example-config.json"
+      ]
+    },
+    {
+      "id": "gp-tool-surface-file-edit",
+      "domain": "outils",
+      "name": "Edition de fichiers par blocs pythagoracode + revue diff",
+      "what": "Creation et modification de fichiers par blocs balances <pythagoracode file>, diff genere, acceptation ou rework ou ignorage par hunk.",
+      "how": "core/agents/code_monkey.py:68 CodeMonkey, implement_changes (81), accept_changes (213), extract_code_blocks (61), describe_files (160), FileDescription (52) avec references inter-fichiers ; fallback Relace puis OpenAI (118-152) ; MAX_CODING_ATTEMPTS=3 (32).",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "core/agents/code_monkey.py:68",
+        "core/agents/code_monkey.py:81",
+        "core/agents/code_monkey.py:213",
+        "core/agents/code_monkey.py:160",
+        "core/agents/developer.py:204"
+      ]
+    },
+    {
+      "id": "gp-event-store-replay",
+      "domain": "observabilite",
+      "name": "Journal d'etats append-only et reprise a une etape",
+      "what": "Chaine d'etats de projet (prev_state_id / step_index), rechargement a une etape donnee, relecture de conversation, rollback des etats futurs.",
+      "how": "core/db/models/project_state.py:59 ProjectState (prev_state_id, step_index), create_next_state (269), delete_after (492) ; core/state/state_manager.py:272 load_project (etape/branche/etat), 433 commit, 480 rollback ; core/cli/helpers.py load_convo ; core/ui/api_server.py:678 get_project_states_in_between, 686 load_convo.",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "omega_adapter": "omega-otel::TraceReplayer",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "core/db/models/project_state.py:59",
+        "core/db/models/project_state.py:269",
+        "core/state/state_manager.py:272",
+        "core/state/state_manager.py:433",
+        "core/ui/api_server.py:678"
+      ]
+    },
+    {
+      "id": "gp-product-owner-wizard",
+      "domain": "agents",
+      "name": "Wizard d'onboarding (product owner)",
+      "what": "Initialise le projet : type de pile, authentification, envoi de docs OpenAPI vers le service RAG, base de connaissances, epic initial Build frontend.",
+      "how": "core/agents/wizard.py:20 Wizard, init_template (30), upload_docs (133) vers PYTHAGORA_API/rag/upload ; KnowledgeBase (pages, apis, user_options, utility_functions) ; epic initial (119).",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/agents/wizard.py:20",
+        "core/agents/wizard.py:30",
+        "core/agents/wizard.py:133"
+      ]
+    },
+    {
+      "id": "gp-spec-writer-specification",
+      "domain": "agents",
+      "name": "Redaction de specification par l'agent Spec Writer",
+      "what": "Genere la specification complete a partir de la description utilisateur, nomme le projet, detecte le besoin d'authentification, evalue la complexite, applique le template.",
+      "how": "core/agents/spec_writer.py:19 SpecWriter, initialize_spec_and_project (63), change_spec (163), update_spec (305), check_prompt_complexity (345), apply_template (34) ; core/db/models/specification.py:22 Specification (architecture, system/package_dependencies, templates, complexite).",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/agents/spec_writer.py:19",
+        "core/agents/spec_writer.py:63",
+        "core/agents/spec_writer.py:163",
+        "core/db/models/specification.py:22"
+      ]
+    },
+    {
+      "id": "gp-architect-architecture",
+      "domain": "agents",
+      "name": "Architecte : template, technologies et dependances",
+      "what": "Selectionne un template de demarrage, determine les technologies (dependances systeme et paquets), verifie les compatibilites et la presence des dependances systeme.",
+      "how": "core/agents/architect.py:95 Architect, plan_architecture (173), select_templates (124) avec schema TemplateSelection, technologies avec schema Architecture, check_compatibility (199) avertissements, check_system_dependencies (237), prepare_example_project (227) ; core/templates/registry.py PROJECT_TEMPLATES.",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/agents/architect.py:95",
+        "core/agents/architect.py:124",
+        "core/agents/architect.py:173",
+        "core/agents/architect.py:237",
+        "core/templates/registry.py"
+      ]
+    },
+    {
+      "id": "gp-tech-lead-planning",
+      "domain": "agents",
+      "name": "Tech Lead : epics, sous-epics, taches, endpoints API",
+      "what": "Decompose un epic en taches avec endpoints API associes (methode, corps requete/reponse), ajoute une tache d'authentification hardcodee (register/login), cree le plan de developpement.",
+      "how": "core/agents/tech_lead.py:55 TechLead, create_initial_project_epic (92), plan_epic (296), process_epic (262) avec schemas DevelopmentPlan/EpicPlan/Task/APIEndpoint, ask_for_new_feature (146), update_epics_and_tasks (381) tache auth hardcodee /api/auth/register et /api/auth/login.",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "core/agents/tech_lead.py:55",
+        "core/agents/tech_lead.py:92",
+        "core/agents/tech_lead.py:296",
+        "core/agents/tech_lead.py:381"
+      ]
+    },
+    {
+      "id": "gp-developer-task-breakdown",
+      "domain": "execution",
+      "name": "Developpeur : decomposition de tache en etapes",
+      "what": "Decoupe une tache en etapes (save_file, command, human_intervention, utility_function), demande l execution ou l edition ou le saut de la tache, parse les etapes en JSON structure.",
+      "how": "core/agents/developer.py:91 Developer, breakdown_current_task (204), breakdown_current_iteration (121), ask_to_execute_task (349), set_next_steps (313) ; StepType (32) et TaskSteps (80) ; remove_duplicate_steps (330) ; trace_code_event task-start/task-end (303/34).",
+      "omega_capability": "task-execution",
+      "omega_port": "TaskRunner",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "core/agents/developer.py:91",
+        "core/agents/developer.py:204",
+        "core/agents/developer.py:349",
+        "core/agents/developer.py:313"
+      ]
+    },
+    {
+      "id": "gp-frontend-agent-ui",
+      "domain": "ui",
+      "name": "Agent Frontend : construction et iteration de l'interface",
+      "what": "Construit le frontend (template Vite React), iter sur l interface, supprime les donnees mockes et gere le debogage automatique frontend.",
+      "how": "core/agents/frontend.py:40 Frontend, start_frontend (61), iterate_frontend (151), remove_mock (451) avec templates create_rag_query et remove_mock ; core/ui/console.py PlainConsoleUI ; actions FE_* dans core/config/actions.py.",
+      "omega_capability": "ui-rendering",
+      "omega_port": "UIRunner",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "core/agents/frontend.py:40",
+        "core/agents/frontend.py:61",
+        "core/agents/frontend.py:151",
+        "core/agents/frontend.py:451"
+      ]
+    },
+    {
+      "id": "gp-bug-hunter-debugger",
+      "domain": "execution",
+      "name": "Chasseur de bogues et pair programming",
+      "what": "Analyse les logs pour localiser le bogue, ajoute des journaux de debogage, fait tester l'utilisateur, propose le pair programming avec explications et indices de solution.",
+      "how": "core/agents/bug_hunter.py:57 BugHunter, check_logs (103), ask_user_to_test (144), start_pair_programming (241), get_bug_reproduction_instructions (82) ; schemas HuntConclusionOptions et ImportantLogsForDebugging ; IterationStatus AWAITING_USER_TEST, BUG_REPRODUCTION, HUNTING_FOR_BUG.",
+      "omega_capability": "debug-session",
+      "omega_port": "Debugger",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "core/agents/bug_hunter.py:57",
+        "core/agents/bug_hunter.py:103",
+        "core/agents/bug_hunter.py:144",
+        "core/agents/bug_hunter.py:241"
+      ]
+    },
+    {
+      "id": "gp-troubleshooter-review-loop",
+      "domain": "agents",
+      "name": "Depanneur : boucle de revue, detection de boucle, solution alternative",
+      "what": "Cree une iteration de depannage, collecte le retour utilisateur (bogue, changement, refaire), detecte les boucles (seuil 3), fait appel au ProblemSolver, trace les evenements de boucle.",
+      "how": "core/agents/troubleshooter.py:35 Troubleshooter, create_iteration (63), propose_solution (48), complete_task (148), get_user_feedback (244), trace_loop (426) ; LOOP_THRESHOLD=3 (22) ; IterationStatus HUNTING_FOR_BUG, NEW_FEATURE_REQUESTED, PROBLEM_SOLVER ; generate_bug_report (368).",
+      "omega_capability": "review-loop",
+      "omega_port": "Reviewer",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/agents/troubleshooter.py:35",
+        "core/agents/troubleshooter.py:63",
+        "core/agents/troubleshooter.py:244",
+        "core/agents/troubleshooter.py:426"
+      ]
+    },
+    {
+      "id": "gp-task-completer-git",
+      "domain": "execution",
+      "name": "Finalisation de tache et commit Git",
+      "what": "Valide la tache, commit Git (message genere par LLM a partir du diff, editable), marque l application ou la fonctionnalite comme finie.",
+      "how": "core/agents/task_completer.py:11 TaskCompleter, git_commit via GitMixin, log_task_completed (569) avec end_result telemetry ; core/agents/git.py:92 git_commit, 35 init_git_if_needed (git init, .gitignore, premier commit).",
+      "omega_capability": "vcs",
+      "omega_port": "VCS",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "core/agents/task_completer.py:11",
+        "core/agents/git.py:92",
+        "core/agents/git.py:35"
+      ]
+    },
+    {
+      "id": "gp-state-manager-session-resume",
+      "domain": "contexte",
+      "name": "Gestionnaire d'etat et reprise de session",
+      "what": "Charge un projet a une etape/branche/etat donnee, pattern current/next_state, commit/rollback, restauration des fichiers depuis la base, import des modifications hors-ligne.",
+      "how": "core/state/state_manager.py:47 StateManager, load_project (272) avec step_index/branch_id/project_state_id, commit (433), rollback (480), restore_files (740), import_files (703) ; offline_changes_check dans core/agents/orchestrator.py:370 ; core/db/models/project_state.py:269 create_next_state.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "core/state/state_manager.py:47",
+        "core/state/state_manager.py:272",
+        "core/state/state_manager.py:433",
+        "core/state/state_manager.py:740",
+        "core/agents/orchestrator.py:370"
+      ]
+    },
+    {
+      "id": "gp-database-project-state",
+      "domain": "memoire",
+      "name": "Modeles de base de donnees du projet",
+      "what": "Modeles SQLAlchemy asynchrones : projet, branche, etat de projet, specification, fichier/contenu, journal d execution, requete LLM, conversation/chat, saisie utilisateur, base de connaissances.",
+      "how": "core/db/models/ : project.py, branch.py, project_state.py:59, specification.py:22, file.py:15, file_content.py, exec_log.py:16, llm_request.py, chat_convo.py, chat_message.py, user_input.py, knowledge_base.py, base.py ; migrations Alembic core/db/migrations/versions/* ; base par defaut sqlite+aiosqlite (example-config.json:52).",
+      "omega_capability": "persistence",
+      "omega_port": "Store",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "core/db/models/project_state.py:59",
+        "core/db/models/specification.py:22",
+        "core/db/models/file.py:15",
+        "core/db/models/exec_log.py:16",
+        "core/db/migrations/versions/"
+      ]
+    },
+    {
+      "id": "gp-process-shell-exec",
+      "domain": "execution",
+      "name": "Execution de commandes shell et gestion de processus",
+      "what": "Lance des commandes shell (npm install, git, run_command), processus en arriere-plan avec watcher de sortie, journalise chaque execution (duree, code de sortie, stdout/stderr, analyse).",
+      "how": "core/proc/process_manager.py:140 ProcessManager, run_command (218), start_process (202), watcher (171), LocalProcess (25) avec arbre de processus (psutil) ; core/proc/exec_log.py:7 ExecLog, core/db/models/exec_log.py:16 ; orchestrateur install_dependencies (169) et enable_debugger (222).",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/proc/process_manager.py:140",
+        "core/proc/process_manager.py:218",
+        "core/proc/exec_log.py:7",
+        "core/db/models/exec_log.py:16",
+        "core/agents/orchestrator.py:169"
+      ]
+    },
+    {
+      "id": "gp-cli-ipc-ui",
+      "domain": "ui",
+      "name": "CLI, serveur IPC et interfaces utilisateur",
+      "what": "Point d entree CLI (run_pythagora), creation et chargement de projet, serveur IPC sur localhost:8222 pour l extension VS Code, UI console et UI virtuelle.",
+      "how": "core/cli/main.py:1 run_pythagora (429), async_main (324), run_pythagora_session (194), start_new_project (121) ; initialisation sentry_sdk (13) ; core/ui/api_server.py:43 IPCServer (port 8222, handlers epics/tasks/chat/specs/diff) ; core/ui/console.py:11 PlainConsoleUI ; core/ui/virtual.py VirtualUI ; core/ui/ipc_client.py.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/cli/main.py:1",
+        "core/cli/main.py:429",
+        "core/ui/api_server.py:43",
+        "core/ui/console.py:11"
+      ]
+    },
+    {
+      "id": "gp-telemetry-sink",
+      "domain": "observabilite",
+      "name": "Telemetrie de session et rapports de crash",
+      "what": "Compteurs (requetes LLM, tokens, etapes, commandes, fichiers, lignes), diagnostics de crash, evenements de trace (boucle, description de projet), envoi vers endpoint HTTP avec desactivation (DISABLE_TELEMETRY).",
+      "how": "core/telemetry/__init__.py:22 Telemetry, send (322), record_llm_request (275), record_crash (214), trace_code_event (363), trace_loop (391), get_project_stats (356) ; core/config/user_settings.py:17 TelemetrySettings (endpoint https://api.pythagora.io/telemetry, active par defaut) ; docs/TELEMETRY.md ; desactivation par variable d'environnement.",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/telemetry/__init__.py:22",
+        "core/telemetry/__init__.py:322",
+        "core/telemetry/__init__.py:275",
+        "core/config/user_settings.py:17",
+        "docs/TELEMETRY.md"
+      ]
+    },
+    {
+      "id": "gp-vfs-workspace",
+      "domain": "contexte",
+      "name": "Systeme de fichiers virtuel et regles d'ignorance",
+      "what": "Abstraction du systeme de fichiers (disque local ou memoire), hachage SHA-1 des contenus, ignore des chemins et fichiers binaires au dessus d un seuil de taille.",
+      "how": "core/disk/vfs.py:12 VirtualFileSystem, LocalDiskVFS (115), MemoryVFS (88) ; core/disk/ignore.py IgnoreMatcher avec ignore_size_threshold 50 Ko et ignore_paths (example-config.json:64) ; core/state/state_manager.py:628 init_file_system.",
+      "omega_capability": "file-system",
+      "omega_port": "FileSystem",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "core/disk/vfs.py:12",
+        "core/disk/vfs.py:115",
+        "core/disk/ignore.py",
+        "core/state/state_manager.py:628"
+      ]
+    }
+  ]
+}

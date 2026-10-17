@@ -1,0 +1,686 @@
+{
+  "schema_version": 1,
+  "id": "gemini-cli",
+  "name": "Gemini CLI",
+  "editor": "Google",
+  "oss": true,
+  "language": "TypeScript",
+  "license": "Apache-2.0",
+  "repo": "https://github.com/google-gemini/gemini-cli",
+  "architecture": "Monorepo npm (packages/*) : noyau agent (packages/core : agent loop, tools, MCP, policy, sandbox, telemetry, routing, skills, memory), CLI interactive/non-interactive en react-ink (packages/cli : TUI, settings, extensions, acp), serveur A2A (packages/a2a-server), SDK (packages/sdk), compagnon IDE VS Code exposant un serveur MCP (packages/vscode-ide-companion) ; securite en couches : PolicyEngine allow/deny/ask + modes d'approbation + sandbox OS (bubblewrap/seatbelt) + dossier de confiance.",
+  "entrypoints": [
+    "gemini CLI (packages/cli, bin gemini -> bundle/gemini.js)",
+    "gemini --headless/-p (non-interactive, packages/cli/src/nonInteractiveCli.ts)",
+    "gemini --acp (Agent Client Protocol stdio, packages/cli/src/acp/)",
+    "gemini-cli-a2a-server (packages/a2a-server, bin separe)",
+    "gemini extensions / gemini mcp (groupes de commandes, packages/cli/src/commands/)"
+  ],
+  "functionalities": [
+    {
+      "id": "gc-agent-loop",
+      "domain": "execution",
+      "name": "Boucle agent ouverte (LLM -> outils -> LLM) + scheduler de taches",
+      "what": "Boucle agentic qui tourne jusqu'a un signal d'arret (FINISH/plan valide/max turns), avec execution d'outils en streaming, boucle planifiee par le scheduler et decoupage en Turn.",
+      "how": "AgentSession.run() est une boucle `while (true)` (agent-session.ts:208) qui pousse les requetes dans un Turn (turn.ts:253 : gestion d'un tour agentic dans le contexte serveur, resolution d'outil via `chat.loopContext.toolRegistry.getTool(name)`); le Scheduler (scheduler/scheduler.ts:139) orchestre les taches planifiees avec decisions PolicyDecision. Repli Omega : omega-core::AgentLoop + omega-app::App::run (lib.rs:197-207) fournissent un plan durable + reprise idempotente, mais pas de boucle LLM->outil ouverte : c'est l'ecart principal.",
+      "omega_adapter": "omega-core::AgentLoop + omega-app::App::run (a etendre en boucle outilouverte)",
+      "omega_capability": null,
+      "omega_port": null,
+      "integration": "native",
+      "rust_cost": "L",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/agent/agent-session.ts:18-208",
+        "packages/core/src/core/turn.ts:253",
+        "packages/core/src/scheduler/scheduler.ts:139",
+        "omega/crates/omega-app/src/lib.rs:197-207"
+      ]
+    },
+    {
+      "id": "gc-tool-registry",
+      "domain": "outils",
+      "name": "Registre d'outils + declarations dynamiques par famille de modele",
+      "what": "Registre unique d'outils (tous connus, actifs ou non) injecte au modele, avec declarations adaptees par famille de modele et activation/desactivation a la demande.",
+      "how": "ToolRegistry (tools/tool-registry.ts:247) garde `allKnownTools: Map<name, AnyDeclarativeTool>` + un MessageBus pour les confirmations ; les outils heritent de BaseDeclarativeTool (schema Zod d'entree, display, kind) ; les declarations sont resolues dynamiquement par `resolveToolDeclaration` (tools/definitions/resolver.ts:17) et des snapshots par famille de modele (definitions/coreTools.ts, model-family-sets). Omega : ToolSurfaceIndex indexe les specs et les hydrate.",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate)",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "adopted",
+      "refs": [
+        "packages/core/src/tools/tool-registry.ts:247-259",
+        "packages/core/src/tools/definitions/resolver.ts:17",
+        "packages/core/src/tools/definitions/coreTools.ts",
+        "omega/crates/omega-context/src/tool_surface.rs:133"
+      ]
+    },
+    {
+      "id": "gc-shell-exec",
+      "domain": "outils",
+      "name": "Execution shell (PTY, redirection, processus d'arriere-plan)",
+      "what": "Outil shell interactif (PTY, redirections de fichiers, phrases de chargement) plus des outils de gestion de processus d'arriere-plan (lire/relister) via un service d'execution dedie.",
+      "how": "ShellTool (tools/shell.ts:1190) delegue a ShellExecutionService (services/shellExecutionService.ts, PTY natif linux/macos/windows) qui applique la politique et le sandbox ; shellBackgroundTools.ts expose ListBackgroundProcessesTool (:71) et ReadBackgroundOutputTool (:249) pour les jobs persistants. Omega n'a que `sh -c` synchronise dans LocalSandboxBackend : PTY + jobs = a construire.",
+      "omega_adapter": "omega-sandbox::LocalSandboxBackend + plugins/shell-pty",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface + SandboxBackend",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/tools/shell.ts:1190",
+        "packages/core/src/tools/shellBackgroundTools.ts:71-249",
+        "packages/core/src/services/shellExecutionService.ts"
+      ]
+    },
+    {
+      "id": "gc-web-tools",
+      "domain": "outils",
+      "name": "Outils web : web_search (Grounding) + web_fetch",
+      "what": "Recherche web via l'API Gemini Grounding et fetch d'URL avec normalisation (GitHub raw, limite d'entrees HTML->texte, SSRF filtre par hostname).",
+      "how": "WebSearchTool (tools/web-search.ts:207) appelle le endpoint Grounding via le ContentGenerator ; WebFetchTool (tools/web-fetch.ts:899) parse le HTML, detecte les hôtes speciaux (ex. raw.githubusercontent.com :153) et borne le volume. Les deux sont des outils standard du registre.",
+      "omega_adapter": "plugins/web-grounding (derriere ToolSurface)",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "integration": "plugin",
+      "rust_cost": "S",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/tools/web-search.ts:207",
+        "packages/core/src/tools/web-fetch.ts:153-899"
+      ]
+    },
+    {
+      "id": "gc-mcp-client",
+      "domain": "extension",
+      "name": "Client MCP : spawn serveur, discovery d'outils, appel outille",
+      "what": "Connexion a des serveurs MCP (stdio, SSE, HTTP streamable) avec initialisation, enumeration tools/list et outils exposes au modele avec prefixe de nommage.",
+      "how": "McpClient (tools/mcp-client.ts:153) ouvre un transport via connectToMcpServer (:1842) puis discoverMcpTools (:1105) / connectAndDiscover (:1204) ; McpClientManager (:37 de mcp-client-manager.ts) supervise statuts et decouverte paresseuse (maybeDiscoverMcpServer :375). Omega-mcp fournit deja McpClient (initialize/tools/list/tools/call), McpToolSurface, McpToolExecutor et McpContributor.",
+      "omega_adapter": "omega-mcp::McpToolSurface",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "adopted",
+      "refs": [
+        "packages/core/src/tools/mcp-client.ts:153-1842",
+        "packages/core/src/tools/mcp-client-manager.ts:37-375",
+        "omega/crates/omega-mcp/src/lib.rs:155-477"
+      ]
+    },
+    {
+      "id": "gc-mcp-extended-server",
+      "domain": "extension",
+      "name": "MCP etendu : OAuth, resources, prompts + exposition MCP cote CLI",
+      "what": "Au-dela des outils : authentification OAuth des serveurs MCP (flux navigateur + stockage de jetons), decouverte de resources/prompts MCP utilisables comme contexte ou commandes, et exposition d'un serveur MCP par le CLI (compagnon IDE) pour que des clients externes appellent ses capacites.",
+      "how": "core/src/mcp/ porte les providers OAuth (oauth-provider.ts, google-auth-provider.ts, sa-impersonation-provider.ts, token-storage) ; discoverPrompts (:1505) / discoverResources (:1544) / readMcpResource (tools/read-mcp-resource.ts) et invokeMcpPrompt (:1602) ; cote exposition, packages/vscode-ide-companion/src/ide-server.ts:14 instancie un McpServer SDK + StreamableHTTPServerTransport. Omega-mcp s'arrete a tools/list + tools/call : OAuth, resources, prompts et serveur = extension.",
+      "omega_adapter": "omega-mcp (a etendre : oauth/resources/prompts + McpServerSpec -> serveur)",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/tools/mcp-client.ts:1505-1648",
+        "packages/core/src/mcp/oauth-provider.ts",
+        "packages/core/src/tools/list-mcp-resources.ts",
+        "packages/vscode-ide-companion/src/ide-server.ts:14",
+        "omega/crates/omega-mcp/src/lib.rs:54"
+      ]
+    },
+    {
+      "id": "gc-subagents",
+      "domain": "agents",
+      "name": "Sous-agents : registre, delegation outillee, agents markdown, @mention",
+      "what": "Agents specialises (contexte et outils propres) invoques par l'agent principal via un outil de delegation, en local ou distant, definis declarativement en markdown + frontmatter, avec routage forcé par @nom.",
+      "how": "AgentRegistry (agents/registry.ts:50) charge et active/desactive les definitions (conflicts resolus :109) ; AgentTool (agents/agent-tool.ts:43) est l'outil de delegation (DelegateInvocation :127, confirmation :211, execute :217) ; les definitions locales/remote sont des .md avec frontmatter (`kind: remote`, .gemini/agents/*.md et ~/.gemini/agents/*.md, docs/core/remote-agents.md) ; @agent injecte une note systeme (docs/core/subagents.md) ; des agents predefinis existent (codebase-investigator, cli-help-agent, generalist-agent). Port omega-ports::SubagentRunner existe sans adaptateur.",
+      "omega_adapter": "plugins/subagent-delegation (spawn/resume derriere SubagentRunner)",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/resume)",
+      "integration": "plugin",
+      "rust_cost": "L",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/agents/registry.ts:50",
+        "packages/core/src/agents/agent-tool.ts:43-217",
+        "docs/core/subagents.md",
+        "docs/core/remote-agents.md",
+        "omega/crates/omega-ports/src/lib.rs:172"
+      ]
+    },
+    {
+      "id": "gc-remote-a2a",
+      "domain": "agents",
+      "name": "Agents distants A2A + serveur A2A autonome",
+      "what": "Delegation d' taches a des agents hors processus via le protocole Agent-to-Agent (HTTP JSON-RPC, taches persistees, evenements de tache), et mise en expose du CLI lui-meme comme agent A2A.",
+      "how": "A2AClientManager (agents/a2a-client-manager.ts:52) charge les agents distants, cache les clients et stream les messages (sendMessageStream :224) avec proxy HTTP(S) gere ; le paquet packages/a2a-server expose un binaire separe (bin gemini-cli-a2a-server) avec http/app.ts + http/server.ts, agent/executor.ts et persistence/ (taches durables).",
+      "omega_adapter": "omega-server + plugins/a2a (client + serveur)",
+      "omega_capability": null,
+      "omega_port": null,
+      "integration": "service",
+      "rust_cost": "L",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/agents/a2a-client-manager.ts:52",
+        "packages/a2a-server/src/http/server.ts",
+        "packages/a2a-server/src/agent/executor.ts",
+        "packages/a2a-server/package.json (bin gemini-cli-a2a-server)"
+      ]
+    },
+    {
+      "id": "gc-skills",
+      "domain": "contexte",
+      "name": "Skills : decouverte SKILL.md, index, vues et actifs",
+      "what": "Competences modulaires (dossier + SKILL.md avec frontmatter YAML) decouvertes depuis les dossiers projet/utilisateur et les extensions, indexees avec leur contenu et leurs actifs, listables et activables a la demande.",
+      "how": "SkillManager.discoverSkills (skills/skillManager.ts:54) + discoverBuiltinSkills (:104) ; skillLoader.ts:154 utilise le pattern glob `SKILL.md, */SKILL.md` et valide le frontmatter (:173) ; chaque skill est charge depuis son SKILL.md (:189). Omega-context::SkillIndex fournit list/view/asset/render_count : la decouverte et l'index existent, l'activation outillee (progressive disclosure) reste a faire (cf. gc-compaction pour l'injection).",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "adopted",
+      "refs": [
+        "packages/core/src/skills/skillManager.ts:17-104",
+        "packages/core/src/skills/skillLoader.ts:154-189",
+        "omega/crates/omega-context/src/skills.rs:66-140"
+      ]
+    },
+    {
+      "id": "gc-skill-activation",
+      "domain": "contexte",
+      "name": "Outil activate_skill (disclosure progressive des skills)",
+      "what": "Outil modele qui active un skill par nom : charge son dossier de ressources dans la fenetre de contexte et renvoie l'arborescence du dossier au modele.",
+      "how": "ActivateSkillTool (tools/activate-skill.ts:160) valide le nom (:112-118), charge les actifs du dossier (:66) et renvoie un bloc `<activated_skill name=...>` (:143) + l'arborescence (:152). Omega n'a pas encore d'outil d'activation : SkillIndex s'arrete a view()/asset().",
+      "omega_adapter": "plugins/skill-activation (outil derriere ToolSurface)",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "integration": "plugin",
+      "rust_cost": "S",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/tools/activate-skill.ts:36-160",
+        "packages/core/src/skills/skillLoader.ts:189"
+      ]
+    },
+    {
+      "id": "gc-memory",
+      "domain": "memoire",
+      "name": "Memoire de contexte GEMINI.md hierarchique + JIT sous-repertoire",
+      "what": "Fichiers d'instructions GEMINI.md globaux, projet et sous-repertoires, remontes depuis le repertoire de travail, dedoublonnees par identite de fichier, concatenees avec separateurs, plus du contexte JIT charge a la lecture d'un fichier eloigne.",
+      "how": "utils/memoryDiscovery.ts : readGeminiMdFiles (:209) lit en concurrence avec CONCURRENT_LIMIT et dedoublonne par (dev,ino) (:54) ; remontee hierarchique depuis le cwd (:458) avec marqueurs de frontiere (:159) ; loadJitSubdirectoryMemory (:512) n'injecte que les GEMINI.md des repertoires reellement touches ; memoryTool.ts expose les outils memory_insert/replace/view ; config/memory.ts aplatit la memoire hierarchique (:15). Port omega_ports::MemoryStore existe sans adaptateur.",
+      "omega_adapter": "plugins/memory-hierarchical (derriere MemoryStore)",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (load/flatten)",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/utils/memoryDiscovery.ts:54-610",
+        "packages/core/src/tools/memoryTool.ts",
+        "packages/core/src/config/memory.ts:15",
+        "omega/crates/omega-ports/src/lib.rs:35"
+      ]
+    },
+    {
+      "id": "gc-memory-imports",
+      "domain": "memoire",
+      "name": "Imports de memoire @fichier (memport) avec anti-cycle et confinement",
+      "what": "Modularisation des GEMINI.md par imports `@./file.md` relatifs ou absolus, avec protection contre les cycles et interdiction de sortir des racines de confiance.",
+      "how": "docs/reference/memport.md documente la syntaxe et les formats de chemin ; l'implementation est packages/core/src/utils/memoryImportProcessor.ts (resolutio + garde-fous), utilisee aussi par read-many-files.ts. Extension directe d'un futur MemoryStore Omega (index + resolution de references).",
+      "omega_adapter": "plugins/memory-imports (resolution de references)",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (resolve)",
+      "integration": "plugin",
+      "rust_cost": "S",
+      "status": "planned",
+      "refs": [
+        "docs/reference/memport.md",
+        "packages/core/src/utils/memoryImportProcessor.ts",
+        "packages/core/src/tools/read-many-files.ts"
+      ]
+    },
+    {
+      "id": "gc-auto-memory",
+      "domain": "memoire",
+      "name": "Auto Memory : extraction de memoire et de skills depuis les transcripts",
+      "what": "Fond d'ecran qui mine les sessions passees, propose des mises a jour de memoire (diff .patch) et des skills reutilisables (SKILL.md), tenus dans une boite de reception a approuver (inbox).",
+      "how": "services/memoryService.ts:1133 startMemoryService(config) orchestre des runs d'extraction (ExtractionRun/ExtractionState :84-105, verrous fichiers :420-494, index de sessions :665, validation de patches :856) ; agents/skill-extraction-agent.ts produit les candidats SKILL.md ; docs/cli/auto-memory.md decrit le workflow inbox -> apply/discard.",
+      "omega_adapter": "plugins/auto-memory (extraction batch + inbox de validation)",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (propose/commit)",
+      "integration": "plugin",
+      "rust_cost": "L",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/services/memoryService.ts:84-1133",
+        "packages/core/src/agents/skill-extraction-agent.ts",
+        "docs/cli/auto-memory.md"
+      ]
+    },
+    {
+      "id": "gc-compaction",
+      "domain": "contexte",
+      "name": "Compression de contexte : summarisation LLM + effondrement des reponses d'outils + masking",
+      "what": "Maintien de la fenetre de contexte sous un seuil de tokens : summarisation LLM des tours anciens (derniers tours proteges), effondrement des vieilles function responses, masquage des grosses sorties d'outils vers fichiers, et compression de fichiers volumineux en resume 2-3 phrases.",
+      "how": "chatCompressionService.ts : seuil par defaut 0.5 (:45), 3 derniers tours proteges (:50), collapseOlderFunctionResponses (:131) avec budget 50k tokens (:274), point de coupe findCompressSplitPoint (:282), classe ChatCompressionService (:466) utilisant un role LLM utilitaire UTILITY_COMPRESSOR (:612) et statuts d'echec (empty summary / inflated) ; toolOutputMaskingService.ts (:67) masque au-dela de 50k tokens vers tool-outputs/ (:30) ; toolDistillationService.ts (:39) resume des sorties ; contextCompressionService.ts (:50) niveaux FULL/PARTIAL/SUMMARY/EXCLUDED (:16) par fichier. Omega : compaction = truncate_compact avec marqueur (omega-context/src/compaction.rs:21) — pas de summarisation LLM.",
+      "omega_adapter": "omega-context (CompactionModel derriere ContextBudget) + plugins/tool-output-masking",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (compact) + CompactionModel",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/context/chatCompressionService.ts:45-716",
+        "packages/core/src/context/toolOutputMaskingService.ts:24-125",
+        "packages/core/src/context/toolDistillationService.ts:39",
+        "packages/core/src/context/contextCompressionService.ts:16-510",
+        "omega/crates/omega-context/src/compaction.rs:9-62"
+      ]
+    },
+    {
+      "id": "gc-approval-ask",
+      "domain": "securite",
+      "name": "File de confirmation outil (ask_user) avec outcomes",
+      "what": "Toute execution d'outil a risque passe par une demande de confirmation a l'utilisateur, avec issues normalisees dont certaines persistent un 'toujours allow' pour la suite de la session.",
+      "how": "MessageBus (confirmation-bus/message-bus.ts:15) emet ToolConfirmationRequest/Response (types.ts:37/60) entre le core et l'UI ; les outcomes incluent ProceedAlways et ProceedAlwaysAndSave (tools.ts:248-256, persistance si outcome == Save) ; PolicyEngine tombe sur ASK_USER en interactif, DENY en non-interactif (policy/policy-engine.ts:301). Omega : ApprovalQueue (request/approve/deny usage unique) couvre le coeur ask/allow/deny.",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy (evaluate/approve)",
+      "integration": "plugin",
+      "rust_cost": "S",
+      "status": "adopted",
+      "refs": [
+        "packages/core/src/confirmation-bus/message-bus.ts:15",
+        "packages/core/src/confirmation-bus/types.ts:37-60",
+        "packages/core/src/tools/tools.ts:245-256",
+        "packages/core/src/policy/policy-engine.ts:242-301",
+        "omega/crates/omega-sandbox/src/approvals.rs:56"
+      ]
+    },
+    {
+      "id": "gc-approval-modes",
+      "domain": "securite",
+      "name": "Modes d'approbation : default / autoEdit / yolo / plan",
+      "what": "Quatre modes globaux ordonnes par permissivite, commutables en session (/approval, /yolo), qui determinent quels outils passent par la file de confirmation.",
+      "how": "policy/types.ts:48 enum ApprovalMode {default, autoEdit, yolo, plan} avec MODES_BY_PERMISSIVENESS (:60) ; config.ts:1036 resout le mode initial (param CLI > policyEngine > default) et telemetrie des bascules (logApprovalModeSwitch :116) ; les politiques TOML associees sont policies/yolo.toml, write.toml, read-only.toml, plan.toml, non-interactive.toml ; /yolo est une commande UI. Omega : la file d'approbation existe, la notion de mode persiste (toujours allow / yolo) et son switching manquent.",
+      "omega_adapter": "omega-sandbox::ApprovalQueue + ruleset de mode persiste",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy (mode/ruleset)",
+      "integration": "plugin",
+      "rust_cost": "S",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/policy/types.ts:48-65",
+        "packages/core/src/config/config.ts:1036-1349",
+        "packages/core/src/policy/policies/yolo.toml",
+        "packages/core/src/policy/policies/plan.toml"
+      ]
+    },
+    {
+      "id": "gc-policy-toml",
+      "domain": "securite",
+      "name": "Moteur de politiques TOML (allow/deny/ask par outil, chemin, sous-agent)",
+      "what": "Moteur de decisions appliquees avant chaque appel d'outil : regles par nom d'outil, par sous-agent, verification d'integrite, politiques par espace de travail/topic, chargement depuis des fichiers TOML.",
+      "how": "PolicyEngine (policy/policy-engine.ts:242) avec defaultDecision, decision finale DENY/ASK_USER (:301) et cascade de filtrage (:367-439) ; loader TOML policy/toml-loader.ts + policies/*.toml (agents, conseca, discovered, non-interactive, plan, read-only, sandbox-default, write, yolo) ; integrity.ts verifie les fichiers de politiques ; docs/reference/policy-engine.md:297 montre la selection par sous-agent (`subagent = \"codebase_investigator\"`). Omega : RuleBasedExecPolicy existe mais au niveau commande shell (prefixes), pas au niveau outil.",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy (extension au niveau outil)",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy (evaluate)",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/policy/policy-engine.ts:242-439",
+        "packages/core/src/policy/policies/plan.toml",
+        "docs/reference/policy-engine.md:297",
+        "omega/crates/omega-sandbox/src/policy.rs:119"
+      ]
+    },
+    {
+      "id": "gc-sandbox",
+      "domain": "securite",
+      "name": "Sandbox OS : bubblewrap (Linux), seatbelt (macOS), AppContainer (Windows)",
+      "what": "Isolation reelle des commandes shell et des ecritures fichiers hors du repertoire du projet, par mecanisme natif par OS, avec politique par defaut stricte et substitutions shell interdites.",
+      "how": "sandbox/linux/LinuxSandboxManager.ts:144 construit les arguments bubblewrap via buildBwrapArgs (bwrapArgsBuilder.ts:33) ; sandbox/macos/seatbeltArgsBuilder.ts genere le profil seatbelt (baseProfile.ts) ; services/sandboxManager.ts + sandboxManagerFactory choisissent le manager et services/sandboxedFileSystemService.ts appliquent le confinement aux ecritures ; policy/sandboxPolicyManager.ts branche la politique de sandbox. Omega : LocalSandboxBackend fait sh -c + timeout + politique, sans isolation de namespace/isolation de fichiers.",
+      "omega_adapter": "omega-sandbox::LocalSandboxBackend (a etendre : isolation namespace + FS)",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend (run)",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/sandbox/linux/LinuxSandboxManager.ts:144",
+        "packages/core/src/sandbox/linux/bwrapArgsBuilder.ts:33",
+        "packages/core/src/sandbox/macos/seatbeltArgsBuilder.ts",
+        "packages/core/src/services/sandboxManager.ts",
+        "omega/crates/omega-sandbox/src/backend.rs:19"
+      ]
+    },
+    {
+      "id": "gc-trust-keychain",
+      "domain": "securite",
+      "name": "Dossier de confiance + verrouillage des settings workspace + keychain",
+      "what": "Decouverte des commandes/contexts charges avant consentement, decision de confiance par repertoire, refus de modifier les settings d'un workspace non approuve, et stockage des secrets en keychain systeme.",
+      "how": "FolderTrustDiscoveryService (services/FolderTrustDiscoveryService.ts:29) inventorie ce qu'un repertoire ferait executer (discoverCommands :62) avant la decision ; trustedFolders.ts:37 charge la liste des dossiers approuves ; settings.ts:315/491-494 leve UNTRUSTED_WORKSPACE_SETTINGS_ERROR pour toute ecriture de settings en scope Workspace non trust ; KeychainService (services/keychainService.ts:27) wrappe keytar (getPassword :52/setPassword :61). Omega : la confiance de repertoire n'existe pas (config effective seule).",
+      "omega_adapter": "plugins/folder-trust + plugins/keychain (config-source/permission-policy)",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy (trust)",
+      "integration": "plugin",
+      "rust_cost": "S",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/services/FolderTrustDiscoveryService.ts:29-62",
+        "packages/cli/src/config/trustedFolders.ts:37-44",
+        "packages/cli/src/config/settings.ts:315-494",
+        "packages/core/src/services/keychainService.ts:27-63"
+      ]
+    },
+    {
+      "id": "gc-checkpoint-rewind",
+      "domain": "execution",
+      "name": "Checkpointing (git fantome) + /restore + /rewind",
+      "what": "Sauvegardes automatiques de l'arbre de travail avant chaque action d'ecriture dans un depot Git ombre, restauration par checkpoint (/restore) et retour en arriere conversation + fichiers (/rewind, Esc Esc).",
+      "how": "GitService (services/gitService.ts:65) initialise un depot Git ombre (shadow repository :55) pour checkpointer sans perturber le repo utilisateur et refuse l'execution si git manque (:82) ; utils/checkpointUtils.ts genere les noms (:48) et liste les checkpoints restorables (:164) ; commands/restore.ts:11 est un generateur de restauration outil par outil ; docs/cli/checkpointing.md:60-90 et docs/cli/rewind.md decrivent les UX (rewind conversation+code, code seul, ou conversation seule). Omega : journal durable + rejeu existent, le revert de fichiers via git ombre n'existe pas.",
+      "omega_adapter": "omega-app::FileEventStore (rejeu conversation) + plugins/file-rewind (git ombre)",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (replay)",
+      "integration": "plugin",
+      "rust_cost": "L",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/services/gitService.ts:55-223",
+        "packages/core/src/utils/checkpointUtils.ts:48-164",
+        "packages/core/src/commands/restore.ts:11",
+        "docs/cli/checkpointing.md",
+        "docs/cli/rewind.md"
+      ]
+    },
+    {
+      "id": "gc-hooks",
+      "domain": "extension",
+      "name": "Hooks de cycle de vie (commandes shell sur evenements agent)",
+      "what": "Interception de la boucle par hooks types executes comme commandes shell, avec matchers d'outil et modification possible de la demande/reponse du modele.",
+      "how": "HookSystem (hooks/hookSystem.ts:151, registerHook :211) + hookRegistry/hookRunner/hookPlanner/aggregator ; events documentes dans docs/hooks/reference.md : BeforeTool (:92), AfterTool (:114), BeforeAgent (:145), AfterAgent (:163), BeforeModel (:187), BeforeToolSelection (:204), AfterModel (:221), SessionStart (:245), SessionEnd (:260), Notification (:272), PreCompress (:287) ; schema hook = {type:\"command\", command, matcher} (:34-40). Port omega_ports::Hook existe sans adaptateur.",
+      "omega_adapter": "omega-plugin-api (adaptateur Hook : declencheur + commande)",
+      "omega_capability": "hook",
+      "omega_port": "Hook (register/run)",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/hooks/hookSystem.ts:151-216",
+        "docs/hooks/reference.md:21-287",
+        "omega/crates/omega-ports/src/lib.rs:154"
+      ]
+    },
+    {
+      "id": "gc-extensions",
+      "domain": "extension",
+      "name": "Extensions installables (manifeste, consentement, integrite, gallery)",
+      "what": "Paquetage d'extensions installables depuis GitHub/chemins locaux qui empaquent prompts (GEMINI.md), serveurs MCP, commandes, themes, hooks, sous-agents et skills, avec manifeste gemini-extension.json, consentement utilisateur et verification d'integrite (hash) a chaque chargement.",
+      "how": "ExtensionManager (cli/src/config/extension-manager.ts:106) herite d'ExtensionLoader et implemente installOrUpdateExtension (:181) ; les extensions vivent dans ~/.gemini/extensions (core/src/config/storage.ts:473) avec manifeste gemini-extension.json (:477) ; ExtensionIntegrityManager (core/src/config/extensions/integrity.ts:224) stocke et verifie les empreintes ; consentement a l'installation (cli/src/config/extensions/consent.ts) ; gallery https://geminicli.com/extensions/browse/ (docs/extensions/index.md). Omega : Registre + quarantaine existent, l'installateur/packager non.",
+      "omega_adapter": "omega-registry::Registry (Slot/Ensemble + quarantaine) + plugins/extension-installer",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "planned",
+      "refs": [
+        "packages/cli/src/config/extension-manager.ts:106-181",
+        "packages/core/src/config/storage.ts:473-477",
+        "packages/core/src/config/extensions/integrity.ts:224",
+        "docs/extensions/index.md",
+        "docs/extensions/writing-extensions.md"
+      ]
+    },
+    {
+      "id": "gc-settings",
+      "domain": "configuration",
+      "name": "Settings en couches (SystemDefaults/System/User/Workspace/Session) + env + schema",
+      "what": "Configuration settings.json en cinq scopes avec ordre de precedence, isolation des variables d'environnement, validation par schema Zod, dialog de settings en session et gestionnaire de fichiers de settings.",
+      "how": "SettingScope (cli/src/config/settings.ts:131) = SystemDefaults|System|User|Workspace|Session ; getSystemSettingsPath (:106) surcharge par GEMINI_CLI_SYSTEM_SETTINGS_PATH ; loadSettings (:790) fusionne les scopes (user :1004-1059) avec cache (:768) ; settingsSchema.ts valide ; environnement charge puis assaini (loadEnvironment :688, sanitizeEnvVar :102, environmentSanitization.ts). Omega : omega-config fournit deja couches + precedence + provenance (ConfigLayerSource::precedence).",
+      "omega_adapter": "omega-config (couches + precedence + provenance)",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "integration": "plugin",
+      "rust_cost": "S",
+      "status": "adopted",
+      "refs": [
+        "packages/cli/src/config/settings.ts:131-1059",
+        "packages/cli/src/config/settingsSchema.ts",
+        "packages/core/src/services/environmentSanitization.ts",
+        "omega/crates/omega-config/src/lib.rs:23-79"
+      ]
+    },
+    {
+      "id": "gc-commands",
+      "domain": "agents",
+      "name": "Commandes slash personnalisees en TOML (user/projet/extension + prompts MCP)",
+      "what": "Commandes utilisateur `/nom` definies par des fichiers TOML (chemin fichier = nom de commande imbrique), discoverees depuis ~/.gemini/commands, <projet>/.gemini/commands et les extensions, rechargeables en session, concurreamment aux prompts MCP.",
+      "how": "FileCommandLoader (cli/src/services/FileCommandLoader.ts:64) globbe `**/*.toml` dans les trois sources (:108-158), parse chaque fichier (:250-278) et derive le nom imbrique du chemin relatif (:304) ; la commande /commands liste et recharge (ui/commands/commandsCommand.ts:38-137) ; setupGithubCommand.ts:38-42 installe des commandes pre-packaged (triage, review). Omega : les commandes peuvent etre des entrees du Registre avec declencheur utilisateur.",
+      "omega_adapter": "omega-registry (entrees declenchees utilisateur) + plugins/command-toml",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "integration": "plugin",
+      "rust_cost": "S",
+      "status": "planned",
+      "refs": [
+        "packages/cli/src/services/FileCommandLoader.ts:64-304",
+        "packages/cli/src/ui/commands/commandsCommand.ts:38-137",
+        "packages/cli/src/ui/commands/setupGithubCommand.ts:38-42"
+      ]
+    },
+    {
+      "id": "gc-tui-themes",
+      "domain": "ui",
+      "name": "TUI react-ink + 19 themes builtin + themes d'extensions + /theme",
+      "what": "Interface terminal react (ink) avec composants (panneaux, diff, confirmations plein ecran), gestionnaire de themes (builtin dark/light + custom d'extensions), support sans couleur et options d'accessibilite.",
+      "how": "App UI en react-ink (cli/package.json:52 dependance ink, AppContainer/App.tsx) ; ThemeManager (ui/themes/theme-manager.ts:55, themeManager singleton :663) charge 11 themes dark + 8 light (ui/themes/builtin/{dark,light}/*.ts) et des themes d'extensions via extensionManager-themes ; /theme est une commande UI ; accessibilite : settings d'accessibilite (settings.ts:180) et mode no-color (themes/builtin/no-color.ts). Omega : cockpit react-web existe, la surface terminal est a creer.",
+      "omega_adapter": "omega-server (surface web existante) + surface TUI terminal dediee",
+      "omega_capability": null,
+      "omega_port": null,
+      "integration": "native",
+      "rust_cost": "M",
+      "status": "planned",
+      "refs": [
+        "packages/cli/package.json:52",
+        "packages/cli/src/ui/themes/theme-manager.ts:55-663",
+        "packages/cli/src/ui/themes/builtin/dark/",
+        "packages/cli/src/ui/themes/builtin/light/",
+        "docs/cli/themes.md"
+      ]
+    },
+    {
+      "id": "gc-session-record",
+      "domain": "observabilite",
+      "name": "Enregistrement durable des sessions + reprise/rejeu + retention",
+      "what": "Chaque session est enregistree automatiquement (prompts, reponses, executions d'outils, tokens) dans ~/.gemini/tmp/<hash_projet>/chats/, listable et reprenable (/chat resume), exportable (/export), avec retention parametrable (age/count).",
+      "how": "ChatRecordingService (services/chatRecordingService.ts:670) persiste les tours en arriere-plan et peut se desactiver (message :51) ; stockage par hash de projet (docs/cli/session-management.md, section 'Location') ; commands /chat (resumeCommand.ts), /exportSessionCommand.ts, settings general.sessionRetention (settings.ts:186). Omega : FileEventStore journalise durablement et TraceReplayer rejeoue — le rejeu/fichiers de session existent, la reprise conversationnelle UI par projet est le complet apporter.",
+      "omega_adapter": "omega-app::FileEventStore + omega-otel::TraceReplayer",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (+ replay)",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "adopted",
+      "refs": [
+        "packages/core/src/services/chatRecordingService.ts:670",
+        "docs/cli/session-management.md",
+        "packages/cli/src/config/settings.ts:186",
+        "omega/crates/omega-app/src/store.rs:74",
+        "omega/crates/omega-otel/src/replay.rs:64"
+      ]
+    },
+    {
+      "id": "gc-telemetry",
+      "domain": "observabilite",
+      "name": "Telemetrie OTel (traces/metrics/logs) locale fichier ou GCP, avec sanitization",
+      "what": "Telemetrie OpenTelemetry optionnelle : traces detaillees ou non, metrics, logs, export local vers fichier ou vers GCP/OTLP (grpc/http, headers cibles), avec option de log des prompts et assainissement des attributs.",
+      "how": "Config telemetry (docs/reference/configuration.md:2544-2575 : enabled, traces, target local|gcp, otlpEndpoint, otlpProtocol, otlpHeaders, logPrompts, outfile, useCollector) + variables d'environnement (:2760-2791) ; exportateurs locaux FileSpanExporter/FileLogExporter/FileMetricExporter (telemetry/file-exporters.ts:60-90) et exportateurs GCP (gcp-exporters.ts) ; sanitize.ts borne les attributs ; rate-limiter.ts et startupProfiler.ts. Omega : TelemetrySink avec StdoutSink et FileSink couvrent la cible locale.",
+      "omega_adapter": "omega-otel::{StdoutSink,FileSink}",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "integration": "plugin",
+      "rust_cost": "S",
+      "status": "adopted",
+      "refs": [
+        "docs/reference/configuration.md:2544-2575",
+        "packages/core/src/telemetry/file-exporters.ts:60-90",
+        "packages/core/src/telemetry/gcp-exporters.ts",
+        "packages/core/src/telemetry/sanitize.ts",
+        "omega/crates/omega-otel/src/sinks.rs:16"
+      ]
+    },
+    {
+      "id": "gc-loop-detection",
+      "domain": "observabilite",
+      "name": "Detection de boucles (outils, contenu streame, LLM) + coupure",
+      "what": "Surveillance de la boucle agent qui detecte les repetitions d'appels d'outils, les boucles de contenu streame et les tours LLM anormaux, avertit et coupe la boucle (désactivation possible pour la session).",
+      "how": "LoopDetectionService (services/loopDetectionService.ts:133) maintient toolCallHistory (:139), streamContentHistory + stats (:142-143), compteurs de tours LLM (:152-154) et flag disabledForSession (:157) ; LoopDetected est un code d'arret de tour (core/turn.ts:66). Omega : rien de tel — la boucle ne garde pas de trace d'anomalies de repetition.",
+      "omega_adapter": "omega-core::AgentLoop (garde de sortie de boucle a ajouter)",
+      "omega_capability": "loop-guard",
+      "omega_port": "LoopGuard (detect/break) — nouveau port",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/services/loopDetectionService.ts:123-157",
+        "packages/core/src/core/turn.ts:66"
+      ]
+    },
+    {
+      "id": "gc-router-chain",
+      "domain": "routage",
+      "name": "Chaine de strategies de routage modele (override -> fallback -> approvalMode -> classifiers -> composite)",
+      "what": "Selection du modele par une chaine ordonnee de strategies, chacune pouvant refuser (null) et laisser la suivante decider, avec decision tracee (modele, source, latence, raison).",
+      "how": "ModelRouterService (routing/modelRouterService.ts:30) orchestre les strategies dans l'ordre (override, fallback, approvalMode :60 — plan force le modele Pro, classifiers gemma/generique/numerical, composite) ; contrat RoutingStrategy (routing/routingStrategy.ts:47) et RoutingDecision {model, metadata{source,latencyMs,reasoning}} (:21). Omega : CompositeScoringPolicy + ParetoSelector + TierFallbackPolicy implementent deja la composition, le choix et le repli.",
+      "omega_adapter": "omega-router::CompositeScoringPolicy + ParetoSelector + TierFallbackPolicy",
+      "omega_capability": "router-policy",
+      "omega_port": "ScoringPolicy / Selector / FallbackPolicy",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "adopted",
+      "refs": [
+        "packages/core/src/routing/modelRouterService.ts:30-128",
+        "packages/core/src/routing/routingStrategy.ts:21-49",
+        "packages/core/src/routing/strategies/compositeStrategy.ts",
+        "omega/crates/omega-router/src/scoring.rs:8",
+        "omega/crates/omega-router/src/selector.rs:9",
+        "omega/crates/omega-router/src/fallback.rs:58"
+      ]
+    },
+    {
+      "id": "gc-model-fallback",
+      "domain": "routage",
+      "name": "Bascule de modele sur defaillance (sante, retry, consentement)",
+      "what": "Service de disponibilite qui classifie les erreurs (quota, serveur, reseau), applique des politiques par modele (retry, silencieux vs consentement) et bascule vers un modele de repli pour le tour ou la session.",
+      "how": "ModelAvailabilityService (availability/modelAvailabilityService.ts:48) produit ModelSelectionResult (:37) a partir d'un ModelPolicy (modelPolicy.ts:44) et d'un catalogue de politiques (policyCatalog.ts:29) ; errorClassification.ts distingue les erreurs transitoires ; les appels utilitaires internes utilisent une chaine silencieuse flash-lite -> flash -> pro (docs/cli/model-routing.md). Omega : TierFallbackPolicy porte deja un CircuitState (fallback.rs:32) — mecanisme de coupure similaire.",
+      "omega_adapter": "omega-router::TierFallbackPolicy (circuit breaker)",
+      "omega_capability": "router-policy",
+      "omega_port": "FallbackPolicy",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "adopted",
+      "refs": [
+        "packages/core/src/availability/modelAvailabilityService.ts:37-48",
+        "packages/core/src/availability/modelPolicy.ts:44",
+        "packages/core/src/availability/errorClassification.ts",
+        "docs/cli/model-routing.md",
+        "omega/crates/omega-router/src/fallback.rs:32-58"
+      ]
+    },
+    {
+      "id": "gc-classifier",
+      "domain": "routage",
+      "name": "Routage par classificateur local (Gemma) + seuil de confiance",
+      "what": "Selection du modele par un classificateur entraine (Gemma en local via LiteRT) qui etudie l'historique et la requete et renvoie un modele si son score depasse un seuil, sinon laisse la chaine continuer.",
+      "how": "gemmaClassifierStrategy.ts (routing/strategies/) appelle le classificateur local (core/localLiteRtLmClient.ts) avec le seuil lu depuis la config (modelRouterService.ts:83) ; une strategie numerique (numericalClassifierStrategy.ts) sert de repli sans modele ; docs/core/local-model-routing.md. Omega : HeuristicTaskClassifier est deterministe (regles), pas entraine.",
+      "omega_adapter": "omega-router::HeuristicTaskClassifier (variante heuristique existante)",
+      "omega_capability": "task-classifier",
+      "omega_port": "TaskClassifier",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/routing/strategies/gemmaClassifierStrategy.ts",
+        "packages/core/src/routing/strategies/numericalClassifierStrategy.ts",
+        "packages/core/src/core/localLiteRtLmClient.ts",
+        "omega/crates/omega-router/src/classifier.rs:106"
+      ]
+    },
+    {
+      "id": "gc-plan-mode",
+      "domain": "execution",
+      "name": "Plan Mode : environnement lecture seule + outils enter/exit + politique dediee",
+      "what": "Mode de travail lecture seule pour rechercher et concevoir avant d'implementer : ecritures refusees, entree/sortie explicites (/plan, outils enter_plan_mode/exit_plan_mode), politique TOML plan.toml dediee.",
+      "how": "ApprovalMode.PLAN est le mode le moins permissif (policy/types.ts:61) avec politiques policies/plan.toml et policies/read-only.toml ; outils enter-plan-mode.ts:29 et exit-plan-mode.ts ; la strategie de routage force le modele Pro en plan (strategies/approvalModeStrategy.ts:60) ; docs/cli/plan-mode.md. Omega : un profil lecture seule se derouve directement avec RuleBasedExecPolicy (rules vides + default Forbidden).",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy (profil lecture seule)",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "integration": "plugin",
+      "rust_cost": "S",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/policy/types.ts:48-65",
+        "packages/core/src/tools/enter-plan-mode.ts:29",
+        "packages/core/src/routing/strategies/approvalModeStrategy.ts:60",
+        "packages/core/src/policy/policies/plan.toml",
+        "docs/cli/plan-mode.md"
+      ]
+    },
+    {
+      "id": "gc-acp",
+      "domain": "execution",
+      "name": "Agent Client Protocol (JSON-RPC stdio) pour clients IDE multi-session",
+      "what": "Mode serveur agent pour clients externes (Zed, extensions IDE) : sessions multiples, permissions demandees au client, resolution de fichiers @path bornee au workspace, streaming des evenements d'agent.",
+      "how": "acpStdioTransport.ts (ndjson sur stdio) -> acpRpcDispatcher.ts (classe GeminiAgent :21) -> AcpSessionManager (acpSessionManager.ts:34, newSession/loadSession :319-382 avec mcpServers) -> acpSession.ts (prompts, execution d'outils, interception de commandes) ; acpFileSystemService.ts:15 borne l'acces FS ; mode lance par --acp (gemini.tsx:85) ; docs/cli/acp-mode.md.",
+      "omega_adapter": "omega-server + plugins/acp (JSON-RPC stdio sur les memes routes)",
+      "omega_capability": null,
+      "omega_port": null,
+      "integration": "service",
+      "rust_cost": "M",
+      "status": "planned",
+      "refs": [
+        "packages/cli/src/acp/acpSessionManager.ts:34-382",
+        "packages/cli/src/acp/acpRpcDispatcher.ts:21",
+        "packages/cli/src/acp/acpFileSystemService.ts:15",
+        "packages/cli/src/gemini.tsx:85",
+        "docs/cli/acp-mode.md"
+      ]
+    },
+    {
+      "id": "gc-worktree",
+      "domain": "execution",
+      "name": "Isolation par git worktree (creation, suivi, nettoyage automatique)",
+      "what": "Cree un worktree git isole (avec commit de base capture) pour mener une tache sans polluer la branche courante, le supprime si non modifie, et expose la feature via settings.",
+      "how": "WorktreeService (services/worktreeService.ts:24) : createWorktree (:28-54) genere un nom horodatage+suffixe aleatoire et capture le commit de base (:44), cleanupIfUnmodified (:60) supprime les worktrees intacts ; isWorktreeEnabled dans settings (:782) ; docs/cli/git-worktrees.md. Omega : l'isolation de repertoire derriere SandboxBackend n'existe pas encore.",
+      "omega_adapter": "plugins/worktree-isolation (derriere SandboxBackend)",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend (run in dir)",
+      "integration": "plugin",
+      "rust_cost": "M",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/services/worktreeService.ts:24-69",
+        "packages/cli/src/config/settings.ts:782",
+        "docs/cli/git-worktrees.md"
+      ]
+    },
+    {
+      "id": "gc-voice",
+      "domain": "ui",
+      "name": "Entree vocale (enregistrement audio + transcription Live/Whisper local)",
+      "what": "Saisie du prompt par la voix : enregistrement audio du micro puis transcription soit via l'API Gemini Live, soit par Whisper en local (modele telecharge et gere en cache).",
+      "how": "voice/audioRecorder.ts:22 (AudioRecorder event-driven, format PCM/WAV), transcriptionFactory.ts choisit le provider : geminiLiveTranscriptionProvider.ts (streaming Live API) ou whisperTranscriptionProvider.ts avec whisperModelManager.ts (telechargement/versioning des modeles) ; responseFormatter.ts formate la transcription dans le prompt.",
+      "omega_adapter": "plugins/voice-capture (provider de transcription derriere un port)",
+      "omega_capability": "channel",
+      "omega_port": "Channel (audio in)",
+      "integration": "plugin",
+      "rust_cost": "L",
+      "status": "planned",
+      "refs": [
+        "packages/core/src/voice/audioRecorder.ts:22",
+        "packages/core/src/voice/transcriptionFactory.ts",
+        "packages/core/src/voice/whisperTranscriptionProvider.ts",
+        "packages/core/src/voice/geminiLiveTranscriptionProvider.ts"
+      ]
+    }
+  ]
+}

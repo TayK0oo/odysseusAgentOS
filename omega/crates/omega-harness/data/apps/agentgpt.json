@@ -1,0 +1,394 @@
+{
+  "schema_version": 1,
+  "id": "agentgpt",
+  "name": "AgentGPT",
+  "editor": "Reworkd",
+  "oss": true,
+  "language": "TypeScript",
+  "license": "GPL-3.0",
+  "repo": "https://github.com/reworkd/AgentGPT",
+  "architecture": "Monorepo hybride : frontend Next.js (React + tRPC + Prisma/MySQL) pour l'UI et la persistance des agents/tâches, backend Python FastAPI (reworkd_platform) pour l'exécution des agents autonomes (LangChain + OpenAI), et CLI TypeScript pour le setup. Le frontend communique avec le backend via API REST/SSE ; le backend orchestre la boucle objectif → tâches → analyse → exécution → synthèse.",
+  "entrypoints": [
+    "next/ (app web Next.js, port 3000)",
+    "platform/ (serveur FastAPI, port 8000)",
+    "cli/ (CLI de setup interactif)"
+  ],
+  "functionalities": [
+    {
+      "id": "ag-autonomous-agent-loop",
+      "domain": "agents",
+      "name": "Agent autonome objectif → tâches → exécution",
+      "what": "Un agent autonome reçoit un objectif, le décompose en tâches, les exécute séquentiellement avec des outils, et synthétise les résultats.",
+      "how": "AutonomousAgent (TypeScript) gère un workLog d'AgentWork (StartGoalWork → AnalyzeTaskWork → ChatWork → SummarizeWork). Côté Python, OpenAIAgentService implémente start_goal_agent (génère les tâches via LLM), analyze_task_agent (function calling pour choisir un outil), execute_task_agent (exécute l'outil), create_tasks_agent (génère la tâche suivante), summarize_task_agent (synthèse finale). La boucle est pilotée par le frontend avec gestion du lifecycle (running/paused/stopped).",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore (discover/load)",
+      "omega_adapter": "plugins/agent-autonome (objectif → tâches → exécution → synthèse)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "next/src/services/agent/autonomous-agent.ts:17-169",
+        "platform/reworkd_platform/web/api/agent/agent_service/open_ai_agent_service.py:43-227"
+      ]
+    },
+    {
+      "id": "ag-tool-registry",
+      "domain": "outils",
+      "name": "Registre d'outils (Tool ABC + dynamic_available)",
+      "what": "Un système d'outils extensible où chaque outil déclare sa disponibilité (statique et dynamique par utilisateur) et peut être appelé par l'agent.",
+      "how": "Classe abstraite Tool avec description, public_description, arg_description, image_url, available() (statique), dynamic_available(user, oauth_crud) (dynamique), et call(goal, task, input_str, user, oauth_crud). get_user_tools() filtre les outils par dynamic_available. get_available_tools() combine outils externes et défaut. get_tool_from_name() résout par nom avec fallback sur l'outil par défaut (Search).",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "platform/reworkd_platform/web/api/agent/tools/tool.py:11-41",
+        "platform/reworkd_platform/web/api/agent/tools/tools.py:12-78"
+      ]
+    },
+    {
+      "id": "ag-search-tool",
+      "domain": "outils",
+      "name": "Recherche Google (Serper) avec fallback raisonnement",
+      "what": "Outil de recherche web via Serper.dev avec extraction de snippets cités et fallback automatique sur le raisonnement LLM en cas d'erreur.",
+      "how": "Search.call() invoque _google_serper_search_results() (POST https://google.serper.dev/search avec X-API-KEY). Extrait answerBox et k=5 résultats organiques en CitedSnippet (index, text, url). En cas de ClientResponseError, fallback sur Reason (LLMChain avec execute_task_prompt). Retourne un StreamingResponse via summarize_with_sources().",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "platform/reworkd_platform/web/api/agent/tools/search.py:42-109"
+      ]
+    },
+    {
+      "id": "ag-image-tool",
+      "domain": "outils",
+      "name": "Génération d'images (Replicate → DALL-E fallback)",
+      "what": "Outil de génération d'images avec fallback automatique de Replicate (Stable Diffusion) vers OpenAI DALL-E.",
+      "how": "Image.call() tente d'abord get_replicate_image() (replicate.Client.run avec modèle stability-ai/stable-diffusion, 512x512). En cas de RuntimeError (clé absente), fallback sur get_open_ai_image() (openai.Image.create, 256x256). Retourne un markdown image streamé.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "platform/reworkd_platform/web/api/agent/tools/image.py:47-66"
+      ]
+    },
+    {
+      "id": "ag-sid-search-tool",
+      "domain": "outils",
+      "name": "Recherche privée SID (Notion/GDrive) avec OAuth",
+      "what": "Outil de recherche dans les données privées (Notion, Google Drive) via l'API SID avec gestion OAuth complète (install, callback, refresh token).",
+      "how": "SID.dynamic_available() vérifie l'installation OAuth utilisateur. SID.call() échange le refresh token contre un access token (token_exchange), interroge https://api.sid.ai/v1/users/me/query, et résume les résultats. Fallback sur Search si aucun résultat. Gestion du chiffrement des tokens via encryption_service (Fernet).",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "platform/reworkd_platform/web/api/agent/tools/sidsearch.py:72-143"
+      ]
+    },
+    {
+      "id": "ag-code-tool",
+      "domain": "outils",
+      "name": "Exécution de code LLM (génération/refactor)",
+      "what": "Outil de génération et de revue de code via LLM avec prompt spécialisé.",
+      "how": "Code.call() utilise LLMChain avec code_prompt (prompt spécialisé pour la génération de code, commentaires dans la langue cible). Retourne un StreamingResponse via lanarky.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "platform/reworkd_platform/web/api/agent/tools/code.py:10-25"
+      ]
+    },
+    {
+      "id": "ag-reason-tool",
+      "domain": "outils",
+      "name": "Raisonnement LLM (décision/sélection)",
+      "what": "Outil de raisonnement pour prendre des décisions ou faire des sélections à partir d'informations existantes.",
+      "how": "Reason.call() utilise LLMChain avec execute_task_prompt (prompt pour comprendre le problème, extraire les variables, et être smart/efficient). Retourne un StreamingResponse.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "platform/reworkd_platform/web/api/agent/tools/reason.py:10-27"
+      ]
+    },
+    {
+      "id": "ag-memory-fallback",
+      "domain": "memoire",
+      "name": "Mémoire vectorielle avec fallback automatique",
+      "what": "Système de mémoire vectorielle (Pinecone) avec fallback automatique vers une mémoire secondaire en cas de défaillance.",
+      "how": "MemoryWithFallback enveloppe un AgentMemory primaire et un secondaire. Chaque opération (add_tasks, get_similar_tasks, reset_class, __enter__, __exit__) tente le primaire et fallback sur le secondaire en cas d'exception. AgentMemory est une ABC avec __enter__/__exit__ pour la gestion de connexion, add_tasks, get_similar_tasks, reset_class.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (memory)",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "platform/reworkd_platform/web/api/memory/memory_with_fallback.py:10-53",
+        "platform/reworkd_platform/web/api/memory/memory.py:7-35"
+      ]
+    },
+    {
+      "id": "ag-prisma-db",
+      "domain": "execution",
+      "name": "Persistance Prisma (MySQL) agents/tâches",
+      "what": "Base de données MySQL via Prisma pour persister les agents, tâches, utilisateurs, organisations et runs.",
+      "how": "Schéma Prisma avec modèles User, Account, Session (NextAuth), Organization, OrganizationUser, Agent, AgentTask, Run, NewRun, Task, OAuthCredentials. Relations cascade, index sur les champs de requête fréquents, soft delete via deleteDate. Le frontend utilise Prisma Client pour CRUD via tRPC.",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (persistence)",
+      "omega_adapter": "omega-app::FileEventStore",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "next/prisma/schema.prisma:1-150"
+      ]
+    },
+    {
+      "id": "ag-trpc-api",
+      "domain": "execution",
+      "name": "API tRPC typée (CRUD agents)",
+      "what": "API tRPC typée pour le CRUD des agents avec procédures protégées et validation Zod.",
+      "how": "agentRouter avec procédures : create (génère un nom via OpenAI, crée l'agent), save (sauvegarde les tâches), getAll (liste les agents de l'utilisateur), findById (récupère un agent avec ses tâches), deleteById (soft delete). Validation Zod des inputs. protectedProcedure pour les mutations sensibles.",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (persistence)",
+      "omega_adapter": "omega-app::FileEventStore",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "next/src/server/api/routers/agentRouter.ts:56-124"
+      ]
+    },
+    {
+      "id": "ag-nextauth",
+      "domain": "securite",
+      "name": "Authentification NextAuth (Google/GitHub/Discord)",
+      "what": "Authentification OAuth via NextAuth avec providers Google, GitHub et Discord.",
+      "how": "authOptions avec GoogleProvider, GithubProvider, DiscordProvider. allowDangerousEmailAccountLinking activé. Pages de sign-in personnalisées (/signin). Sessions JWT avec Prisma Adapter.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (auth)",
+      "omega_adapter": "omega-config (auth providers)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "next/src/server/auth/auth.ts:9-30"
+      ]
+    },
+    {
+      "id": "ag-oauth-installers",
+      "domain": "securite",
+      "name": "OAuth installers (SID) avec chiffrement tokens",
+      "what": "Système d'installation OAuth pour les intégrations tierces (SID) avec chiffrement des tokens et gestion du cycle de vie complet.",
+      "how": "OAuthInstaller ABC avec install() (génère l'URL d'autorisation), install_callback() (échange le code contre les tokens), uninstall() (révoque les tokens). SIDInstaller pour l'intégration SID. Les tokens sont chiffrés via encryption_service (Fernet) avant stockage en base. Gestion du refresh token avec expiration.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (oauth)",
+      "omega_adapter": "omega-config (oauth credentials)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "platform/reworkd_platform/services/oauth_installers.py:18-147"
+      ]
+    },
+    {
+      "id": "ag-token-service",
+      "domain": "contexte",
+      "name": "Service de tokens (tiktoken) et budget",
+      "what": "Service de comptage de tokens et de calcul du budget de complétion pour éviter les dépassements de contexte.",
+      "how": "TokenService utilise tiktoken (encoding cl100k_base). tokenize/detokenize/count pour le comptage. get_completion_space(model, *prompts) calcule l'espace restant (max_tokens - prompt_tokens). calculate_max_tokens() ajuste model.max_tokens dynamiquement. LLM_MODEL_MAX_TOKENS mappe chaque modèle à sa limite.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextBudget (estimate/compact)",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "platform/reworkd_platform/services/tokenizer/token_service.py:7-33"
+      ]
+    },
+    {
+      "id": "ag-streaming-sse",
+      "domain": "execution",
+      "name": "Streaming SSE (Server-Sent Events)",
+      "what": "Streaming des réponses LLM via Server-Sent Events avec simulation de délai pour les mocks.",
+      "how": "StreamingResponse de lanarky pour les vrais appels LLM. stream_string() pour les mocks avec découpage token par token (tiktoken) et sleep(0.025) entre chaque token pour simuler un traitement lent. FastAPIStreamingResponse pour l'intégration FastAPI.",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (stream)",
+      "omega_adapter": "omega-app::FileEventStore",
+      "integration": "service",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "platform/reworkd_platform/web/api/agent/stream_mock.py:11-26"
+      ]
+    },
+    {
+      "id": "ag-model-factory",
+      "domain": "routage",
+      "name": "Factory de modèles (OpenAI/Azure/Helicone)",
+      "what": "Factory de modèles LLM supportant OpenAI, Azure OpenAI et Helicone avec gestion des clés custom.",
+      "how": "create_model() détecte l'usage d'Azure (via openai_api_base) et utilise WrappedAzureChatOpenAI si nécessaire. get_base_and_headers() détermine l'usage de Helicone (proxy avec headers Helicon-Auth, Helicon-Cache-Enabled, Helicon-User-Id). Support des clés API custom par utilisateur. Configuration via ModelSettings (model, temperature, max_tokens).",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider (providers/models)",
+      "omega_adapter": "omega-providers::OllamaProvider",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "platform/reworkd_platform/web/api/agent/model_factory.py:29-97"
+      ]
+    },
+    {
+      "id": "ag-task-output-parser",
+      "domain": "execution",
+      "name": "Parseur de sortie tâches (JSON/multiline)",
+      "what": "Parseur robuste des sorties LLM pour extraire les tâches (JSON array ou liste multiligne) avec filtrage des faux positifs.",
+      "how": "TaskOutputParser étend LangChain BaseOutputParser. extract_array() utilise regex pour détecter les JSON arrays (avec ast.literal_eval) ou les listes multilignes (handle_multiline_string). remove_prefix() nettoie les préfixes (Task 1., Step 2:, etc.). real_tasks_filter() exclut les phrases comme 'No tasks required', 'Task completed', 'Do nothing'. Filtrage des tâches déjà complétées.",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (replay)",
+      "omega_adapter": "omega-otel::TraceReplayer",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "platform/reworkd_platform/web/api/agent/task_output_parser.py:8-88"
+      ]
+    },
+    {
+      "id": "ag-mock-agent-service",
+      "domain": "configuration",
+      "name": "Mock agent service (développement)",
+      "what": "Service d'agent mocké pour le développement sans appel API coûteux.",
+      "how": "MockAgentService implémente AgentService avec des réponses fixes et des délais simulés (time.sleep). Retourne des tâches prédéfinies, une analyse mock, et des réponses streamées via stream_string(). Activable via ff_mock_mode_enabled dans les settings.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (mock)",
+      "omega_adapter": "omega-config (feature flags)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "platform/reworkd_platform/web/api/agent/agent_service/mock_agent_service.py:13-74"
+      ]
+    },
+    {
+      "id": "ag-settings-pydantic",
+      "domain": "configuration",
+      "name": "Settings Pydantic (env + validation)",
+      "what": "Configuration centralisée via Pydantic BaseSettings avec validation et variables d'environnement.",
+      "how": "Settings(BaseSettings) avec env_prefix (ENV_PREFIX) et env_file (.env). Propriétés calculées : db_url (URL MySQL), pusher_enabled, kafka_enabled, helicone_enabled, sid_enabled. Types Literal pour LOG_LEVEL, SASL_MECHANISM, ENVIRONMENT. Configuration de tous les services (OpenAI, Helicone, Replicate, Serper, Pinecone, S3, Kafka, Pusher, SID).",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "omega_adapter": "omega-config (couches + precedence)",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "platform/reworkd_platform/settings.py:34-178"
+      ]
+    },
+    {
+      "id": "ag-s3-presigned",
+      "domain": "outils",
+      "name": "S3 presigned URLs (upload/download)",
+      "what": "Service S3 pour génération de URLs presignées (upload/download) et gestion de fichiers.",
+      "how": "SimpleStorageService avec boto3_client. create_presigned_upload_url() et create_presigned_download_url() pour les URLs presignées. upload_to_bucket(), download_file(), list_keys(), download_folder(), delete_folder() pour la gestion de fichiers. Région us-east-1 hardcodée.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (storage)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "platform/reworkd_platform/services/aws/s3.py:19-85"
+      ]
+    },
+    {
+      "id": "ag-prompts-plan-solve",
+      "domain": "contexte",
+      "name": "Prompts Plan-and-Solve (décomposition)",
+      "what": "Prompts spécialisés pour la décomposition d'objectifs en tâches (Plan-and-Solve prompting).",
+      "how": "start_goal_prompt (PromptTemplate) demande au LLM de générer une liste de requêtes de recherche pour répondre à l'objectif (max 5 queries, JSON array). create_tasks_prompt génère une nouvelle tâche basée sur les tâches précédentes et le résultat. analyze_task_prompt demande de sélectionner la meilleure fonction. Prompts avec input_variables pour le goal, language, task.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (prompts)",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "platform/reworkd_platform/web/api/agent/prompts.py:5-92"
+      ]
+    },
+    {
+      "id": "ag-analysis-function-calling",
+      "domain": "agents",
+      "name": "Analyse de tâche (function calling)",
+      "what": "Analyse de tâche via function calling pour sélectionner le meilleur outil et ses arguments.",
+      "how": "analyze_task_agent() utilise model.apredict_messages() avec functions (get_tool_function pour chaque outil). La réponse est parsée via PydanticOutputParser(AnalysisArguments) pour extraire reasoning et arg. Analysis est un Pydantic model avec action (nom de l'outil), reasoning, arg. Validation que action est un outil valide et que arg est non vide pour search. Fallback sur get_default_analysis() en cas d'erreur.",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore (analysis)",
+      "omega_adapter": "plugins/agent-autonome (function calling)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "platform/reworkd_platform/web/api/agent/analysis.py:6-45",
+        "platform/reworkd_platform/web/api/agent/agent_service/open_ai_agent_service.py:88-124"
+      ]
+    },
+    {
+      "id": "ag-cli-setup",
+      "domain": "configuration",
+      "name": "CLI de setup interactif",
+      "what": "CLI interactif pour la configuration initiale de l'application (génération de .env).",
+      "how": "CLI TypeScript avec questions interactives (newEnvQuestions, existingEnvQuestions, sharedQuestions). Génération du fichier .env avec les clés API et configuration. Support de la mise à jour d'un .env existant.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (init)",
+      "omega_adapter": "omega-config (init wizard)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "cli/src/index.js",
+        "cli/src/questions/newEnvQuestions.js",
+        "cli/src/questions/existingEnvQuestions.js"
+      ]
+    },
+    {
+      "id": "ag-ui-nextjs",
+      "domain": "ui",
+      "name": "UI Next.js (React + Tailwind)",
+      "what": "Interface utilisateur Next.js avec React, Tailwind CSS, et composants de chat.",
+      "how": "App Next.js avec pages (agent/index, dashboard), composants (ChatWindow, ChatMessage, AgentControls, Sidebar, Drawer), stores Zustand (agentStore, messageStore, taskStore, modelSettingsStore), hooks (useAgent, useModels, useTools, useAuth), et services (autonomous-agent, message-service, analysis). Tailwind pour le styling, next-i18next pour l'internationalisation.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "native",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "next/src/components/console/ChatWindow.tsx",
+        "next/src/stores/agentStore.ts",
+        "next/src/hooks/useAgent.ts"
+      ]
+    }
+  ]
+}

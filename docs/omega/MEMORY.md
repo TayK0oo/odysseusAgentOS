@@ -77,6 +77,24 @@
 - Limites machine : pas de Ghidra/Hopper/IDA ; pas de navigateur (CDP requis) ;
   `REA_PWNTOOLS_PYTHON` = venv python3.12.
 
+## 4quater. Corpus élargi — 31 harnais, 641 fonctionnalités `[observed]`
+
+- **Programme reproductible en 4 étapes** (`docs/omega/reverse-eng/PROGRAMME-RE.md`) :
+  recensement → intake+REA → dissection → combiné.
+- **Recensement** (`harness_census.py`, popularité GitHub mesurée) : 57 harnais,
+  29 disséqués, 18 écarts restants.
+- **Intake + REA** (`harness_intake.py`) : 14 harnais clonés + analysés
+  (12 ✅, 2 `resource_constraint`).
+- **Corpus** : **31 apps / 641 fonctionnalités / 2 335 preuves** —
+  140 adoptées · 484 planifiées · 17 écartées.
+- **Combiné unifié** (`OMEGA-COMPLET.md`, `omega_complet.py`) : 105 capacités,
+  consensus pondéré par popularité. Tête : `context-engine` (27 harnais, 1,52 M★),
+  `subagent-runner` (20), `tool-surface` (19), `config-source` (18), `registry` (13).
+- **Garde-fou** (`validate_dissections.py`) : structure + **résolution des preuves**.
+- **Enregistrement** (`register_dissections.py`) : `APP_DISSECTIONS` + seuil du test.
+- **Limite majeure** : REA n'analyse pas Python/Rust/Go (preuve machine limitée au
+  JS/TS et aux ELF) ; le fond vient de la lecture du clone (`fichier:ligne`).
+
 ## 5. États de l'art produits `[observed]`
 
 | Doc | Contenu |

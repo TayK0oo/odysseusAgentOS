@@ -1,0 +1,432 @@
+{
+  "schema_version": 1,
+  "id": "gpt-engineer",
+  "name": "GPT Engineer",
+  "editor": "Anton Osika (projet ouvert)",
+  "oss": true,
+  "language": "Python",
+  "license": "MIT",
+  "repo": "https://github.com/AntonOsika/gpt-engineer",
+  "architecture": "Pipeline d'etapes LLM (pas de boucle ReAct) : gen_code (prompt -> blocs de fichiers) puis gen_entrypoint (script run.sh) puis execute_entrypoint / self_heal ; mode improve par diff unifie git avec validation/auto-correction des hunks (similarite de caracteres) et boucle de reprise sur erreurs de format ; etat = FilesDict en memoire + DiskMemory (K/V sur disque sous .gpteng/) ; instructions systeme externalisees en 9 fichiers 'preprompts' surchargeables par projet ; DiskExecutionEnv local (subprocess) ; banc d'essai (mbpp/gptme/apps) pilote par importlib sur un agent tiers.",
+  "entrypoints": [
+    "gpt-engineer / ge / gpte CLI (typer, applications/cli/main.py)",
+    "bench (banc d'essai, benchmark/__main__.py)",
+    "gpte_test_application (pyproject declare tests.caching_main:app -- fichier ABSENT du clone, entree cassee)",
+    "DefaultConfigAgent() / SimpleAgent (API Python, core/default/simple_agent.py)",
+    "importlib d'un fichier tiers exposant default_config_agent() (benchmark/__main__.py:43-60)"
+  ],
+  "functionalities": [
+    {
+      "id": "ge-step-pipeline",
+      "domain": "agents",
+      "name": "Pipeline d'etapes LLM injectables (pas de boucle ReAct)",
+      "what": "L'agent est un pipeline fixe de 2 a 3 etapes, chacune valant exactement UN appel LLM, et les fonctions d'etape sont injectables a la construction de l'agent.",
+      "how": "CliAgent prend code_gen_fn (gen_code), improve_fn et process_code_fn (execute_entrypoint) en parametres, typees par TypeVar (CodeGenType/CodeProcessor/ImproveType) ; init() enchaine code_gen_fn -> gen_entrypoint -> process_code_fn, improve() n'appelle que improve_fn (entreepoint/execution volontairement commentes) ; chaque etape separee par un prompt systeme distinct (roadmap+generate+philosophie vs roadmap+improve+philosophie vs entrypoint). Aucune decision de l'agent entre les etapes : pas de tool-calling, pas de boucle de raisonnement. Steps documentees dans l'en-tete du module (gen_code, gen_entrypoint, execute_entrypoint, improve).",
+      "omega_capability": "agent-loop",
+      "omega_port": "AgentLoop (pipeline d'etapes)",
+      "omega_adapter": "plugins/agent-loop (pipeline d'etapes explicite, sans boucle cachee)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "gpt_engineer/applications/cli/cli_agent.py:27-33",
+        "gpt_engineer/applications/cli/cli_agent.py:84-100",
+        "gpt_engineer/applications/cli/cli_agent.py:152-183",
+        "gpt_engineer/applications/cli/cli_agent.py:185-232",
+        "gpt_engineer/core/default/steps.py:1-31",
+        "gpt_engineer/core/default/simple_agent.py:27-88"
+      ]
+    },
+    {
+      "id": "ge-clarify-loop",
+      "domain": "agents",
+      "name": "Boucle de clarification avant generation (une question a la fois)",
+      "what": "Avant d'ecrire le moindre code, l'agent boucle en conversation : le modele pose UNE question de clarification a la fois, l'utilisateur repond, et la boucle se termine sur une formule de sortie ; le transcript de clarification est ensuite reinjecte dans le prompt de generation.",
+      "how": "clarified_gen (tools/custom_steps.py:122-195) boucle sur ai.next avec le preprompt 'clarify' ; sortie sur 'nothing to clarify' dans la reponse ou reponse commencant par 'no' ; l'entree 'c' (ou vide) signifie 'fais tes propres hypotheses', auquel cas un tour supplementaire impose 'Make your own assumptions and state them explicitly before starting' ; apres chaque question la consigne 'Is anything else unclear? ... Otherwise state: Nothing to clarify' est concatenee a la reponse utilisateur ; au terme de la boucle, messages = [SystemMessage(setup_sys_prompt)] + messages[1:] (le message de priming 'clarify' est ecarte, tout l'historique de clarification est conserve) puis un appel de generation. La vision est explicitement desactivee sur ce chemin (commentaire 'clarify does not work with vision right now').",
+      "omega_capability": "clarify-loop",
+      "omega_port": "ClarificationLoop (boucle humain <-> modele)",
+      "omega_adapter": "plugins/clarify-loop (sortie sur marqueur + hypotheses explicitees)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "gpt_engineer/tools/custom_steps.py:122-195",
+        "gpt_engineer/preprompts/clarify",
+        "gpt_engineer/applications/cli/main.py:304-309",
+        "gpt_engineer/applications/cli/main.py:483-488"
+      ]
+    },
+    {
+      "id": "ge-gen-from-chat",
+      "domain": "execution",
+      "name": "Generation de code : du chat aux fichiers (parsing + nettoyage de chemins)",
+      "what": "La generation produit une reponse chat contenant des blocs markdown ; un parseur regex transforme la reponse en dictionnaire chemin -> contenu, en nettoyant le nom de fichier.",
+      "how": "chat_to_files_dict (core/chat_to_files.py:38-66) applique la regex `(\\S+)\\n\\s*```[^\\n]*\\n(.+?)```` en DOTALL puis, pour chaque chemin : supprime [:<>\"\\|?*], decoche les crochets [ ] et les backticks, retire le `]`/`:` final, et fait strip() ; le resultat est un FilesDict dont __setitem__ refuse cle non str/Path et valeur non str (core/files_dict.py:29-53). Le prompt impose le format (preprompts/file_format : 'FILENAME\\n```\\nCODE\\n```') et la consigne de fin 'this concludes a fully working implementation'. Cote generation, le systeme est roadmap + generate(FILE_FORMAT -> file_format) + philosophy (core/default/steps.py:75-94).",
+      "omega_capability": "code-emitter",
+      "omega_port": "CodeEmitter (artefacts texte -> fichiers)",
+      "omega_adapter": "plugins/code-emitter (parseur blocs + assainissement de chemins)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "gpt_engineer/core/chat_to_files.py:38-66",
+        "gpt_engineer/core/files_dict.py:19-53",
+        "gpt_engineer/core/default/steps.py:75-94",
+        "gpt_engineer/core/default/steps.py:121-150",
+        "gpt_engineer/preprompts/file_format",
+        "gpt_engineer/preprompts/generate"
+      ]
+    },
+    {
+      "id": "ge-improve-diff-apply",
+      "domain": "execution",
+      "name": "Mode improve : edition par diff unifie git + application",
+      "what": "Le mode amelioration n'envoie jamais 'ecris le fichier' mais 'produis un diff unifie' ; le diff est parse, valide, corrige puis applique au dictionnaire de fichiers, avec rejeu du transcript complet en cas d'erreur de format.",
+      "how": "improve_fn (core/default/steps.py:271-312) construit [SystemMessage(roadmap+improve+philosophy), HumanMessage(files_dict.to_chat() numerote), HumanMessage(prompt)] puis appelle _improve_loop (:315-338) ; en cas d'erreurs, jusqu'a MAX_EDIT_REFINEMENT_STEPS=2 tours (core/default/constants.py:10) ou l'on renvoie au modele 'Some previously produced diffs were not on the requested format, or the code part was not found in the code. Details: ...' ; salvage_correct_hunks (:341-360) parse les blocs ```--- / +++ / @@``` via la bibliotheque `regex` avec TIMEOUT (diff_timeout=3s, protege le runtime), valide chaque hunk non-nouveau-fichier contre le fichier reel, puis apply_diffs (core/chat_to_files.py:69-120) reecrit le fichier ligne a ligne en marquant les suppressions par un sentinelle <REMOVE_LINE> ; les logs improve.txt et diff_errors.txt sont ecrits a chaque tour.",
+      "omega_capability": "patch-apply",
+      "omega_port": "PatchApplier (diff unifie -> arbre de travail)",
+      "omega_adapter": "plugins/patch-apply (diff unifie + timeout de parsing)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "gpt_engineer/core/default/steps.py:271-360",
+        "gpt_engineer/core/default/constants.py:1-10",
+        "gpt_engineer/core/chat_to_files.py:69-120",
+        "gpt_engineer/core/chat_to_files.py:123-161",
+        "gpt_engineer/core/chat_to_files.py:164-218",
+        "gpt_engineer/preprompts/improve"
+      ]
+    },
+    {
+      "id": "ge-hunk-validation",
+      "domain": "execution",
+      "name": "Validation + AUTO-correction des hunks (le coeur technique)",
+      "what": "Le diff produit par le LLM est verifie ligne a ligne contre le fichier reel ; les numeros de ligne errones sont retrouves, les lignes oubliees sont reinsertees, les commentaires inventes sont reetiquetes, les lignes parasites supprimees, et les hunks irrecuperables sont abandonnes au lieu de casser le fichier.",
+      "how": "core/diff.py : is_similar/count_ratio (:381-419) comparent deux lignes par RAPPORT DE MULTIPLICITE DES CARACTERES (espaces et casse ignores, seuil 0.9) -- pas de diff structurel. find_start_line (:133-198) : si la premiere ligne du hunk est un ADD, on cherche la premiere ligne non-ADD dans le fichier et on ancre le hunk une ligne avant ; sinon on cartographie tous les numeros de ligne candidats, et si aucun match mais que la ligne contient '#', la ligne est reetiquetee ADD (le LLM ecrit des commentaires qui n'existent pas) ; en cas de matchs multiples le TODO est assume (premiere occurrence gagnee). validate_lines (:200-286) : a chaque mismatch, trois blocs de contexte de 10 lignes sont compares (code reel / hunk / hunk+ ligne manquante / hunk sans la ligne fautive) et le meilleur ratio decide entre insertion d'une ligne RETAIN ou suppression d'une ligne ; le TODO documente l'ambiguite « ADD avant ou apres le bloc saute ? » (on met avant). Diff.validate_and_correct (:340-378) traite les hunks successifs avec fenetre decalee (cut_lines_dict), retire les hunks invalides de la liste, puis RECALCULE hunk_len_pre/post et start_line_post a partir des compteurs de categories. Hunk.is_new_file est deduit de l'absence de lignes RETAIN et REMOVE (:73-78). Tests : tests/core/test_chat_to_files.py:228-288 (distorsion de numeros, lignes sautees), tests/core/test_salvage_correct_hunks.py:46-62 (3 diffs reels issus de projets utilisateur).",
+      "omega_capability": "patch-validate",
+      "omega_port": "PatchValidator (validation + reparage deterministe)",
+      "omega_adapter": "plugins/patch-validate (reparage des hunks par similarite)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "gpt_engineer/core/diff.py:44-78",
+        "gpt_engineer/core/diff.py:133-198",
+        "gpt_engineer/core/diff.py:200-286",
+        "gpt_engineer/core/diff.py:288-309",
+        "gpt_engineer/core/diff.py:340-378",
+        "gpt_engineer/core/diff.py:381-419",
+        "tests/core/test_chat_to_files.py:228-288",
+        "tests/core/test_salvage_correct_hunks.py:46-62"
+      ]
+    },
+    {
+      "id": "ge-self-heal-loop",
+      "domain": "execution",
+      "name": "Self-healing : executer, capturer l'erreur, reparer, re-executer",
+      "what": "Apres generation, l'agent execute le projet produit ; si le code echoue, la sortie et l'erreur sont reinjectees dans un prompt de reparation, les patches sont appliques, et la boucle recommence jusqu'a 10 fois.",
+      "how": "tools/custom_steps.py:40-119 : la boucle `while attempts < MAX_SELF_HEAL_ATTEMPTS` (=10, :19) execute entrypoint via execution_env.popen (DiskExecutionEnv, non bloquant) puis p.communicate() pour recuperer stdout/stderr ; l'echec est declenche par returncode != 0 ET != 2 (le code 2 est traite comme un arret volontaire) ; le prompt de reparation est reconstruit a la volee : 'A program with this specification was requested: <prompt>, but running it produced the following output: <stdout> and the following errors: <stderr>. Please change it so that it fulfills the requirements.' ; la reparation passe par improve_fn (donc par le diff unifie). LIMITE OBSERVEE : `timed_out = False` est une constante assignee a chaque tour (:97) et `communicate()` est appele SANS timeout -> aucune limite de temps sur le processus genere ; et MAX_SELF_HEAL_ATTEMPTS n'a pas de limite de cout/token associee.",
+      "omega_capability": "self-healing",
+      "omega_port": "RepairLoop (execute -> erreur -> patch -> re-execute)",
+      "omega_adapter": "plugins/repair-loop (boucle autoréparatrice bornée + budget)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "gpt_engineer/tools/custom_steps.py:19-119",
+        "gpt_engineer/applications/cli/main.py:310-315",
+        "gpt_engineer/applications/cli/main.py:490-494",
+        "gpt_engineer/core/default/disk_execution_env.py:62-70"
+      ]
+    },
+    {
+      "id": "ge-entrypoint-synthesis",
+      "domain": "execution",
+      "name": "Entreepoint synthetise par le modele (run.sh) + env d'execution local",
+      "what": "Un second appel LLM deduit de la base de code un script d'execution unique (installe les dependances puis lance tout), et un environnement d'execution local uploade les fichiers et lance la commande en restituant stdout/stderr/returncode.",
+      "how": "gen_entrypoint (core/default/steps.py:153-202) envoie le preprompt 'entrypoint' (interdits : sudo, installation globale, placeholders) + files_dict.to_chat() et extrait TOUS les blocs fences en LES CONCATENANT dans un seul fichier ENTRYPOINT_FILE='run.sh' (core/default/paths.py:49) ; si l'utilisateur a fourni --entrypoint_prompt, il remplace le prompt par defaut. DiskExecutionEnv (core/default/disk_execution_env.py:36-111) delegue le stockage a FileStore (tempfile.mkdtemp prefixe 'gpt-engineer-' si aucun chemin), upload() ecrit l'arbre, run() fait subprocess.Popen(shell=True) et lit stdout/stderr ligne a ligne en les affichant, avec timeout optionnel (kill + TimeoutError) et piege KeyboardInterrupt (kill + message) ; popen() renvoie le Popen brut pour les boucles qui veulent piloter elles-memes. Aucun isolement : le shell est lance dans le repertoire de travail avec les privileges de l'utilisateur (seul garde-fou = la confirmation humaine de ge-exec-confirm-preview).",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend (run)",
+      "omega_adapter": "omega-sandbox::LocalSandboxBackend (run existe ; la synthese run.sh + upload restent a porter)",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "gpt_engineer/core/default/steps.py:153-268",
+        "gpt_engineer/core/default/disk_execution_env.py:36-111",
+        "gpt_engineer/core/default/file_store.py:10-62",
+        "gpt_engineer/core/default/paths.py:43-52",
+        "gpt_engineer/preprompts/entrypoint",
+        "omega/crates/omega-sandbox/src/backend.rs:19-47"
+      ]
+    },
+    {
+      "id": "ge-exec-confirm-preview",
+      "domain": "securite",
+      "name": "Double garde humain : confirmer avant d'executer, confirmer avant d'appliquer",
+      "what": "Aucune execution ni aucune ecriture n'est automatique : l'agent affiche la commande et attend, affiche un diff colore avant/apres et attend, et un refus restaure l'etat precedent.",
+      "how": "execute_entrypoint (core/default/steps.py:241-253) affiche la commande en rouge et exige 'Do you want to execute this code? (Y/n)' ; un refus court-circuite et renvoie files_dict inchange. Cote improve, main.py:525-541 compare l'avant (files_dict_before) et l'apres avec un unified_diff colorise (compare, :203-240), affiche 'Do you want to apply these changes?' (prompt_yesno, :232-240) et, en cas de refus, reassigne files_dict = files_dict_before. En amont, stage_uncommitted_to_git (core/git.py:71-85) git add les fichiers modifies non commites pour ne pas perdre le travail precedent. Les deux points d'arret sont de vrais ports de permission chez Omega (ExecPolicy/PermissionPolicy + ApprovalQueue) -- mais gpt-engineer n'a qu'un booléen, sans regles par ressource ni journalisation de la decision.",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy (evaluate action/ressource)",
+      "omega_adapter": "omega-sandbox::ApprovalQueue (file d'approbation ; il manque les 2 points d'arret distincts et l'annulation avec restauration)",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "gpt_engineer/core/default/steps.py:241-253",
+        "gpt_engineer/applications/cli/main.py:203-240",
+        "gpt_engineer/applications/cli/main.py:514-541",
+        "gpt_engineer/core/git.py:71-85",
+        "omega/crates/omega-sandbox/src/approvals.rs:56-162"
+      ]
+    },
+    {
+      "id": "ge-disk-memory-logs",
+      "domain": "memoire",
+      "name": "DiskMemory : base K/V sur disque + logs horodates + archive",
+      "what": "La 'memoire' est une base cle=valeur sur disque (cle = chemin relatif, valeur = contenu), qui refuse les ecritures hors racine, inline les images en data-URL base64, et journalise chaque etape dans des fichiers horodates archivables.",
+      "how": "core/default/disk_memory.py:36-326 : __setitem__ leve ValueError si la cle commence par '../' et TypeError si la valeur n'est pas str (:144-172) ; __getitem__ renvoie une data-URL base64 pour .png/.jpeg/.jpg (:81-114) ; __iter__ trie le rglob des fichiers (:198-214) ; log(key,val) append '\n<ISO8601>\n<val>\n' sous <path>/logs/<key> avec les memes gardes (:288-316) ; archive_logs() deplace logs/ vers logs_<timestamp> (:318-326) ; to_dict/to_json serialisent tout l'arbre pour le feedback (:264-286). Chemins : META_DATA_REL_PATH='.gpteng', MEMORY_REL_PATH='.gpteng/memory' (core/default/paths.py:43-44). A NOTER : ce n'est PAS une memoire semantique ni conversationnelle -- c'est un workspace + un journal texte ; aucune recherche, aucun vecteur, aucune revision de contenu.",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (recall/remember)",
+      "omega_adapter": "plugins/memory-fs (workspace K/V sur disque ; port MemoryStore existe mais AUCUN adaptateur dans le dépôt)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "gpt_engineer/core/default/disk_memory.py:36-326",
+        "gpt_engineer/core/default/paths.py:43-86",
+        "gpt_engineer/core/base_memory.py:1-15",
+        "gpt_engineer/core/default/steps.py:376-397"
+      ]
+    },
+    {
+      "id": "ge-preprompt-library",
+      "domain": "memoire",
+      "name": "Bibliotheque de prompts sur disque (9 fichiers) surchargeable par projet",
+      "what": "Les instructions systeme ne sont pas dans le code mais dans un repertoire de fichiers texte versionnables, surchargeables au niveau du projet, composes par nom et parametrables par substitution de jeton.",
+      "how": "PrepromptsHolder (core/preprompts_holder.py:7-29) lit tout le repertoire via DiskMemory et renvoie un dict {nom: texte} ; PREPROMPTS_PATH = gpt_engineer/preprompts (core/default/paths.py:52) contient clarify, entrypoint, file_format, file_format_diff, file_format_fix, generate, improve, philosophy, roadmap. Composition : setup_sys_prompt = roadmap + generate.replace('FILE_FORMAT', file_format) + '\\nUseful to know:\\n' + philosophy (core/default/steps.py:75-94) ; la variante improve utilise file_format_diff (:97-118). Surcharge : get_preprompts_path (main.py:173-200) copie les fichiers par defaut manquants dans <projet>/preprompts/ quand --use-custom-preprompts est passe -- aucun fichier existant n'est ecrase. C'est le mecanisme d'extension le plus simple et le plus sous-exploite du projet : ajouter un fichier = ajouter une capacite.",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "omega_adapter": "omega-context::SkillIndex (store existe ; il manque la composition par nom + la substitution de jeton FILE_FORMAT)",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "gpt_engineer/core/preprompts_holder.py:7-29",
+        "gpt_engineer/core/default/steps.py:75-118",
+        "gpt_engineer/applications/cli/main.py:173-200",
+        "gpt_engineer/core/default/paths.py:52",
+        "gpt_engineer/preprompts/roadmap",
+        "gpt_engineer/preprompts/philosophy",
+        "omega/crates/omega-context/src/skills.rs:66-140"
+      ]
+    },
+    {
+      "id": "ge-multimodal-prompt",
+      "domain": "contexte",
+      "name": "Prompt multimodal : texte + images en data-URL",
+      "what": "Le prompt n'est pas une chaine mais une liste de contenus types (texte + image_url), et le choix du modele tient compte de la capacite vision.",
+      "how": "core/prompt.py:6-44 : Prompt(text, image_urls, entrypoint_prompt) ; to_langchain_content() (:20-34) renvoie [{type:'text', text:'Request: ...'}] puis un bloc {type:'image_url', image_url:{url, detail:'low'}} par image. Les images sont chargees comme un DiskMemory du repertoire fourni par --image_directory (main.py:156-170) et get() renvoie une data-URL base64 (disk_memory.py:107-111) ; si le repertoire est vide ou absent -> ValueError. La capacite vision est deduite par HEURISTIQUE sur le nom du modele : 'vision-preview' in name, ou 'gpt-4-turbo' sans 'preview', ou 'claude' in name (ai.py:110-114) ; si le modele n'est pas considered vision, prompt.image_urls est mis a None SILENCIEUSEMENT (main.py:479-480) -- l'utilisateur ne voit pas que ses images ont ete jetees. Le comptage de tokens image imite les regles OpenAI (recadrage 2048/768, tuiles de 512 px a 170 tokens + 85 de base, token_usage.py:96-140).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (assemble)",
+      "omega_adapter": "omega-context::DefaultContextEngine (assemble existe ; il manque le canal multimodal image et le drop NON SILENCIEUX)",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "gpt_engineer/core/prompt.py:6-44",
+        "gpt_engineer/core/ai.py:110-114",
+        "gpt_engineer/applications/cli/main.py:156-170",
+        "gpt_engineer/applications/cli/main.py:478-480",
+        "gpt_engineer/core/default/disk_memory.py:107-111",
+        "gpt_engineer/core/token_usage.py:96-140"
+      ]
+    },
+    {
+      "id": "ge-numbered-file-context",
+      "domain": "contexte",
+      "name": "Serialisation numerotee du code pour le modele",
+      "what": "Le code envoye au modele est projete en lignes numerotees ('File: x' puis '1 ligne', '2 ligne'...), ce qui rend les numeros de ligne citables par le LLM et ancre les hunks de diff.",
+      "how": "core/files_dict.py:19-115 : FilesDict (dict a cles/valeurs str strictes) ; to_chat() (:55-72) transforme chaque fichier via file_to_lines_dict puis concatene 'File: {nom}' + '{n} {ligne}' dans un unique bloc fence ; file_to_lines_dict (:92-115) renvoie un OrderedDict indexe a partir de 1 (les lignes sont one-indexed, ce qui est indispensable car parse_hunk_header lit les @@ -n,m des diffs, core/chat_to_files.py:221-245). Utilise a deux endroits : le contexte du mode improve (steps.py:306) et le contexte de gen_entrypoint (steps.py:191, via files_dict.to_chat()). Le reverseur est chat_to_files_dict. Ce format est la convention qui rend possible toute la machinerie de validation de ge-hunk-validation.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (assemble)",
+      "omega_adapter": "omega-context::DefaultContextEngine (projection numerotee ; l'existant fait budget/compact, pas de projection ligne-a-ligne)",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "gpt_engineer/core/files_dict.py:19-115",
+        "gpt_engineer/core/default/steps.py:186-202",
+        "gpt_engineer/core/default/steps.py:305-312",
+        "gpt_engineer/core/chat_to_files.py:221-245"
+      ]
+    },
+    {
+      "id": "ge-file-picker-toml",
+      "domain": "contexte",
+      "name": "Selection de fichiers par TOML commente, ouverte dans l'editeur",
+      "what": "L'human decide quels fichiers entrent dans le contexte en editant un TOML ou chaque ligne porte un '#' de deselection ; le filtre respecte .gitignore et exclut les junk.",
+      "how": "applications/cli/file_selector.py : le fichier .gpteng/file_selection.toml est genere avec l'arbre complet ou chaque entree est commentee (COMMENT : 'Remove # to select a file or turn off linting'), puis ouvert dans l'editeur ($EDITOR ou gedit/notepad/nvim/write/nano/vim/emacs, :212-247) ; les lignes non commentees = fichiers selectionnes (:271-342). Filtrage : get_current_files (:379-416) saute les chemins contenant un segment commencant par '.', les dossiers IGNORE_FOLDERS={site-packages,node_modules,venv,__pycache__}, le fichier 'prompt', puis passe par filter_by_gitignore (git check-ignore --no-index --stdin) si le dossier est un depot git et hors de 'projects/'. Garde-fous : refus de 0 fichier (:311-315), avertissement si fichier introuvable ou non UTF-8 (:116-119), affichage de l'arbre final avec les repertoires parents ajoutes (make_tree, :419-540). La section [linting] du meme TOML pilote ge-lint-before-context.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextBudget (selection + budget de contexte)",
+      "omega_adapter": "plugins/context-file-picker (selection de fichiers versionnable + .gitignore)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "gpt_engineer/applications/cli/file_selector.py:53-64",
+        "gpt_engineer/applications/cli/file_selector.py:79-121",
+        "gpt_engineer/applications/cli/file_selector.py:123-210",
+        "gpt_engineer/applications/cli/file_selector.py:212-247",
+        "gpt_engineer/applications/cli/file_selector.py:271-342",
+        "gpt_engineer/applications/cli/file_selector.py:379-416",
+        "gpt_engineer/core/git.py:58-68"
+      ]
+    },
+    {
+      "id": "ge-lint-before-context",
+      "domain": "contexte",
+      "name": "Linting du code AVANT de l'envoyer au modele",
+      "what": "Le code selectionne est reformaté (black) avant d'etre envoye au modele : moins de tokens, et surtout des suggestions du LLM qui tombent sur du code a la forme attendue.",
+      "how": "core/linting.py:6-64 : Linting tient un registre extension -> linter (seul .py est enregistre) ; lint_python utilise black.format_str et absorbe silencieusement NothingChanged et toute exception (le contenu d'origine est rendu tel quel) ; lint_files dispatche par extension et journalise 'Linted X.' / 'No changes made for X.'. Appele via FileStore.linting (core/default/file_store.py:47-50) depuis le flux improve de main.py:517-523, seulement si FileSelector.is_linting est vrai ; la desactivation se fait dans le meme TOML de selection : [linting] linting = \"off\" (file_selector.py:63,171-180,296-305). L'idee est bonne et peu couteuse ; le point faible est l'absence de registre pour TS/JS/go/rust alors que le projet se veut multi-langages (tools/supported_languages.py:8-58 liste 15 langages).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (normalisation avant injection)",
+      "omega_adapter": "plugins/context-normalize (black + rustfmt, registre par extension)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "gpt_engineer/core/linting.py:6-64",
+        "gpt_engineer/core/default/file_store.py:47-50",
+        "gpt_engineer/applications/cli/main.py:517-523",
+        "gpt_engineer/applications/cli/file_selector.py:63",
+        "gpt_engineer/applications/cli/file_selector.py:296-305",
+        "gpt_engineer/tools/supported_languages.py:8-58"
+      ]
+    },
+    {
+      "id": "ge-token-cost-meter",
+      "domain": "observabilite",
+      "name": "Comptage de tokens et cout par etape (avec cout image)",
+      "what": "Chaque appel LLM enregistre ses tokens prompt/completion, ses cumuls et son cout USD, et le total est affiche en fin de run ou exporte en CSV.",
+      "how": "core/token_usage.py : Tokenizer (:67-94) utilise tiktoken.encoding_for_model pour gpt-3.5/4 sinon cl100k_base en repli ; num_tokens_from_messages (:142-177) ajoute 4 tokens de cadrage par message et 2 par reponse ; TokenUsageLog.update_log (:193-224) empile un enregistrement TokenUsage(step_name, in_step_*, total_*) a CHAQUE etape (step_name = nom de la fonction etape via curr_fn(), steps.py:63-72) ; usage_cost (:273-297) convertit via la table get_openai_token_cost_for_model de langchain et retourne None si le modele n'est pas OpenAI ; is_openai_model() (:251-260) gate l'affichage ; format_log (:237-249) produit un CSV. En fin de CLI : cout USD si modele OpenAI, '0.0 since we are using local LLM' si LOCAL_MODEL, sinon total tokens (main.py:552-557). Faiblesse : le cout depend d'une table tierce figee dans langchain, non du catalogue de modeles, et il n'y a aucun prefix-cache ni cache-read.",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink (emit)",
+      "omega_adapter": "omega-otel::{StdoutSink,FileSink}Sink + omega-otel::Provenance (emission par etape existe ; le cout se lit des couts du ModelRecord, pas d'une table de prix embarquee dans langchain)",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "gpt_engineer/core/token_usage.py:31-64",
+        "gpt_engineer/core/token_usage.py:67-94",
+        "gpt_engineer/core/token_usage.py:142-177",
+        "gpt_engineer/core/token_usage.py:180-249",
+        "gpt_engineer/core/token_usage.py:251-297",
+        "gpt_engineer/core/ai.py:245-247",
+        "gpt_engineer/applications/cli/main.py:552-557"
+      ]
+    },
+    {
+      "id": "ge-git-stage-guard",
+      "domain": "securite",
+      "name": "Garde git : stager les modifications non commitees avant d'ecraser",
+      "what": "Avant d'ecrire les fichiers, les modifications non commitees de l'utilisateur sont automatiquementAjoutees a l'index git, et le depot est initialise si besoin -- aucune ecriture n'est perdue.",
+      "how": "core/git.py:10-85 : is_git_installed (shutil.which), is_git_repo (git rev-parse --is-inside-work-tree), has_uncommitted_changes (git diff --exit-code), filter_files_with_uncommitted_changes (git diff --name-only croise avec le FilesDict), stage_files (git add) ; stage_uncommitted_to_git (:71-85) n'initialise un depot QUE si on n'est pas en mode improve (en improve le depot doit deja exister et on ne touche pas a son historique), puis stage uniquement les fichiers qui portent reellement des modifications et annonce la liste a l'utilisateur. Appele juste avant files.push(files_dict) (main.py:548-550). Ce n'est pas un snapshot versionne : pas de commit, pas de message, pas de possibilite de revenir en arriere a part 'git restore --staged'.",
+      "omega_capability": "vcs-snapshot",
+      "omega_port": "SnapshotStore (points de retour)",
+      "omega_adapter": "plugins/vcs-stage (points de retour par fichier avant ecriture)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "gpt_engineer/core/git.py:10-85",
+        "gpt_engineer/applications/cli/main.py:548-550",
+        "gpt_engineer/applications/cli/file_selector.py:413-414",
+        "tests/core/test_git.py:16-52"
+      ]
+    },
+    {
+      "id": "ge-project-toml-config",
+      "domain": "configuration",
+      "name": "gpt-engineer.toml : config projet a ecriture non destructive",
+      "what": "Une config TOML unique declare les commandes du projet (build/test/lint/format), les repertoires (base/src) et les schemas OpenAPI ; sa relecture-reecriture ne touche que les cles deja presentes ou differentes du defaut.",
+      "how": "core/project_config.py:11-158 : dataclasses _RunConfig/_PathsConfig/_GptEngineerAppConfig ; from_toml -> read_config (tomlkit, TOMLDocument conserve commentaires/format) ; to_toml (:122-151) recharge le document existant puis ecrit UNIQUEMENT les sections/cles 'k in config' ou 'v != default_config[k]', donc les commentaires et les cles inconnues de l'utilisateur survivent ; filter_none supprime None et les dicts vides parce que tomlkit refuse None. Le fichier exemple (project_config.py:13-31) montre [run] build/test/lint, [paths] base/src (utile monorepo) et [gptengineer-app] project_id + openapi[] (schemas OpenAI multi-sources injectes comme contexte). BenchConfig (:bench_config.py:9-69) relit le meme fichier pour les indexes de benchmark. Aucun mecanisme de couches ni de precedence : une seule source, resolue par le code appelant.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (couches + precedence)",
+      "omega_adapter": "omega-config (LayeredConfig + precedence ; il manque l'ecriture non destructive + le schema run/paths)",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "gpt_engineer/core/project_config.py:11-158",
+        "gpt_engineer/benchmark/bench_config.py:9-69",
+        "gpt_engineer/benchmark/default_bench_config.toml",
+        "omega/crates/omega-config/src/lib.rs:23-95",
+        "omega/crates/omega-config/src/loader.rs:29-56"
+      ]
+    },
+    {
+      "id": "ge-cli-mode-matrix",
+      "domain": "ui",
+      "name": "CLI typer : matrice de modes et options (surface d'entree complete)",
+      "what": "Une seule commande expose les quatre modes (generer / improve / lite / clarify), le self-heal, et une vingtaine d'options qui rendre le run reproductible ou degradable.",
+      "how": "applications/cli/main.py:271-381 (options) et :431-557 (assemblage) : --model (defaut env MODEL_NAME ou gpt-4o), --temperature, --improve/-i, --lite/-l (generation avec le seul prompt de format), --clarify/-c, --self-heal/-sh, --azure, --use-custom-preprompts, --llm-via-clipboard, --prompt_file (defaut 'prompt'), --entrypoint_prompt, --image_directory, --use_cache (SQLiteCache langchain, main.py:449-450), --skip-file-selection/-s, --no_execution (dry-run : setup sans appel LLM), --sysinfo (OS + version + pip list --format=json, :243-268), --verbose/-v, --debug/-d (sys.excepthook = pdb.pm), --diff_timeout (defaut 3). Incompatibilites explicitement refusees : improve + (clarify|lite) (:443-445, :451-454). Les fonctions de generation et d'execution sont choisies par ternaire (code_gen_fn = clarified_gen | lite_gen | gen_code, :483-488 ; execution_fn = self_heal | execute_entrypoint, :490-494) puis injectees dans CliAgent (:504-512). Aucun sous-agent, aucune session, aucune reprise : tout tient dans un processus et un dossier de projet.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-server::main (cockpit React + /api/run sur 127.0.0.1:8787 -- meme role, pas les memes options)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "gpt_engineer/applications/cli/main.py:271-381",
+        "gpt_engineer/applications/cli/main.py:431-557",
+        "gpt_engineer/applications/cli/main.py:243-268",
+        "gpt_engineer/applications/cli/main.py:449-450",
+        "pyproject.toml:83-89"
+      ]
+    },
+    {
+      "id": "ge-benchmark-harness",
+      "domain": "observabilite",
+      "name": "Banc d'essai : Tache/Assertion/Assertable + agent charge par importlib",
+      "what": "Un banc minimaliste mesure un agent sur des jeux de taches (apps, mbpp, gptme) : on part d'un code initial, on applique un prompt, on execute, et des assertions Python arbitraires rendent un booleen.",
+      "how": "benchmark/types.py:32-94 : Assertable{files, env, process, stdout, stderr}, Assertion = Callable[[Assertable], bool], Task{name, initial_code, command, prompt, assertions}, Benchmark{name, tasks, timeout}, TaskResult.success_rate = fraction d'assertions vraies + to_dict qui ajoute 'solved' ; benchmark/run.py:26-87 appelle agent.improve(task.initial_code, task.prompt), chronometre, upload dans un DiskExecutionEnv NEUF, execute task.command avec timeout, puis evalue toutes les assertions ; print_results (:90-136) agregit taux de reussite et nombre de taches entierement correctes ; export_yaml_results (:139-150) ajoute fully_solved par jeu. Chargement d'un agent tiers : benchmark/__main__.py:43-60 fait sys.path.append + importlib.import_module sur le chemin du fichier et appelle default_config_agent() -- donc n'importe quel agent conforme au protocole BaseAgent (init/improve, core/base_agent.py:17-31) est evaluable. Assertions d'exemple : mbpp execute 'main.py + assertion' dans un env neuf avec timeout 2s et juge succes = stderr vide (benchmarks/mbpp/load.py:29-49) ; gptme utilise des lambdas sur stdout et contenu de fichier (benchmarks/gptme/load.py:19-43). Selection et fenetrage par jeu dans un TOML (BenchConfig).",
+      "omega_capability": "eval-harness",
+      "omega_port": "BenchmarkRunner (taches + assertions + agregats)",
+      "omega_adapter": "omega-eval-harness (runner de taches, assertions et taux de reussite)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "gpt_engineer/benchmark/types.py:32-94",
+        "gpt_engineer/benchmark/run.py:26-150",
+        "gpt_engineer/benchmark/__main__.py:43-151",
+        "gpt_engineer/benchmark/benchmarks/mbpp/load.py:29-49",
+        "gpt_engineer/benchmark/benchmarks/gptme/load.py:19-43",
+        "gpt_engineer/core/base_agent.py:17-31"
+      ]
+    },
+    {
+      "id": "ge-consent-telemetry",
+      "domain": "observabilite",
+      "name": "Telemetrie RudderStack avec consentement et revue humaine (ECARTE)",
+      "what": "Apres chaque generation, trois questions (le code a-t-il tourne ? a-t-il tout fait ? a-t-il servi ?) plus un commentaire libre sont envoyes, avec le prompt, le modele, la temperature et TOUS les logs, a un endpoint RudderStack tiers.",
+      "how": "applications/cli/learning.py : le consentement est demande une fois et persiste dans le fichier .gpte_consent ('true' = opto, suppression du fichier = retrait) (:183-234) ; human_review_input (:122-174) enchaîne ran -> perfect -> works (y/n/u) puis un commentaire ; get_session (:279-301) fabrique un user_id aleatoire persistant dans le tmpdir ; extract_learning (:237-276) empaquete prompt, model, temperature, config et logs=memory.to_json() (TOUT l'arbre de fichiers) ; collect.py:37-124 envoie via rudderstack.analytics.track vers gptengineerezm.dataplane.rudderstack.com avec une write_key en dur dans le code, et rogne le payload a 32 KB (taille max de l'evenement) avant un nouvel essai. ECART CHEZ OMEGA : l'envoi de prompts, de logs et du code d'un utilisateur a un tiers est incompatible avec le principe 'le calcul va au systeme, pas chez le tiers' et avec la provenance locale ; on garde l'IDEe (revue structuree ran/perfect/works/commentaires) mais comme journal local et comme signal de scoring, jamais comme exfiltration.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "rejected",
+      "status": "rejected",
+      "rust_cost": "S",
+      "refs": [
+        "gpt_engineer/applications/cli/learning.py:46-110",
+        "gpt_engineer/applications/cli/learning.py:122-234",
+        "gpt_engineer/applications/cli/learning.py:279-301",
+        "gpt_engineer/applications/cli/collect.py:37-124",
+        "gpt_engineer/applications/cli/main.py:544-546",
+        "gpt_engineer/applications/cli/main.py:71-91"
+      ]
+    }
+  ]
+}

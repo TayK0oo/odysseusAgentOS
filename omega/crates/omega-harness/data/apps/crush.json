@@ -1,0 +1,511 @@
+{
+  "schema_version": 1,
+  "id": "crush",
+  "name": "Crush",
+  "editor": "Charm",
+  "oss": true,
+  "language": "Go",
+  "license": "FSL-1.1-MIT",
+  "repo": "https://github.com/charmbracelet/crush",
+  "architecture": "Application Go monolithique en couches (internal/*) : un noyau d'agent construit sur la librairie `charm.land/fantasy` (agent bouclé, tools, providers) orchestré par un `coordinator`, des services persistés en SQLite/sqlc (sessions, messages, filetracker), une config en couches interprétant un `crushrc` Bash, et deux surfaces de transport : une TUI Bubble Tea et un serveur HTTP (`crush serve`) qui expose la même logique via une API v1 générée + SSE, avec des `workspaces` partagés par cwd. Le catalogue de providers/modèles est déporté dans `charm.land/catwalk` (auto-update), et les capacités s'étendent par MCP (stdio/http/sse + OAuth), LSP et Agent Skills.",
+  "entrypoints": [
+    "crush (TUI interactive, internal/cmd/root.go)",
+    "crush run (exécution non interactive, internal/cmd/run.go)",
+    "crush serve (serveur HTTP + API v1 + SSE)",
+    "crush logs / crush update-providers / crush projects / crush models (CLI d'administration)",
+    "crush auth / crush login / crush logout (OAuth providers et MCP)",
+    "points d'extension : MCP (stdio/http/sse), LSP, hooks shell, Agent Skills, fournisseurs custom OpenAI/Anthropic-compat"
+  ],
+  "functionalities": [
+    {
+      "id": "crush-code-agent-tui",
+      "domain": "ui",
+      "name": "TUI d'agent de code (Bubble Tea + mode client/serve)",
+      "what": "Interface terminal complète de l'agent de code : saisie, palette de commandes, sélecteur de modèle, gestionnaire de sessions, affichage des appels d'outils/permissions et notifications ; un mode client/serve délègue toute la logique au serveur HTTP.",
+      "how": "main.go:10 cmd.Execute() ; commandes cobra (internal/cmd/root.go:187) ; mode client/serve : le TUI parle au serveur (root.go:366 setupClientServerWorkspace, root.go:388 connectToServer) ; exécution détachée : POST /agent renvoie 202 et la run survit à la déconnexion du client (server/endpoints.go:304-314) ; UI Bubble Tea/Lipgloss (internal/ui/model/ui.go) ; pprof optionnel via CRUSH_PROFILE (main.go:14).",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "main.go:10-19",
+        "internal/cmd/root.go:187",
+        "internal/cmd/run.go:180",
+        "internal/server/endpoints.go:304-314",
+        "internal/ui/model/ui.go"
+      ],
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null
+    },
+    {
+      "id": "crush-sessions-persistence",
+      "domain": "memoire",
+      "name": "Sessions persistées (SQLite/sqlc) + bus d'événements",
+      "what": "Plusieurs sessions de travail par projet : création/suppression/renommage, titre, compteurs de tokens et coût, todos, canal d'origine, et publication d'événements pour les clients connectés.",
+      "how": "internal/session/session.go:51 struct Session ; :67 interface Service ; persistance SQLite via sqlc (internal/db, session.go:417 NewService) ; publication pubsub (session.go:102 Create -> Publish) ; sessions dérivées pour les sous-agents (session.go:116 CreateTaskSession, :428 CreateAgentToolSessionID) ; mise à jour titre+usage (session.go:252).",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "omega_adapter": "omega-app::{File,InMemory}EventStore",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "internal/session/session.go:51",
+        "internal/session/session.go:67",
+        "internal/session/session.go:417",
+        "internal/db"
+      ]
+    },
+    {
+      "id": "crush-file-tools",
+      "domain": "outils",
+      "name": "Outils fichiers (view/write/edit/multiedit/ls/glob/grep)",
+      "what": "Lecture, écriture et édition de fichiers avec numérotation des lignes, édition multi-opérations atomique, gestion CRLF/encodage, liste/navigation et recherche de contenu, avec suivi des fichiers lus et historique d'édition.",
+      "how": "tools/view.go:90 NewViewTool ; tools/write.go:46 NewWriteTool ; tools/edit.go:58 NewEditTool (findAndReplace:201, correction whitespace) ; tools/multiedit.go:59 NewMultiEditTool (opérations séquentielles, FailedEdit) ; tools/glob.go:53 / tools/grep.go:124 / tools/ls.go ; filetracker/service.go:38 RecordRead ; chaque outil passe par permission.Request.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "internal/agent/tools/view.go:90",
+        "internal/agent/tools/edit.go:58",
+        "internal/agent/tools/multiedit.go:59",
+        "internal/agent/tools/write.go:46",
+        "internal/filetracker/service.go:38"
+      ]
+    },
+    {
+      "id": "crush-shell-tool",
+      "domain": "execution",
+      "name": "Exécution shell + jobs d'arrière-plan",
+      "what": "Outil bash : allowlist de commandes sûres en lecture seule, demande de permission sinon, exécution synchrone ou détachée en arrière-plan, bascule automatique en arrière-plan sur longue durée, spill des sorties trop longues et gestion des jobs (output/kill).",
+      "how": "tools/bash.go:198 NewBashTool ; safeCommands + containsCommandChaining (bash.go:166 blockFuncs) ; permission.Request (bash.go:242) ; BackgroundShellManager (shell/background.go:91 Start, :216 KillAll) ; tools/job_output.go:33 et tools/job_kill.go:29 ; DefaultAutoBackgroundAfter ; spill des sorties (formatOutput:389, TruncateOutput:429). Non adopté : l'allowlist de commandes sûres et les jobs d'arrière-plan n'existent pas encore chez nous.",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "omega_adapter": "omega-sandbox::{RuleBasedExecPolicy,LocalSandboxBackend}",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "internal/agent/tools/bash.go:198",
+        "internal/agent/tools/bash.go:242",
+        "internal/shell/background.go:91",
+        "internal/agent/tools/job_output.go:33",
+        "internal/agent/tools/job_kill.go:29"
+      ]
+    },
+    {
+      "id": "crush-permission-queue",
+      "domain": "securite",
+      "name": "File de permissions allow/deny + grants persistants par session",
+      "what": "Chaque appel d'outil non allowlisté déclenche une demande à l'utilisateur ; grants persistants par session (clé session+outil+action+chemin), auto-approbation par session, mode skip (--yolo), pré-approbation par hook, et une seule requête active résolue au premier arrivé.",
+      "how": "permission/permission.go:188 Request ; :135 resolve (premier arrivé gagne, notification exactement-une) ; :165 GrantPersistent ; :184 Deny ; :309 AutoApproveSession ; :319 SetSkipRequests ; pré-approbation hook via WithHookApproval:24 ; clé PermissionKey:94 ; allowlist allowedTools:195.",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "internal/permission/permission.go:188",
+        "internal/permission/permission.go:135",
+        "internal/permission/permission.go:165",
+        "internal/permission/permission.go:309"
+      ]
+    },
+    {
+      "id": "crush-lsp-tools",
+      "domain": "outils",
+      "name": "Pont LSP (8 outils) + gestionnaire de serveurs",
+      "what": "Gestionnaire de clients LSP auto-démarrés selon le type de fichier et les marqueurs de racine, avec huit outils : diagnostics, références, symboles, définition, hiérarchie d'appel, renommage, remplacement de symbole et redémarrage.",
+      "how": "lsp/manager.go:38 NewManager ; :104 Start ; :253 canAutoStart (fileTypes + root markers) ; :383 StopAll ; outils lsp_definition.go:34, lsp_symbols.go:23, lsp_call_hierarchy.go:25, lsp_rename.go:32, lsp_replace_symbol.go:46, lsp_restart.go:27, diagnostics.go:27 ; résolution de symbole partagée lsp_helpers.go:28 ; config LSPConfig (config.go:330) ; auto-lsp optionnel.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "plugins/lsp-bridge",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "internal/lsp/manager.go:38",
+        "internal/lsp/manager.go:253",
+        "internal/agent/tools/lsp_definition.go:34",
+        "internal/agent/tools/lsp_helpers.go:28",
+        "internal/config/config.go:330"
+      ]
+    },
+    {
+      "id": "crush-mcp-integration",
+      "domain": "outils",
+      "name": "Intégration MCP (stdio/http/sse + OAuth + sessionless)",
+      "what": "Client MCP multi-transport, OAuth 2.1 (enregistrement dynamique ou client pré-enregistré), détection des serveurs sessionless, filtrage d'outils par serveur, et rafraîchissement des outils/prompts/ressources.",
+      "how": "config/config.go:217 MCPConfig (Command/Args/Env/URL/Type/OAuth*/Sessionless) ; tools/mcp/init.go:338 Initialize, :642 connectAndRegister, :701 SetConfigDisabled ; tools/mcp/tools.go:113 RefreshTools, :180 filterTools (enabled/disabled tools) ; OAuth dynamique RFC 7591 et clients pré-enregistrés (README:436-478) ; sessionless auto-détecté (config.go:638 IsSessionless) ; SDK modelcontextprotocol/go-sdk v1.7.1.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "omega-mcp::McpToolSurface",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "internal/config/config.go:217",
+        "internal/agent/tools/mcp/init.go:338",
+        "internal/agent/tools/mcp/tools.go:113",
+        "go.mod:50"
+      ]
+    },
+    {
+      "id": "crush-provider-catalog",
+      "domain": "routage",
+      "name": "Catalogue multi-fournisseurs + auto-update Catwalk + découverte locale",
+      "what": "Registre de fournisseurs (OpenAI, Anthropic, OpenAI-compat, Ollama, Bedrock, Vertex, Copilot, Grok...), catalogue de modèles auto-mis à jour depuis Catwalk, découverte automatique des modèles locaux (ollama/llamacpp/lmstudio/litellm/omlx) et bascule de modèle en cours de session.",
+      "how": "config/provider.go:42 UpdateProviders (défaut catwalk.charm.land, CATWALK_URL, embedded) ; config/catwalk.go:31 catwalkSync (cache, ErrNotModified) ; coordinator.go:1319 buildProvider (construction par type) ; discover/discover.go:107 DiscoverModels + enrichers par provider (discover/ollama.go, llamacpp.go, lmstudio.go, litellm.go, omlx.go) ; SelectedModel large/small (config.go:1020) ; merge manuel/découvert (README:884-905). Partiel : nous n'avons aujourd'hui qu'Ollama, pas le scoring multi-fournisseurs.",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider",
+      "omega_adapter": "omega-providers::{OllamaProvider,OllamaCatalogSource}",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "L",
+      "refs": [
+        "internal/config/provider.go:42",
+        "internal/config/catwalk.go:31",
+        "internal/agent/coordinator.go:1319",
+        "internal/discover/discover.go:107",
+        "internal/config/config.go:1020"
+      ]
+    },
+    {
+      "id": "crush-config-layers",
+      "domain": "configuration",
+      "name": "Configuration en couches (crushrc/JSON global/workspace)",
+      "what": "Configuration hiérarchique : projet (./.crushrc, ./crushrc), global, répertoire de données et workspace ; écrasement du workspace en dernier ; écriture atomique ; portée globale vs workspace ; résolution de variables ($VAR et $(cmd)).",
+      "how": "load.go:946 lookupConfigs (ordre de précédence), :981 loadFromConfigPaths (fusion), workspace chargé en dernier (load.go:64-80) ; config/scope.go:12 Scope ; store.go:301 atomicWrite, :360 SetConfigField, :433 update ; ConfigStore (store.go:92) ; isShellConfig:1226 ; résolution par VariableResolver.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "omega_adapter": "omega-config (LayeredConfig + precedence)",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "internal/config/load.go:946",
+        "internal/config/load.go:981",
+        "internal/config/scope.go:12",
+        "internal/config/store.go:301"
+      ]
+    },
+    {
+      "id": "crush-compaction",
+      "domain": "contexte",
+      "name": "Compaction automatique (seuil + résumé structuré + reprise)",
+      "what": "Résumé automatique de la session quand le budget de contexte est dépassé : message de résumé structuré, ne relit ensuite que la queue depuis le résumé, puis réinjecte la requête initiale pour continuer la tâche.",
+      "how": "agent.go:1119 seuil (largeContextWindowBuffer, sinon ratio de la fenêtre ; fenêtre inconnue = pas de résumé) ; agent.go:1370 Summarize (message assistant IsSummaryMessage, reasoning en streaming) ; getSessionMessages:1716 lit seulement la queue depuis SummaryMessageID ; templates/summary.md (buildSummaryPrompt avec todos) ; agent.go:1232 réinjecte le prompt initial ; option DisableAutoSummarize.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextBudget",
+      "omega_adapter": "omega-context::{DefaultContextEngine,ContextBudget}",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "internal/agent/agent.go:1119",
+        "internal/agent/agent.go:1370",
+        "internal/agent/agent.go:1716",
+        "internal/agent/templates/summary.md"
+      ]
+    },
+    {
+      "id": "crush-declarative-agents",
+      "domain": "agents",
+      "name": "Agents déclaratifs (coder/task/plan + masques d'outils)",
+      "what": "Trois agents intégrés : Coder (tous les outils), Task (lecture seule, sans MCP ni LSP) et Plan (analyse sans écriture), avec outils désactivables globalement et MCP autorisés par agent.",
+      "how": "config.go:1116 SetupAgents ; config.go:1038 allToolNames ; resolveReadOnlyTools:1080 ; resolvePlanTools:1086 ; resolveAllowedTools:1072 (exclusion) ; AllowedMCP par agent (coordinator.go:936) ; prompts coder.md.tpl / task.md.tpl / plan.md.tpl.",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore",
+      "omega_adapter": "plugins/agent-declarative",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "internal/config/config.go:1116",
+        "internal/config/config.go:1080",
+        "internal/config/config.go:1086",
+        "internal/agent/coordinator.go:936"
+      ]
+    },
+    {
+      "id": "crush-subagents",
+      "domain": "agents",
+      "name": "Sous-agents isolés (outil `agent`)",
+      "what": "Délégation parallèle à un agent Task avec sous-session isolée (contexte propre), identifiant encodant message+appel d'outil, coût remonté à la session parente, et sans interception des hooks.",
+      "how": "agent_tool.go:1 agentTool (fantasy.NewParallelAgentTool) ; coordinator.go:1665 runSubAgent ; CreateTaskSession:116 avec ID encodé (session.go:428 CreateAgentToolSessionID) ; updateParentSessionCost:1745 ; les sous-agents tournent sans hooks (coordinator.go:965 wrapToolsWithHooks) ; sortie texte uniquement (subAgentOutput:1737).",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner",
+      "omega_adapter": "plugins/subagent-isolated",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "internal/agent/agent_tool.go:1",
+        "internal/agent/coordinator.go:1665",
+        "internal/agent/coordinator.go:1745",
+        "internal/session/session.go:428"
+      ]
+    },
+    {
+      "id": "crush-hooks",
+      "domain": "automatisation",
+      "name": "Hooks shell (PreToolUse/PostToolUse) à décision",
+      "what": "Hooks shell configurables par événement et par outil, capables de décider allow/deny/ask, avec agrégation multi-hooks, payload JSON + variables d'environnement + stdin, et compatibilité de sortie Claude Code.",
+      "how": "hooks/runner.go:90 Run ; hooks/hooks.go:46 Decision ; :94 aggregate ; input.go:32 BuildPayload, :53 BuildEnv ; parseDecision:202 ; config HookConfig (config.go:817) ; matchers par nom d'outil (runner.go:146) ; pré-approbation consommée par la permission (permission.go:24).",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "omega_adapter": "plugins/hooks-runner",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "internal/hooks/runner.go:90",
+        "internal/hooks/hooks.go:46",
+        "internal/hooks/input.go:32",
+        "internal/config/config.go:817"
+      ]
+    },
+    {
+      "id": "crush-skills",
+      "domain": "extension",
+      "name": "Agent Skills (SKILL.md) multi-chemins + invocation",
+      "what": "Découverte de compétences au standard Agent Skills (dossier contenant un SKILL.md), sur de multiples chemins globaux et projet, frontmatter `user-invocable` et `disable-model-invocation`, skills intégrées, et injection en bloc XML dans le prompt.",
+      "how": "skills/skills.go:149 Parse, :213 Discover, :299 ToPromptXML (ignore les disable-model-invocation:307) ; skills/manager.go:173 DiscoverFromConfig ; frontmatter UserInvocable/DisableModelInvocation (skills.go:41-42) ; skills intégrées (internal/skills/builtin : crush-config, crush-hooks, jq) ; chemins (CRUSH_SKILLS_DIR, XDG agents/crush/skills, .agents/.crush/.claude/.cursor/skills).",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore",
+      "omega_adapter": "omega-context::SkillIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "internal/skills/skills.go:213",
+        "internal/skills/skills.go:299",
+        "internal/skills/manager.go:173",
+        "internal/skills/builtin"
+      ]
+    },
+    {
+      "id": "crush-channels",
+      "domain": "automatisation",
+      "name": "Canaux MCP entrants + réponses automatiques",
+      "what": "Un serveur MCP peut servir de canal : les messages entrants sont routés vers une session, et la réponse finale est renvoyée automatiquement via un outil désigné, avec lecture des métadonnées de cible (utilisateur/groupe).",
+      "how": "backend/channels.go:35 startChannelRouter, :53 routeChannelMessage ; channelreply.go:78 resolveChannelReply, :47 parseChannelMeta, :245 sendChannelReply ; config MCPConfig.ChannelEnabled/ChannelReply (config.go:295) ; MCPChannelReplyRoute (config.go:311).",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "omega_adapter": "plugins/channel-router",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "internal/backend/channels.go:35",
+        "internal/agent/channelreply.go:78",
+        "internal/config/config.go:295"
+      ]
+    },
+    {
+      "id": "crush-telemetry",
+      "domain": "observabilite",
+      "name": "Télémétrie pseudonyme (PostHog) opt-out",
+      "what": "Métriques d'usage pseudonymes (hash d'appareil) avec catalogue d'événements typés, opt-out via CRUSH_DISABLE_METRICS et DO_NOT_TRACK, et garantie que prompts et réponses ne sont jamais collectés.",
+      "how": "event/event.go:84 send (posthog) ; event/all.go (AppInitialized, PromptSent, TokensUsed...) ; event/identifier.go:20 getDistinctId (hash d'adresse MAC) ; opt-out documenté (README:988-1006) ; preuve REA : 15 nœuds / 15 arêtes.",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "omega_adapter": "omega-otel::{Stdout,File}Sink",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "internal/event/event.go:84",
+        "internal/event/all.go",
+        "internal/event/identifier.go:20",
+        "README.md:988-1006"
+      ]
+    },
+    {
+      "id": "crush-server-protocol",
+      "domain": "execution",
+      "name": "Serveur HTTP + API v1/OpenAPI + SSE",
+      "what": "Serveur HTTP qui expose workspaces, sessions, agent, config, skills, MCP, LSP, permissions, filetracker et questions via une API v1 générée, sert une documentation OpenAPI, et diffuse les événements en SSE avec contrôle d'arrêt conditionnel.",
+      "how": "server/endpoints.go:11 endpoints() (source unique qui pilote à la fois l'enregistrement du mux et les docs /v1/docs) ; server/server.go ; types générés (internal/proto) ; client/client.go ; SSE /v1/workspaces/{id}/events:103 ; POST /agent 202 détaché:304 ; POST /control shutdown_if_idle:24.",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "internal/server/endpoints.go:11",
+        "internal/server/server.go",
+        "internal/server/events.go:103",
+        "internal/client/client.go"
+      ],
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null
+    },
+    {
+      "id": "crush-workspace-sharing",
+      "domain": "execution",
+      "name": "Workspaces partagés par cwd (multi-clients)",
+      "what": "Plusieurs clients pointant sur le même --cwd rejoignent le même workspace : liste de sessions, file de permissions, LSP et MCP partagés ; drapeaux --yolo/--debug en first-wins ; teardown au dernier flux SSE avec fenêtre de grâce.",
+      "how": "README:499-531 (workspaces keyés par --cwd résolu) ; backend/channels.go:120 channelTargetSession, :170 viewedSessions ; internal/backend/workspace.go ; attach implicite ; signaux IsBusy/AttachedClients (server/events.go:296-313).",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "omega_adapter": "plugins/workspace-router",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "README.md:499-531",
+        "internal/backend/channels.go:120",
+        "internal/server/events.go:296",
+        "internal/backend/workspace.go"
+      ]
+    },
+    {
+      "id": "crush-filetracker",
+      "domain": "memoire",
+      "name": "Suivi des fichiers lus par session",
+      "what": "Enregistrement, par session, des fichiers lus et de leur dernière date de lecture, exposé via l'API pour piloter le contexte et la détection de modifications.",
+      "how": "filetracker/service.go:38 RecordRead, :49 LastReadTime, :77 ListReadFiles ; API /filetracker/read et /filetracker/lastread (server/endpoints.go:206-221) ; utilisé par les outils view/edit.",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "omega_adapter": "omega-app::FileEventStore",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "internal/filetracker/service.go:38",
+        "internal/filetracker/service.go:49",
+        "internal/server/endpoints.go:206"
+      ]
+    },
+    {
+      "id": "crush-git-context",
+      "domain": "contexte",
+      "name": "Contexte git injecté + init du fichier projet + attribution",
+      "what": "Statut git, branche et commits récents injectés dans le prompt ; génération d'un fichier de contexte projet (AGENTS.md) à l'initialisation ; attribution des commits/PR créés.",
+      "how": "agent/prompt/prompt.go:241 getGitStatus, :261 getGitBranch, :281 getGitRecentCommits, :221 injection dans PromptDat ; InitializePrompt (agent/prompts.go:47) ; Attribution (config/config.go:443) ; trailers assisted-by/co-authored-by (README:718-734).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::ContextContributor",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "internal/agent/prompt/prompt.go:241",
+        "internal/agent/prompt/prompt.go:281",
+        "internal/agent/prompts.go:47",
+        "internal/config/config.go:443"
+      ]
+    },
+    {
+      "id": "crush-todos",
+      "domain": "agents",
+      "name": "Liste de tâches (todos) par session",
+      "what": "Outil `todos` persistant par session ; la présence de tâches incomplètes pilote la continuation de l'agent et alimente le résumé.",
+      "how": "session/session.go:35 Todo, :42 HasIncompleteTodos, :346 marshalTodos ; tools/todos.go:36 NewTodosTool ; injecté dans buildSummaryPrompt (agent.go:1417).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "plugins/todos",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "internal/session/session.go:35",
+        "internal/agent/tools/todos.go:36",
+        "internal/agent/agent.go:1417"
+      ]
+    },
+    {
+      "id": "crush-question-tool",
+      "domain": "agents",
+      "name": "Outil de question interactive (batch)",
+      "what": "L'agent peut poser une question à l'utilisateur sous forme de batch de choix, uniquement en mode interactif et jamais dans les sous-agents.",
+      "how": "tools/question.go:83 NewQuestionTool ; QuestionItem/QuestionChoice:58-76 ; formatAnswers:148 ; exclus du mode non interactif et des sous-agents (coordinator.go:913).",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "plugins/question",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "internal/agent/tools/question.go:83",
+        "internal/agent/tools/question.go:58",
+        "internal/agent/coordinator.go:913"
+      ]
+    },
+    {
+      "id": "crush-self-update",
+      "domain": "configuration",
+      "name": "Auto-vérification de version (GitHub Releases)",
+      "what": "Vérification de la dernière version publiée via GitHub Releases et information de développement, comparée à la version courante.",
+      "how": "update/update.go:15 githubApiUrl, :20 Default client GitHub, :58 Check (comparatif Current/Latest) ; info IsDevelopment:33, Available:43 ; distribution via goreleaser (.goreleaser.yml).",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "internal/update/update.go:15",
+        "internal/update/update.go:58",
+        ".goreleaser.yml"
+      ],
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null
+    },
+    {
+      "id": "crush-logging",
+      "domain": "observabilite",
+      "name": "Journaux locaux projet (.crush/logs/crush.log) + CLI",
+      "what": "Journaux applicatifs locaux par projet, consultables via `crush logs` (--tail, --follow), avec options de debug et debug LSP.",
+      "how": "cmd/logs.go:58 logsFile (DataDirectory/logs/crush.log) ; README:907-932 ; options debug et debug-lsp.",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "omega_adapter": "omega-otel::FileSink",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "internal/cmd/logs.go:58",
+        "README.md:907-932"
+      ]
+    },
+    {
+      "id": "crush-loop-detection",
+      "domain": "contexte",
+      "name": "Détection de boucles d'appels d'outils",
+      "what": "Arrêt de la boucle d'agent quand les appels d'outils se répètent (fenêtre de 10 étapes, seuil de 5 répétitions).",
+      "how": "agent/loop_detection.go:11 loopDetectionWindowSize=10, :13 loopDetectionMaxRepeats=5, :19 hasRepeatedToolCalls ; branché comme StopCondition (agent.go:1121).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "plugins/loop-guard",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "internal/agent/loop_detection.go:11",
+        "internal/agent/loop_detection.go:19",
+        "internal/agent/agent.go:1121"
+      ]
+    },
+    {
+      "id": "crush-crusherc-exec",
+      "domain": "securite",
+      "name": "Exécution du crushrc comme Bash (REFUSÉ)",
+      "what": "REFUSÉ : crushrc est un script Bash interprété au démarrage ; exécuter de la configuration comme du code est un risque supply-chain que nous écartons.",
+      "how": "load.go:981 loadFromConfigPaths exécute le shell config via le moteur shellconfig ; README:256-259 et :322-327 déclarent crushrc et crush.json « trusted code » (tout $(...) de crush.json s'exécute au chargement). Écarté chez nous : nous gardons une configuration déclarative en couches (JSON) et n'exécutons jamais la config comme code.",
+      "integration": "rejected",
+      "status": "rejected",
+      "rust_cost": "M",
+      "refs": [
+        "internal/config/load.go:981",
+        "README.md:256-259",
+        "README.md:322-327"
+      ],
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null
+    }
+  ]
+}

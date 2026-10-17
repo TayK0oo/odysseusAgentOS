@@ -72,6 +72,9 @@ def check_ref(ref: str, app_id: str) -> tuple[bool, str]:
     """Un ref est-il verifiable ? (fichier existant dans le clone, ou URL)."""
     if ref.startswith(("http://", "https://")):
         return True, "url"
+    # Reference de documentation citee sans schema (ex. docs.continue.dev/...).
+    if re.match(r"^[a-z0-9-]+(\.[a-z0-9-]+)+/", ref.strip("`")):
+        return True, "url (doc)"
     path = ref.split(":")[0].strip().strip("`")
     if not path or path.startswith("-"):
         return False, f"ref illisible : {ref!r}"

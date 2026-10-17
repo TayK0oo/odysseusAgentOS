@@ -1,0 +1,302 @@
+{
+  "schema_version": 1,
+  "id": "tabby",
+  "name": "Tabby",
+  "editor": "TabbyML",
+  "oss": true,
+  "language": "Rust / TypeScript",
+  "license": "Apache-2.0",
+  "repo": "https://github.com/TabbyML/tabby",
+  "architecture": "Serveur Rust (axum) embarquant llama.cpp pour l'inference locale, expose des API OpenAI-compatibles (/v1/completions, /v1/chat/completions) et indexe le code via tantivy (embeddings + BM25 + RRF) ; une couche enterprise (ee/) ajoute webserver GraphQL, auth, repositories, answer engine et jobs d'arriere-plan ; clients IDE (VSCode/Vim/IntelliJ/Eclipse) consomment l'API.",
+  "entrypoints": [
+    "tabby serve (crates/tabby/src/main.rs)",
+    "tabby download (crates/tabby/src/main.rs)",
+    "/v1/completions et /v1/chat/completions (crates/tabby/src/routes)",
+    "webserver enterprise (ee/tabby-webserver, feature ee)",
+    "extensions IDE (clients/vscode, vim, intellij, eclipse)"
+  ],
+  "functionalities": [
+    {
+      "id": "tb-inference-server",
+      "domain": "execution",
+      "name": "Serveur d'inference auto-heberge (llama.cpp)",
+      "what": "Serveur Rust embarquant llama.cpp pour la generation de code/chat/embeddings sur CPU/GPU avec telechargement et gestion des modeles locaux.",
+      "how": "crates/tabby/src/serve.rs::main charge ModelConfig::Local/Http, telecharge les modeles via tabby-download, instancie embedding/completion/chat et expose l'API axum; args device/parallelism/host/port.",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider",
+      "omega_adapter": null,
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "crates/tabby/src/main.rs:38-60",
+        "crates/tabby/src/serve.rs:117-232",
+        "crates/tabby/src/services/model/mod.rs:1-120"
+      ]
+    },
+    {
+      "id": "tb-code-completion-rag",
+      "domain": "contexte",
+      "name": "Completion de code RAG (embeddings + BM25 + RRF)",
+      "what": "Completion inline augmentee par recuperation de snippets (declarations LSP, snippets recents, recherche code) fusionnes par RRF.",
+      "how": "CompletionService::generate (crates/tabby/src/services/completion.rs) construit le prompt via PromptBuilder::collect (snippets segments + code search embedding/BM25), appelle CodeGeneration; mode next_edit_suggestion dedie.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "crates/tabby/src/services/completion.rs:150-260",
+        "crates/tabby/src/services/completion/completion_prompt.rs:20-120"
+      ]
+    },
+    {
+      "id": "tb-openai-chat",
+      "domain": "execution",
+      "name": "Chat completions OpenAI-compatibles (SSE)",
+      "what": "Endpoint /v1/chat/completions en streaming SSE compatible OpenAI pour les modeles chat.",
+      "how": "routes/chat.rs::chat_completions utilise ChatCompletionStream::chat_stream et journalise Event::ChatCompletion; routes enregistrees dans serve.rs::api_router.",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider",
+      "omega_adapter": null,
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "crates/tabby/src/routes/chat.rs:46-86",
+        "crates/tabby/src/serve.rs:251-330"
+      ]
+    },
+    {
+      "id": "tb-embeddings",
+      "domain": "contexte",
+      "name": "Service d'embeddings (modele local)",
+      "what": "Generation d'embeddings (Nomic-Embed-Text par defaut) pour l'indexation et la recherche semantique.",
+      "how": "embedding::create dans serve.rs; config EmbeddingConfig/ModelConfig::Local|Http; activation via TABBY_EMBEDDING_ENABLED; ModelConfigGroup.embedding.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "crates/tabby/src/serve.rs:128-135",
+        "crates/tabby-common/src/config.rs:78-95",
+        "crates/tabby-common/src/config.rs:285-300"
+      ]
+    },
+    {
+      "id": "tb-code-index-tantivy",
+      "domain": "contexte",
+      "name": "Indexation de code (Tantivy + chunks + commits)",
+      "what": "Index tantivy des depots git avec chunking, metadonnees fichier/commit/source et recherche par embedding/BM25.",
+      "how": "tabby-index TantivyDocBuilder/Indexer, IndexSchema, code::CodeIndexer; merge par RRF et retention max 2 hits par fichier (code.rs).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "crates/tabby-index/src/indexer.rs:1-120",
+        "crates/tabby/src/services/code.rs:1-120"
+      ]
+    },
+    {
+      "id": "tb-repo-management",
+      "domain": "configuration",
+      "name": "Gestion des depots (git + GitHub/GitLab)",
+      "what": "Configuration de repositories (git_url, refs), clone/sync et integrations tierces GitHub/GitLab.",
+      "how": "RepositoryConfig/CodeRepository dans tabby-common; services repository git/third_party; background jobs SchedulerGitRepository/SchedulerGithubGitlabJob.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "omega_adapter": "omega-config",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "crates/tabby-common/src/config.rs:RepositoryConfig",
+        "ee/tabby-webserver/src/service/repository/mod.rs",
+        "ee/tabby-webserver/src/service/background_job/mod.rs:40-120"
+      ]
+    },
+    {
+      "id": "tb-structured-doc-search",
+      "domain": "contexte",
+      "name": "Recherche documentaire structuree (issues/PRs/pages/web/ingested)",
+      "what": "Indexation et recherche de documents structures (web, issues, PRs, commits, pages, ingested) pour le RAG.",
+      "how": "DocSearch trait et DocSearchDocument (tabby-common/api/structured_doc.rs); service structured_doc (tantivy/serper); FromTantivyDocument.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "crates/tabby-common/src/api/structured_doc.rs:1-120",
+        "crates/tabby/src/services/structured_doc/mod.rs:1-30"
+      ]
+    },
+    {
+      "id": "tb-web-crawler",
+      "domain": "automatisation",
+      "name": "Crawler web + llms.txt",
+      "what": "Crawl de sites via katana et ingestion de llms-full.txt avec conversion HTML vers Markdown.",
+      "how": "tabby-crawler::crawl_pipeline/crawler_llms utilise katana, Readability et htmd; WebCrawlerJob planifie l'indexation.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "crates/tabby-crawler/src/lib.rs:1-120",
+        "ee/tabby-webserver/src/service/background_job/web_crawler.rs"
+      ]
+    },
+    {
+      "id": "tb-ingestion-api",
+      "domain": "contexte",
+      "name": "API d'ingestion de documents externes",
+      "what": "Ingestion de documents externes (source/id/title/body/link/ttl) avec validation et indexation asynchrone.",
+      "how": "IngestionRequest valide (validator) dans tabby-common/api/ingestion.rs; routes ingestion (ee) et IngestionService; job SyncIngestionIndex.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "crates/tabby-common/src/api/ingestion.rs:1-60",
+        "ee/tabby-webserver/src/routes/ingestion.rs",
+        "ee/tabby-webserver/src/service/ingestion.rs"
+      ]
+    },
+    {
+      "id": "tb-answer-engine",
+      "domain": "agents",
+      "name": "Answer Engine (threads, pages, context)",
+      "what": "Moteur de reponses persistantes (threads, pages) avec retrieval, contexte et generation chat.",
+      "how": "answer/thread/page/context services dans ee/tabby-webserver/src/service; creation dans webserver::attach (answer, thread, page).",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "ee/tabby-webserver/src/webserver.rs:95-170",
+        "ee/tabby-webserver/src/service/answer.rs",
+        "ee/tabby-webserver/src/service/thread.rs"
+      ]
+    },
+    {
+      "id": "tb-auth",
+      "domain": "securite",
+      "name": "Authentification (JWT, OAuth, LDAP, tokens)",
+      "what": "Authentification par JWT, OAuth (GitHub/GitLab/Google/OIDC), LDAP et tokens API.",
+      "how": "jwt.rs (generate/validate JWT), oauth/*, ldap.rs (LdapClientImpl), auth service et verify_auth_token.",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "ee/tabby-webserver/src/jwt.rs:1-70",
+        "ee/tabby-webserver/src/ldap.rs:1-80",
+        "ee/tabby-webserver/src/oauth/mod.rs",
+        "ee/tabby-webserver/src/service/auth.rs"
+      ]
+    },
+    {
+      "id": "tb-model-registry",
+      "domain": "routage",
+      "name": "Registre de modeles (TabbyML + download)",
+      "what": "Telechargement et gestion de modeles depuis le registre TabbyML (models.json) avec migration de chemins gguf.",
+      "how": "ModelRegistry::new charge remote/local registry; download_model_if_needed; parse_model_id; get_model_entry_path.",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "crates/tabby-common/src/registry.rs:40-180",
+        "crates/tabby/src/services/model/mod.rs:1-60"
+      ]
+    },
+    {
+      "id": "tb-telemetry-usage",
+      "domain": "observabilite",
+      "name": "Telemetrie d'usage et evenements",
+      "what": "Collecte d'usage anonyme vers TabbyML et journal d'evenements (view/select/dismiss/completion/chat).",
+      "how": "usage.rs UsageTracker (TABBY_DISABLE_USAGE_COLLECTION); event.rs LogEventRequest; EventLogger + DbEventLogger.",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "omega_adapter": "omega-otel::{Stdout,File}Sink",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "crates/tabby-common/src/usage.rs:1-120",
+        "crates/tabby-common/src/api/event.rs:1-90",
+        "ee/tabby-webserver/src/service/event_logger.rs:1-80"
+      ]
+    },
+    {
+      "id": "tb-ide-extensions",
+      "domain": "extension",
+      "name": "Extensions IDE (VSCode/Vim/IntelliJ/Eclipse)",
+      "what": "Clients IDE pour completion, chat, actions de code et integration OpenAPI.",
+      "how": "clients/vscode (InlineCompletionProvider, chat, lsp), clients/vim, clients/intellij, clients/eclipse; extension tabby-agent.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "clients/vscode/src/extension.ts",
+        "clients/vscode/src/InlineCompletionProvider.ts",
+        "clients/vscode/src/chat"
+      ]
+    },
+    {
+      "id": "tb-background-jobs",
+      "domain": "automatisation",
+      "name": "Jobs d'arriere-plan (indexation, GC, cron)",
+      "what": "Scheduler de jobs (sync git, third-party, crawler, ingestion, pages, GC, hourly/daily) avec notifications d'echec.",
+      "how": "background_job/mod.rs BackgroundJobEvent; cron Schedule; job service; notify_job_error.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "ee/tabby-webserver/src/service/background_job/mod.rs:1-120",
+        "ee/tabby-webserver/src/service/job.rs"
+      ]
+    },
+    {
+      "id": "tb-admin-ui",
+      "domain": "ui",
+      "name": "UI admin + API GraphQL",
+      "what": "Interface web admin et schema GraphQL pour utilisateurs, groupes, repositories, jobs et notifications.",
+      "how": "tabby-schema (juniper) + ee webserver routes/ui et service locator; EEApiDoc OpenAPI.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "ee/tabby-webserver/src/routes/ui.rs",
+        "ee/tabby-webserver/src/service/mod.rs:1-120",
+        "ee/tabby-schema/src/lib.rs"
+      ]
+    }
+  ]
+}

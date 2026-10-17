@@ -1,0 +1,454 @@
+{
+  "schema_version": 1,
+  "id": "metagpt",
+  "name": "MetaGPT",
+  "editor": "geekan (projet ouvert)",
+  "oss": true,
+  "language": "Python",
+  "license": "MIT",
+  "repo": "https://github.com/geekan/MetaGPT",
+  "architecture": "Societe logicielle multi-agents : des Roles (PM, architecte, project manager, ingenieur, QA...) publient des Messages routes par cause_by/send_to dans un Environment partage ; chaque role observe, think puis act sur des Actions a sorties structurees (ActionNode) selon une SOP fixe ou une boucle react libre (RoleZero) ; artefacts publies dans un workspace versionne Git, memoire indexee par cause + long-term vectorielle FAISS, pool d'experiences auto-evaluees et catalogue multi-fournisseurs LLM.",
+  "entrypoints": [
+    "metagpt CLI (setup.py console_scripts, metagpt.software_company:app)",
+    "API Python Team(...).run(idea) (metagpt/team.py)",
+    "startup() / generate_repo() (metagpt/software_company.py)",
+    "config ~/.metagpt/config2.yaml"
+  ],
+  "functionalities": [
+    {
+      "domain": "agents",
+      "id": "mgt-sop-roles",
+      "name": "Societe logicielle : pipeline de roles SOP (PM, architecte, PMO, ingenieur, QA)",
+      "what": "Un pipeline d'agents specialises ou chacun souscrit aux resultats de son predecesseur : la SOP est distribuee par abonnement aux types d'actions, sans orchestrateur central.",
+      "how": "Sequence fixe de roles qui se passent le ballon par messages : ProductManager Alice (watch UserRequirement/PrepareDocuments -> WritePRD), Architecte Bob (watch WritePRD -> WriteDesign), ProjectManager taches, Engineer Alex (watch WriteTasks/SummarizeCode/WriteCode/WriteCodeReview -> WriteCode), QaEngineer Edward (watch SummarizeCode/WriteTest/RunCode/DebugError -> boucle write/run/debug). Chaque abonnement deterministe fait avancer la SOP.",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore + Registre (abonnement par type d'action)",
+      "omega_adapter": "plugins/sop-pipeline (chaine de plugins par etape + Ruleset par role)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "metagpt/roles/product_manager.py:32-46",
+        "metagpt/roles/architect.py:28-52",
+        "metagpt/roles/engineer.py:86-106",
+        "metagpt/roles/qa_engineer.py:39-59",
+        "metagpt/team.py:32-55"
+      ]
+    },
+    {
+      "domain": "agents",
+      "id": "mgt-role-abstraction",
+      "name": "Abstraction Role uniforme (profil, but, contraintes, prefixe)",
+      "what": "Tout agent (humain compris) est un Role declaratif a quatre champs (nom, profil, but, contraintes) dont le system_prompt est un prefixe compose + vue de son environnement.",
+      "how": "Role = name/profile/goal/constraints/desc + actions[] ; PREFIX_TEMPLATE pose l'identite, CONSTRAINT_TEMPLATE les contraintes, et le prefixe ajoute la description de l'environnement avec les noms des roles freres ; system_prompt repose sur chaque action (set_actions/_init_action) ; abonnement par defaut a son propre nom via addresses ; is_human bascule vers HumanProvider (agent humain jouable).",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore",
+      "omega_adapter": "omega-registry (slots_role : profil/but/contraintes/prefixe par plugin)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "metagpt/roles/role.py:125-153",
+        "metagpt/roles/role.py:161-177",
+        "metagpt/roles/role.py:323-338"
+      ]
+    },
+    {
+      "domain": "agents",
+      "id": "mgt-msg-bus",
+      "name": "Bus pub/sub labore par type d'action + rounds paralleles",
+      "what": "Communication multi-agents : chaque message embarque cause_by (type d'action producteur), sent_from et send_to ; l'environnement distribue aux abonnes et execute les roles en parallele dans des rounds bornes.",
+      "how": "Message pydantic avec cause_by/sent_from/send_to normalises en nom de classe via any_to_str (RFC 116 ch.2.2.1, RFC 113 ch.2.2.3.2) ; publish_message diffuse vers member_addrs via is_send_to et logge les messages sans destinataire ; Environment.run lance en asyncio.gather tous les roles non-idle ; Team.run borne les rounds et verifie le budget a chaque round.",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (evenements type ActionProduced routables)",
+      "omega_adapter": "omega-registry + omega-app::EventStore (routage cause_by/source/destination)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "metagpt/schema.py:232-274",
+        "metagpt/environment/base_env.py:175-195",
+        "metagpt/environment/base_env.py:197-211",
+        "metagpt/team.py:122-137"
+      ]
+    },
+    {
+      "domain": "execution",
+      "id": "mgt-env-multi",
+      "name": "Environnements hot-swap (jeux maison, MGX, societe logicielle)",
+      "what": "Un harnais d'environnements interchangeables : chaque backend expose des API lues/decrites enregistrees avec schemas ; meme interface pour agents de jeu et de code.",
+      "how": "ExtEnv = socle type gymnasium (reset/observe/step + action_space/observation_space) plus deux registres de fonctions decorees mark_as_readable/mark_as_writeable qui enregistrent les schemas ; implementations concretes sous environment/ : werewolf, minecraft, stanford_town, android, mgx, software ; enum EnvType.",
+      "omega_capability": "registry",
+      "omega_port": "Registre (Slot EnvBackend)",
+      "omega_adapter": "omega-registry (port EnvBackend nouveau, un plugin par environnement)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "metagpt/environment/base_env.py:29-104",
+        "metagpt/environment/mgx/mgx_env.py:11-22",
+        "metagpt/environment/README.md"
+      ]
+    },
+    {
+      "domain": "agents",
+      "id": "mgt-react-modes",
+      "name": "Trois strategies de reaction parametrables (react / by_order / plan_and_act)",
+      "what": "Chaque role choisit comment reagir : ReAct libre avec budget de cycles, execution dans l'ordre defini, ou plan-then-execute (exploration vs economie).",
+      "how": "Enum RoleReactMode : REACT (selection d'action par LLM via STATE_TEMPLATE, extraction du numero avec fallback -1 par extract_state_value_from_output, max_react_loop contre les boucles infinies), BY_ORDER (avance state+1 sans appel LLM), PLAN_AND_ACT (Planner + _act_on_task) ; _set_react_mode(react_mode, max_react_loop, auto_run) ; recovery : si recovered et state>=0, reprend l'action en cours.",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore (mode de reaction par role)",
+      "omega_adapter": "plugins/run-modes (mode de run declarae par plugin)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "metagpt/roles/role.py:82-89",
+        "metagpt/roles/role.py:261-282",
+        "metagpt/roles/role.py:340-379",
+        "metagpt/roles/role.py:454-523"
+      ]
+    },
+    {
+      "domain": "agents",
+      "id": "mgt-planner-review",
+      "name": "Planner explicite avec revue humaine et re-planning",
+      "what": "Produit un plan par taches, demande revue humaine (confirmer/refaire/modifier), marque les taches finies et injecte un contexte structure compact plutot que l'historique brut.",
+      "how": "Planner.update_plan boucle : WritePlan avec precheck_validation (max 3 essais) puis AskReview (trigger TASK_REVIEW_TRIGGER) en mode manuel, sinon auto_run ; process_task_result : confirmation -> confirm_task (working_memory.clear + finish_current_task), redo -> re-execution, sinon -> update_plan selon le feedback ; get_useful_memories reconstruit un STRUCTURAL_CONTEXT (goal + tasks JSON + tache courante) au lieu de tout l'historique.",
+      "omega_capability": "task-classifier",
+      "omega_port": "TaskClassifier + ContextEngine",
+      "omega_adapter": "plugins/planner-review + omega-context (contexte structure compact)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "metagpt/strategy/planner.py:58-117",
+        "metagpt/strategy/planner.py:119-167"
+      ]
+    },
+    {
+      "domain": "contexte",
+      "id": "mgt-actionnode",
+      "name": "ActionNode : sorties structurees schema-driven avec revision",
+      "what": "Systeme de sortie structure : on declare les champs attendus, le LLM remplit un document type et peut ne revisiter que les champs modifies (mode REVISE).",
+      "how": "Arbre de noeuds key/required/type : chaque ActionNode est un champ de sortie ; fill() demande du JSON ou Markdown au LLM et valide ; from_pydantic construit l'arbre depuis un BaseModel ; template REVISE (ReviseMode.AUTO) pour corriger uniquement un champ ; deux schemas de prompt (json/markdown) choisis par config prompt_schema ; socle des documents PRD/design/API.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (sortie typee du modele)",
+      "omega_adapter": "plugins/structured-output (schema derive + validation + revision partielle)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "metagpt/actions/action_node.py:135-180",
+        "metagpt/actions/action_node.py:468-500",
+        "metagpt/actions/action_node.py:769-841"
+      ]
+    },
+    {
+      "domain": "outils",
+      "id": "mgt-tool-registry",
+      "name": "ToolRegistry decorateur + schemas auto + tags + sous-ensembles de classes",
+      "what": "Tout code decore devient un outil a schema auto-extrait, groupe par tags, indexable ; on peut n'exposer que certaines methodes d'un outil.",
+      "how": "TOOL_REGISTRY global : le decorateur register_tool recupere chemin du fichier et source via inspect, genere le schema (convert_code_to_tool_schema, AST) persiste en YML sous TOOL_SCHEMA_PATH ; index secondaire tools_by_tags ; validate_tool_names accepte nom d'outil, tag, chemin de fichier/repertoire (registration a la volee) et syntaxe Editor:read,write pour filtrer les methodes d'un outil classe.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "metagpt/tools/tool_registry.py:27-91",
+        "metagpt/tools/tool_registry.py:94-128",
+        "metagpt/tools/tool_registry.py:131-163"
+      ]
+    },
+    {
+      "domain": "outils",
+      "id": "mgt-tool-recommend",
+      "name": "Recommandation d'outils : recall BM25 + rank LLM + injection prompt",
+      "what": "Deux etages : recall bon marche (BM25 ou match de type) pour short-list, puis un appel LLM de ranking avec auto-repair JSON ; seuls les outils retenus entrent dans le prompt : economie de contexte.",
+      "how": "ToolRecommender.recommend_tools : recall_tools (BM25Okapi sur nom+tags+description, ou TypeMatchToolRecommender legacy par task_type, recall_topk=20) puis rank_tools (TOOL_RECOMMENDATION_PROMPT, topk=5) avec repair_llm_raw_output et repli JSON_REPAIR_PROMPT ; get_recommended_tool_info injecte les schemas retenus via TOOL_INFO_PROMPT ; symbole magique all et force=True court-circuitent la recommandation.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (selection par contexte)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex (hydrate un sous-ensemble par turn) + omega-router (parsing)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "metagpt/tools/tool_recommend.py:21-51",
+        "metagpt/tools/tool_recommend.py:54-170",
+        "metagpt/tools/tool_recommend.py:195-228"
+      ]
+    },
+    {
+      "domain": "agents",
+      "id": "mgt-rolezero-cmd",
+      "name": "RoleZero : agent a commandes JSON autonomes (plan + outillage inclus)",
+      "what": "Les agents de la generation RoleZero (ingenieur2, PM, TeamLeader, SWE, DataAnalyst) emettent eux-memes une sequence de commandes JSON executees une par une dans une boucle think-act continue.",
+      "how": "RoleZero : tool_execution_map lie noms de commandes a methodes (Plan.append_task/replace_task, Browser.* 10 ops, Editor.* 14 ops, Terminal.run_command, SearchEnhancedQA) ; special_tool_commands (Plan.finish_current_task, end, ask_human) et exclusive_tool_commands (une seule edition de fichier par reponse) ; _run_commands s'arrete a la premiere erreur ; _react re-observe a chaque cycle et interroge l'humain quand max_react_loop (50) atteint ; _quick_think classifie l'intention avant la boucle formelle.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface + ContextEngine",
+      "omega_adapter": "plugins/agent-cmdloop (parsing de commandes + carte de tool_execution + post-check)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "metagpt/roles/di/role_zero.py:55-101",
+        "metagpt/roles/di/role_zero.py:118-171",
+        "metagpt/roles/di/role_zero.py:280-336",
+        "metagpt/roles/di/role_zero.py:385-447"
+      ]
+    },
+    {
+      "domain": "ui",
+      "id": "mgt-human-loop",
+      "name": "Human-in-the-loop via TeamLeader + chat direct @role",
+      "what": "Environnement chat-like : le TeamLeader centralise et route les messages, l'utilisateur peut parler a un role specifique, les roles disposent d'ask_human/reply_to_human comme commandes de premier ordre.",
+      "how": "MGXEnv.publish_message : message a destinataire explicite = chat direct (direct_chat_roles, is_public_chat) ; sinon tous les messages passent par le TeamLeader (send_to.add(TEAMLEADER_NAME)) qui retravaille et redistribue ; move_message_info_to_content raboute le champ role vers system/user/assistant pour l'API LLM ; attach_images encode les images du message utilisateur (multimodal) ; ask_human/reply_to_human phrases canoniques et mot end pour clore.",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy (interactions a humain en file d'attente)",
+      "omega_adapter": "omega-sandbox::ApprovalQueue (demandes d'humain) + omega-server cockpit",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "metagpt/environment/mgx/mgx_env.py:24-62",
+        "metagpt/environment/mgx/mgx_env.py:64-71",
+        "metagpt/roles/di/role_zero.py:456-472"
+      ]
+    },
+    {
+      "domain": "observabilite",
+      "id": "mgt-cost-manager",
+      "name": "Budget monetaire : CostManager + invest + garde-fou par round",
+      "what": "Le cout est un citoyen de premiere classe : tokens et prix par modele a chaque requete, budget fixe a l'avance, arret propre si epuise.",
+      "how": "CostManager (max_budget 10 par defaut, total_cost, log Total running cost) mis a jour par BaseLLM._update_costs (prompt/completion tokens, model, local_calc_usage) ; Team.invest fixe le budget ; Team._check_balance leve NoMoneyException a chaque round si epuise ; specialisations TokenCostManager et FireworksCostManager ; get_costs expose le cumul.",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink (metrique cout + garde-fou)",
+      "omega_adapter": "omega-otel::{Stdout,File}Sink + plugins/budget-guard",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "metagpt/utils/cost_manager.py:25-111",
+        "metagpt/provider/base_llm.py:35-45",
+        "metagpt/provider/base_llm.py:124-145",
+        "metagpt/team.py:92-100"
+      ]
+    },
+    {
+      "domain": "routage",
+      "id": "mgt-providers",
+      "name": "Catalogue multi-fournisseurs LLM (18 providers, pricing, proxy, postprocess)",
+      "what": "Un fournisseur de LLM est un type dans un enum et un adaptateur de famille API : meme interface aask/aask_code quel que soit le backend, avec pricing et proxy.",
+      "how": "Enum LLMType d'environ 18 providers (openai, azure, anthropic, gemini, zhipuai, ark, ollama, bedrock, dashscope, spark, qianfan, fireworks, metagpt, openrouter_reasoning...) resolus par llm_provider_registry ; LLMConfig : api_base/api_key/model/pricing_plan/proxy/max_token/temperature ; hooks postprocess de reponse sous provider/postprocess ; proxy global dans Config ; selection par cle llm du config2.yaml.",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider",
+      "omega_adapter": "omega-providers::OllamaProvider",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "metagpt/configs/llm_config.py:19-65",
+        "metagpt/provider/ollama_api.py",
+        "metagpt/provider/llm_provider_registry.py",
+        "metagpt/config2.py:49-53"
+      ]
+    },
+    {
+      "domain": "configuration",
+      "id": "mgt-config-layer",
+      "name": "Configuration en couches (YAML home + CLI params + roles custom)",
+      "what": "Toute la config derive d'un YAML utilisateur avec overrides CLI et parametres specifiques par role.",
+      "how": "Config(config2.yaml) charge depuis ~/.metagpt puis par projet ; YAMLModel ; CLIParams recouvre par la ligne de commande (project_path force inc=True) ; extra() pour champs additionnels ; configuration par role via roles: [RoleCustomConfig] ; sous-sections dediees : workspace, browser, mermaid, search, s3, redis, exp_pool, role_zero (enable_longterm_memory, memory_k...).",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "omega_adapter": "omega-config (couches + precedence)",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "metagpt/config2.py:30-99",
+        "metagpt/config2.py:101-107"
+      ]
+    },
+    {
+      "domain": "memoire",
+      "id": "mgt-memory-indexed",
+      "name": "Memoire par role indexee par cause (actions)",
+      "what": "Chaque agent garde son journal personnel indexe par type d'action emettrice, ce qui permet la selection par observation (watch) et evite le retravail des messages deja traites.",
+      "how": "Memory : storage + index defaultdict cause_by->messages ; add dedupe (message in storage) ; get_by_actions parcourt l'index pour l'observabilite ciblee (important_memory = get_by_actions(self.watch)) ; buffer prive suspendu par role (MessageQueue async, pop_all) ; working_memory separee du memory persistent ; find_news pour ne re-traiter que l'inconnu.",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "omega_adapter": "omega-app::{File,InMemory}EventStore + omega-context",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "metagpt/memory/memory.py:20-107",
+        "metagpt/roles/role.py:92-122"
+      ]
+    },
+    {
+      "domain": "memoire",
+      "id": "mgt-memory-vector",
+      "name": "Long-term memoire vectorielle FAISS par role (persist + ranker LLM)",
+      "what": "Chaque role peut persister sa memoire dans un index vectoriel local et rappeler par similarite pour continuer un vieil affaire ou enrichir son contexte.",
+      "how": "MemoryStorage : index FAISS persiste sous data/role_mem/{role_id}/, recover_memory recharge from_index si present (sinon from_objs vide), add_objs, search_similar filtre par score sous un threshold de 0.1 ; RoleZero plug RoleZeroLongTermMemory dans role.rc.memory si config.role_zero.enable_longterm_memory avec longterm_memory_persist_path, memory_k, similarity_top_k, use_llm_ranker et collection = nom du role.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (recall ambient)",
+      "omega_adapter": "plugins/lm-vector (port LongTermMemory nouveau, backend vectoriel local)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "metagpt/memory/memory_storage.py:19-77",
+        "metagpt/roles/di/role_zero.py:173-193"
+      ]
+    },
+    {
+      "domain": "memoire",
+      "id": "mgt-exp-pool",
+      "name": "Pool d'experiences auto-evaluees (exp_cache + scorers + perfect judge)",
+      "what": "Boucle d'apprentissage auto : chaque reponse LLM est sauvegardee (req/resp), evaluee, et les meilleures experiences servent de few-shot dans les prompts similaires suivants.",
+      "how": "Decorateur exp_cache sur llm_cached_aask : ExpCacheHandler.fetch_experiences via ExperienceManager.storage (SimpleEngine RAG vectorise), get_one_perfect_exp si le judge indique parfait, sinon execute_function puis evaluate_experience via BaseScorer (SimpleScorer note req/resp via LLM) et save_experience ; tag de pool = ClassName.method_name ; RoleZeroContextBuilder injecte les experiences dans le req et RoleZeroSerializer elague pour l'indexation.",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (experiences comme savoirs réutilisables)",
+      "omega_adapter": "plugins/exp-pool (port ExperienceStore nouveau ; score + provenance via omega-otel::Provenance)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "metagpt/exp_pool/decorator.py:29-175",
+        "metagpt/exp_pool/manager.py:18-51",
+        "metagpt/exp_pool/scorers/simple.py",
+        "metagpt/roles/di/role_zero.py:267-274"
+      ]
+    },
+    {
+      "domain": "memoire",
+      "id": "mgt-skill-manager",
+      "name": "SkillStore embarquee : bibliotheque de competences retrouvees par similarite",
+      "what": "Reserve de competences decrites (nom + code + description), retrouvee par similarite semantique et injectee dans le prompt.",
+      "how": "SkillManager : add_skill/del_skill/get_skill ; retrieve_skill(desc) et retrieve_skill_scored(desc) via recherche vectorielle sur les descriptions ; generate_skill_desc produit le texte injecte dans les prompts ; skills charges depuis learn/skill_loader (documents type YAML + code, ex. google_search).",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore",
+      "omega_adapter": "omega-context::SkillIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "metagpt/management/skill_manager.py:17-66",
+        "metagpt/learn/skill_loader.py",
+        "metagpt/learn/google_search.py"
+      ]
+    },
+    {
+      "domain": "contexte",
+      "id": "mgt-rag-hybrid",
+      "name": "Moteur RAG hybride (FAISS/BM25/ES/Chroma) + FLARE",
+      "what": "Un moteur unifie pour toute donnee externe (docs, csv, objets metier) combinant recherche lexicale et vectorielle dans le meme pipeline, plus FLARE pour la requetage actif.",
+      "how": "SimpleEngine (llama-index RetrieverQueryEngine) : from_docs/from_objs/from_index + asearch/aretrieve ; construction automatique FAISS/BM25/Chroma/ES selon les configs de rag/schema.py ; hybrid SimpleHybridRetriever combinant plusieurs retrievers ; ObjectRanker ; FLAREEngine (FLAREInstructQueryEngine) autour d'un SimpleEngine pour la generation avec verification incrementale ; persist/clear/delete_docs.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (injection de documents)",
+      "omega_adapter": "plugins/rag-backend (port RetrievalBackend nouveau, un plugin par index)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "metagpt/rag/engines/simple.py:64-241",
+        "metagpt/rag/engines/flare.py",
+        "metagpt/rag/retrievers/hybrid_retriever.py"
+      ]
+    },
+    {
+      "domain": "execution",
+      "id": "mgt-artifacts-git",
+      "name": "Publication d'artefacts en workspace Git + archive auto + diagrams Mermaid",
+      "what": "Tout ce que les agents produisent s'ecrit dans un workspace arborescent (docs/code/tests) versionne Git avec commits conventionnels par artefact et archive de fin de run.",
+      "how": "GitRepository : _init cree .git avec .gitignore auto, add_change/commit_history utilise par chaque action (ex. les docs PRD/design commits par ProjectRepo) ; Environment.archive(auto_archive) appelle git archive en fin de run (base_env:244) ; workspace par projet (product_design, api_spec_and_tasks, code, test_docs) ; actions design_api/generiques produisent du Mermaid rendu via mmdc playwright (utils/mermaid.py, mmdc_playwright.py).",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (journal d'artefacts + provenance)",
+      "omega_adapter": "plugins/artifacts-git (port ArtifactPublisher nouveau ; provenance omega-otel::Provenance)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "metagpt/utils/git_repository.py:61-125",
+        "metagpt/utils/git_repository.py:237-247",
+        "metagpt/environment/base_env.py:244-247"
+      ]
+    },
+    {
+      "domain": "execution",
+      "id": "mgt-serde-recovery",
+      "name": "Interruption / reprise : serialisation Team/Role + reprise sur dernier message observe",
+      "what": "Un run interrompu peut etre rejoue depuis le disque : le Team et son contexte se serialisent, chaque role retient son dernier message observe pour reprendre exactement son action en cours.",
+      "how": "Team.serialize/deserialize en storage/team/team.json avec context.serialize inclus (const.py SERDESER_PATH) ; Role.latest_observed_msg retenu a la capture ; model_validator deserialise et pose recovered=True ; _think detecte recovered et state>=0 pour relancer l'action en cours ; role_raise_decorator protege les echecs de run et memory.latest_observed_msg abuse du halt.",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (replay)",
+      "omega_adapter": "omega-app::FileEventStore + omega-otel::TraceReplayer",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "metagpt/team.py:59-81",
+        "metagpt/roles/role.py:155-157",
+        "metagpt/roles/role.py:348-351"
+      ]
+    },
+    {
+      "domain": "routage",
+      "id": "mgt-tot",
+      "name": "Tree-of-Thought (BFS/DFS, refinement, evaluation par valeurs)",
+      "what": "ECARTE : solveur arborescent avec generation/evaluation/selection recurrente, trop couteux en tokens pour un gain limite par rapport a notre routage Pareto economique.",
+      "how": "ThoughtSolverBase : generate_thoughts puis evaluate_node (valeur numerique par LLM) puis select_nodes selon Strategy (BFS/DFS/sample) ; BFSSolver construit l'arbre en largeur avec ThoughtSolverConfig (n_choices, max_depth, max_stall, enable_refine) ; schemas dans tot_schema.py. Casa de notre cote le routage deja sccribe la question->modele ; l'arbre de pensee n'apporte pas de competitivite pour un harnais economique.",
+      "omega_adapter": null,
+      "omega_capability": null,
+      "omega_port": null,
+      "integration": "rejected",
+      "status": "rejected",
+      "rust_cost": "L",
+      "refs": [
+        "metagpt/strategy/tot.py:33-172",
+        "metagpt/strategy/tot_schema.py:12-23"
+      ]
+    },
+    {
+      "domain": "outils",
+      "id": "mgt-web-search",
+      "name": "Gamme d'outils de recherche web et multimedia via decoders",
+      "what": "Une famille de moteurs de recherche et browsers interchangeables, tous enregistres comme outils au meme schema auto, y compris moderation et TTS.",
+      "how": "SearchEngine abstraite avec implementations Bing/DDG/GoogleAPI/SerpAPI/Serper/Meilisearch (search_config pour cles) ; WebBrowserEngine Playwright/Selenium (utils multi_pages, async) ; modWebScraping ; outils decorés : moderation.py, azure_tts.py/iflytek_tts.py, openai_text_to_image.py, openai_text_to_embedding.py via le decorateur @register_tool unique.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "omega-context::ToolSurfaceIndex (enregistrement de plugins de recherche)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "metagpt/tools/search_engine.py",
+        "metagpt/tools/search_engine_ddg.py",
+        "metagpt/tools/web_browser_engine.py",
+        "metagpt/tools/libs/web_scraping.py"
+      ]
+    },
+    {
+      "domain": "routage",
+      "id": "mgt-quick-think",
+      "name": "Routage d'intention quick-think (reponse directe vs recherche vs tache)",
+      "what": "Avant la boucle formelle, un classifieur d'intention economise des appels : question simple = reponse immediate sur la memoire, question documentaire = recherche web, tache = boucle react complete.",
+      "how": "_quick_think : LLM classifie via QUICK_THINK_SYSTEM_PROMPT les intentions QUICK/AMBIGUOUS/SEARCH/TASK ; QUICK or AMBIGUOUS = reponse avec QUICK_RESPONSE_SYSTEM_PROMPT (nettoyage du motif de message) ; SEARCH = SearchEnhancedQA (recherche + resume) ; TASK = boucle react complete ; heuristique : ne classifie que les messages de cause_by UserRequirement pour eviter les appels agent-supplementaires ; si la reponse contient un command_name, on corrige en TASK (auto-reparation de classification).",
+      "omega_capability": "task-classifier",
+      "omega_port": "TaskClassifier",
+      "omega_adapter": "omega-router::HeuristicTaskClassifier + plugins/quick-path",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "metagpt/roles/di/role_zero.py:342-383",
+        "metagpt/actions/search_enhanced_qa.py:62"
+      ]
+    }
+  ]
+}
