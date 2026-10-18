@@ -206,6 +206,7 @@ pub const APP_DISSECTIONS: &[&str] = &[
     include_str!("../data/apps/kilo-code.json"),
     include_str!("../data/apps/langgraph.json"),
     include_str!("../data/apps/metagpt.json"),
+    include_str!("../data/apps/nanocoder.json"),
     include_str!("../data/apps/onlook.json"),
     include_str!("../data/apps/open-interpreter.json"),
     include_str!("../data/apps/openclaw.json"),
@@ -451,7 +452,7 @@ mod tests {
     fn embedded_dissections_are_valid_and_complete() {
         let d = Dissections::embedded();
         assert!(
-            d.apps.len() >= 48,
+            d.apps.len() >= 49,
             "au moins 10 applications disséquées doivent être ENREGISTRÉES dans APP_DISSECTIONS \
              (un JSON sur disque mais non enregistré est invisible et doit faire échouer ce test)"
         );
