@@ -4,14 +4,14 @@
 
 | # | Harnais | Etoiles | Nature | Clone | REA | Provider | Limites |
 |---|---|---|---|---|---|---|---|
-| 1 | Agent Zero | 19,506 | python | ok | ✅ analysee | rea-javascript-application | 141 |
+| 1 | bolt.new | 16,578 | js | ok | ✅ analysee | rea-javascript-application | 6 |
 
 ## Detail
 
-### Agent Zero (19,506 etoiles) — `frdel/agent-zero`
+### bolt.new (16,578 etoiles) — `stackblitz/bolt.new`
 
-- nature : python ; licence : NOASSERTION
-- evidence : `ev_ab7556d336e51252c5119afe9db2f725c58fb5e22419269df91064a8727d56b7`
+- nature : js ; licence : MIT
+- evidence : `ev_25f4aa71733be7636e06fb5a6b1c7a370df9c2553a2b4c290738c51c83cb8703`
 - provider : `rea-javascript-application` ; confiance : **derived**
-- structure : graph_edges=4704, graph_nodes=4343
+- structure : graph_edges=1111, graph_nodes=970
 
