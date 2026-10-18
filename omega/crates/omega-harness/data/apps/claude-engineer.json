@@ -1,0 +1,144 @@
+{
+ "schema_version": 1,
+ "id": "claude-engineer",
+ "name": "Claude Engineer",
+ "editor": "Doriandarko",
+ "oss": true,
+ "language": "Python",
+ "license": "MIT",
+ "repo": "https://github.com/Doriandarko/claude-engineer",
+ "architecture": "Console + Flask app d'agent pair-programming Anthropic : un Assistant (ce3.py) qui decouvre/compile des tools Python par ABC BaseTool (input_schema JSON), self-extension via ToolCreator, deps auto-installees par uv, sandbox e2b pour le run code.",
+ "functionalities": [
+  {
+   "id": "ce-tools-schema",
+   "domain": "extension",
+   "name": "BaseTool : ABC declare name/description/input_schema/execute",
+   "what": "Un contrat Python d'outils simple : chaque outil est une classe ABC avec name, description, input_schema (JSON Schema) et execute(kwargs)->str.",
+   "how": "tools/base.py:4-24 class BaseTool(ABC) : name (:7), description (:13), input_schema (:19), execute (:24). Omega : ToolSurface (spec JSON) : le pattern de extraction des schemas par ABC est le meme, retenu. La surface Omega est deja schema-specified (ToolSurfaceIndex).",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "omega-context::ToolSurfaceIndex (schema JSON de base ABC)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "tools/base.py:4-24"
+   ]
+  },
+  {
+   "id": "ce-tool-auto-refresh",
+   "domain": "configuration",
+   "name": "Auto-decouverte/register des outils par dossier au run",
+   "what": "Les outils sont auto-decouverte au run (parsés par module), refresh a chaud.",
+   "how": "_load_tools (ce3.py:75) scan le dossier tools/, _extract_tools_from_module (ce3.py:141) ; refresh_tools (:159) pour reload unاحة parfait. Omega : registre de plugins + scan deja couvert.",
+   "omega_capability": "registry",
+   "omega_port": "—",
+   "omega_adapter": "omega-app (auto-discover tools)",
+   "integration": "service",
+   "status": "rejected",
+   "rust_cost": "S",
+   "refs": [
+    "ce3.py:75-141"
+   ]
+  },
+  {
+   "id": "ce-uv-package-manager",
+   "domain": "configuration",
+   "name": "uv package manager : installation dependances missing a chaud",
+   "what": "Quand le model manque un module Python, l'agent extraie le nom du module et l'execute uv install en background.",
+   "how": "_clean_and_install (_execute_uv_install : ce3.py:55-60) : parse le missing dependency (ce3.py:130) et execute 'uv pip install' pour l'installer a chaud. Omega : l'execution de paquets automatique est un plugin tool 'install dependencies', pas un noyau.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolExecutor",
+   "omega_adapter": "plugin/install-deps (uv install automatique)",
+   "integration": "plugin",
+   "status": "rejected",
+   "rust_cost": "S",
+   "refs": [
+    "ce3.py:55-60",
+    "ce3.py:130-141"
+   ]
+  },
+  {
+   "id": "ce-toolcreator",
+   "domain": "extension",
+   "name": "ToolCreator : l'agent cree ses propres outils a chaud",
+   "what": "Un outil qui demande au modele d'ecrire un module Python generant une nouvelle classe BaseTool, puis refresh les outils — l'agent s'agrandit son arsenal.",
+   "how": "tools/toolcreator.py:12-44 class ToolCreatorTool generate un module Python avec une classe qui suit BaseTool, avec sanitation du nom (_validate_tool_name :40) ; refresh_tools ensuite (ce3.py:159). Omega : self-extension de l'agent : est possible via un tool 'build plugin', à condition que les plugins soient valides (schema-validé manifeste) ; le pattern est bon",
+   "omega_capability": "registry",
+   "omega_port": "—",
+   "omega_adapter": "omega-app (tool-creation par l'agent)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "tools/toolcreator.py:12-44"
+   ]
+  },
+  {
+   "id": "ce-browser",
+   "domain": "extension",
+   "name": "Browser + DuckDuckGo + webscraper : le trio de recherche web",
+   "what": "Trois outils web indépendants : browser (navigateur), duckduckgo (search), webscraper (contenu).",
+   "how": "tools/{browsertool.py,duckduckgotool.py,webscrapertool.py}. Omega : ToolSurface ; la browser est un plugin de web tools (pas un noyau).",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "plugin/web-tools (browser+search+scrape)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "tools/browsertool.py",
+    "tools/duckduckgotool.py"
+   ]
+  },
+  {
+   "id": "ce-diff-editor",
+   "domain": "execution",
+   "name": "FileEditor + DiffEditor + Linting : l'edition de code avec pathes diff et lint en passe",
+   "what": "Un trio de tools d'edition : file creator/reader, diffeditor (patch), linting (check).",
+   "how": "tools/{filecreatortool.py,fileedittool.py,diffeditortool.py,lintingtool.py}. Omega : ToolExecutor couvert ; le lint est un effect réversible.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolExecutor",
+   "omega_adapter": "omega-app (edition + lint checks)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "tools/filecreatortool.py",
+    "tools/diffeditortool.py"
+   ]
+  },
+  {
+   "id": "ce-e2b",
+   "domain": "securite",
+   "name": "E2B : l'execution de code distant s'effectue par sandbox e2b",
+   "what": "Un tool d'execution de code Python distant en sandbox E2B (cloud) pour isolation.",
+   "how": "tools/e2bcodetool.py : e2b client docker. Omega : SandboxBackend ; un fournisseur cloud supplementaire (E2B) est deja note dans le census Onlook (code-provider) ; ce tool est le memeU.",
+   "omega_capability": "sandbox-backend",
+   "omega_port": "SandboxBackend",
+   "omega_adapter": "plugin/e2b sandbox adapter",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "tools/e2bcodetool.py"
+   ]
+  },
+  {
+   "id": "ce-flask-ui",
+   "domain": "ui",
+   "name": "Flask UI basique : page form d'agent + screen buff",
+   "what": "Un frontend Flask/Jinja templates lightning minimal (app.py) pour envoyer les objective et voir les sorties de l'agent.",
+   "how": "app.py (Flask app) + templates + static. Omega : omega-server (UI serve par une origine) couvert.",
+   "omega_capability": "(ui)",
+   "omega_port": "UiPanel",
+   "omega_adapter": "omega-server (UI Flask -> cockpit)",
+   "integration": "service",
+   "status": "rejected",
+   "rust_cost": "S",
+   "refs": [
+    "app.py"
+   ]
+  }
+ ]
+}
