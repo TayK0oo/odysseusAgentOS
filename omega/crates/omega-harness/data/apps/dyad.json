@@ -1,0 +1,246 @@
+{
+ "schema_version": 1,
+ "id": "dyad",
+ "name": "Dyad",
+ "editor": "Dyad",
+ "oss": true,
+ "language": "TypeScript",
+ "license": "MIT",
+ "repo": "https://github.com/dyad-sh/dyad",
+ "architecture": "Application Electron pour construire des apps web par chat : monorepo vite (main/preload/renderer + workers), React renderer MobX, 121 handlers IPC partitionnes par domaine, machine d'etat app_run pure (transition), parser incremental de tags streamants (dyad-write...), compaction de contexte sur seuil, 121 handlers avec deploiements (vercel/cloudflare/coolify/supabase/neon), provider par credentials (envVarName), client MCP, evals e2e.",
+ "functionalities": [
+  {
+   "id": "dyd-app-run-machine",
+   "domain": "automatisation",
+   "name": "Machine d'etat app_run : start/restart/rebuild avec commandes et URL LATENTE",
+   "what": "Une machine d'etat pure (transition, pas de side-effect) declenche un run d'application : START/RESTART/REBUILD emettent une commande 'start' avec options (removeNodeModules, recreateSandbox), et l'URL arrive plus tard (pendingUrl).",
+   "how": "export function transition(state: RunEvent)->TransitionResult (src/app_run/transition.ts:48) : chaque event retourne kind=applied + nouveau state + commands[] (transition.ts:59-84) ; resolveAppRunInvocationRef (definition.ts:279) nomme l'invocation ; AppRunRemoteManager (remote_manager.ts:67) gere la partie distante. Omega : omega-core (matrice evenements + effets reversibles) : la transition pure testable est exactement notre garde.",
+   "omega_capability": "event-store",
+   "omega_port": "EventStore",
+   "omega_adapter": "omega-core::AgentLoop (machine d'etat du run pure)",
+   "integration": "native",
+   "status": "adopted",
+   "rust_cost": "S",
+   "refs": [
+    "src/app_run/transition.ts:48-84",
+    "src/app_run/definition.ts:279"
+   ]
+  },
+  {
+   "id": "dyd-stream-parser",
+   "domain": "ui",
+   "name": "Parser de tags streamant incrementaux (dyad-write/rename/delete/...) avec blocs stables",
+   "what": "Le messages de l'agent est parse au fil de l'eau : des tags custom (dyad-write, dyad-rename, dyad-delete, dyad-add-dependency...) produisent des blocs stables referentiellement, les octets en attente sont rendus comme texte markdown temporaire.",
+   "how": "src/lib/streamingMessageParser.ts:90-125 types Block/Mode/ParserState ; DYAD_CUSTOM_TAG_NAMES (streamingMessageParser.ts:26-31) ; le header committe les Block avec identite preservee pour React.memo (streamingMessageParser.ts:5-9). Omega : l'event stream parse par token : le pattern incremental-idempotent d'un parser streamant est utile a omega-server (reponse event-sourced).",
+   "omega_capability": "(ui)",
+   "omega_port": "UiPanel (rendu streamant event-sourced)",
+   "omega_adapter": "omega-server (parser de tags streamant)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "src/lib/streamingMessageParser.ts:5-31"
+   ]
+  },
+  {
+   "id": "dyd-streaming-patch",
+   "domain": "execution",
+   "name": "Patch de stream : tail-only splice avec hash de prefixe (stale dectection)",
+   "what": "Le contenu streamant reconverge avec un retour d'offset + hash : un 'tail-only patch' est rejete si le prefixe local differe (detremination de l'obsolescence DB).",
+   "how": "applyStreamingPatch (src/lib/applyStreamingPatch.ts:7-18) reconstruit current.slice(0, offset)+content ; renvoie false si hash djb2 du prefixe (prefixHash.ts) differe ; le caller resynchronise (applyStreamingPatch.ts:19-25). Omega : le EventStore peut rejouer identiquement ; le pattern hash-prefixe est utile pour les r-sens de la console.",
+   "omega_capability": "event-store",
+   "omega_port": "EventStore",
+   "omega_adapter": "omega-server (splice de stream verifiale par hash)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/lib/applyStreamingPatch.ts:7-25"
+   ]
+  },
+  {
+   "id": "dyd-compaction-handler",
+   "domain": "contexte",
+   "name": "Compaction de contexte declenchee sur seuil depense, par modele auxiliaire",
+   "what": "Compaction orchestrée : quand la convergation depasse le seuil du contexte, une passe de compaction est lancee sur un mode auxiliaire, une transcript pre-compaction est stockee, la passé post-compaction replaçe les messages.",
+   "how": "src/ipc/handlers/compaction/compaction_handler.ts orchestre le streamText (compaction_handler.ts:1-50) ; shouldTriggerCompaction (src/ipc/utils/token_utils.ts:112-117) : totalTokens >= getCompactionThreshold(contextWindow, provider) (token_utils.ts:100-117) ; storePreCompactionMessages + formatAsTranscript + buildCompactionBlock (compaction_storage.ts / compaction_utils.ts). Omega : LlmCompactionEngine double couche couvert ; pattern respecter : seuil par provider et model auxiliaire distincte.",
+   "omega_capability": "context-engine",
+   "omega_port": "ContextEngine",
+   "omega_adapter": "omega-context::LlmCompactionEngine (seuil par provider, model auxiliaire)",
+   "integration": "plugin",
+   "status": "adopted",
+   "rust_cost": "M",
+   "refs": [
+    "src/ipc/handlers/compaction/compaction_handler.ts:1-50",
+    "src/ipc/utils/token_utils.ts:100-117"
+   ]
+  },
+  {
+   "id": "dyd-providers-env",
+   "domain": "routage",
+   "name": "Providers LLM par credentials : env vars declared par provider, vertex/azure speciaux",
+   "what": "Les providers sont verifies par credentials : presets avec envVarName, avec cas speciaux vertex (project) et azure (url) ; les customs * ne s'appliquent que si la cle dispo.",
+   "how": "src/lib/providerUtils.ts:22-48 : isProviderSetUp(provider) lit settings.providerSettings + envVars + providerData (providerUtils.ts:18-25) ; vertex gestion par projectId (providerUtils.ts:34-46) ; azure par baseUrl (providerUtils.ts:47-48). Omega : omega-config (refs de secrets) : le pattern envVarName par provider est le imaginaire du CredentialProvider de la couture deepseek.",
+   "omega_capability": "config-source",
+   "omega_port": "—",
+   "omega_adapter": "omega-config (refs de secrets par provider)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/lib/providerUtils.ts:18-48"
+   ]
+  },
+  {
+   "id": "dyd-mcp-handlers",
+   "domain": "extension",
+   "name": "Client MCP integre (ipc/handlers/mcp) + classifiers d'erroe par serveur",
+   "what": "Interfacing unifiee MCP : configuration serveurs, tools, erreurs classifies pour un message utilisateur lisible.",
+   "how": "src/ipc/handlers/mcp_handlers.ts + mcp_error_classifiers.ts (l'erreur MCP est classifiee par type pour une UX claire). Omega : mcp:rea est plugin ; la classifier d'erreur est du bruit pour le plugin surface.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "omega-context::ToolSurfaceIndex (catalogue MCP + erreur classifiee)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "src/ipc/handlers/mcp_handlers.ts",
+    "src/ipc/handlers/mcp_error_classifiers.ts"
+   ]
+  },
+  {
+   "id": "dyd-cloud-deploys",
+   "domain": "automatisation",
+   "name": "Support de deploiements : cloudflare, coolify, vercel, supabase, neon",
+   "what": "L'app construite peut se deployer vers plusieurs fournisseurs (cloudflare pages, coolify autoge, vercel, neon db, supabase), avec approche unifiee par handlers dedies.",
+   "how": "src/ipc/handlers/{cloudflare,coolify,vercel,supabase,neon}_handlers.ts ; le systeme de deployement est unifiee par uses des adapters. Omega : omega-app::App job de deploiement + coordinator de la surface.",
+   "omega_capability": "scheduler-job",
+   "omega_port": "—",
+   "omega_adapter": "omega-app (jobs de deploiement par cible)",
+   "integration": "service",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "src/ipc/handlers/cloudflare_handlers.ts",
+    "src/ipc/handlers/coolify_handlers.ts"
+   ]
+  },
+  {
+   "id": "dyd-problems",
+   "domain": "observabilite",
+   "name": "Problems/fallback : l'agent reçoit les diagnostics IDE (TS, lint) en retour",
+   "what": "Le loop de chat recupere les erreurs IDE a l'execution et les renvoie comme problemes a l'agent.",
+   "how": "src/ipc/handlers/problems_handlers.ts + src/main/preview_cdp_broker.ts (les console logs et problemes via CDP). Omega : l'EventStore recoit deja les problemes ; pattern utile : renvoyer vers l'agent au tour suivant.",
+   "omega_capability": "observabilite",
+   "omega_port": "TelemetrySink",
+   "omega_adapter": "omega-app (diagnostics recircules a l'agent)",
+   "integration": "native",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/ipc/handlers/problems_handlers.ts",
+    "src/main/preview_cdp_broker.ts"
+   ]
+  },
+  {
+   "id": "dyd-conversation-summary",
+   "domain": "memoire",
+   "name": "Resumé de conversation persiste (compaction_storage).",
+   "what": "Le historique de la conversation est applate en transcript lisible avant de servir a la compaction/explication.",
+   "how": "src/ipc/handlers/compaction/compaction_storage.ts : storePreCompactionMessages + formatAsTranscript. Omega : re-decoupage omega-memory (summarisation transcript persiste) ; utile pour la mémoire d'inférieur de durée.",
+   "omega_capability": "memory-store",
+   "omega_port": "MemoryStore",
+   "omega_adapter": "omega-app (transcript de resume persiste)",
+   "integration": "service",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/ipc/handlers/compaction/compaction_storage.ts"
+   ]
+  },
+  {
+   "id": "dyd-free-quota",
+   "domain": "securite",
+   "name": "Quota d'usage gratuit : budget de requetes gated par modele",
+   "what": "Un budget de l'utilisation du model gratuit est enforce par requete (freeProModel, free_agent_quota).",
+   "how": "src/lib/free_pro_model.ts + src/ipc/handlers/free_agent_quota_handlers.ts + chat_stream_free_subscription. Omega : pas un kernel feature ; la note du budget peut se locker via ExecPolicy si un usage est stocké.",
+   "omega_capability": "exec-policy",
+   "omega_port": "ExecPolicy",
+   "omega_adapter": "omega-ports::ExecPolicy (budget de usage par modele)",
+   "integration": "plugin",
+   "status": "rejected",
+   "rust_cost": "S",
+   "refs": [
+    "src/lib/freeProModel.ts",
+    "src/ipc/handlers/free_agent_quota_handlers.ts"
+   ]
+  },
+  {
+   "id": "dyd-chat-modes",
+   "domain": "agents",
+   "name": "Modes de chat : build / ask / plan avec precondition avant raisonnement",
+   "what": "Le chat mode distingue build (edite), ask (repond), plan (produit un plan), chaque reset du mode impose une precondition a la chaîne.",
+   "how": "src/lib/chatMode.ts + src/ipc/handlers/chat_mode_resolution.ts + chat_mode_precondition.test.ts (resolution à la chaîne + precondition de mode avant propagation). Omega : SessionType d'omega-app a session type de mode ask/edit/create ; ajouter la precondition chainable.",
+   "omega_capability": "agent-store",
+   "omega_port": "SubagentRunner",
+   "omega_adapter": "omega-app (session par mode + precondition chain)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/lib/chatMode.ts",
+    "src/ipc/handlers/chat_mode_resolution.ts"
+   ]
+  },
+  {
+   "id": "dyd-pro-subscription",
+   "domain": "routage",
+   "name": "Routage par souscription : modeles Pro vs relay Dyad, effort par modele",
+   "what": "Un petit plan de souscription relaye les demandes vers les cibles (pro) ; l'effort de raisonnement (reasoning effort) est parametrisable par modele.",
+   "how": "src/ipc/utils/model_effort.ts + resolveModelSelection/normalizeModelSelection + src/lib/modelEffort.ts (clé de préférence). Omega : omega-router Selector ; l'eclat ici : la selection effort de raisonnement par default depuis le mode.",
+   "omega_capability": "router-policy",
+   "omega_port": "Selector",
+   "omega_adapter": "omega-router (effort de raisonnement par tache)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/ipc/utils/model_effort.ts",
+    "src/lib/modelEffort.ts"
+   ]
+  },
+  {
+   "id": "dyd-slug-encoders",
+   "domain": "securite",
+   "name": "Chiffrement des clées API via safe-storage electron (legacy safe)",
+   "what": "Les clée API stockee en base sont chiffre par la tombe systeme, backup/restore inclus.",
+   "how": "src/main/safe_storage_legacy.ts (lecture des credential legacy chiffrees) + providerApiKey.ts. Omega : omega-config (refs de secrets) : chiffrement par l'OS du front (HEAD).",
+   "omega_capability": "config-source",
+   "omega_port": "—",
+   "omega_adapter": "omega-config (refs de secrets chiffrees)",
+   "integration": "plugin",
+   "status": "rejected",
+   "rust_cost": "S",
+   "refs": [
+    "src/main/safe_storage_legacy.ts"
+   ]
+  },
+  {
+   "id": "dyd-eval-harness",
+   "domain": "observabilite",
+   "name": "Benchmark d'agent : une suite d'eval de programme end-to-end (evals)",
+   "what": "Une infrastructure de tests de qualité au-dessus des evals de fukcts end-to-end de génération de code avec de tests de conformance transverses.",
+   "how": "src/__tests__/evals/ + get_eval_model.ts ; vitest.eval.config.ts. Omega : une üste d'evals corrée ; utile a l'omega-harness crate pour des tests de regression des capacités.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "omega-harness (buat de regression de capacite)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "src/__tests__/evals",
+    "vitest.eval.config.ts"
+   ]
+  }
+ ]
+}
