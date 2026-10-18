@@ -1,0 +1,13 @@
+{
+  "id": "bloop",
+  "name": "Bloop",
+  "repo": "BloopAI/bloop",
+  "stars": 9480,
+  "language": "Rust",
+  "license": "Apache-2.0",
+  "nature": "?",
+  "cloned": false,
+  "clone_note": "iltre smudge 'lfs' a échoué\navertissement : Le clone a réussi, mais l'extraction a échoué.\nVous pouvez inspecter ce qui a été extrait avec 'git status'\net réessayer avec 'git restore --source=HEAD :/'",
+  "status": "clone_failed",
+  "message": "iltre smudge 'lfs' a échoué\navertissement : Le clone a réussi, mais l'extraction a échoué.\nVous pouvez inspecter ce qui a été extrait avec 'git status'\net réessayer avec 'git restore --source=HEAD :/'"
+}

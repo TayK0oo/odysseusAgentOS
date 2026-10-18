@@ -1,0 +1,24 @@
+{
+  "id": "codebuff",
+  "name": "Codebuff",
+  "repo": "CodebuffAI/codebuff",
+  "stars": 13610,
+  "language": "TypeScript",
+  "license": "Apache-2.0",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_f42b53a03088c32c78af8ffb1603f62de900626131fa499922740e3cb528a00f",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "4ecff4433df5deb73224a679b691083f934bb56524d750204d0a55e75b4001b1"
+  },
+  "counts": {
+    "graph_nodes": 11561,
+    "graph_edges": 13263
+  },
+  "limitations_count": 2953
+}

@@ -1,0 +1,24 @@
+{
+  "id": "claude-engineer",
+  "name": "Claude Engineer",
+  "repo": "Doriandarko/claude-engineer",
+  "stars": 11215,
+  "language": "Python",
+  "license": null,
+  "nature": "python",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_125e188e30fa075bf3090790b0bb4a39dd44a6240c9e7c59be8985eb7fd60632",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "004d7ab48efd6cc9ce6700998b74c7e2fa2364ed37597cdd77c71e21aa8d9108"
+  },
+  "counts": {
+    "graph_nodes": 9,
+    "graph_edges": 9
+  },
+  "limitations_count": 7
+}

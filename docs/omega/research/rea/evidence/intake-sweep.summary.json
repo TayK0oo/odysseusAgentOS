@@ -1,0 +1,24 @@
+{
+  "id": "sweep",
+  "name": "Sweep",
+  "repo": "sweepai/sweep",
+  "stars": 7707,
+  "language": "Jupyter Notebook",
+  "license": "NOASSERTION",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_ff92a330791d7abc6fd95136795c3e680363fe4e09754ebe92c00215d912bc5d",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "17cb7f275b59116181cd7a308a961ac4f89018e47e587795f0881008c6374c22"
+  },
+  "counts": {
+    "graph_nodes": 929,
+    "graph_edges": 1099
+  },
+  "limitations_count": 7
+}
