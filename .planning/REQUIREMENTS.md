@@ -38,9 +38,9 @@ proposé, exemplaire de référence avec preuves (`fichier:ligne`).
 
 ### REA — Extraction machine
 
-- [ ] **REA-01** : intake clone + sweep REA exécutant sur les 16 clones ; taux de
+- [x] **REA-01** : intake clone + sweep REA exécutant sur les 16 clones ; taux de
   réussite chiffre par harnais (langage TS/JS/TSX dissectables).
-- [ ] **REA-02** : écarts documentes explicitement pour langages hors surface REA
+- [x] **REA-02** : écarts documentes explicitement pour langages hors surface REA
   (Python/Rust/Go) — raison datee par harnais dans la fiche, provenance `[observed]`.
 
 ### CONS — Consolidation intelligente
@@ -80,11 +80,13 @@ proposé, exemplaire de référence avec preuves (`fichier:ligne`).
 
 | REQ | Phase |
 |-----|-------|
-| DIS-01…DIS-06, REA-01, REA-02 | Phase 6 |
-| DIS-07…DIS-12 | Phase 7 |
-| DIS-13…DIS-16 | Phase 8 |
-| CONS-01…CONS-03 | Phase 9 |
-| ORG-01…ORG-03 | Phase 10 |
+| DIS-01..DIS-06 | Phase 6 |
+| REA-01 | Phase 6 |
+| REA-02 | Phase 6 |
+| DIS-07..DIS-12 | Phase 7 |
+| DIS-13..DIS-16 | Phase 8 |
+| CONS-01..CONS-03 | Phase 9 |
+| ORG-01..ORG-03 | Phase 10 |
 
 Couverture : **24/24 requirements mappés, 100%.**
 (filled by roadmapper — inline, budget délégation épuisé)

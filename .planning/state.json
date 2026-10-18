@@ -1,12 +1,12 @@
 {
   "contract": "1.0.0",
   "flavor": "core",
-  "milestone": "v0.2 — NOYAU Phase A→D",
+  "milestone": "v0.3 — CORPUS 100%",
   "phases": [],
   "next": {
-    "command": "/gsd-progress",
-    "label": "Show progress",
-    "reason": "Unsure of state — showing progress"
+    "command": "/gsd-progress --next",
+    "label": "Advance to the next step (plan phase 7)",
+    "reason": "Phase 2 of 5 — needs a plan"
   },
-  "updated_at": "2026-10-18T06:19:33.335Z"
+  "updated_at": "2026-10-18T19:14:58.735Z"
 }
