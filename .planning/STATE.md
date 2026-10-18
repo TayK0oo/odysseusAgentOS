@@ -17,11 +17,11 @@ progress:
 
 ## Current Phase
 
-Phase 5 — Fermeture des 3 trous — **Complète** (tous les phases NOYAU A→D + 3 trous fermés).
+**Phase 6 — Intake vague 1 (Onlook, Roo Code, Dyad, SWE-agent, Devika, Agent Zero)** — pas encore démarrée.
 
 ## Last Completed
 
-Phase 5 — Fermeture des 3 trous livrée et vérifiée.
+Milestone v0.2 complet (phases 1–5) et archivé sous `milestones/v0.2-phases/`.
 
 ## Milestone
 
@@ -55,11 +55,11 @@ Voir `docs/omega/rules/MODEL-POLICY.md` + `model_policy.py --check`.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 6 (pending, not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-10-18 — Milestone v0.3 started
+Status: Ready — /gsd-discuss-phase 6 ou /gsd-plan-phase 6
+Last activity: 2026-10-18 — Roadmap v0.3 créée (5 phases, 24 requirements, 100% couverts)
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- /gsd-discuss-phase 6 puis /gsd-plan-phase 6

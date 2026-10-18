@@ -78,4 +78,13 @@ proposé, exemplaire de référence avec preuves (`fichier:ligne`).
 
 ## Traceability
 
-filled by roadmapper.
+| REQ | Phase |
+|-----|-------|
+| DIS-01…DIS-06, REA-01, REA-02 | Phase 6 |
+| DIS-07…DIS-12 | Phase 7 |
+| DIS-13…DIS-16 | Phase 8 |
+| CONS-01…CONS-03 | Phase 9 |
+| ORG-01…ORG-03 | Phase 10 |
+
+Couverture : **24/24 requirements mappés, 100%.**
+(filled by roadmapper — inline, budget délégation épuisé)
