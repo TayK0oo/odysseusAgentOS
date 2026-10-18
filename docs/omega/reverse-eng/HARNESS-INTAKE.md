@@ -4,14 +4,14 @@
 
 | # | Harnais | Etoiles | Nature | Clone | REA | Provider | Limites |
 |---|---|---|---|---|---|---|---|
-| 1 | Devika | 19,551 | python | ok | ✅ analysee | rea-javascript-application | 5 |
+| 1 | Agent Zero | 19,506 | python | ok | ✅ analysee | rea-javascript-application | 141 |
 
 ## Detail
 
-### Devika (19,551 etoiles) — `stitionai/devika`
+### Agent Zero (19,506 etoiles) — `frdel/agent-zero`
 
-- nature : python ; licence : MIT
-- evidence : `ev_f087541640aa7bda8c47e7a316e56642bbc9e2401ca7a5f45f0474073e1693af`
+- nature : python ; licence : NOASSERTION
+- evidence : `ev_ab7556d336e51252c5119afe9db2f725c58fb5e22419269df91064a8727d56b7`
 - provider : `rea-javascript-application` ; confiance : **derived**
-- structure : graph_edges=251, graph_nodes=207
+- structure : graph_edges=4704, graph_nodes=4343
 
