@@ -1,93 +1,80 @@
-# REQUIREMENTS — Omega
+# REQUIREMENTS — Omega v0.3 CORPUS 100%
 
-Bootstrappé depuis `docs/omega/` (VISION, WORKSTREAMS, MEMORY, ADR, NOYAU-ULTIME,
-OMEGA-COMPLET) via `/gsd-ingest-docs` (2026-10-17).
+> Définis le 2026-10-18. Les exigences v0.2 (R1→R7, livrées) restent visibles
+> dans `.planning/MILESTONES.md` et l'archive `milestones/v0.2-phases/`.
+> Empreinte faits : 66 harnais recensés · 35 disséqués · 19 non disséqués ·
+> 3 non-ossifiables (Copilot Chat fermé, Kimi CLI archivé, PearAI minuscule).
 
-## Fonctionnelles
+## Requêtes du milestone
 
-### R1 — Socle plugin (W2)
-- R1.1 Ports typés : `LlmProvider`, `ContextEngine`, `MemoryStore`, `ToolExecutor`,
-  `SandboxBackend`, `RouterPolicy`, `CatalogSource`, `TelemetrySink`, `UiPanel`, `Hook`,
-  `SubagentRunner`.
-- R1.2 Deux régimes de capacité : slot exclusif et ensemble concurrent.
-- R1.3 Manifeste schéma-validé (id, capacité, version, config schema, permissions).
-- R1.4 Découverte dynamique (scan répertoires + registre), pas d'import en dur.
-- R1.5 Effets réversibles : toute inscription retourne un disposer.
-- R1.6 Couches nommées de config (provenance de valeur).
-- R1.7 Reload atomique par plugin.
-- R1.8 Guard monotone : les politiques ne font qu'interdire, jamais élargir.
-- R1.9 Matrice d'événements vérifiée (producteurs/consommateurs).
+Traiter par popularité les 16 harnais OSS restants (census `docs/omega/reverse-eng/HARNESS-CENSUS.md`) :
+intake clone + preuve REA machine + dissection validée, puis raffiner le combine
+deterministe et reorganiser le corpus finement.
 
-### R2 — Moteur Rust (W3)
-- R2.1 Boucle d'agent `Operation/Inference/Effect` + `EventBus` durable/éphémère.
-- R2.2 Annulation coopérative.
-- R2.3 Exécution durable : reprise après crash sans perte.
-- R2.4 Event store append-only (mem + fichier JSONL), replay de session.
+### DIS — Dissections (16)
 
-### R3 — Routing intelligent (W4)
-- R3.1 Registre multi-fournisseurs avec capacités, coûts, vitesses, axes de qualité.
-- R3.2 Classifieur de tâche déterministe (zéro LLM).
-- R3.3 Scoring composite depuis benchmarks communautaires (AA, Epoch, SWE-bench, …).
-- R3.4 Sélecteur Pareto + fallback (même tier → supérieur → self-hosted → backoff) + circuit breaker.
-- R3.5 Feedback loop (bandit UCB1/Thompson) ajustant les poids sur succès réels.
-- R3.6 Cache de décision versionné.
-- R3.7 Souveraineté : blocage fournisseur → bascule self-hosted.
+| REQ | Harnais | Dépot |
+|-----|---------|-------|
+| **DIS-01** | Onlook | `onlook-dev/onlook` |
+| **DIS-02** | Roo Code | `RooCodeInc/Roo-Code` |
+| **DIS-03** | Dyad | `dyad-sh/dyad` |
+| **DIS-04** | SWE-agent | `princeton-nlp/SWE-agent` |
+| **DIS-05** | Devika | `stitionai/devika` |
+| **DIS-06** | Agent Zero | `frdel/agent-zero` |
+| **DIS-07** | SuperAGI | `TransformerOptimus/SuperAGI` |
+| **DIS-08** | bolt.new | `stackblitz/bolt.new` |
+| **DIS-09** | Codebuff | `CodebuffAI/codebuff` |
+| **DIS-10** | Claude Engineer | `Doriandarko/claude-engineer` |
+| **DIS-11** | Bloop | `BloopAI/bloop` |
+| **DIS-12** | Sweep | `sweepai/sweep` |
+| **DIS-13** | Refact.ai | `smallcloudai/refact` |
+| **DIS-14** | Nanocoder | `Nano-Collective/nanocoder` |
+| **DIS-15** | Genie | `samhoouver/genie` |
+| **DIS-16** | Onlook (complément) | voir census — dernier harnais OSS listé |
 
-### R4 — Reverse-engineering (W5)
-- R4.1 Programme reproductible en 4 étapes (recensement → intake+REA → dissection → combiné).
-- R4.2 Fiches par harnais (35), `FEATURE-MATRIX` (96+ features), `OMEGA-BLUEPRINT` (18 crates).
-- R4.3 `omega-harness` crate + endpoints `/api/harnesses`, `/api/dissections`.
-- R4.4 Validation structure + résolution des preuves (`validate_dissections.py`).
+Chaque REQ est remplie quand : fiche `docs/omega/reverse-eng/dissections/<id>.md`
+créée (structure validée par `omega/scripts/validate_dissections.py`), port/adaptateur
+proposé, exemplaire de référence avec preuves (`fichier:ligne`).
 
-### R5 — Économie de contexte (W6)
-- R5.1 Port `ContextEngine` (ingest → assemble → compact → afterTurn, `ownsCompaction`).
-- R5.2 Tool search BM25 + rarest-token gate.
-- R5.3 Progressive disclosure des skills (3 niveaux).
-- R5.4 Prompt caching (breakpoints + affinité).
-- R5.5 Budget de contexte (estimate → plafond → arrêt).
-- R5.6 Mémoire bornée + FTS.
+### REA — Extraction machine
 
-### R6 — Cockpit UI React/TS (W7)
-- R6.1 App `omega/ui/` (Vite+TS) avec Cockpit, Plugin Explorer, Router Dashboard,
-  Trace Viewer/Replay, Context Inspector.
-- R6.2 Contrats générés depuis `omega-protocol`.
-- R6.3 `omega-server` (axum) exposant l'API typée, SPA fallback.
-- R6.4 Remplacement d'un plugin depuis l'UI + visualisation décision/coût.
+- [ ] **REA-01** : intake clone + sweep REA exécutant sur les 16 clones ; taux de
+  réussite chiffre par harnais (langage TS/JS/TSX dissectables).
+- [ ] **REA-02** : écarts documentes explicitement pour langages hors surface REA
+  (Python/Rust/Go) — raison datee par harnais dans la fiche, provenance `[observed]`.
 
-### R7 — Traçabilité (W8)
-- R7.1 `TelemetrySink` (OTLP/stdout/fichier), event store append-only.
-- R7.2 Provenance `[stated]/[observed]/[inferred]`.
-- R7.3 Replay de session depuis les traces.
+### CONS — Consolidation intelligente
 
-### R8 — Sécurité & sandbox (W9)
-- R8.1 `SandboxBackend` multi-backend (local/docker/ssh/serverless).
-- R8.2 `ExecPolicy` DSL, `PermissionPolicy` (allow/ask/deny).
-- R8.3 Approbations granulaires.
-- R8.4 Fail-closed : absence de canal/provider/décision = refus.
+- [ ] **CONS-01** : `omega/scripts/register_dissections.py` + `omega_complet.py`
+  etendus au corpus final (51 harnais), zero edition manuelle (deterministe).
+- [ ] **CONS-02** : `OMEGA-COMPLET.md` v2 : regroupement par famille, consensus
+  pondere popularite (>=4 demandeurs), adaptateurs proposes, exemplaires de
+  reference, tout traçable.
+- [ ] **CONS-03** : `HARNESS-CENSUS.md` recalcule — 66 recenses, 51 disseques,
+  3 ecarts documentés (copilot-chat, kimi-cli, pearai), 0 silencieux.
 
-### R9 — Économie & self-hosting (W10)
-- R9.1 Providers locaux (Ollama/llama.cpp), gateway, cache.
-- R9.2 Budget par run.
-- R9.3 Flux complet à coût nul via modèle local sans toucher au noyau.
+### ORG — Organisation (planning & docs)
 
-### R10 — Adaptateurs des ports orphelins (NOYAU-ULTIME Phase B)
-- R10.1 `MemoryStore`, `Hook`, `SubagentRunner` implémentés (actuellement orphelins).
-- R10.2 Provider externe de sous-agents (Claude Code/Codex/ACP comme providers).
+- [ ] **ORG-01** : `omega/scripts/generate_memory.py` — corpus stats a jour
+  (harnais, fonctionnalites, preuves REA apres extinction).
+- [ ] **ORG-02** : `docs/omega/INDEX.md` regenere — nouvelles fiches + census.
+- [ ] **ORG-03** : MEMORY.md « Prochaines actions » sans divert (INDEX ✅ marque,
+  v0.3 pointe vers le milestone suivant).
 
-## Non-fonctionnelles
+## Future (hors v0.3)
 
-- NF1 Interchangeabilité : remplacer une brique sans toucher au noyau.
-- NF2 Économie : part des opérations résolues sans appel LLM ; tokens/run ; coût/run.
-- NF3 Qualité : taux de tâches terminées sans intervention ; taux de fallback.
-- NF4 Traçabilité : % d'étapes tracées et rejouables.
-- NF5 Vitesse : TTFT p50/p95 ; latence de routing p95.
-- NF6 Robustesse : taux de crash par brique ; récupération après erreur.
-- NF7 Dépendances : `cli/server → runtime → ports → core` ; jamais l'inverse.
-- NF8 Zéro-cycle dans le graphe de dépendances (`check_dep_graph.py`).
-- NF9 Modèles : sous-agents gratuits par défaut (MODEL-POLICY).
+- Revue independante W8/W9 (quota Go) — reportee jusqu'a dispo.
+- Marketplace plugins (Phase D partiel) — affinement v0.4+.
+- Regroupement « intelligemment » par consensus score sur corpus final :
+  depend de CONS-02 ; les decisions de construction restent guidees par le
+  NOYAU-ULTIME + consensus >=4.
 
-## Backlog (issues ouvertes)
+## Out of Scope
 
-- W8/W9 revue indépendante en attente de quota Go.
-- Phase A du noyau (4 mécanismes coût S) : prochain pas logique.
-- Fermer les 3 trous : ingérer les 3 fichiers modèles hors dépôt, MEMORY auto-généré, INDEX racine.
+- Mobilier UI/cockpit vues supplementaires — v0.4.
+- Benchmark de modeles — deja couvert par `MODEL-ROUTING-BENCHMARKS.md`.
+- Socle Python vivant (solidifie comme catalogue — D5).
+
+## Traceability
+
+filled by roadmapper.
