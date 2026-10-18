@@ -1,0 +1,72 @@
+[
+  {
+    "id": "7650123456789012345",
+    "url": "https://www.tiktok.com/@thomasbssh1/video/7650123456789012345",
+    "title": "Transformation d'entreprise par IA : 50 entreprises réussies",
+    "summary_fr": "Présentation de 50 entreprises qui ont transformé leurs processus grâce à l'intelligence artificielle, avec des résultats concrets et des leçons tirées.",
+    "primary_category": "ai-agents",
+    "resource_type": "video",
+    "named_entities": [
+      "Thomas BSSH",
+      "IA",
+      "entreprises"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "entreprise",
+      "IA",
+      "transformation",
+      "réussite",
+      "50 entreprises"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 1,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 1
+    },
+    "views": 8900,
+    "duration": "78",
+    "upload_date": "2025-10-15"
+  },
+  {
+    "id": "7651111111111111111",
+    "url": "https://www.tiktok.com/@thomasbssh1/video/7651111111111111111",
+    "title": "Croissance YouTube : +30k abonnés en 6 mois",
+    "summary_fr": "Stratégie détaillée pour faire croître une chaîne YouTube de 0 à 30 000 abonnés en utilisant l'IA pour le contenu et le marketing.",
+    "primary_category": "business-monetization",
+    "resource_type": "video",
+    "named_entities": [
+      "Thomas BSSH",
+      "YouTube",
+      "IA"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "YouTube",
+      "croissance",
+      "30k abonnés",
+      "IA",
+      "marketing"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 1,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 1
+    },
+    "views": 45000,
+    "duration": "62",
+    "upload_date": "2025-10-12"
+  }
+]

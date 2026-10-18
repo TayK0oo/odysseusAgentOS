@@ -62,3 +62,50 @@ Phases 1–5 : squelette effets réversibles · coutures MemoryStore/Hook/Subage
 1. `generate_memory.py` sort les stats corpus à jour (harnais, fonctionnalités, preuves REA).
 2. `docs/omega/INDEX.md` régénéré avec les nouvelles fiches + census.
 3. MEMORY.md « Prochaines actions » sans résidus v0.2 (trou 1 marqué résolu, entrée INDEX ✅).
+
+## Milestone: v0.4 — PLUGIN CONVERGENCE
+
+**Status:** In Progress
+**Objectif :** Adapter l'architecture complète au modèle "everything is a plugin" en intégrant les capacités extraites du corpus (51 harnais + 148 vidéos TikTok) + travail existant odysseusAgentOS.
+
+### Phase 11: Convergence des outils TikTok
+
+**Goal:** Extraire et classifier tous les outils des 148 vidéos TikTok (3 comptes) et créer des adaptateurs plugin pour chaque outil identifié.
+**Depends on:** Phase 10
+**Requirements:** CONV-01, CONV-02, CONV-03
+**Success criteria:**
+1. Tous les outils TikTok sont extraits et classifiés par catégorie (IA, SaaS, skills, GitHub, etc.)
+2. Chaque outil a un port/adaptateur proposé dans l'architecture plugin
+3. Documentation complète dans `docs/omega/reverse-eng/tiktok/`
+
+### Phase 12: Adaptation architecture "everything is a plugin"
+
+**Goal:** Créer les 8 nouveaux ports et implémenter les adaptateurs pour chaque port. Mettre à jour le registre de plugins.
+**Depends on:** Phase 11
+**Requirements:** ARCH-01, ARCH-02, ARCH-03, ARCH-04
+**Success criteria:**
+1. 8 nouveaux ports créés (Registry, UiSurface, ConfigSource, SkillStore, AgentLoop, AgentStore, WorkflowEngine, SandboxBackend)
+2. Chaque port a au moins un adaptateur implémenté
+3. Le registre de plugins gère l'installation/activation/désactivation
+4. Tests d'intégration pour chaque port
+
+### Phase 13: Intégration du travail existant (odysseusAgentOS)
+
+**Goal:** Importer les adaptateurs pertinents du repo principal. Fusionner les architectures (Python + Rust). Créer les ponts nécessaires.
+**Depends on:** Phase 12
+**Requirements:** INTEG-01, INTEG-02, INTEG-03
+**Success criteria:**
+1. Adaptateurs Python importés et wrappés en plugins Rust
+2. Ponts (bridge) créés pour l'interopérabilité
+3. Documentation de l'intégration
+
+### Phase 14: Validation end-to-end
+
+**Goal:** Tests d'intégration pour chaque port. Tests de plugin (install/uninstall/reload). Validation sandbox. Documentation complète.
+**Depends on:** Phase 13
+**Requirements:** VALID-01, VALID-02, VALID-03
+**Success criteria:**
+1. Tests d'intégration pour chaque port (16 existants + 8 nouveaux)
+2. Tests de plugin (install/uninstall/reload)
+3. Validation sandbox complète
+4. Documentation complète mise à jour

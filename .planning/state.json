@@ -1,12 +1,12 @@
 {
   "contract": "1.0.0",
   "flavor": "core",
-  "milestone": "v0.3 — CORPUS 100%",
+  "milestone": "v0.4 — PLUGIN CONVERGENCE",
   "phases": [],
   "next": {
-    "command": "/gsd-progress --next",
-    "label": "Advance to the next step (plan phase 9)",
-    "reason": "Phase 4 of 5 — needs a plan"
+    "command": "/gsd-new-milestone",
+    "label": "Start a new milestone",
+    "reason": "All phases complete — start a new milestone"
   },
-  "updated_at": "2026-10-18T19:48:45.998Z"
+  "updated_at": "2026-10-18T23:54:37.900Z"
 }

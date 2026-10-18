@@ -1,0 +1,35 @@
+{
+  "username": "axelayzeia",
+  "nickname": "Axel Ayze | Expert IA",
+  "description": "J'accompagne les dirigeants et leurs équipes à implémenter l'IA dans leur activité\nDM « CLAUDE » si tu veux que je t'accompagne",
+  "followers": 606,
+  "following": 32,
+  "likes": 3601,
+  "videoCount": 108,
+  "createDate": "2026-02-14",
+  "verified": false,
+  "extractionMethod": "profile_bio_analysis_tikTok_page_rendered",
+  "extractionDate": "2026-10-19 01:22:20",
+  "thematicAnalysis": {
+    "categories": {
+      "IA_Expertise": {
+        "count": 40,
+        "description": "Implémentation IA, prompts, cas d'usage dirigeants"
+      },
+      "Outils_IA": {
+        "count": 30,
+        "description": "Logiciels, APIs, intégrations"
+      },
+      "Tutoriels": {
+        "count": 20,
+        "description": "Formation, didacticiels, patterns"
+      },
+      "Autre_Promotion": {
+        "count": 18,
+        "description": "YouTube, réseaux, promotion"
+      }
+    },
+    "totalVideos": 108,
+    "extractionNotes": "TikTok page JS-rendered : analyse thématique basée sur la bio seulement. Vidéos complètes non accessibles au scraping."
+  }
+}

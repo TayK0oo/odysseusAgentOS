@@ -379,3 +379,75 @@ mod tests {
         assert_eq!(p.evaluate("x", "y"), PermissionEffect::Ask);
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Nouveaux ports — Architecture "Everything is a Plugin" (ADR 0010)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Registre de plugins. Regime : *slot exclusif*.
+pub trait Registry: Send + Sync {
+    fn name(&self) -> &str;
+    fn register(&self, manifest: &str) -> OmegaResult<()>;
+    fn activate(&self, id: &str) -> OmegaResult<()>;
+    fn deactivate(&self, id: &str) -> OmegaResult<()>;
+    fn list(&self) -> Vec<String>;
+}
+
+/// Surface UI (slots, thème par surface). Regime : *ensemble*.
+pub trait UiSurface: Send + Sync {
+    fn name(&self) -> &str;
+    fn slot(&self) -> &str; // root, sidebar, main, rightbar, overlay
+    fn render(&self) -> OmegaResult<String>;
+}
+
+/// Source de configuration (layers + precedence). Regime : *slot exclusif*.
+#[async_trait]
+pub trait ConfigSource: Send + Sync {
+    fn name(&self) -> &str;
+    async fn load(&self, layer: &str) -> OmegaResult<serde_json::Value>;
+    async fn save(&self, layer: &str, value: serde_json::Value) -> OmegaResult<()>;
+}
+
+/// Magasin de skills. Regime : *ensemble*.
+#[async_trait]
+pub trait SkillStore: Send + Sync {
+    fn name(&self) -> &str;
+    async fn discover(&self) -> OmegaResult<Vec<String>>;
+    async fn load(&self, id: &str) -> OmegaResult<String>;
+}
+
+/// Boucle d'agent. Regime : *slot exclusif*.
+#[async_trait]
+pub trait AgentLoop: Send + Sync {
+    fn name(&self) -> &str;
+    async fn run(&self, goal: &str) -> OmegaResult<String>;
+    async fn step(&self) -> OmegaResult<String>;
+    async fn recover(&self, error: &str) -> OmegaResult<String>;
+}
+
+/// Magasin d'agents. Regime : *ensemble*.
+#[async_trait]
+pub trait AgentStore: Send + Sync {
+    fn name(&self) -> &str;
+    async fn discover(&self) -> OmegaResult<Vec<String>>;
+    async fn load(&self, id: &str) -> OmegaResult<String>;
+    async fn save(&self, id: &str, spec: &str) -> OmegaResult<()>;
+}
+
+/// Moteur de workflow. Regime : *slot exclusif*.
+#[async_trait]
+pub trait WorkflowEngine: Send + Sync {
+    fn name(&self) -> &str;
+    async fn build(&self, spec: &str) -> OmegaResult<String>;
+    async fn compile(&self, id: &str) -> OmegaResult<String>;
+    async fn run(&self, id: &str) -> OmegaResult<String>;
+}
+
+/// Backend sandbox (WebContainer, E2B, namespace). Regime : *ensemble*.
+#[async_trait]
+pub trait SandboxBackendV2: Send + Sync {
+    fn name(&self) -> &str;
+    async fn isolate(&self, command: &str) -> OmegaResult<String>;
+    async fn merge(&self, id: &str) -> OmegaResult<()>;
+    async fn cleanup(&self, id: &str) -> OmegaResult<()>;
+}

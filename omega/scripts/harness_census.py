@@ -60,11 +60,11 @@ CANDIDATES: list[tuple[str, str, str]] = [
     ("AntonOsika/gpt-engineer", "GPT Engineer", "oss"),
     ("Pythagora-io/gpt-pilot", "GPT Pilot", "oss"),
     ("sweepai/sweep", "Sweep", "oss"),
-    ("AbanteAI/mentat", "Mentat", "oss"),
+    ("AbanteAI/mentat", "Mentat [écart: dépôt supprimé, 404 permanent vérifié 2026-10-18 (API+curl)]", "ecart"),
     ("BloopAI/bloop", "Bloop", "oss"),
     ("smallcloudai/refact", "Refact.ai", "oss"),
     ("TabbyML/tabby", "Tabby", "oss"),
-    ("sourcegraph/cody", "Sourcegraph Cody", "oss"),
+    ("sourcegraph/cody-public-snapshot", "Sourcegraph Cody", "oss"),
     ("voideditor/void", "Void", "oss"),
     ("trypear/pearai-app", "PearAI", "oss"),
     ("charmbracelet/crush", "Crush", "oss"),
@@ -77,7 +77,8 @@ CANDIDATES: list[tuple[str, str, str]] = [
     ("stackblitz/bolt.new", "bolt.new", "oss"),
     ("nicepkg/aide", "Aide", "oss"),
     ("Doriandarko/claude-engineer", "Claude Engineer", "oss"),
-    ("sst/opencode", "OpenCode (doublon garde pour la mesure)", "oss"),
+    # doublon : opencode est dissecté ; gardé pour la mesure de popularité
+    ("sst/opencode", "OpenCode", "oss"),
     # --- entrants 2026 (veille utilisateur du 17/10) ---
     ("deepseek-ai/deepseek-harness", "DeepSeek Harness", "oss"),
     ("langchain-ai/deepagents", "Deep Agents", "oss"),
@@ -197,10 +198,10 @@ def main() -> int:
         )
 
     done = dissected_ids()
+    # homonymes declarés : id census -> id dissection reel (evite les faux positifs de prefixe).
+    HOMONYMS = {"codex-cli": "codex"}
     for r in rows:
-        r["dissected"] = r["id"] in done or any(
-            r["id"].startswith(d) or d.startswith(r["id"]) for d in done
-        )
+        r["dissected"] = r["id"] in done or (r["id"] in HOMONYMS and HOMONYMS[r["id"]] in done)
 
     rows.sort(key=lambda r: (-r["stars"], r["name"]))
     gaps = [r for r in rows if not r["dissected"] and r["kind"] == "oss"]
@@ -253,7 +254,13 @@ def main() -> int:
         "",
         ", ".join(r["name"] for r in rows if r["kind"] == "closed"),
         "",
+        "## Ecarts documentes",
+        "",
     ]
+    for r in rows:
+        if r["kind"] == "ecart":
+            lines.append(f"- **{r['name']}** — `{r['repo']}` (dépôt indisponible, écart assumé)")
+    lines += [""]
     OUT_MD.write_text("\n".join(lines) + "\n")
 
     print(f"{len(rows)} harnais recenses ; {len(gaps)} OSS non disseques")

@@ -4,14 +4,14 @@
 
 | # | Harnais | Etoiles | Nature | Clone | REA | Provider | Limites |
 |---|---|---|---|---|---|---|---|
-| 1 | Sourcegraph Cody | 3,800 | js | ok | ✅ analysee | rea-javascript-application | 1738 |
+| 1 | Aide | 2,685 | js | ok | ✅ analysee | rea-javascript-application | 6 |
 
 ## Detail
 
-### Sourcegraph Cody (3,800 etoiles) — `sourcegraph/cody-public-snapshot`
+### Aide (2,685 etoiles) — `nicepkg/aide`
 
-- nature : js ; licence : —
-- evidence : `ev_7a8857cc8457618a874890f1790f34dc7c6149679e64e26a9a8d9b2dfbaef550`
+- nature : js ; licence : MIT
+- evidence : `ev_15b46b83dc4e9d13cf4ae12e602d291427ed325ac07c87fddbdc74d3bef940e3`
 - provider : `rea-javascript-application` ; confiance : **derived**
-- structure : graph_edges=13086, graph_nodes=10996
+- structure : graph_edges=1016, graph_nodes=961
 

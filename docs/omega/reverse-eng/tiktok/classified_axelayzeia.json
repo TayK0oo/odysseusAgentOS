@@ -1,0 +1,104 @@
+[
+  {
+    "id": "7696204305342254358",
+    "url": "https://www.tiktok.com/@axelayzeia/video/7696204305342254358",
+    "title": "IA pour dirigeants : comment implémenter l'intelligence artificielle",
+    "summary_fr": "Guide pratique pour les dirigeants sur l'intégration de l'IA dans leur stratégie d'entreprise, avec des cas d'usage concrets et des résultats mesurables.",
+    "primary_category": "ai-agents",
+    "resource_type": "video",
+    "named_entities": [
+      "Axel Ayze",
+      "Claude",
+      "IA"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "IA",
+      "directeurs",
+      "implémentation",
+      "stratégie",
+      "Claude"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 1,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 3965,
+    "duration": "51",
+    "upload_date": "2026-10-13"
+  },
+  {
+    "id": "7695073583533493526",
+    "url": "https://www.tiktok.com/@axelayzeia/video/7695073583533493526",
+    "title": "On peut maintenant prédire comment un cerveau humain réagit à une vid...",
+    "summary_fr": "Un modèle open source entraîné sur 700 cerveaux prédit la réaction cérébrale à une vidéo, transformé en outil pour créateurs via Codex d'OpenAI.",
+    "primary_category": "model-releases",
+    "resource_type": "model",
+    "named_entities": [
+      "OpenAI",
+      "Codex"
+    ],
+    "sponsor": true,
+    "actionable_link": null,
+    "keywords": [
+      "openaipartner",
+      "model-releases",
+      "model"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "observability": 1,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 1
+    },
+    "views": 23700,
+    "duration": "65",
+    "upload_date": "2026-10-10"
+  },
+  {
+    "id": "7694323778330856726",
+    "url": "https://www.tiktok.com/@axelayzeia/video/7694323778330856726",
+    "title": "Un repo GitHub permet à ChatGPT ou Claude de faire du reverse engineering d'applications",
+    "summary_fr": "Un dépôt GitHub open source qui permet à ChatGPT ou Claude d'analyser et de copier la structure d'applications existentes.",
+    "primary_category": "github-repos",
+    "resource_type": "github-repo",
+    "named_entities": [
+      "ChatGPT",
+      "Claude",
+      "GitHub"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "repo",
+      "github",
+      "reverse engineering",
+      "structure",
+      "application"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 1,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 1520,
+    "duration": "42",
+    "upload_date": "2026-10-08"
+  }
+]
