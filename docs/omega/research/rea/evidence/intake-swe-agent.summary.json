@@ -1,0 +1,24 @@
+{
+  "id": "swe-agent",
+  "name": "SWE-agent",
+  "repo": "princeton-nlp/SWE-agent",
+  "stars": 20594,
+  "language": "Python",
+  "license": "MIT",
+  "nature": "python",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_39b131f184801f330ebda9f7ae0c776812c7be7619304f408cbfb218449dd261",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "4e5c18e4108a95064a54852b0aea7e05f675373fc8db30c4fc4fbf7a3dcbfe9b"
+  },
+  "counts": {
+    "graph_nodes": 30,
+    "graph_edges": 31
+  },
+  "limitations_count": 8
+}

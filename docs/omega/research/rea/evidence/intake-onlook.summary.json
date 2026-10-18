@@ -1,0 +1,24 @@
+{
+  "id": "onlook",
+  "name": "Onlook",
+  "repo": "onlook-dev/onlook",
+  "stars": 26946,
+  "language": "TypeScript",
+  "license": "Apache-2.0",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_20626154562220037a77c66e09c8cb354390badb06bae2d31dcdbc10e5fadcfe",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "e24c0d08ef87feb19f82d7303edd897a0e3e00d32447db23f9475bbd77fe19c3"
+  },
+  "counts": {
+    "graph_nodes": 8879,
+    "graph_edges": 9726
+  },
+  "limitations_count": 1941
+}
