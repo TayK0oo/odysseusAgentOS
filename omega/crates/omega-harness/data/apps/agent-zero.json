@@ -1,0 +1,226 @@
+{
+ "schema_version": 1,
+ "id": "agent-zero",
+ "name": "Agent Zero",
+ "editor": "frdel",
+ "oss": true,
+ "language": "Python",
+ "license": "Apache-2.0",
+ "repo": "https://github.com/frdel/agent-zero",
+ "architecture": "Framework d'agents generaliste (Python) : Agent.monologue boucle extensible par call_extensions, 43 plugins auto-discover (plugin.yaml, config, webui) couvrant memoire, compaction, orchestrateur de CLI externes (skills a la demande), sandbox Docker persistante, tool-access, time-travel, tools call_subordinate et parallel.",
+ "functionalities": [
+  {
+   "id": "az-agent-monologue",
+   "domain": "agents",
+   "name": "Boucle monologue : tour de boucle LLM->tools jusqu'au tool response",
+   "what": "Le noyau est un agent loop : prepare prompt, stream, extraction de tool request, execution, jusqu'au tool 'response' qui arrete la boucle.",
+   "how": "class Agent (agent.py:364) monologue() (agent.py:396) : while True -> loop_data -> extensions monologue_start/message_loop_start (agent.py:420-423) -> prepare_prompt -> stream_callback extrait extract_tools.extract_tool_request(full) (agent.py:468-470) ; handle_intervention (agent.py:1097) verifie user interrupt sur chaque chunk. Omega : omega-core::AgentLoop couvert ; l'ecart : intervention utilisateur durante stream.",
+   "omega_capability": "agent-loop",
+   "omega_port": "—",
+   "omega_adapter": "omega-core::AgentLoop (intervention sur le stream)",
+   "integration": "native",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "agent.py:364-396",
+    "agent.py:468-470"
+   ]
+  },
+  {
+   "id": "az-extensions",
+   "domain": "extension",
+   "name": "Extensions extensibles sur tout le cycle de vie (call_extensions)",
+   "what": "Toutes les etapes cles (agent_init, monologue_start, message_loop_start, before_main_llm_call, stream chunks...) sont extensibles avec des extensions declarees par plugins.",
+   "how": "@extension.extensible sur __init__ et monologue (agent.py:372,395) ; call_extensions_sync/async (agent.py:388-423) ; extensions/ + plugins/*/extensions/. Omega : omega-ports::Hook couvert ; le count de points d'extension est plus fin que nos events internes.",
+   "omega_capability": "hook",
+   "omega_port": "Hook",
+   "omega_adapter": "omega-ports::Hook (points d'extension du cycle de vie)",
+   "integration": "plugin",
+   "status": "adopted",
+   "rust_cost": "S",
+   "refs": [
+    "agent.py:364-396"
+   ]
+  },
+  {
+   "id": "az-plugins",
+   "domain": "extension",
+   "name": "43 plugins auto-discover avec plugin.yaml + config + webui",
+   "what": "Un catalogue de plugins decouverts au runtime (plugin.yaml) sans import en dur, avec config + webui de reglage par plugin.",
+   "how": "plugins/ : 43 dossiers avec plugin.yaml + default_config.yaml + extensions/ + webui/ ; plugins/_plugin_installer + _plugin_scan + _plugin_validator = le cycle du plugin au runtime. Omega : registre de capacites + manifestes valides (omega-app/omega-registry) : notre architecture, retenue : validation de manifeste par _plugin_validator.",
+   "omega_capability": "registry",
+   "omega_port": "—",
+   "omega_adapter": "omega-app::omega-registry (manifeste valide par plugin)",
+   "integration": "plugin",
+   "status": "adopted",
+   "rust_cost": "M",
+   "refs": [
+    "plugins/README.md",
+    "plugins/_plugin_validator"
+   ]
+  },
+  {
+   "id": "az-orchestrator",
+   "domain": "agents",
+   "name": "Orchestrator de CLI externes : skill a la demande, pas de tool verbeux",
+   "what": "Un plugin orchestrateur de sous-agents externes (Claude Code, Codex CLI, Cursor, OpenCode...) charge son guide a la demande (skill) au lieu d'un tool verbeux dans chaque prompt.",
+   "how": "plugins/_orchestrator/README.md : 'no terminal_agent tool and no settings-screen install button' ; le skill decide de la route (host CLI vs pal in container) ; adapter metadata pour 8+ harnais. Omega : ExternalSubagentRunner couvre l'esprit ; retenu : guide a la demande plutot qu'un tool lourd permanent.",
+   "omega_capability": "subagent-runner",
+   "omega_port": "SubagentRunner",
+   "omega_adapter": "omega-app::ExternalSubagentRunner (guides a la demande)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "plugins/_orchestrator/README.md"
+   ]
+  },
+  {
+   "id": "az-history",
+   "domain": "contexte",
+   "name": "History : records d'interaction serialisables",
+   "what": "Une structure History (Record + serialize) agnostic du moteur.",
+   "how": "helpers/history.py:374 class History(Record) ; serialize history.py:539. Omega : omega-context couvert.",
+   "omega_capability": "context-engine",
+   "omega_port": "ContextEngine",
+   "omega_adapter": "omega-context (History serialisable)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "helpers/history.py:374-539"
+   ]
+  },
+  {
+   "id": "az-chat-compaction",
+   "domain": "contexte",
+   "name": "Chat compaction plugin : compaction de conversation par plugin",
+   "what": "La compaction de conversation est un plugin atome (pas dans le noyau).",
+   "how": "plugins/_chat_compaction/ (extensions + helpers + prompts + webui) ; plugin.yaml declare le plugin, config par default_config.yaml. Omega : LlmCompactionEngine double couche deja couvert.",
+   "omega_capability": "context-engine",
+   "omega_port": "ContextEngine",
+   "omega_adapter": "omega-context::LlmCompactionEngine",
+   "integration": "plugin",
+   "status": "adopted",
+   "rust_cost": "S",
+   "refs": [
+    "plugins/_chat_compaction"
+   ]
+  },
+  {
+   "id": "az-sandbox-persistent",
+   "domain": "securite",
+   "name": "Sandbox Docker persistante par agent, via plugin",
+   "what": "L'execution se fait dans une sandbox Docker persistante par agent (conteneur vivant entre les calls).",
+   "how": "plugins/_code_execution/ + helpers/docker.py ; le conteneur persiste entre les runs. Omega : NamespaceSandboxBackend ; a ajouter : sandbox persistante par run si demande.",
+   "omega_capability": "sandbox-backend",
+   "omega_port": "SandboxBackend",
+   "omega_adapter": "omega-sandbox (execution persistante par agent)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "plugins/_code_execution",
+    "helpers/docker.py"
+   ]
+  },
+  {
+   "id": "az-memory-plugin",
+   "domain": "memoire",
+   "name": "Memory plugin : embeddings + persistence, tout dans le plugin",
+   "what": "La memoire long terme par embeddings est un plugin atome avec sa base.",
+   "how": "plugins/_memory/ = le cycle entier de memoire dans le plugin (embedding, storage, retrieval). Omega : MemoryStore couvert ; pattern de plugin self-contained : la memoire est branchable, pas noyau.",
+   "omega_capability": "memory-store",
+   "omega_port": "MemoryStore",
+   "omega_adapter": "omega-app::FileMemoryStore (memoire branchee)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "plugins/_memory"
+   ]
+  },
+  {
+   "id": "az-tool-access",
+   "domain": "securite",
+   "name": "Tool access : gate d'outils par contexte, par plugin",
+   "what": "Un gate d'outils selon le contexte et le role de l'agent, implem. par plugin.",
+   "how": "plugins/_tool_access/ : le gate s'applique au runtime des outils. Omega : ExecPolicy ; le gate declaratif par manifeste est plus flexible ; a integrer.",
+   "omega_capability": "exec-policy",
+   "omega_port": "ExecPolicy",
+   "omega_adapter": "omega-ports::ExecPolicy (gate par plugin/manifeste)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "plugins/_tool_access"
+   ]
+  },
+  {
+   "id": "az-time-travel",
+   "domain": "contexte",
+   "name": "Time-travel : rewind de conversation a un etat passe",
+   "what": "Un plugin de time-travel : revenir a un etat anterieur de la conversation.",
+   "how": "plugins/_time_travel/ : rewind par scene historique dans l'UI. Omega : EventStore rejoue deja un point timestampe ; l'UI rewind est cliente de l'event.",
+   "omega_capability": "event-store",
+   "omega_port": "EventStore",
+   "omega_adapter": "omega-app (rewind de conversation)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "plugins/_time_travel"
+   ]
+  },
+  {
+   "id": "az-model-config",
+   "domain": "routage",
+   "name": "Config modele par agent : selection + effort de raisonnement",
+   "what": "Le config modele (selection + reasoning effort) s'applique par agent, par plugin.",
+   "how": "plugins/_model_config/ + models.py specifie les modeles/champs. Omega : omega-router::Selector couvre.",
+   "omega_capability": "router-policy",
+   "omega_port": "Selector",
+   "omega_adapter": "omega-router (selection de modele par agent)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "plugins/_model_config",
+    "models.py"
+   ]
+  },
+  {
+   "id": "az-call-subordinate",
+   "domain": "agents",
+   "name": "call_subordinate : fork un sous-agent avec role configure",
+   "what": "L'outil call_subordinate declenche un sous-agent (fork) qui possede sa propre monologue de recherche, avec le role choisi.",
+   "how": "tools/call_subordinate.py ; fork par agent + subordinate data. Omega : LocalSubagentRunner couvert.",
+   "omega_capability": "subagent-runner",
+   "omega_port": "SubagentRunner",
+   "omega_adapter": "omega-app::LocalSubagentRunner",
+   "integration": "native",
+   "status": "rejected",
+   "rust_cost": "S",
+   "refs": [
+    "tools/call_subordinate.py"
+   ]
+  },
+  {
+   "id": "az-parallel-tools",
+   "domain": "execution",
+   "name": "parallel : execution de plusieurs outils en parallel, avec defer",
+   "what": "L'outil parallel execute plusieurs tool calls en parallel ; defer retarde.",
+   "how": "tools/parallel.py + helpers/defer.py. Omega : execution concurrente de tools branchable sur ToolSurface.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolExecutor",
+   "omega_adapter": "omega-app (parallelisme des tool calls)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "tools/parallel.py",
+    "helpers/defer.py"
+   ]
+  }
+ ]
+}

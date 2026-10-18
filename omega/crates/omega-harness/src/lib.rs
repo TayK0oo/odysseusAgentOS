@@ -175,6 +175,7 @@ pub struct Dissections {
 ///
 /// Ajouter une app = déposer `data/apps/<id>.json` + l'ajouter ci-dessous.
 pub const APP_DISSECTIONS: &[&str] = &[
+    include_str!("../data/apps/agent-zero.json"),
     include_str!("../data/apps/agentgpt.json"),
     include_str!("../data/apps/aider.json"),
     include_str!("../data/apps/autogpt.json"),
@@ -443,7 +444,7 @@ mod tests {
     fn embedded_dissections_are_valid_and_complete() {
         let d = Dissections::embedded();
         assert!(
-            d.apps.len() >= 40,
+            d.apps.len() >= 41,
             "au moins 10 applications disséquées doivent être ENREGISTRÉES dans APP_DISSECTIONS \
              (un JSON sur disque mais non enregistré est invisible et doit faire échouer ce test)"
         );
