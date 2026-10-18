@@ -144,7 +144,7 @@ mod tests {
 
 use async_trait::async_trait;
 use omega_ports::{ContextEngine, Provider};
-use omega_types::{OmegaError, OmegaResult};
+use omega_types::OmegaResult;
 use std::sync::Arc;
 
 /// Moteur de compaction LLM double couche :
@@ -299,7 +299,7 @@ mod llm_compaction_tests {
     impl Provider for FailProvider {
         fn id(&self) -> &str { "fail" }
         async fn complete(&self, _: omega_types::ChatRequest) -> OmegaResult<omega_types::ChatResponse> {
-            Err(OmegaError::NoImplementation(omega_types::Capability::LlmProvider))
+            Err(omega_types::OmegaError::NoImplementation(omega_types::Capability::LlmProvider))
         }
     }
 

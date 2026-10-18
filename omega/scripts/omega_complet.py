@@ -26,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 APPS = sorted(glob.glob(str(ROOT / "crates/omega-harness/data/apps/*.json")))
 CENSUS = ROOT / "crates/omega-harness/data/harnesses_census.json"
-REA_EVIDENCE = ROOT.parent / "docs/omega/reverse-eng/../omega/research/rea/evidence"
+REA_EVIDENCE = ROOT.parent / "docs" / "omega" / "research" / "rea" / "evidence"
 OUT = ROOT.parent / "docs/omega/reverse-eng/OMEGA-COMPLET.md"
 
 COST_ORDER = {"S": 0, "M": 1, "L": 2}

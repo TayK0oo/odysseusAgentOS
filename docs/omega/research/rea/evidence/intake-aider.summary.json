@@ -1,0 +1,24 @@
+{
+  "id": "aider",
+  "name": "Aider",
+  "repo": "Aider-AI/aider",
+  "stars": 49590,
+  "language": "Python",
+  "license": "Apache-2.0",
+  "nature": "python",
+  "cloned": true,
+  "clone_note": "deja clone",
+  "status": "analyzed",
+  "evidence_id": "ev_cc75df48997554ac3a02f3396f2c6303a5b2d2e3504990b666ace41ea83fe800",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "0d95a558c9d78d96873a4989caf54ed6e34ab2ffb3515d39b5e33e33f2e9b80f"
+  },
+  "counts": {
+    "graph_nodes": 59,
+    "graph_edges": 64
+  },
+  "limitations_count": 10
+}

@@ -1,6 +1,6 @@
 # MEMORY.md — Omega (auto-généré)
 
-**Généré le:** 2026-10-17 21:48  
+**Généré le:** 2026-10-18 08:18  
 **Source:** `omega/scripts/generate_memory.py` — provenance: [observed]
 
 ---
@@ -8,8 +8,8 @@
 ## État Git
 
 - **Branche:** feat/agentos-omega
-- **Dernier commit:** e28dc236 feat(noyau): Phase D — provider externe sous-agents (Claude Code/Codex/ACP) (2026-10-17 21:46:34 +0200)
-- **Total commits:** 2160
+- **Dernier commit:** 9f237e38 docs(planning): artifacts retro PLAN/SUMMARY/VERIFICATION, 5 phases complete (2026-10-18 07:40:30 +0200)
+- **Total commits:** 2164
 - **Working tree dirty:** oui
 
 ---
@@ -33,7 +33,11 @@
 
 | Phase | Context | Plan | Summary | Verification |
 |-------|---------|------|---------|--------------|
-| 01-noyau-phase-a-squelette | ✅ | ❌ | ❌ | ❌ |
+| 01-noyau-phase-a-squelette | ✅ | ✅ | ✅ | ✅ |
+| 02-noyau-phase-b-coutures | ❌ | ✅ | ✅ | ✅ |
+| 03-noyau-phase-c-capacites | ❌ | ✅ | ✅ | ✅ |
+| 04-noyau-phase-d-industrialisation | ❌ | ✅ | ✅ | ✅ |
+| 05-fermeture-3-trous | ❌ | ✅ | ✅ | ✅ |
 
 
 ---

@@ -1,0 +1,24 @@
+{
+  "id": "zed",
+  "name": "Zed",
+  "repo": "zed-industries/zed",
+  "stars": 91834,
+  "language": "Rust",
+  "license": "NOASSERTION",
+  "nature": "rust",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_6d339a59ac06c56def266f2230ef646ad6ba61e1bfe94441ea5d484aa3f39ce2",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "0e98f1a70baf25a575c3adbf299b8fe358b5d8485fab2d94ef5d995690be3964"
+  },
+  "counts": {
+    "graph_nodes": 823,
+    "graph_edges": 887
+  },
+  "limitations_count": 6
+}

@@ -1,0 +1,24 @@
+{
+  "id": "goose",
+  "name": "Goose",
+  "repo": "block/goose",
+  "stars": 55350,
+  "language": "Rust",
+  "license": "Apache-2.0",
+  "nature": "rust",
+  "cloned": true,
+  "clone_note": "deja clone",
+  "status": "analyzed",
+  "evidence_id": "ev_7216bc8707e46c24ed0a0e26426af8390c24f28d6f3f20b7d5a8a387f3fb55af",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "7f4b25910ead580c06152c6482745962ff594e709d2234fe4e8b9ecd92a08631"
+  },
+  "counts": {
+    "graph_nodes": 6191,
+    "graph_edges": 7814
+  },
+  "limitations_count": 436
+}

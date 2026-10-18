@@ -1,0 +1,24 @@
+{
+  "id": "plandex",
+  "name": "Plandex",
+  "repo": "plandex-ai/plandex",
+  "stars": 15752,
+  "language": "Go",
+  "license": "MIT",
+  "nature": "other",
+  "cloned": true,
+  "clone_note": "deja clone",
+  "status": "analyzed",
+  "evidence_id": "ev_0fd63f9cede5aaba663bf8eef03ef65e38031899d33d86bfe8c4f03ca7c66bc3",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "e05e80cd13ab86f06697ac91fafa1f5a2dda5a455be5c0f32caea701efd5ce7d"
+  },
+  "counts": {
+    "graph_nodes": 92,
+    "graph_edges": 97
+  },
+  "limitations_count": 7
+}

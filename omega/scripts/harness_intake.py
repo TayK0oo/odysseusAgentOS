@@ -176,10 +176,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--top", type=int, default=14, help="nombre de harnais a traiter")
     ap.add_argument("--only", default=None, help="un seul identifiant")
+    ap.add_argument("--force", action="store_true", help="traiter memose si deja dissecute")
     args = ap.parse_args()
 
     census = json.loads(CENSUS.read_text())
-    gaps = [c for c in census["candidates"] if c["kind"] == "oss" and not c["dissected"]]
+    gaps = [c for c in census["candidates"] if c["kind"] == "oss" and (args.force or not c["dissected"])]
     gaps.sort(key=lambda c: -c["stars"])
     selected = [c for c in gaps if args.only is None or c["id"] == args.only]
     if args.only is None:

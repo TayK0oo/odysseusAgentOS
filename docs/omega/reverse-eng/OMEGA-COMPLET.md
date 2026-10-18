@@ -8,7 +8,7 @@
 - fonctionnalites inventoriees : **745** (adoptees 167 · planifiees 556 · ecartees 22)
 - capacites visees (regroupees) : **108**
 - popularite : **mesuree** (API GitHub, somme des etoiles des harnais demandeurs)
-- preuves REA (intake machine) disponibles pour : 0 harnais
+- preuves REA (intake machine) disponibles pour : 24 harnais
 
 ### Ce que le consensus designe (>= 4 harnais demandeurs)
 

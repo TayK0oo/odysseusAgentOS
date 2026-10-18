@@ -33,6 +33,8 @@ use omega_types::{
 };
 use tokio::process::Command as TokioCommand;
 
+pub use runtime_ports::{FileMemoryStore, LocalSubagentRunner, RuntimePortsContributor, SimpleHookRegistry};
+mod runtime_ports;
 mod store;
 
 pub use store::{is_valid_run_id, FileEventStore, InMemoryEventStore};
@@ -277,6 +279,12 @@ impl AppBuilder {
     pub fn add_contributor(mut self, contributor: Box<dyn Contributor>) -> Self {
         self.contributors.push(contributor);
         self
+    }
+
+    /// Opt-in : ajoute les adaptateurs runtime (MemoryStore fichier JSONL,
+    /// Hook en memoire, SubagentRunner local tokio).
+    pub fn with_runtime_ports(self, memory_path: std::path::PathBuf) -> OmegaResult<Self> {
+        Ok(self.add_contributor(Box::new(RuntimePortsContributor::new(memory_path)?)))
     }
 
     /// Installe le contexte (config effective + metadonnees) passe aux contributeurs.
