@@ -75,6 +75,7 @@
 | MCP/Services | `ODYSSEUS_TOOL_DISCOVERY` | `off` | `off` | oui | `src/content_security.py:112` |
 | MCP/Services | `ODYSSEUS_DISABLE_MCP` | `off` | `off` | oui | `src/builtin_mcp.py:90` |
 | MCP/Services | `ODYSSEUS_REMOTE_SSH` | `off` | `off` | oui | `src/builtin_actions.py:381` |
+| MCP/Services | `ODYSSEUS_SCRIPT_HOST` | `off` | `off` | oui | `src/builtin_actions.py:394` |
 | MCP/Services | `ODYSSEUS_GRAPHIFY` | `off` | `off` | oui | `src/builtin_mcp.py:108` |
 | MCP/Services | `ODYSSEUS_OBSIDIAN_MCP` | `off` | `off` | oui | `src/builtin_mcp.py:99` |
 | MCP/Services | `ODYSSEUS_PREFECT` | `off` | `off` | oui | `services/pipelines/maintenance_pipeline.py:19` |
@@ -99,7 +100,7 @@
 | RAG | `ODYSSEUS_RRF_FUSION` | `off` | `off` | oui | `src/rag_vector.py:86` |
 | RAG | `ODYSSEUS_MEILISEARCH` | `off` | `off` | oui | `services/search/meilisearch_client.py:21` |
 
-**66 descripteurs · 17 ON par défaut · 8 non câblés · 14/14 P0 à `on`.**
+**67 descripteurs · 17 ON par défaut · 8 non câblés · 14/14 P0 à `on`.**
 
 - 🔒P0 = bascule à `on` par le **Palier 0** (2026-09-26), sur les 14 principes cœur.
 - ⚠️non câblé = aucun lecteur dans le code. Le registre l'affiche `off` et `wired=False` : il ne peut **pas** se présenter comme actif. Ces 9 descripteurs étaient présentés comme `on` avant le 2026-09-26.
