@@ -54,7 +54,35 @@ Voir `docs/omega/adr/` et `docs/omega/MEMORY.md` §6 (D1→D15).
 - Pas de microservices par dogme.
 - Pas de génération média/pub ni navigateur autonome visible.
 
+## Current Milestone: v0.3 CORPUS 100%
+
+**Goal:** Diqueter les 16 harnais OSS restants (intake clone + REA + dissection), puis raffiner le combine deterministe (OMEGA-COMPLET) pour un regroupement final de toutes les fonctionnalites.
+
+**Target features:**
+- Dissections des 16 harnais OSS clonables (census `HARNESS-CENSUS.md`) — 3 ecarts notes avec raison (Copilot Chat ferme, Kimi CLI archive, PearAI minuscule)
+- Preuves REA machine chiffrees par intake (harnais TS/JS ; ecarts documentes pour Python/Rust/Go hors perimetre REA)
+- OMEGA-COMPLET v2 : 35+16 harnais, toutes fonctionnalites regroupees par famille, consensus populaire, adaptateurs proposes
+
 ## Source of truth
 
 `docs/omega/MEMORY.md` (état, décisions, credentials, backlog) + `docs/omega/rules/RULES-OMEGA.md`.
 Ce `.planning/` est bootstrappé depuis ces docs via `/gsd-ingest-docs` (2026-10-17).
+
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
+**Last updated:** 2026-10-18 — milestone v0.3 CORPUS 100% démarré.
