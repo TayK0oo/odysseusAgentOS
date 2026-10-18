@@ -4,14 +4,14 @@
 
 | # | Harnais | Etoiles | Nature | Clone | REA | Provider | Limites |
 |---|---|---|---|---|---|---|---|
-| 1 | bolt.new | 16,578 | js | ok | ✅ analysee | rea-javascript-application | 6 |
+| 1 | Sweep | 7,707 | js | ok | ✅ analysee | rea-javascript-application | 7 |
 
 ## Detail
 
-### bolt.new (16,578 etoiles) — `stackblitz/bolt.new`
+### Sweep (7,707 etoiles) — `sweepai/sweep`
 
-- nature : js ; licence : MIT
-- evidence : `ev_25f4aa71733be7636e06fb5a6b1c7a370df9c2553a2b4c290738c51c83cb8703`
+- nature : js ; licence : NOASSERTION
+- evidence : `ev_ff92a330791d7abc6fd95136795c3e680363fe4e09754ebe92c00215d912bc5d`
 - provider : `rea-javascript-application` ; confiance : **derived**
-- structure : graph_edges=1111, graph_nodes=970
+- structure : graph_edges=1099, graph_nodes=929
 
