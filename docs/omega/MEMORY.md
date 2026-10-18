@@ -8,8 +8,8 @@
 ## État Git
 
 - **Branche:** feat/agentos-omega
-- **Dernier commit:** 9f237e38 docs(planning): artifacts retro PLAN/SUMMARY/VERIFICATION, 5 phases complete (2026-10-18 07:40:30 +0200)
-- **Total commits:** 2164
+- **Dernier commit:** f3bbc470 feat(omega): preuves REA 30/33 harnais + ports runtime branchees (with_runtime_ports) + fix compteur OMEGA-COMPLET (2026-10-18 08:18:22 +0200)
+- **Total commits:** 2165
 - **Working tree dirty:** oui
 
 ---

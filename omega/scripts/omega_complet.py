@@ -104,8 +104,11 @@ def load_census() -> tuple[dict[str, int], bool]:
 def main() -> int:
     apps = [json.loads(Path(p).read_text()) for p in APPS]
     stars, measured = load_census()
-    rea_done = {p.name.split("intake-")[-1].removesuffix(".summary.json") for p in
-                Path(REA_EVIDENCE).glob("intake-*.summary.json")} if REA_EVIDENCE.is_dir() else set()
+    rea_done = set()
+    if REA_EVIDENCE.is_dir():
+        for pat in ("intake-*.summary.json", "harness-*.summary.json"):
+            for p_ in Path(REA_EVIDENCE).glob(pat):
+                rea_done.add(p_.name.split("-", 1)[-1].removesuffix(".summary.json"))
 
     groups: dict[str, dict] = defaultdict(
         lambda: {"apps": set(), "exemplars": [], "costs": [], "adapters": set(), "domains": set()}
