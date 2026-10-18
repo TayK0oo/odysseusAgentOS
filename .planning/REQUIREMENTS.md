@@ -29,8 +29,8 @@ deterministe et reorganiser le corpus finement.
 | **DIS-12** | Sweep | `sweepai/sweep` |
 | **DIS-13** | Refact.ai | `smallcloudai/refact` |
 | **DIS-14** | Nanocoder | `Nano-Collective/nanocoder` |
-| **DIS-15** | Genie | `samhoouver/genie` |
-| **DIS-16** | Onlook (complément) | voir census — dernier harnais OSS listé |
+| **DIS-15** | Sourcegraph Cody | reste OSS ; census `[]` étoiles (API 404) — résoudre le dépôt au moment de l'intake |
+| **DIS-16** | Mentat | reste OSS ; census `[]` étoiles (API 404) — résoudre le dépôt au moment de l'intake |
 
 Chaque REQ est remplie quand : fiche `docs/omega/reverse-eng/dissections/<id>.md`
 créée (structure validée par `omega/scripts/validate_dissections.py`), port/adaptateur
@@ -51,7 +51,8 @@ proposé, exemplaire de référence avec preuves (`fichier:ligne`).
   pondere popularite (>=4 demandeurs), adaptateurs proposes, exemplaires de
   reference, tout traçable.
 - [ ] **CONS-03** : `HARNESS-CENSUS.md` recalcule — 66 recenses, 51 disseques,
-  3 ecarts documentés (copilot-chat, kimi-cli, pearai), 0 silencieux.
+  3 ecarts documentés (copilot-chat ferme, kimi-cli archive, pearai minuscule),
+  0 silencieux (Cody/Mentat : etoiles 0 dues a l'API 404, a resoudre).
 
 ### ORG — Organisation (planning & docs)
 
