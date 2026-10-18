@@ -17,7 +17,7 @@ progress:
 
 ## Current Phase
 
-**Phase 6 — Intake vague 1 (Onlook, Roo Code, Dyad, SWE-agent, Devika, Agent Zero)** — pas encore démarrée.
+**Phase 6 — Intake vague 1 (Onlook, Roo Code, Dyad, SWE-agent, Devika, Agent Zero)** — **En cours** (exécution inline, intake machine lancé).
 
 ## Last Completed
 

@@ -4,14 +4,14 @@
 
 | # | Harnais | Etoiles | Nature | Clone | REA | Provider | Limites |
 |---|---|---|---|---|---|---|---|
-| 1 | Zed | 91,834 | rust | ok | ✅ analysee | rea-javascript-application | 6 |
+| 1 | Devika | 19,551 | python | ok | ✅ analysee | rea-javascript-application | 5 |
 
 ## Detail
 
-### Zed (91,834 etoiles) — `zed-industries/zed`
+### Devika (19,551 etoiles) — `stitionai/devika`
 
-- nature : rust ; licence : NOASSERTION
-- evidence : `ev_6d339a59ac06c56def266f2230ef646ad6ba61e1bfe94441ea5d484aa3f39ce2`
+- nature : python ; licence : MIT
+- evidence : `ev_f087541640aa7bda8c47e7a316e56642bbc9e2401ca7a5f45f0474073e1693af`
 - provider : `rea-javascript-application` ; confiance : **derived**
-- structure : graph_edges=887, graph_nodes=823
+- structure : graph_edges=251, graph_nodes=207
 
