@@ -123,6 +123,39 @@
     "app/lib/persistence/db.ts",
     "app/lib/persistence/useChatHistory.ts"
    ]
+  },
+  {
+   "id": "blt-switchable-stream",
+   "domain": "routage",
+   "name": "SwitchableStream : multiplexer les streams LLM en un seul flux",
+   "what": "Un TransformStream qui laisse switcher de reader en cours de route : quand l'assistant passe d'un provider/etape a l'autre, le flux theo reste ininterrompu pour le client.",
+   "how": "app/lib/.server/llm/switchable-stream.ts:1-20 class SwitchableStream extends TransformStream avec _currentReader + switchSource. Omega : omega-router (multiplexage de streams de providers).",
+   "omega_capability": "router-policy",
+   "omega_port": "Selector",
+   "omega_adapter": "omega-router (stream switchable multi-provider)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "app/lib/.server/llm/switchable-stream.ts:1-20"
+   ]
+  },
+  {
+   "id": "blt-editor-codemirror",
+   "domain": "ui",
+   "name": "Editor CodeMirror v6 dans le workbench : voir les fichiers generations en direct",
+   "what": "Un editor CodeMirror v6 integre au workbench, ou l'utilisateur voit/modifie les fichiers generes pendant l'agent tourne.",
+   "how": "app/components/editor/codemirror/BinaryContent.tsx + cm-theme.ts (Compartment/EditorView). Omega : omega-ui couvert.",
+   "omega_capability": "(ui)",
+   "omega_port": "UiPanel",
+   "omega_adapter": "omega-ui (editor integre au workbench)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "app/components/editor/codemirror/cm-theme.ts:1-2",
+    "app/components/editor/codemirror/BinaryContent.tsx:1"
+   ]
   }
  ]
 }

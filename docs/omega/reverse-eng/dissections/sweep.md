@@ -1,7 +1,7 @@
 # Dissection — Sweep (sweepai, Apache-2.0, Python)
 
 > Source : clone `--depth 1` de https://github.com/sweepai/sweep dans `/home/tayk0oo/omega-re/sweep`.
-> Donnees : `omega/crates/omega-harness/data/apps/sweep.json` (7 fonctionnalites).
+> Donnees : `omega/crates/omega-harness/data/apps/sweep.json` (9 fonctionnalites).
 > Preuve REA machine : voir `HARNESS-INTAKE.md`.
 
 ## 1. Fiche
@@ -70,4 +70,20 @@
 - **how** : sweepai/global_threads.py. Omega : omega-app::App (fenêtre multi-run), à la pacer.
 - **adaptateur Omega** : omega-app (threads multi-run)
 - **preuves** : `sweepai/global_threads.py`
+
+### `swp-chat` — sweep_chat : chat interactif sur une PR ouverte
+
+- **domaine** : agents · **capacite** : agent-loop · **port** : — · **cout** : M · **statut** : planned
+- **what** : Un mode chat embarque : conversation sur une issue/PR existante, reprise du contexte repo, generation de follow-up PRs.
+- **how** : sweepai/chat/ + sweep_chat/. Omega : AgentLoop + SessionStore deja couverts.
+- **adaptateur Omega** : omega-app (chat sur PR)
+- **preuves** : `sweepai/chat` · `sweepai/core/chat.py`
+
+### `swp-external-searcher` — ExternalSearcher : recherche d'issues similaires sur GitHub avant de traiter
+
+- **domaine** : contexte · **capacite** : context-engine · **port** : CatalogSource · **cout** : S · **statut** : planned
+- **what** : Un agent secondaire qui cherche dans les issues/PRs historiques du depot les exemples pertinents pour enrichir le contexte de la PR.
+- **how** : sweepai/core/external_searcher.py + pr_reader.py. Omega : CatalogSource (recherche historique du repo) deja note ; le pattern de recherche GitHub avant planification est un enrichisseur de contexte.
+- **adaptateur Omega** : omega-context (recherche issic GitHub)
+- **preuves** : `sweepai/core/external_searcher.py` · `sweepai/core/pr_reader.py`
 

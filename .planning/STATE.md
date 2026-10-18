@@ -2,19 +2,19 @@
 gsd_state_version: "1.0"
 milestone: v0.3
 milestone_name: CORPUS 100%
-current_phase: 7
-current_phase_name: Intake vague 2 — mi-peuplée
+current_phase: 9
+current_phase_name: Consolidation — OMEGA-COMPLET v2
 status: planning
-last_updated: "2026-10-18T19:14:58.728Z"
+last_updated: "2026-10-18T19:48:45.991Z"
 last_activity: 2026-10-18
-last_activity_desc: Phase 6 complete, transitioned to Phase 7
-state_head: 6dcc5e16b331cb03151e7864540f2daea1e36913
+last_activity_desc: Phase 8 complete, transitioned to Phase 9
+state_head: 9695f5881430ee5d6d7f63aba8bfd8765b36775c
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 3
   total_plans: 0
   completed_plans: 0
-  percent: 20
+  percent: 60
 ---
 
 # STATE — Omega
@@ -59,10 +59,10 @@ Voir `docs/omega/rules/MODEL-POLICY.md` + `model_policy.py --check`.
 
 ## Current Position
 
-Phase: 7 — Intake vague 2 — mi-peuplée
+Phase: 9 — Consolidation — OMEGA-COMPLET v2
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-10-18 — Phase 6 complete, transitioned to Phase 7
+Last activity: 2026-10-18 — Phase 8 complete, transitioned to Phase 9
 
 ## Operator Next Steps
 

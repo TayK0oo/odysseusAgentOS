@@ -1,0 +1,13 @@
+{
+  "id": "mentat",
+  "name": "Mentat",
+  "repo": "AbanteAI/mentat",
+  "stars": 0,
+  "language": null,
+  "license": null,
+  "nature": "?",
+  "cloned": false,
+  "clone_note": "Clonage dans '/home/tayk0oo/omega-re/mentat'...\nremote: Repository not found.\nfatal : dépôt 'https://github.com/AbanteAI/mentat.git/' non trouvé",
+  "status": "clone_failed",
+  "message": "Clonage dans '/home/tayk0oo/omega-re/mentat'...\nremote: Repository not found.\nfatal : dépôt 'https://github.com/AbanteAI/mentat.git/' non trouvé"
+}

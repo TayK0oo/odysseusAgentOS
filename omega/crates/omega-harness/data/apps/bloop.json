@@ -108,6 +108,39 @@
     "server/bleep/src/commits.rs",
     "server/bleep/src/remotes/"
    ]
+  },
+  {
+   "id": "blp-periodic-jobs",
+   "domain": "automatisation",
+   "name": "Jobs de fond periodiques : re-index des remotes + logrotate",
+   "what": "Un executor de jobs periodiques : re-index des remotes (mirrors) et rotation des logs, en tache de fond single-threaded.",
+   "how": "server/bleep/src/periodic.rs:23 start_background_jobs(app) + periodic/remotes.rs + periodic/logrotate.rs. Omega : omega-app (jobs periodiques ; deja couvert par le planificateur).",
+   "omega_capability": "scheduler-job",
+   "omega_port": "—",
+   "omega_adapter": "omega-app (re-index periodique des remotes)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "server/bleep/src/periodic.rs:23",
+    "server/bleep/src/periodic/remotes.rs"
+   ]
+  },
+  {
+   "id": "blp-background-executor",
+   "domain": "execution",
+   "name": "SyncQueue/BackgroundExecutor : pool rayon + wait des taches longues",
+   "what": "Un executor de taches de fond (SyncQueue, Progress) : le rayon pool absorbe le re-index lourd sans bloquer le serveur.",
+   "how": "server/bleep/src/background.rs:28 rayon_pool, :55 SyncQueue, :66 BackgroundExecutor, :117 spawn<T>. Omega : omega-app::App (execution de fond non bloquante).",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolExecutor",
+   "omega_adapter": "omega-sandbox (pool de taches de fond)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "server/bleep/src/background.rs:28-137"
+   ]
   }
  ]
 }

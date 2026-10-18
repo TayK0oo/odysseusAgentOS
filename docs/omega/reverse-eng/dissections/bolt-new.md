@@ -1,7 +1,7 @@
 # Dissection — bolt.new (StackBlitz, MIT (Apache-2.0 parts), TypeScript)
 
 > Source : clone `--depth 1` de https://github.com/stackblitz/bolt.new dans `/home/tayk0oo/omega-re/bolt-new`.
-> Donnees : `omega/crates/omega-harness/data/apps/bolt-new.json` (7 fonctionnalites).
+> Donnees : `omega/crates/omega-harness/data/apps/bolt-new.json` (9 fonctionnalites).
 > Preuve REA machine : voir `HARNESS-INTAKE.md`.
 
 ## 1. Fiche
@@ -70,4 +70,20 @@
 - **how** : app/lib/persistence/db.ts + useChatHistory.ts. Omega : MemoryStore couvert.
 - **adaptateur Omega** : omega-app::FileMemoryStore (chat idProject)
 - **preuves** : `app/lib/persistence/db.ts` · `app/lib/persistence/useChatHistory.ts`
+
+### `blt-switchable-stream` — SwitchableStream : multiplexer les streams LLM en un seul flux
+
+- **domaine** : routage · **capacite** : router-policy · **port** : Selector · **cout** : S · **statut** : planned
+- **what** : Un TransformStream qui laisse switcher de reader en cours de route : quand l'assistant passe d'un provider/etape a l'autre, le flux theo reste ininterrompu pour le client.
+- **how** : app/lib/.server/llm/switchable-stream.ts:1-20 class SwitchableStream extends TransformStream avec _currentReader + switchSource. Omega : omega-router (multiplexage de streams de providers).
+- **adaptateur Omega** : omega-router (stream switchable multi-provider)
+- **preuves** : `app/lib/.server/llm/switchable-stream.ts:1-20`
+
+### `blt-editor-codemirror` — Editor CodeMirror v6 dans le workbench : voir les fichiers generations en direct
+
+- **domaine** : ui · **capacite** : (ui) · **port** : UiPanel · **cout** : S · **statut** : planned
+- **what** : Un editor CodeMirror v6 integre au workbench, ou l'utilisateur voit/modifie les fichiers generes pendant l'agent tourne.
+- **how** : app/components/editor/codemirror/BinaryContent.tsx + cm-theme.ts (Compartment/EditorView). Omega : omega-ui couvert.
+- **adaptateur Omega** : omega-ui (editor integre au workbench)
+- **preuves** : `app/components/editor/codemirror/cm-theme.ts:1-2` · `app/components/editor/codemirror/BinaryContent.tsx:1`
 

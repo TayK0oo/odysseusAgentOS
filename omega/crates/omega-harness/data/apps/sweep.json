@@ -122,6 +122,40 @@
    "refs": [
     "sweepai/global_threads.py"
    ]
+  },
+  {
+   "id": "swp-chat",
+   "domain": "agents",
+   "name": "sweep_chat : chat interactif sur une PR ouverte",
+   "what": "Un mode chat embarque : conversation sur une issue/PR existante, reprise du contexte repo, generation de follow-up PRs.",
+   "how": "sweepai/chat/ + sweep_chat/. Omega : AgentLoop + SessionStore deja couverts.",
+   "omega_capability": "agent-loop",
+   "omega_port": "—",
+   "omega_adapter": "omega-app (chat sur PR)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "sweepai/chat",
+    "sweepai/core/chat.py"
+   ]
+  },
+  {
+   "id": "swp-external-searcher",
+   "domain": "contexte",
+   "name": "ExternalSearcher : recherche d'issues similaires sur GitHub avant de traiter",
+   "what": "Un agent secondaire qui cherche dans les issues/PRs historiques du depot les exemples pertinents pour enrichir le contexte de la PR.",
+   "how": "sweepai/core/external_searcher.py + pr_reader.py. Omega : CatalogSource (recherche historique du repo) deja note ; le pattern de recherche GitHub avant planification est un enrichisseur de contexte.",
+   "omega_capability": "context-engine",
+   "omega_port": "CatalogSource",
+   "omega_adapter": "omega-context (recherche issic GitHub)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "sweepai/core/external_searcher.py",
+    "sweepai/core/pr_reader.py"
+   ]
   }
  ]
 }

@@ -1,7 +1,7 @@
 # Dissection — Bloop (BloopAI, Apache-2.0, Rust + TypeScript)
 
 > Source : clone `--depth 1` de https://github.com/BloopAI/bloop dans `/home/tayk0oo/omega-re/bloop`.
-> Donnees : `omega/crates/omega-harness/data/apps/bloop.json` (6 fonctionnalites).
+> Donnees : `omega/crates/omega-harness/data/apps/bloop.json` (8 fonctionnalites).
 > Preuve REA machine : voir `HARNESS-INTAKE.md`.
 
 ## 1. Fiche
@@ -62,4 +62,20 @@
 - **how** : server/bleep/src/{commits.rs,remotes,db.rs,cache.rs}. Omega : corn-structure à test indexing tree (omega-context).
 - **adaptateur Omega** : omega-context (index git,re discoveries par commit)
 - **preuves** : `server/bleep/src/commits.rs` · `server/bleep/src/remotes/`
+
+### `blp-periodic-jobs` — Jobs de fond periodiques : re-index des remotes + logrotate
+
+- **domaine** : automatisation · **capacite** : scheduler-job · **port** : — · **cout** : S · **statut** : planned
+- **what** : Un executor de jobs periodiques : re-index des remotes (mirrors) et rotation des logs, en tache de fond single-threaded.
+- **how** : server/bleep/src/periodic.rs:23 start_background_jobs(app) + periodic/remotes.rs + periodic/logrotate.rs. Omega : omega-app (jobs periodiques ; deja couvert par le planificateur).
+- **adaptateur Omega** : omega-app (re-index periodique des remotes)
+- **preuves** : `server/bleep/src/periodic.rs:23` · `server/bleep/src/periodic/remotes.rs`
+
+### `blp-background-executor` — SyncQueue/BackgroundExecutor : pool rayon + wait des taches longues
+
+- **domaine** : execution · **capacite** : tool-surface · **port** : ToolExecutor · **cout** : S · **statut** : planned
+- **what** : Un executor de taches de fond (SyncQueue, Progress) : le rayon pool absorbe le re-index lourd sans bloquer le serveur.
+- **how** : server/bleep/src/background.rs:28 rayon_pool, :55 SyncQueue, :66 BackgroundExecutor, :117 spawn<T>. Omega : omega-app::App (execution de fond non bloquante).
+- **adaptateur Omega** : omega-sandbox (pool de taches de fond)
+- **preuves** : `server/bleep/src/background.rs:28-137`
 
