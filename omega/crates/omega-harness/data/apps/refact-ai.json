@@ -1,0 +1,181 @@
+{
+ "schema_version": 1,
+ "id": "refact-ai",
+ "name": "Refact.ai",
+ "editor": "smallcloudai",
+ "oss": true,
+ "language": "Rust",
+ "license": "AGPL-3.0",
+ "repo": "https://github.com/smallcloudai/refact",
+ "architecture": "Moteur d'agent Rust (refact-agent/engine) : crates refact-* (core/chat-api/agentic/caps/context/history), tools en tool_*.rs, scratchpads + vecdb + knowledge_graph + memories frontmatter, subchat/background agents, LSP + git worktrees, privacy blocklist, plugins IDE vscode/intellij.",
+ "functionalities": [
+  {
+   "id": "rfc-engine-rust",
+   "domain": "execution",
+   "name": "Moteur agent complet en Rust (refact-agent/engine) : 16 crates + src module",
+   "what": "Un moteur d'agent en Rust : crates refact-core/chat-api/agentic/caps/context/history et un src/ : scratchpads, tools, providers, vecdb, knowledge_graph, lsp, git, worktrees.",
+   "how": "refact-agent/engine/ (Cargo workspace, crates/ contient refact-agentic, refact-ast, refact-chat-api, refact-core...) + engine/src/lib.rs. Omega : transposition directe au workspace omega de 16 crates ; decoupage crates homologue.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolExecutor",
+   "omega_adapter": "omega-core (engine agent en Rust)",
+   "integration": "native",
+   "status": "adopted",
+   "rust_cost": "S",
+   "refs": [
+    "refact-agent/engine/src/lib.rs",
+    "refact-agent/engine/crates"
+   ]
+  },
+  {
+   "id": "rfc-tools",
+   "domain": "extension",
+   "name": "Catalogue tool_* par schema : lifecycle/steer/diff/ask/background agents",
+   "what": "Un catalogue de tools par fichiers tool_*.rs : activate_skill, agent_lifecycle/steer/diff/pulse, buddy (draft/issue), ast_definition, background_agents, ask_questions...",
+   "how": "engine/src/tools/ (tool_agent_lifecycle.rs, tool_agent_steer.rs, tool_background_agents.rs, tool_ask_questions.rs...) + mod.rs (registre). Omega : ToolSurfaceIndex couvert.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "omega-context::ToolSurfaceIndex (catalogue tool_*)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "refact-agent/engine/src/tools"
+   ]
+  },
+  {
+   "id": "rfc-scratchpads",
+   "domain": "contexte",
+   "name": "Scratchpads : session de contexte structuree par template + postprocessing",
+   "what": "Une scratchpad = une session de contexte structree : template par tache, multimodalite, postprocessing de la reponse.",
+   "how": "engine/src/scratchpads/ (mod.rs, multimodality.rs, scratchpad_utils.rs) + scratchpad_abstract.rs + postprocessing/. Omega : ContextEngine (template + postprocess).",
+   "omega_capability": "context-engine",
+   "omega_port": "ContextEngine",
+   "omega_adapter": "omega-context (scratchpad structuree)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "refact-agent/engine/src/scratchpad_abstract.rs",
+    "refact-agent/engine/src/scratchpads"
+   ]
+  },
+  {
+   "id": "rfc-vecdb",
+   "domain": "contexte",
+   "name": "vecdb : index d'embeddings local + indexing incremental",
+   "what": "Vector DB local du workspace : embeddings de snippets re-indexes incrementalement, config yaml, token counting.",
+   "how": "engine/src/vecdb/ + indexing_utils.rs. Omega : omega-context (recherche semantique locale).",
+   "omega_capability": "context-engine",
+   "omega_port": "CatalogSource",
+   "omega_adapter": "omega-context (vecdb local)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "refact-agent/engine/src/vecdb",
+    "refact-agent/engine/src/indexing_utils.rs"
+   ]
+  },
+  {
+   "id": "rfc-memories",
+   "domain": "memoire",
+   "name": "Memories en frontmatter (faits + prefs) avec dedupe/normalisation tags",
+   "what": "Systeme de memoires persistantes : MemoRecord en markdown + frontmatter KnowledgeFrontmatter, dedupe des preferences, normalisation des tags (max_tags).",
+   "how": "engine/src/memories.rs : MemoRecord (:39), create_frontmatter (:133), normalize_memory_tags (:261), normalize_preference_text_for_dedupe (:767). Omega : FileMemoryStore ; retenu : normalisation/dedupe des tags.",
+   "omega_capability": "memory-store",
+   "omega_port": "MemoryStore",
+   "omega_adapter": "omega-app::FileMemoryStore (frontmatter + dedupe prefs)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "refact-agent/engine/src/memories.rs:39-133",
+    "refact-agent/engine/src/memories.rs:261"
+   ]
+  },
+  {
+   "id": "rfc-kg",
+   "domain": "memoire",
+   "name": "Knowledge graph de concepts de code relie aux memories",
+   "what": "Un KG des concepts du depot (kg_structs) alimente les memories via KnowledgeFrontmatter.",
+   "how": "engine/src/knowledge_graph/ + knowledge_index.rs + knowledge/. Omega : structure Graphify-like ; garder le meme futur port.",
+   "omega_capability": "memory-store",
+   "omega_port": "MemoryStore",
+   "omega_adapter": "omega-app (knowledge graph + index)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "L",
+   "refs": [
+    "refact-agent/engine/src/knowledge_graph",
+    "refact-agent/engine/src/knowledge_index.rs"
+   ]
+  },
+  {
+   "id": "rfc-subagents",
+   "domain": "agents",
+   "name": "Sous-agents : subchat + background agents + phases",
+   "what": "Les sous-agents tournent en sessions subchat separees, et tool_background_agents les relance en async ; subagent_phases structure les phases.",
+   "how": "engine/src/subchat.rs + tools/tool_background_agents.rs + tools/subagent_phases.rs. Omega : LocalSubagentRunner couvert.",
+   "omega_capability": "subagent-runner",
+   "omega_port": "SubagentRunner",
+   "omega_adapter": "omega-app::LocalSubagentRunner (subchat async)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "refact-agent/engine/src/subchat.rs",
+    "refact-agent/engine/src/tools/tool_background_agents.rs"
+   ]
+  },
+  {
+   "id": "rfc-lsp-worktrees",
+   "domain": "automatisation",
+   "name": "Integration LSP + git worktrees par agent",
+   "what": "Le moteur parle LSP au workspace et isole chaque agent dans un worktree git.",
+   "how": "engine/src/lsp.rs + engine/src/{git/,worktrees/}. Omega : omega-sandbox::LocalSandboxBackend (worktrees).",
+   "omega_capability": "sandbox-backend",
+   "omega_port": "SandboxBackend",
+   "omega_adapter": "omega-sandbox (worktrees + LSP)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "refact-agent/engine/src/lsp.rs",
+    "refact-agent/engine/src/worktrees"
+   ]
+  },
+  {
+   "id": "rfc-privacy",
+   "domain": "securite",
+   "name": "Privacy : blocklist de fichiers sensibles, traitement local vs cloud",
+   "what": "Filtrage du contexte : files_blocklist (fichiers jamais envoyes), privacy.rs oriente local/cmloud par regle.",
+   "how": "engine/src/privacy.rs + engine/src/files_blocklist.rs. Omega : ExecPolicy (blocklist deja couverte).",
+   "omega_capability": "exec-policy",
+   "omega_port": "ExecPolicy",
+   "omega_adapter": "omega-core::ExecPolicy (blocklist + mode privacy)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "refact-agent/engine/src/privacy.rs",
+    "refact-agent/engine/src/files_blocklist.rs"
+   ]
+  },
+  {
+   "id": "rfc-stats",
+   "domain": "observabilite",
+   "name": "Stats telemetry agregee, visible en dashboard self-hosted",
+   "what": "Module stats des usages (runs, tokens) expose via http.rs.",
+   "how": "engine/src/stats/ + engine/src/http.rs. Omega : omega-otel + EventStore.",
+   "omega_capability": "telemetry-sink",
+   "omega_port": "TelemetrySink",
+   "omega_adapter": "omega-otel (dashboard usage)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "refact-agent/engine/src/stats"
+   ]
+  }
+ ]
+}

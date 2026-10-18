@@ -4,14 +4,14 @@
 
 | # | Harnais | Etoiles | Nature | Clone | REA | Provider | Limites |
 |---|---|---|---|---|---|---|---|
-| 1 | Sweep | 7,707 | js | ok | ✅ analysee | rea-javascript-application | 7 |
+| 1 | Sourcegraph Cody | 3,800 | js | ok | ✅ analysee | rea-javascript-application | 1738 |
 
 ## Detail
 
-### Sweep (7,707 etoiles) — `sweepai/sweep`
+### Sourcegraph Cody (3,800 etoiles) — `sourcegraph/cody-public-snapshot`
 
-- nature : js ; licence : NOASSERTION
-- evidence : `ev_ff92a330791d7abc6fd95136795c3e680363fe4e09754ebe92c00215d912bc5d`
+- nature : js ; licence : —
+- evidence : `ev_7a8857cc8457618a874890f1790f34dc7c6149679e64e26a9a8d9b2dfbaef550`
 - provider : `rea-javascript-application` ; confiance : **derived**
-- structure : graph_edges=1099, graph_nodes=929
+- structure : graph_edges=13086, graph_nodes=10996
 
