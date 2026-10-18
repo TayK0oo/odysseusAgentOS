@@ -26,14 +26,12 @@ use omega_core::{
     cancellation_pair, AgentLoop, Event, EventBus, Operation, RunContext, RunState, RunStatus,
 };
 use omega_plugin_api::{compose, Contributor, InstallContext};
-use omega_ports::{ContextEngine, EventStore, Hook, MemoryStore, Provider, SubagentRunner};
+use omega_ports::{ContextEngine, EventStore, Provider, SubagentRunner};
 use omega_registry::Registry;
 use omega_types::{
     Capability, ChatRequest, DurableEvent, Message, ModelId, OmegaError, OmegaResult,
 };
-use std::time::Duration;
 use tokio::process::Command as TokioCommand;
-use tokio::time;
 
 mod store;
 

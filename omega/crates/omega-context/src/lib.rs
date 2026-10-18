@@ -23,7 +23,7 @@ mod token;
 mod tool_surface;
 
 pub use budget::ContextBudget;
-pub use compaction::{compaction_marker, truncate_compact};
+pub use compaction::{compaction_marker, truncate_compact, LlmCompactionEngine};
 pub use contributor::{ContextContributor, DEFAULT_MAX_TOKENS};
 pub use engine::{AssembleReport, DefaultContextEngine};
 pub use skills::{Skill, SkillIndex, SkillSummary};

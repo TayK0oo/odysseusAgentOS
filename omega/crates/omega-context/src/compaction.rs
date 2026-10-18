@@ -20,9 +20,7 @@ pub fn compaction_marker(omitted: usize) -> String {
 /// **sans marqueur mensonger** (aucun marqueur n'est insere quand il ne tient pas).
 pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
     let estimator = TokenEstimator::new();
-    eprintln!("[DEBUG truncate] messages={}, budget={}, total_est={}", messages.len(), budget, estimator.estimate_messages(messages));
     if estimator.estimate_messages(messages) <= budget {
-        eprintln!("[DEBUG truncate] under budget, returning as-is");
         return messages.to_vec();
     }
 
@@ -37,13 +35,11 @@ pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
     // Reserve la place du marqueur (borne superieure = pire cas : omitted = tail.len()).
     let marker_reserve = estimator.estimate(&compaction_marker(tail.len()));
 
-    eprintln!("[DEBUG truncate] system_count={}, system_tokens={}, tail_len={}, marker_reserve={}", system_count, system_tokens, tail.len(), marker_reserve);
 
     // Budget trop etroit pour le systeme + marqueur : pas de marqueur mensonger, on
     // preserve le systeme tel quel (primaute du systeme, W6 §4.6). Le depassement est
     // assume et documente (le systeme est intouchable).
     if system_tokens + marker_reserve > budget {
-        eprintln!("[DEBUG truncate] system+marker > budget, returning system only");
         return system.to_vec();
     }
 
@@ -56,14 +52,12 @@ pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
             kept_tokens += t;
             kept.push(msg.clone());
         } else {
-            eprintln!("[DEBUG truncate] would exceed: kept_tokens={}+t={}={} > budget={}", kept_tokens, t, kept_tokens + t, budget);
             break;
         }
     }
     kept.reverse();
     let omitted = tail.len() - kept.len();
 
-    eprintln!("[DEBUG truncate] kept={}, omitted={}", kept.len(), omitted);
 
     let mut result: Vec<Message> = system.to_vec();
     if omitted > 0 {
@@ -200,7 +194,6 @@ impl ContextEngine for LlmCompactionEngine {
         let max_tokens = self.inner.max_tokens();
         let estimator = TokenEstimator::new();
 
-        eprintln!("[DEBUG] assemble: {} messages, max_tokens={}, estimated={}", messages.len(), max_tokens, estimator.estimate_messages(&messages));
 
         // 1. Tentative avec truncation simple (couche 1)
         let truncated = truncate_compact(&messages, max_tokens);
@@ -211,15 +204,12 @@ impl ContextEngine for LlmCompactionEngine {
             orig_non_system.saturating_sub(result_non_system)
         };
 
-        eprintln!("[DEBUG] after truncate: truncated={}, dropped={}", truncated.len(), dropped);
 
         // Si pas de messages omis, retour direct
         if dropped == 0 {
-            eprintln!("[DEBUG] no messages dropped, returning truncated");
             return Ok(truncated);
         }
 
-        eprintln!("[DEBUG] proceeding to LLM summarization, dropped={}", dropped);
 
         // 2. Construire le resume LLM des messages omis
         let system_count = messages.iter().take_while(|m| m.role == Role::System).count();
@@ -232,10 +222,8 @@ impl ContextEngine for LlmCompactionEngine {
         let omitted_count = non_system.len().saturating_sub(kept_non_system);
         let omitted_messages = &non_system[..omitted_count.min(non_system.len())];
 
-        eprintln!("[DEBUG] calling summarize_omitted with {} messages", omitted_messages.len());
         let summary = self.summarize_omitted(omitted_messages).await;
 
-        eprintln!("[DEBUG] summarize_omitted returned: {:?}", summary.is_some());
 
         // 3. Inserer le resume dans la liste tronquee
         let mut result = truncated;
@@ -269,21 +257,18 @@ impl LlmCompactionEngine {
             "Resume les messages suivants en 1-2 phrases maximum, en conservant les faits cles, decisions et questions ouvertes:\n\n{}",
             content
         );
-        let prompt_len = prompt.len();
+        let _prompt_len = prompt.len();
 
         let req = omega_types::ChatRequest {
             model: omega_types::ModelId::new("auto"),
             messages: vec![Message::new(Role::User, prompt.clone())],
         };
 
-        eprintln!("[DEBUG] summarize_omitted called with {} messages, prompt len={}", messages.len(), prompt_len);
         match self.provider.complete(req).await {
             Ok(resp) => {
-                eprintln!("[DEBUG] provider returned: {:?}", resp.message.content);
                 Some(resp.message.content)
             }
-            Err(e) => {
-                eprintln!("[DEBUG] provider error: {:?}", e);
+            Err(_e) => {
                 None
             }
         }
