@@ -590,6 +590,21 @@ _INTEGRATION_SWITCHES = [
         "source": "src/builtin_actions.py:381",
     },
     {
+        "name": "Execution distante de scripts (cible SSH)",
+        "env_var": "ODYSSEUS_SCRIPT_HOST",
+        "default": "off",
+        "category": "MCP/Services",
+        "timing": "runtime",
+        "desc": (
+            "Cible SSH pour l'execution de scripts distants. Lue par "
+            "builtin_actions.py:394 comme valeur par défaut de `host`. "
+            "Capacite sans interrupteur jusqu'a maintenant : la variable etait "
+            "posee par le lanceur mais non governee. Fermee par defaut. "
+            "Brancher un appelant qui passe `host` est un chantier a part."
+        ),
+        "source": "src/builtin_actions.py:394",
+    },
+    {
         "name": "Decouverte dynamique d'outils",
         "env_var": "ODYSSEUS_TOOL_DISCOVERY",
         "default": "off",

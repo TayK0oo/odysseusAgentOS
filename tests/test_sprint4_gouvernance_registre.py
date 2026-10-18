@@ -66,8 +66,6 @@ CONFIGURATION: dict[str, str] = {
     "ODYSSEUS_MCP_ALLOWED_COMMANDS": "liste blanche de commandes, pas un interrupteur",
     "ODYSSEUS_MISTRAL_REASONING_EFFORT": "parametre de modele",
     "ODYSSEUS_OPA_URL": "adresse du serveur de politique",
-    "ODYSSEUS_SCRIPT_HOST": "cible SSH du lanceur de scripts : un parametre, pas une capacite. "
-    "Le manque la est ailleurs : l'execution DISTANTE n'a aucun interrupteur — voir reste",
     "ODYSSEUS_SINGLE_USER": "mode mono-utilisateur, une posture",
     "ODYSSEUS_SKIP_ADMIN_PROMPT": "comportement d'amorcage",
     "ODYSSEUS_SKIP_RUN_HINT": "comportement d'affichage",
