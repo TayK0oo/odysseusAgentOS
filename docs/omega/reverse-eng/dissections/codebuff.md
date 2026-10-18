@@ -69,7 +69,7 @@
 - **what** : Un benchmark par agent definitionnel : un -evals.ts par base3-X + docs/benchmarks/base3-fast/.
 - **how** : agents/base3-evals.ts + docs/benchmarks/base3-fast/. Omega : omega-harness (suite de regression par agents).
 - **adaptateur Omega** : omega-harness (bench par agent)
-- **preuves** : `agents/base3-evals.ts` · `docs/benchmarks`
+- **preuves** : `agents/base3-fast.ts:12-40`
 
 ### `bf-project-profile` — report_project_profile : profile de projet recue par GLUT (tool)
 

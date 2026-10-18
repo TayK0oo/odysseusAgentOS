@@ -121,8 +121,7 @@
    "status": "planned",
    "rust_cost": "M",
    "refs": [
-    "agents/base3-evals.ts",
-    "docs/benchmarks"
+    "agents/base3-fast.ts:12-40"
    ]
   },
   {
