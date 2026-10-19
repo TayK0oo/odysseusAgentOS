@@ -1,6 +1,6 @@
 {
-  "git_sha": "a1ab4762",
-  "mesure_le": "2026-10-19T03:47:53+00:00",
+  "git_sha": "b7c61bb7",
+  "mesure_le": "2026-10-19T03:56:38+00:00",
   "moteur_reference": "INDETERMINE (ADR D0, P0-9)",
   "socles": {
     "rust": {
@@ -77,6 +77,79 @@
     "dep_graph": {
       "verdict": "OK",
       "extrait": "Graphe de dependances valide (22 crates, 0 cycle, 0 arete interdite)."
+    }
+  },
+  "avancee": {
+    "dissections": {
+      "valeur": 51,
+      "methode": "parse_json"
+    },
+    "fonctionnalites_total": {
+      "valeur": 910,
+      "methode": "parse_json"
+    },
+    "capacites_omega": {
+      "valeur": 102,
+      "methode": "parse_json_omega_capability"
+    },
+    "census_recenses": {
+      "valeur": 67,
+      "methode": "parse_json"
+    },
+    "ui_panels": {
+      "valeur": 16,
+      "methode": "regex_union_tsx"
+    },
+    "agents_opencode": {
+      "valeur": 20,
+      "methode": "fs_count_md"
+    },
+    "clones_harnais": {
+      "valeur": 62,
+      "methode": "fs_count_ext"
+    },
+    "python_socle": {
+      "valeur": "present;cmd=app.py",
+      "methode": "fs_probe"
+    },
+    "plugins_attendus": {
+      "valeur": "INCONNU(gates_yaml_pas_encore_genere(P0-5))",
+      "methode": "gates_yaml"
+    },
+    "plugins_enregistres": {
+      "valeur": [
+        {
+          "schema_version": 1,
+          "id": "ollama",
+          "capability": "llm-provider",
+          "active": true
+        },
+        {
+          "schema_version": 1,
+          "id": "default",
+          "capability": "context-engine",
+          "active": true
+        },
+        {
+          "schema_version": 1,
+          "id": "mcp:rea",
+          "capability": "tool-surface",
+          "active": true
+        },
+        {
+          "schema_version": 1,
+          "id": "file",
+          "capability": "event-store",
+          "active": true
+        },
+        {
+          "schema_version": 1,
+          "id": "embedded",
+          "capability": "harness-catalog",
+          "active": true
+        }
+      ],
+      "methode": "instance_jetable_http"
     }
   },
   "registre": {

@@ -17,6 +17,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]  # racine du dépôt omega
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from measures_advanced import mesures_avancees, plugins_enregistres  # noqa: E402 (P0-3a)
+
 STATUS_DIR = ROOT / "docs" / "omega" / "plan"
 CARGO = ROOT / "omega" / "Cargo.toml"
 TEST_ATTRS = ("#[test]", "#[tokio::test]")
@@ -163,6 +166,7 @@ def main() -> int:
             "model_policy": run_script("model_policy.py", "--check"),
             "dep_graph": run_script("check_dep_graph.py"),
         },
+        "avancee": {**mesures_avancees(), "plugins_enregistres": plugins_enregistres()},
         "registre": {"plugins_attendus": None, "plugins_enregistres": None,
                      "orphelins": None, "note": "mesuré en P0-6 (détecteurs)"},
         "scenarios": {**{f"S{i}": {"scripte": "NON_EXECUTE_ABSENT",

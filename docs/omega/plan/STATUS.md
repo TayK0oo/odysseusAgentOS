@@ -1,6 +1,6 @@
 # STATUS — AgentOS Omega (généré par measure.py — jamais édité à la main)
 
-SHA `a1ab4762` · mesuré le 2026-10-19T03:47:53+00:00 · moteur INDETERMINE (ADR D0, P0-9)
+SHA `b7c61bb7` · mesuré le 2026-10-19T03:56:38+00:00 · moteur INDETERMINE (ADR D0, P0-9)
 
 | Mesure | Valeur | Méthode |
 |---|---|---|
