@@ -26,3 +26,10 @@
 - `STATUS.json` v2 : 10 chiffres contestés mesurés avec méthodes déclarées — dissections 51, fonctionnalités 910 (parse JSON, pas grep), census 67, panneaux UI 16 (union `type Panel`), agents 20, clones 62, socle Python `present;cmd=app.py`, plugins_enregistres **5** (instance jetable HTTP), plugins_attendus INCONNU(gates_yaml P0-5). Le faux `capacites=0` (champ absent) remplacé par la clé réelle `omega_capability` = 102 uniques.
 - Erreur capitalisée : un `git checkout --` a effacé la v1 de mesure avancée (non commitée) — v2 réécrite en module séparé `measures_advanced.py`, testable isolément. `git commit` intermédiaires désormais systématiques.
 - Prochaine action : P0-3b `check_doc_truth.py` (tolérant d'abord, contrôle négatif obligatoire), puis P0-3c marquage.
+
+## 2026-10-19ter — P0-3b livre (doc-truth, convention A)
+- `check_doc_truth.py` + `tests/test_omega_doc_truth.py` : 4 tests, dont le contrôle négatif (tag faux -> exit 1) et la tolérance de `verify` prouvée dans les deux sens ; `verify` étape 10 `"bloquant": false` jusqu'à P0-3c. ADR-0007 tranché (A, tag auto-suffisant).
+- Écart ruff levé : `3720 = 3729 (ruff check .) − 9 (omega/)` avec le ruff **système 0.17.1** [observed] — la valeur publiée se reproduit exactement. Le `1 114` venait du **0.6.9 épinglé**, absent du disque ici : non rejouable [inferred]. Ce n'est donc pas un scope élargi, c'est une version — et ADR-0005 promet « le ruff épinglé » alors que `measure.py` prend le ruff du PATH.
+- Ticket `measure.py` v3 : un seul ruff (épinglé) pour `measure` et `verify` ; `registre` canonique peuplé depuis `avancee` en fin de run (Annexe C), `avancee` reste l'atelier — plus deux endroits pour la même information.
+- Fait consigné : sous 0.17.1 le scope de `verify` (`omega/scripts` + `omega/acceptance`) a **4** erreurs (C420, PLC0415 ×2, PLC0207) [observed] ; sous 0.6.9 le journal le donne vert [inferred] — le pin décide donc du verdict de G0.a.
+- Deux exemples littéraux de tag restent en WARNING (`PLAN-MAITRE.md:140`, `REPRISE.md:27`) : P0-3c les réécrit, aucune exception codée dans l'outil (ADR-0007 §6). Prochaine action : P0-3c (marquage), puis `--strict` pour G0.b.
