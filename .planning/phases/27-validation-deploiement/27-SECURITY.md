@@ -1,7 +1,7 @@
 ---
 status: passed
 threats_open: 0
-threats_total: 6
+threats_total: 6  # +2 bridge, cf. 27-SECURITY-BRIDGE.md
 verified: 2026-10-19
 verdict: SECURED
 phase: 27
@@ -72,12 +72,14 @@ Suite complète du workspace : **407 tests passés, 0 échec**.
 | Écritures mémoire concurrentes (`read-modify-write` sans verrou fichier) | perte possible d'entrées en concurrence | Verrouillé par `atk_concurrent_remember_does_not_lose_writes` (comportement connu). CorrectifPx : Mutex inter-processus ou fichier append-only avec O_APPEND. |
 | `parse_frontmatter` est un parseur YAML **minimal** (scalaires + listes inline) | pas de YAML imbriqué / multi-ligne | Accepté : le format SKILL.md d'odysseus est plat. Un YAML riche exigerait une dépendance — non justifiée. |
 
-## Hors périmètre
+## Bridge Rust↔Python — audité depuis
 
-Le bridge JSON-RPC (`omega-python-bridge` + `omega/bridge/handler.py`) **exécute du code Python**
-et n'a pas été audité dans cette phase. C'est le vecteur le plus sensible du milestone v0.6 et il
-doit faire l'objet d'un audit dédié avant tout usage en production (recommandation : phase
-séparée, `/gsd-secure-phase` sur la phase du bridge).
+`omega-python-bridge` a été **audité séparément** : voir `27-SECURITY-BRIDGE.md`
+(2 menaces corrigées, contrôle négatif effectué, `threats_open: 0`).
+
+Restent hors périmètre, par choix d'intégration et non par défaut du transport :
+- le handler `omega/bridge/handler.py` est un **stub** (aucun outil Python réellement exécuté) ;
+- `PythonBridge::call()` n'a **pas d'authentification** — acceptable tant que le bridge reste local.
 
 ## Conclusion
 

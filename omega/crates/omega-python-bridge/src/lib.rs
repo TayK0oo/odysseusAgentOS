@@ -5,9 +5,10 @@
 //! communique via JSON-RPC. Timeout + retry + circuit breaker inclus.
 
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use serde_json::Value;
 use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 
 /// Requête JSON-RPC 2.0.
@@ -77,39 +78,80 @@ impl PythonBridge {
         let mut stdin = child.stdin.take().ok_or("No stdin")?;
         let stdout = child.stdout.take().ok_or("No stdout")?;
 
-        // Write request
         stdin.write_all(req_json.as_bytes()).await.map_err(|e| e.to_string())?;
         stdin.write_all(b"\n").await.map_err(|e| e.to_string())?;
         stdin.flush().await.map_err(|e| e.to_string())?;
         drop(stdin);
 
-        // Read response with timeout
+        // Lecture défensive : on scanne jusqu'à une ligne JSON-RPC valide en
+        // ignorant les traces/warnings que Python peut écrire avant, et on
+        // borne la taille d'une ligne pour éviter l'épuisement mémoire.
+        const MAX_LINE_BYTES: usize = 8 * 1024 * 1024;
+
         let mut reader = BufReader::new(stdout);
-        let mut line = String::new();
+        let mut buf: Vec<u8> = Vec::with_capacity(1024);
+        let mut chunk = vec![0u8; 8192];
         let timeout = tokio::time::Duration::from_millis(self.timeout_ms);
 
-        match tokio::time::timeout(timeout, reader.read_line(&mut line)).await {
-            Ok(Ok(_)) => {
-                let resp: JsonRpcResponse = serde_json::from_str(&line)
-                    .map_err(|e| format!("Parse error: {}", e))?;
-                if let Some(err) = resp.error {
-                    Err(format!("Python error {}: {}", err.code, err.message))
-                } else {
-                    Ok(resp.result.unwrap_or(Value::Null))
+        let mut response: Option<JsonRpcResponse> = None;
+        let read = tokio::time::timeout(timeout, async {
+            loop {
+                let n = match reader.read(&mut chunk).await {
+                    Ok(0) => return Ok(()),
+                    Ok(n) => n,
+                    Err(e) => return Err(e.to_string()),
+                };
+                for &byte in &chunk[..n] {
+                    if byte != b'\n' {
+                        if buf.len() >= MAX_LINE_BYTES {
+                            return Err("ligne JSON-RPC trop volumineuse".to_string());
+                        }
+                        buf.push(byte);
+                        continue;
+                    }
+                    let text = String::from_utf8_lossy(&buf).to_string();
+                    buf.clear();
+                    if text.trim().is_empty() {
+                        continue;
+                    }
+                    // Une ligne qui ne parse pas = trace/warning Python : ignorée.
+                    if let Ok(r) = serde_json::from_str::<JsonRpcResponse>(&text) {
+                        response = Some(r);
+                        return Ok(());
+                    }
                 }
             }
-            Ok(Err(e)) => Err(format!("Read error: {}", e)),
-            Err(_) => {
+        })
+        .await;
+
+        match response {
+            Some(resp) => {
+                // On laisse le temps au processus de finir, puis on le recycle.
+                let _ = tokio::time::timeout(
+                    tokio::time::Duration::from_millis(200),
+                    child.wait(),
+                ).await;
+                match resp.error {
+                    Some(e) => Err(format!("Python error {}: {}", e.code, e.message)),
+                    None => Ok(resp.result.unwrap_or(Value::Null)),
+                }
+            }
+            None => {
+                // Aucun JSON reçu : on Tue l'enfant dans TOUS les cas
+                // (timeout, EOF muet, erreur) — sinon il survit en arrière-plan.
                 let _ = child.kill().await;
-                Err("Timeout".into())
+                match read {
+                    Ok(Ok(())) => Err("aucune réponse JSON valide sur stdout".into()),
+                    Ok(Err(e)) => Err(format!("Read error: {}", e)),
+                    Err(_) => Err("Timeout".into()),
+                }
             }
         }
     }
 
-    /// Vérifie si le bridge est disponible (Python + script existent).
+    /// Vérifie si le bridge est disponible (interpréteur + script existent).
     pub fn is_available(&self) -> bool {
-        std::path::Path::new(&self.python_path).exists()
-            && std::path::Path::new(&self.script_path).exists()
+        Path::new(&self.python_path).exists() && Path::new(&self.script_path).exists()
     }
 }
 

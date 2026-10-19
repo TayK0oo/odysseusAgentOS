@@ -12,7 +12,7 @@ omega-ports = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "process", "io-util", "time"] }
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "process", "io-util", "time", "sync", "macros"] }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "process", "io-util", "time"] }
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "process", "io-util", "time", "sync", "macros"] }
