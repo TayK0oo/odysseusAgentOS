@@ -37,13 +37,21 @@ Celui de **C** exige de tester le rendu.
 5. **Périmètre par défaut** : `docs/**/*.md` et `*.md` à la racine, extensible
    par `--paths`. Les règles `.opencode/rules/*.md` ne sont pas dans le
    périmètre par défaut ; les y ajouter est un choix explicite.
-6. **Un exemple de tag n'est pas un tag.** Le validateur ne connaît pas les
-   blocs de code : toute documentation qui *montre* la convention doit
-   l'échapper (`&lt;!--m:cle=VALEUR--&gt;`). Deux occurrences existent déjà
-   (`PLAN-MAITRE.md:140`, `REPRISE.md:27`) : elles sortent en **WARNING** tant
-   que P0-3c ne les a pas réécrites. Aucune exception n'est codée dans l'outil
-   pour les taire — un faux positif visible vaut mieux qu'un cas particulier
-   caché.
+6. **Un tag dans du code est de la documentation, pas un marqueur.** Les
+   régions de code — blocs délimités (triple backtick ou triple tilde) et spans
+   inline (texte entre backticks) — sont **hors-champ**. Ce n'est pas une
+   exception : en Markdown, le code n'est pas du contenu actif. Un exemple peut
+   donc être montré tel quel dans un span ou un bloc, et le validateur le
+   **compte** comme ignoré au lieu de le valider ou de le signaler comme
+   divergence. Les deux occurrences existantes (`PLAN-MAITRE.md:140`,
+   `REPRISE.md:27`) sont dans des spans inline : elles deviennent valides sans
+   retoucher les documents.
+   *Limite assumée* : un tag de mesure placé par accident dans du code n'est
+   pas vérifié — le rapport donne le nombre et la position des tags ignorés,
+   donc c'est visible, pas silencieux. Un bloc non fermé court jusqu'à la fin du
+   document (CommonMark) ; un span multi-ligne est traité comme du texte (le
+   contraire — masquer un tag par une paire de backticks lointaine — serait
+   pire).
 7. **Rejeté — B** (fragile, non testable négativement sans casser la prose) et
    **C** (cache le chiffre au source et déplace la preuve vers le rendu).
 
