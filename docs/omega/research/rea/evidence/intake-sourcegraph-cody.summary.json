@@ -1,0 +1,24 @@
+{
+  "id": "sourcegraph-cody",
+  "name": "Sourcegraph Cody",
+  "repo": "sourcegraph/cody-public-snapshot",
+  "stars": 3800,
+  "language": null,
+  "license": null,
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_7a8857cc8457618a874890f1790f34dc7c6149679e64e26a9a8d9b2dfbaef550",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "e3b23609bbda1066406da55d3107398b8ce733246307d344f93fa2d2443a925b"
+  },
+  "counts": {
+    "graph_nodes": 10996,
+    "graph_edges": 13086
+  },
+  "limitations_count": 1738
+}

@@ -1,0 +1,10 @@
+{
+  "target": "harness-openclaw",
+  "what": "Harnais clone : openclaw (JS/TS)",
+  "subject": "/home/tayk0oo/omega-re/openclaw",
+  "status": "unavailable",
+  "exit_code": 1,
+  "code": "resource_constraint",
+  "message": "The parent's result capacity was exhausted after retaining static facts for extensions/memory-core/src/tools.runtime.ts; remaining sources were not analyzed",
+  "remediation": "Review the reported worker memory limits and available host memory. Retry with sufficient memory or a smaller artifact; REA retains tighter inherited limits."
+}

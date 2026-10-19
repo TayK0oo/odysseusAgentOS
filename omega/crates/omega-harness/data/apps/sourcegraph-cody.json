@@ -1,0 +1,145 @@
+{
+ "schema_version": 1,
+ "id": "sourcegraph-cody",
+ "name": "Sourcegraph Cody",
+ "editor": "Sourcegraph",
+ "oss": true,
+ "language": "TypeScript + Rust",
+ "license": "Apache-2.0",
+ "repo": "https://github.com/sourcegraph/cody-public-snapshot (archive)",
+ "architecture": "Assistant IDE multi-plateformes (snapshot public archive) : DeepCody agent chat agentic (ProcessManager de steps), CodyToolFactory, guardrails Sourcegraph (verif du code genere), cody-ignore, protocole OpenCtx de fournisseurs de contexte, recordings de sessions rejeu, protocole agent documente + bindings Rust, auth/secret storage par IDE.",
+ "functionalities": [
+  {
+   "id": "cg-deep-cody",
+   "domain": "agents",
+   "name": "DeepCody : agent chat agentic orchestrateur de steps",
+   "what": "Un agent agentic (DeepCody) qui orchestre des steps de traitement (ProcessManager) : mentions categorisees, contexte, fork/transcription, telemetrie otel par span.",
+   "how": "vscode/src/chat/agentic/DeepCody.ts:1-30 (PromptMixin, ProcessType, wrapInActiveSpan) + ProcessManager.ts:5 (class). Omega : AgentLoop + LocalSubagentRunner deja couverts.",
+   "omega_capability": "agent-loop",
+   "omega_port": "—",
+   "omega_adapter": "omega-app::AgentLoop (steps + mentions)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "vscode/src/chat/agentic/DeepCody.ts:1-30",
+    "vscode/src/chat/agentic/ProcessManager.ts:5"
+   ]
+  },
+  {
+   "id": "cg-tools-factory",
+   "domain": "extension",
+   "name": "CodyToolFactory/Provider : outils agentic branches au chat",
+   "what": "Une factory/packages de outils agentic (CodyTool) declaree par config, fournie au chat.",
+   "how": "vscode/src/chat/agentic/CodyToolFactory.ts + CodyToolProvider.ts + CodyTool.ts + config.ts. Omega : ToolSurface couvert.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "omega-context::ToolSurfaceIndex",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "vscode/src/chat/agentic/CodyToolFactory.ts"
+   ]
+  },
+  {
+   "id": "cg-guardrails",
+   "domain": "securite",
+   "name": "Guardrails Sourcegraph : client de verif du code genere",
+   "what": "Un client guardrails (SourcegraphGuardrailsClient) qui verifie le code genere contre la base Sourcegraph (similarite/licence) avant acceptation.",
+   "how": "lib/shared/src/guardrails/client.ts:21 (class SourcegraphGuardrailsClient) + config.ts. Omega : ExecPolicy ; le pattern 'verification du code genere' est unique du corpus : a noter.",
+   "omega_capability": "exec-policy",
+   "omega_port": "ExecPolicy",
+   "omega_adapter": "omega-core::ExecPolicy (guardrails du code genere)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "lib/shared/src/guardrails/client.ts:17-21"
+   ]
+  },
+  {
+   "id": "cg-cody-ignore",
+   "domain": "securite",
+   "name": "cody-ignore : filtre le contexte esquive des fichiers ignores",
+   "what": "Un filtre cody-ignore couvert a la fois partagé (shared/src/cody-ignore) et l'IDE : les fichiers ignores n'entrent pas au contexte/notification si feature ignore.",
+   "how": "lib/shared/src/cody-ignore/ + vscode/src/cody-ignore/context-filter.ts:3-11 (CodyIgnoreFeature, notification). Omega : ExecPolicy/ExecBlocklist.",
+   "omega_capability": "exec-policy",
+   "omega_port": "ExecPolicy",
+   "omega_adapter": "omega-core::ExecPolicy (cody-ignore)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "vscode/src/cody-ignore/context-filter.ts:3-11"
+   ]
+  },
+  {
+   "id": "cg-openctx",
+   "domain": "contexte",
+   "name": "OpenCtx : protocole de fournisseurs de contexte externes",
+   "what": "OpenCtx : un protocole de fournisseurs de contexte externes (docs, issues, web) branche au chat via mentions (openctx.ts).",
+   "how": "vscode/src/context/openctx.ts + lib/shared/src/context/openctx/. Omega : CatalogSource (fournisseurs externes) ; retenu : le protocole de mentions.",
+   "omega_capability": "context-engine",
+   "omega_port": "CatalogSource",
+   "omega_adapter": "omega-context (protocole de contexte externe)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "vscode/src/context/openctx.ts"
+   ]
+  },
+  {
+   "id": "cg-chat-recordings",
+   "domain": "observabilite",
+   "name": "Recordings : capture de sessions chat pour rejeu/regression",
+   "what": "Un module recordings : event streams de sessions chat enregistrees (dossier recordings/ + agent/recordings) pour rejeu/QA.",
+   "how": "recordings/ + agent/recordings/. Omega : EventStore (rejeu) deja le pattern trace Omega.",
+   "omega_capability": "telemetry-sink",
+   "omega_port": "TelemetrySink",
+   "omega_adapter": "omega-otel + EventStore (rejeu des sessions)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "recordings",
+    "agent/recordings"
+   ]
+  },
+  {
+   "id": "cg-agent-protocol",
+   "domain": "configuration",
+   "name": "Agent protocol : bindings BinRS + protocol.md document",
+   "what": "L'agent itself exposes un protocole AI-native : agent/protocol.md + bindings BinRS (Rust bindings).",
+   "how": "agent/protocol.md + agent/bindings/. Omega : omega-server (protocole de browsing) ; retenu : le protocole documente.",
+   "omega_capability": "config-source",
+   "omega_port": "—",
+   "omega_adapter": "omega-server (protocol.md + BindBinRS)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "agent/protocol.md",
+    "agent/bindings"
+   ]
+  },
+  {
+   "id": "cg-auth-handlers",
+   "domain": "securite",
+   "name": "AgentAuthHandler/SecretStorage : auth + secrets par IDE",
+   "what": "Un auth handler + secret storage par IDE avec tests.",
+   "how": "agent/src/AgentAuthHandler.ts + AgentSecretStorage.ts. Omega : PolicyProvider couvert.",
+   "omega_capability": "exec-policy",
+   "omega_port": "PermissionPolicy",
+   "omega_adapter": "omega-core::PermissionPolicy (auth IDE)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "agent/src/AgentAuthHandler.ts",
+    "agent/src/AgentSecretStorage.ts"
+   ]
+  }
+ ]
+}

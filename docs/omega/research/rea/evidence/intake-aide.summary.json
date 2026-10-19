@@ -1,0 +1,24 @@
+{
+  "id": "aide",
+  "name": "Aide",
+  "repo": "nicepkg/aide",
+  "stars": 2685,
+  "language": "TypeScript",
+  "license": "MIT",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_15b46b83dc4e9d13cf4ae12e602d291427ed325ac07c87fddbdc74d3bef940e3",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "dec33404e12f0f7f710c33b988b3eb64f30f8891928e313159aaada0743d4914"
+  },
+  "counts": {
+    "graph_nodes": 961,
+    "graph_edges": 1016
+  },
+  "limitations_count": 6
+}

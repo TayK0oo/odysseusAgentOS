@@ -1,0 +1,576 @@
+{
+  "schema_version": 1,
+  "id": "continue",
+  "name": "Continue",
+  "editor": "Continue Dev Inc.",
+  "oss": true,
+  "language": "TypeScript",
+  "license": "Apache-2.0",
+  "repo": "https://github.com/continuedev/continue",
+  "architecture": "Monorepo TypeScript : noyau partage core/ (indexation, autocompletion, edition, LLM, outils, providers de contexte) execute comme process separe (binary/ : IpcMessenger/TcpMessenger) et pilote par des surfaces IPC — extension VS Code, extension JetBrains (Kotlin), CLI cn (TUI React), GUI React gui/ ; le protocole webview<->noyau est duplique VS Code/IntelliJ (constants/MessageTypes.kt) ; paquets partages packages/config-yaml (assistant YAML + blocs), openai-adapters, continue-sdk, terminal-security ; un crate Rust historique sync/ (walk + rusqlite) subsiste sans reference au build npm.",
+  "entrypoints": [
+    "extension VS Code (extensions/vscode/src/extension.ts)",
+    "extension JetBrains (extensions/intellij, Kotlin)",
+    "CLI/TUI cn (extensions/cli, bin cn)",
+    "binaire noyau IPC/TCP (binary/src/index.ts)",
+    "GUI React embarquee (gui/)",
+    "GitHub Action de revue de PR (actions/general-review)"
+  ],
+  "functionalities": [
+    {
+      "id": "ct-extension-vscode",
+      "domain": "extension",
+      "name": "Extension VS Code (webview GUI + autocomplete inline)",
+      "what": "Extension IDE VS Code qui embarque la GUI Continue dans un webview de type sidebar et branche l'autocompletion inline au provider d'inline completion de l'editeur.",
+      "how": "extensions/vscode/src/extension.ts:16 export function activate delegue a ./activation/activate (import dynamique :12) ; la vue GUI est ContinueGUIWebviewViewProvider (extensions/vscode/src/ContinueGUIWebviewViewProvider.ts:10) ; l'autocompletion passe par ContinueCompletionProvider (extensions/vscode/src/autocomplete/completionProvider.ts:40) avec lsp.ts, statusBar.ts et GhostTextAcceptanceTracker ; le noyau core/ est le meme que celui du CLI et d'IntelliJ.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-server (surface IDE externe, meme origine que le cockpit)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "extensions/vscode/src/extension.ts:16",
+        "extensions/vscode/src/ContinueGUIWebviewViewProvider.ts:10",
+        "extensions/vscode/src/autocomplete/completionProvider.ts:40",
+        "docs.continue.dev/ide-extensions/chat/quick-start"
+      ]
+    },
+    {
+      "id": "ct-extension-jetbrains",
+      "domain": "extension",
+      "name": "Extension JetBrains (StartupActivity Kotlin + navigateur JCEF)",
+      "what": "Extension IntelliJ/PyCharm ecrive en Kotlin qui demarre au chargement du projet, s'abonne aux evenements fichier/module et sert la meme GUI dans un navigateur JCEF embarque.",
+      "how": "extensions/intellij/.../activities/ContinuePluginStartupActivity.kt:86 class ContinuePluginStartupActivity : StartupActivity, DumbAware ; runActivity(project) :88 installe les listeners VFS/editors (:167-243) ; GUI via browser/ContinueBrowser.kt ; le protocole de messages webview<->noyau doit etre maintenu en parallele avec VS Code (core/rules.md impose l'ajout dans constants/MessageTypes.kt).",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-server (surface IDE externe, protocole unique au lieu de messages dupliques)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "extensions/intellij/src/main/kotlin/com/github/continuedev/continueintellijextension/activities/ContinuePluginStartupActivity.kt:86-88",
+        "extensions/intellij/src/main/kotlin/com/github/continuedev/continueintellijextension/constants/MessageTypes.kt",
+        "core/rules.md"
+      ]
+    },
+    {
+      "id": "ct-cli-tui-cn",
+      "domain": "ui",
+      "name": "CLI/TUI cn (chat, serve, review, ls, init) sur le meme noyau",
+      "what": "Une CLI npm (`cn`) avec TUI React proposant chat interactif, sessions persistees, revue de PR, listing de sessions et mode serve HTTP, en reutilisant le noyau core/.",
+      "how": "extensions/cli/package.json declare bin cn -> dist/cn.js ; extensions/cli/src/index.ts:6 import commander et :12-17 enregistre chat/checks/ls/review/serve ; sessions persistees (src/session.ts), auto-compaction dediee (src/compaction.ts:19-20 AUTO_COMPACT_BUFFER_RATIO=0.8 et CAP=15000, :53 compactChatHistory, :266 shouldAutoCompact), architecture en services (src/services/ServiceContainer.ts), hooks et permissions dedies ; docs.continue.dev/cli/quickstart.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-cli (binaire TUI sur omega-app + omega-server)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "extensions/cli/package.json",
+        "extensions/cli/src/index.ts:6-17",
+        "extensions/cli/src/compaction.ts:19-20",
+        "extensions/cli/src/services/ServiceContainer.ts",
+        "docs.continue.dev/cli/quickstart"
+      ]
+    },
+    {
+      "id": "ct-modes-chat-agent-plan",
+      "domain": "agents",
+      "name": "Modes chat/agent/plan/background avec filtrage d'outils readonly",
+      "what": "Trois modes de conversation : chat sans outils, plan (lecture seule, seuls les outils readonly), agent (outils actifs) ; un quatrieme mode background existe dans le type du noyau.",
+      "how": "core/index.d.ts:495 type MessageModes = \"chat\" | \"agent\" | \"plan\" | \"background\" ; GUI gui/src/components/ModeSelect/ModeSelect.tsx:37-42 cyclique chat -> plan -> agent ; gui/src/redux/selectors/selectActiveTools.ts:16-32 : mode chat = aucun outil, mode plan = garde uniquement les outils readonly (t.group !== BUILT_IN_GROUP_NAME || t.readonly) ; gui/src/redux/util/getBaseSystemMessage.ts:15-27 selectionne DEFAULT_CHAT/PLAN/AGENT_SYSTEM_MESSAGE et append NO_TOOL_WARNING si aucun outil ; policies d'outils par mode dans gui/src/pages/config/sections/ToolsSection.tsx:466.",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy (mode plan = deny-by-default hors lecture)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/index.d.ts:495",
+        "gui/src/components/ModeSelect/ModeSelect.tsx:37-42",
+        "gui/src/redux/selectors/selectActiveTools.ts:16-32",
+        "gui/src/redux/util/getBaseSystemMessage.ts:15-27"
+      ]
+    },
+    {
+      "id": "ct-subagents",
+      "domain": "agents",
+      "name": "Sous-agents nommes invoquables (outil Subagent)",
+      "what": "Un outil `Subagent` qui delegue une tache a un sous-agent nomme (description, prompt, subagent_name) execute dans un contexte dedie.",
+      "how": "CLI : extensions/cli/src/subagent/index.ts:3 SUBAGENT_TOOL_META (parametres description/prompt/subagent_name), extensions/cli/src/subagent/executor.ts:58 executeSubAgent, extensions/cli/src/tools/subagent.ts subagentTool (decrit les agents connus du ModelService, refuse les noms inconnus) ; sous-agents lies aux modes de revue ; le port SubagentRunner existe deja côté Omega (omega-ports/src/lib.rs:172) sans adaptateur.",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner",
+      "omega_adapter": "omega-ports::SubagentRunner (adaptateur a ecrire)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "extensions/cli/src/subagent/index.ts:3-23",
+        "extensions/cli/src/subagent/executor.ts:58",
+        "extensions/cli/src/tools/subagent.ts",
+        "omega/crates/omega-ports/src/lib.rs:172"
+      ]
+    },
+    {
+      "id": "ct-autocomplete-fim",
+      "domain": "ui",
+      "name": "Autocompletion tab (ghost-text FIM, snippets, prefilter, streaming)",
+      "what": "Completion en ligne au curseur (fill-in-the-middle) avec snippets de contexte recoltes (code + diff git), prefiltrage, streaming et debounce.",
+      "how": "core/autocomplete/CompletionProvider.ts:33 class CompletionProvider et :150 provideInlineCompletionItems (debounce, prefilter via prefiltering/index.ts, snippets via snippets/getAllSnippets.ts:169, garde isSecurityConcern :170) ; generation streamee (generation/CompletionStreamer.ts), templates FIM par modele (templating/AutocompleteTemplate.ts, getStopTokens), decision multiline (classification/shouldCompleteMultiline.ts), filtrage bracket (filtering/BracketMatchingService.ts) ; snippets code + diffs (snippets/types.ts:1 enum AutocompleteSnippetType, snippets/gitDiffCache.ts:5) ; model dedie tabAutocompleteModel (packages/config-yaml/src/schemas/index.ts) ; exigences CPU AVX2/FMA pour l'index embarque : docs.continue.dev/troubleshooting.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "service autocomplete (contexte fourni par omega-context, completions par omega-providers)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "core/autocomplete/CompletionProvider.ts:33",
+        "core/autocomplete/CompletionProvider.ts:150-200",
+        "core/autocomplete/snippets/getAllSnippets.ts:169",
+        "docs.continue.dev/features/tab-autocomplete"
+      ]
+    },
+    {
+      "id": "ct-next-edit",
+      "domain": "ui",
+      "name": "Next Edit (prediction de la prochaine zone editable)",
+      "what": "Apres une edition, le modele predit la zone suivante a modifier (plusieurs endroits du fichier) ; tab accepte, echap rejette.",
+      "how": "core/nextEdit/NextEditProvider.ts:57 orchestre : zone editable +/-5 lignes autour du curseur, capture de la derniere edition en diff unifie (DocumentHistoryTracker.ts:8), reusses prefetch (NextEditPrefetchQueue.ts:18), fabrique par modele (NextEditProviderFactory.ts:6) ; declenche par le meme inline completion provider que l'autocompletion et affiche en decoration ; fonctionnement decrit dans core/nextEdit/README.md ; mesures dediees (NextEditLoggingService.ts:7, schemas data/nextEditOutcome).",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "service next-edit (memes ports contexte/completion que l'autocompletion)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/nextEdit/NextEditProvider.ts:57",
+        "core/nextEdit/DocumentHistoryTracker.ts:8",
+        "core/nextEdit/NextEditPrefetchQueue.ts:18",
+        "core/nextEdit/README.md"
+      ]
+    },
+    {
+      "id": "ct-inline-edit-diff",
+      "domain": "ui",
+      "name": "Edition inline : quick edit, diff de lignes streame, lazy apply",
+      "what": "Selection -> instruction -> diff applique ligne a ligne en streaming dans l'editeur, avec repli deterministe quand le modele produit un bloc de code lazy.",
+      "how": "core/edit/streamDiffLines.ts:77 streamDiffLines streame les lignes (diff myers dans core/diff/myers.ts et streamDiff.ts) ; lazy apply core/edit/lazy/streamLazyApply.ts:14 avec repli deterministe (lazy/deterministic.ts:129 deterministicApplyLazyEdit), matching AST (lazy/findInAst.ts:3) et application de diff unifie (lazy/unifiedDiffApply.ts) ; entrees IDE : extensions/vscode/src/quickEdit (QuickEditQuickPick, EditDecorationManager, HistoryQuickPick) et extensions/vscode/src/diff/processDiff.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-diff (script deterministe de diff/stream, jamais une tache d'agent)",
+      "integration": "native",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/edit/streamDiffLines.ts:77",
+        "core/edit/lazy/streamLazyApply.ts:14",
+        "core/edit/lazy/deterministic.ts:129",
+        "extensions/vscode/src/quickEdit/QuickEditQuickPick.ts"
+      ]
+    },
+    {
+      "id": "ct-index-embeddings",
+      "domain": "contexte",
+      "name": "Indexation de codebase : embeddings LanceDB + full-text + snippets + cache SQLite",
+      "what": "Indexation incrémentale du depot : vecteurs (embeddings), recherche plein texte, fragments de code, avec cache SQLite verrouille et exclusions .continueignore.",
+      "how": "core/indexing/CodebaseIndexer.ts:48 orchestre les index ; LanceDbIndex.ts:41 vecteurs (creation des lignes :130, embed :203) avec embeddings locaux Transformers.js/ONNX (core/llm/llms/TransformersJsEmbeddingsProvider.ts:41) ou API (role embeddings, docs.continue.dev/customize/model-roles/embeddings) ; FullTextSearchCodebaseIndex.ts:24 recherche plein texte ; CodeSnippetsIndex.ts:36 fragments symboliques (requetes tree-sitter dans core/tag-qry/*.scm) ; refreshIndex.ts:21 SqliteDb (tag_catalog + global_cache, :469 GlobalCacheCodeBaseIndex, :546 IndexLock) ; exclusions core/indexing/continueignore.ts:6-11 et ignore.ts ; natif @lancedb index.node requis (AVX2/FMA) ; crate Rust historique sync/ (walk + rusqlite) non reference par le build npm.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::DefaultContextEngine (index + retrieval a ajouter)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "core/indexing/CodebaseIndexer.ts:48",
+        "core/indexing/LanceDbIndex.ts:41-203",
+        "core/indexing/FullTextSearchCodebaseIndex.ts:24",
+        "core/indexing/CodeSnippetsIndex.ts:36",
+        "core/indexing/refreshIndex.ts:21-546",
+        "core/indexing/continueignore.ts:6-11",
+        "docs.continue.dev/walkthroughs/codebase-embeddings"
+      ]
+    },
+    {
+      "id": "ct-rag-retrieval",
+      "domain": "contexte",
+      "name": "Retrieval RAG (pipeline rerank / no-rerank) + repo map",
+      "what": "Recherche dans l'index par embeddings, avec option de reranking LLM, et repo map tree-sitter du depot, exposee en @codebase et en outil.",
+      "how": "core/context/retrieval/retrieval.ts:11 retrieveContextItemsFromEmbeddings choisit le pipeline selon useReranking (:57-73) : RerankerRetrievalPipeline (pipelines/RerankerRetrievalPipeline.ts:12) ou NoRerankerRetrievalPipeline ; reranking via LLMReranker (core/llm/llms/llm.ts:45) ; repo map retrieval/repoMapRequest.ts + provider RepoMapContextProvider ; requete codebase exposee comme outil (core/tools/definitions/codebaseTool.ts, experimental) ; docs.continue.dev/guides/codebase-documentation-awareness.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::DefaultContextEngine (pipeline retrieval + rerank)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/context/retrieval/retrieval.ts:11-73",
+        "core/context/retrieval/pipelines/RerankerRetrievalPipeline.ts:12",
+        "core/llm/llms/llm.ts:45",
+        "core/tools/definitions/codebaseTool.ts"
+      ]
+    },
+    {
+      "id": "ct-context-providers",
+      "domain": "contexte",
+      "name": "Providers de contexte @-mention (30 providers standardises)",
+      "what": "Toute une famille de sources de contexte invoquables par @ dans le chat (fichier, diff, terminal, problems, git, jira, http, web, base de donnees, docs, mcp, rules...), sur un contrat commun avec sous-menus pagines.",
+      "how": "core/context/providers/index.ts:43-72 table des 30 providers (File, Diff, FileTree, GitHubIssues, Google, Terminal, DebugLocals, OpenFiles, Http, Search, OS, Problems, Folder, Docs, GitLabMergeRequest, JiraIssues, Postgres, Database, Codebase, Code, CurrentFile, URL, RepoMap, Discord, Greptile, Web, MCP, GitCommit, Clipboard, Rules) ; contrat BaseContextProvider (getContextItems/getMenuItems/loadSubmenuItems) ; chargement depuis la config core/config/loadContextProviders.ts:22 (providers par defaut + providers configures) ; GUI : gui/src/components/mainInput/ContinueInputBox.tsx:61 et AtMentionDropdown ; docs.continue.dev/customization/context-providers.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::contributor (registre de contributors de contexte)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/context/providers/index.ts:43-72",
+        "core/config/loadContextProviders.ts:22-40",
+        "gui/src/components/mainInput/ContinueInputBox.tsx:61",
+        "docs.continue.dev/customization/context-providers#built-in-context-providers"
+      ]
+    },
+    {
+      "id": "ct-docs-indexing",
+      "domain": "contexte",
+      "name": "Indexation de documentation web (@docs)",
+      "what": "Crawl d'une documentation (startUrl), conversion HTML/markdown en articles et chunks vectorises, puis retrieval @docs cible.",
+      "how": "core/indexing/docs/DocsService.ts:167 class DocsService (stockage SQLite + LanceDB, migrations.ts, egalite de modele d'embeddings :93) ; conversion core/indexing/docs/article.ts:123 htmlPageToArticleWithChunks et :182 markdownPageToArticleWithChunks ; crawlers dans docs/crawlers ; consommation @docs via providers/DocsContextProvider.ts:15-19 (sous-menu des docs indexees) ; schema de config docSchema (startUrl/rootUrl/faviconUrl/useLocalCrawling) packages/config-yaml/src/schemas/index.ts:28.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::DefaultContextEngine (index de docs a ajouter)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/indexing/docs/DocsService.ts:167",
+        "core/indexing/docs/article.ts:123-182",
+        "core/context/providers/DocsContextProvider.ts:15-19",
+        "packages/config-yaml/src/schemas/index.ts:28-37"
+      ]
+    },
+    {
+      "id": "ct-compaction-llm",
+      "domain": "contexte",
+      "name": "Auto-compaction de conversation (seuil 80% + resume LLM structure)",
+      "what": "Quand l'historique approche la fenetre, resume la conversation en un texte structure et remplace les messages anciens, avec garde anti-boucle.",
+      "how": "core/util/conversationCompaction.ts:19 compactConversation demande au modele un resume en 6 sections (overview, dev active, stack, operations fichiers, solutions, travail restant) et integree le resume comme message ; CLI extensions/cli/src/compaction.ts : AUTO_COMPACT_BUFFER_RATIO=0.8 et CAP=15000 (:19-20), compactChatHistory (:53), findCompactionIndex (:174), pruneLastMessage (:195), shouldAutoCompact (:266), tests anti-boucle (compaction.infiniteLoop.test.ts) ; côté Omega, seule une compaction deterministe sans LLM existe (omega-context/src/compaction.rs:21 truncate_compact, RULES-OMEGA §3.2).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::compaction (deterministe existant, resume LLM a ajouter)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/util/conversationCompaction.ts:19-88",
+        "extensions/cli/src/compaction.ts:19-266",
+        "extensions/cli/src/compaction.infiniteLoop.test.ts",
+        "omega/crates/omega-context/src/compaction.rs:21"
+      ]
+    },
+    {
+      "id": "ct-skills-read",
+      "domain": "contexte",
+      "name": "Skills markdown + outil read_skill",
+      "what": "Skills = fichiers markdown (frontmatter name/description) listes au modele, que le modele lit par un outil dedie au lieu de tous les injecter.",
+      "how": "core/config/markdown/loadMarkdownSkills.ts:45 loadMarkdownSkills charge les skills markdown ; la liste (nom + description) est injectee dans la description de l'outil readSkill (core/tools/definitions/readSkill.ts:6-19) et le contenu est lu par core/tools/implementations/readSkill.ts:9 ; skills fournis aussi en package (repertoire racine skills/) ; analogue direct de omega-context::SkillIndex (list/view/asset).",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore",
+      "omega_adapter": "omega-context::SkillIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "core/config/markdown/loadMarkdownSkills.ts:45",
+        "core/tools/definitions/readSkill.ts:6-19",
+        "core/tools/implementations/readSkill.ts:9"
+      ]
+    },
+    {
+      "id": "ct-rules",
+      "domain": "configuration",
+      "name": "Rules (.continue/rules, AGENTS.md, globs/regex/alwaysApply/invokable)",
+      "what": "Regles de projet injectees dans le system prompt, avec sources multiples (agent files racine, .continue/rules, .continue/prompts, dot-file) et application ciblee par globs/regex.",
+      "how": "Sources : AGENTS.md/AGENT.md/CLAUDE.md racine (core/config/markdown/loadMarkdownRules.ts:10 SUPPORTED_AGENT_FILES, alwaysApply:true :42), .continue/rules et .continue/prompts (RULES_DIR_NAME, :58+), dot-file .continuerules (core/config/getWorkspaceContinueRuleDotFiles.ts:4) ; schema RuleMetadata globs/regex/alwaysApply/invokable (core/index.d.ts:1921-1931) ; application par fichier : core/llm/rules/getSystemMessageWithRules.ts:205 shouldApplyRule (minimatch + negation !), :276 getApplicableRules, :332 injection system message ; @rules provider (core/context/providers/RulesContextProvider.ts:11-13) ; creation guidee : outil createRuleBlock (core/tools/definitions/createRuleBlock.ts) + dialog GUI (gui/src/components/dialogs/AddRuleDialog.tsx) ; schema YAML ruleObjectSchema packages/config-yaml/src/schemas/index.ts:39.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::DefaultContextEngine (regles injectees au prompt)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/index.d.ts:1921-1931",
+        "core/llm/rules/getSystemMessageWithRules.ts:205-332",
+        "core/config/markdown/loadMarkdownRules.ts:10-58",
+        "core/config/getWorkspaceContinueRuleDotFiles.ts:4",
+        "core/context/providers/RulesContextProvider.ts:11-13"
+      ]
+    },
+    {
+      "id": "ct-prompt-files",
+      "domain": "agents",
+      "name": "Prompt files .prompt convertis en slash commands",
+      "what": "Fichiers .prompt (preamble YAML + prompt + system optionnel) places dans .continue/prompts deviennent des slash commands reutilisables dans le chat.",
+      "how": "core/promptFiles/parsePromptFile.ts:5 parsePromptFile (split preamble/prompt sur \\n---\\n, name/description/version, bloc <system> optionnel) ; decouverte core/promptFiles/getPromptFiles.ts:13 getPromptFilesFromDir et :41 getAllPromptFiles (global + workspace) ; conversion core/commands/slash/promptFileSlashCommand.ts:4 slashCommandFromPromptFile ; version 3 = blocs 'prompts' du yaml (convertPromptBlockToSlashCommand, core/config/yaml/loadYaml.ts:31 et :269) ; commandes legacy dans core/commands/slash/built-in-legacy ; docs.continue.dev/features/prompt-files.",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore",
+      "omega_adapter": "omega-context::SkillIndex (etendu aux blocs de prompt reutilisables)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "core/promptFiles/parsePromptFile.ts:5-26",
+        "core/promptFiles/getPromptFiles.ts:13-41",
+        "core/commands/slash/promptFileSlashCommand.ts:4",
+        "docs.continue.dev/features/prompt-files"
+      ]
+    },
+    {
+      "id": "ct-config-layers",
+      "domain": "configuration",
+      "name": "Config en couches (.continue/ global + workspace + profils/assistants)",
+      "what": "Chargement de configuration en couches : blocs globaux et workspace fusionnes, plus une selection de profil/assistant.",
+      "how": "getAllDotContinueDefinitionFiles charge les blocs .continue/ globaux et workspace puis les injecte dans le chargement yaml (core/config/yaml/loadYaml.ts:54-70) ; profils/assistants selectionnables et permutables (core/config/ConfigHandler.ts:31 class ConfigHandler, :35 profiles, :93-124 fallback et selection, :139 loadProfiles) ; couche partagee sharedConfig.ts ; migration depuis config.json (migrateSharedConfig.ts) ; la precedance multi-couches est le regime deja couvert par omega-config (loader.rs:18 defaults, :45 fichier, :56 env, :75 load_minimal) mais la decouverte multi-dossiers .continue/ n'y est pas encore.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "omega_adapter": "omega-config (couches + precedence)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "core/config/yaml/loadYaml.ts:54-70",
+        "core/config/ConfigHandler.ts:31-139",
+        "core/config/sharedConfig.ts",
+        "omega/crates/omega-config/src/loader.rs:18-75"
+      ]
+    },
+    {
+      "id": "ct-config-hub-blocks",
+      "domain": "configuration",
+      "name": "Assistant YAML + blocs composable (models/context/data/mcpServers/rules/prompts/docs)",
+      "what": "Un assistant est un fichier yaml declarent des blocs ; chaque bloc est resoluble par `uses:` avec parametres `with:` et `override:`, detecte en double, et rendu en config interne.",
+      "how": "packages/config-yaml : configYamlSchema (schemas/index.ts:113) sur baseConfigYamlSchema :158-164 (models, mcpServers, rules, prompts, docs, context, data) ; BLOCK_TYPES (load/getBlockType.ts:3-10) ; resolution des blocs par unroll (load/unroll.ts, blockItemWrapperSchema uses/with/override schemas/index.ts:81), injection (load/injectBlocks), dedup (load/blockDuplicationDetector.ts) ; conversion yaml -> config interne core/config/yaml/yamlToContinueConfig.ts ; assistants locaux .continue/*.yaml (core/config/loadLocalAssistants.ts) et creation de fichier assistant (core/config/createNewAssistantFile.ts:42).",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "omega_adapter": "omega-config (resolution de blocs a ajouter)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/config-yaml/src/schemas/index.ts:81-164",
+        "packages/config-yaml/src/load/getBlockType.ts:3-10",
+        "packages/config-yaml/src/load/unroll.ts",
+        "core/config/createNewAssistantFile.ts:42"
+      ]
+    },
+    {
+      "id": "ct-hub-cloud",
+      "domain": "configuration",
+      "name": "Continue Hub distant (registre owner/package cloud) — ECARTE",
+      "what": "ECARTE : resolution de blocs `uses: owner/package` depuis le registre cloud de Continue et synchronisation de secrets d'organisation via la plateforme de l'editeur.",
+      "how": "Le schema de blocs subsiste mais la resolution distante a ete retiree du depot OSS : RegistryClient.getContent jette \"Slug-based package resolution is not supported\" (packages/config-yaml/src/registryClient.ts:29) et le CLI declare \"Hub package loading has been removed\" (extensions/cli/src/hubLoader.ts:1-7 et :59) ; ne restent que des liens vers le site (gui/src/ui/MCPSelector.tsx:291 continue.dev/hub) et un endpoint de secrets de la plateforme (packages/continue-sdk/typescript/api/src/apis/DefaultApi.ts:667 /ide/sync-secrets). Dependre du registre cloud de l'editeur contredit le pilier « jamais dependre d'un fournisseur unique » : le port CatalogSource (omega-ports/src/lib.rs:120) suffit pour un catalogue local/auto-heberge.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "rejected",
+      "status": "rejected",
+      "rust_cost": "L",
+      "refs": [
+        "packages/config-yaml/src/registryClient.ts:29",
+        "extensions/cli/src/hubLoader.ts:1-7",
+        "extensions/cli/src/hubLoader.ts:59",
+        "packages/continue-sdk/typescript/api/src/apis/DefaultApi.ts:667",
+        "omega/crates/omega-ports/src/lib.rs:120"
+      ]
+    },
+    {
+      "id": "ct-mcp-bridge",
+      "domain": "outils",
+      "name": "Pont client MCP (initialize, tools/list, call) derriere la capacite tool-surface",
+      "what": "Un pont MCP qui lance des serveurs distants (stdio/npx), listent leurs outils et les expose au modele comme des outils resolubles.",
+      "how": "Cote Omega : omega-mcp/src/lib.rs McpSpec (stdio/npx, :57), echange JSON-RPC mcp:initialize (:227), mcp:tools/list (:243), mcp:call (:259) ; McpToolSurface (:391) et McpContributor (:511, fabrique rea() :524) enregistrent les outils comme Capability::ToolSurface dans omega-server (omega-server/src/state.rs:104, routes.rs:49) ; equivalent Continue : core/context/mcp/MCPConnection.ts:122 connectClient et :328 listTools, gestionnaire MCPManagerSingleton.ts:6.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "omega-mcp::McpToolSurface",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "omega/crates/omega-mcp/src/lib.rs:57-259",
+        "omega/crates/omega-mcp/src/lib.rs:391-564",
+        "omega/crates/omega-server/src/state.rs:104",
+        "core/context/mcp/MCPConnection.ts:122-328"
+      ]
+    },
+    {
+      "id": "ct-mcp-host",
+      "domain": "outils",
+      "name": "MCP multi-serveurs + OAuth SSE + provider de contexte @mcp",
+      "what": "Gestion de plusieurs serveurs MCP en parallele, authentification OAuth (transports SSE) avec stockage par serveur, et exposition des ressources MCP comme contexte @mcp.",
+      "how": "core/context/mcp/MCPManagerSingleton.ts:6 gestionnaire multi-serveurs ; MCPConnection.ts:151 « currently support oauth for sse transports only », connexion avec signal d'annulation :122 ; OAuth core/context/mcp/MCPOauth.ts:76 (oauthServerUrl, stockage par serveur :137-147, :274 traitement du code de redirection) ; configuration legacy JSON (mcp/json/loadJsonMcpConfigs) et conversion yaml (packages/config-yaml/src/schemas/mcp/convertJson.ts) ; provider de contexte @mcp core/context/providers/MCPContextProvider.ts:18-27 ; cote Omega, le pont omega-mcp ne couvre ni OAuth ni la multi-configuration.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "omega-mcp (extension : transports multiples + OAuth)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "core/context/mcp/MCPManagerSingleton.ts:6",
+        "core/context/mcp/MCPConnection.ts:122-151",
+        "core/context/mcp/MCPOauth.ts:76-274",
+        "core/context/providers/MCPContextProvider.ts:18-27"
+      ]
+    },
+    {
+      "id": "ct-tools-catalog",
+      "domain": "outils",
+      "name": "Catalogue d'outils built-in + overrides + groupes + policies",
+      "what": "Un catalogue d'outils fixes (lecture, creation, shell, glob, diff, ls...) adapte au contexte (modele recommande, remote, experimental), surchargeables par config et politiques par outil/groupe.",
+      "how": "core/tools/index.ts:6 getBaseToolDefinitions (readFile, createNewFile, runTerminalCommand, globSearch, viewDiff, readCurrentlyOpenFile, ls, createRuleBlock, fetchUrlContent) puis :18 getConfigDependentToolDefinitions ajoute requestRule/readSkill/searchWeb, choisit multiEdit pour les modeles recommandes sinon editFile + singleFindAndReplace (:33-39), retire grep en environnement remote (:44) ; serialisation sans hooks (serializeTool :53) ; overrides par config core/tools/applyToolOverrides.ts ; politiques GUI gui/src/pages/config/sections/ToolsSection.tsx:466 ; contrat equivalent deja couvert par omega-context::ToolSurfaceIndex (index + hydratation des outils).",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "core/tools/index.ts:6-53",
+        "core/tools/applyToolOverrides.ts",
+        "gui/src/pages/config/sections/ToolsSection.tsx:466",
+        "omega/crates/omega-context/src/tool_surface.rs:133"
+      ]
+    },
+    {
+      "id": "ct-tool-permissions",
+      "domain": "securite",
+      "name": "Politiques d'outils allow/deny + garde d'acces hors workspace",
+      "what": "Chaque outil a une policy (allowed / allowedWithPermission / disabled) ; tout fichier hors workspace exige une permission ; le CLI ajoute policies YAML avec precedence et matching sur arguments.",
+      "how": "core/tools/policies/fileAccess.ts:11 evaluateFileAccessPolicy : dans le workspace -> policy de base, hors workspace toujours allowedWithPermission ; policies par outil et par groupe dans le GUI (gui/src/pages/config/sections/ToolsSection.tsx:466, redux uiSlice toolSettings) ; CLI : extensions/cli/src/permissions/precedenceResolver.ts:33 resolvePermissionPrecedence, permissionChecker.ts:128 checkToolPermission (matching outil + arguments :67), permissionsYamlLoader, runtimeOverrides ; contrat equivalent : PermissionPolicy (omega-ports/src/lib.rs:165) + ApprovalQueue (omega-sandbox/src/approvals.rs:56).",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "core/tools/policies/fileAccess.ts:11-27",
+        "extensions/cli/src/permissions/precedenceResolver.ts:33",
+        "extensions/cli/src/permissions/permissionChecker.ts:128",
+        "omega/crates/omega-ports/src/lib.rs:165",
+        "omega/crates/omega-sandbox/src/approvals.rs:56"
+      ]
+    },
+    {
+      "id": "ct-security-ignores",
+      "domain": "securite",
+      "name": "Liste de verrou : secrets jamais lus, edits ni indexes",
+      "what": "Une liste de motifs de fichiers/dossiers sensibles (.env, *.secret, cles cloud, secrets/) interdit lecture, edition et indexation, sous peine d'erreur explicite.",
+      "how": "core/indexing/ignore.ts:211 defaultSecurityIgnoreFile, :214 defaultSecurityIgnoreDir, :230 defaultFileAndFolderSecurityIgnores, :238 isSecurityConcern, :257 throwIfFileIsSecurityConcern (ContinueError FileIsSecurityConcern) ; applique a l'indexation (ignore.ts:258) et a l'autocompletion (core/autocomplete/CompletionProvider.ts:170) ; cote Omega, les garde equivalentes sont ExecPolicy (deny-by-default, omega-sandbox/src/policy.rs:119 RuleBasedExecPolicy) et LocalSandboxBackend, mais sans regle sur les chemins de secrets.",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy + LocalSandboxBackend (regles deny sur chemins de secrets)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "core/indexing/ignore.ts:211-257",
+        "core/indexing/ignore.ts:258",
+        "core/autocomplete/CompletionProvider.ts:170",
+        "omega/crates/omega-sandbox/src/policy.rs:119"
+      ]
+    },
+    {
+      "id": "ct-hooks-claude-code",
+      "domain": "extension",
+      "name": "Hooks compatibles Claude Code (18 evenements, command/http/prompt/agent)",
+      "what": "Points d'extension du CLI : des hooks declenches sur les evenements du cycle de vie (PreToolUse, Stop, SubagentStart, WorktreeCreate...), executables comme commandes shell, requetes HTTP, prompts ou agents.",
+      "how": "extensions/cli/src/hooks/types.ts:10 HOOK_EVENT_NAMES (18 evenements) ; handlers avec timeout/statusMessage/once (:33-45) ; compatibilite assumee : « match the exact schemas from Claude Code » (types.ts:5) ; execution extensions/cli/src/hooks/HookService.ts:32 + hookRunner/fireHook ; cote Omega, seuls existent le trait minimal Hook (omega-ports/src/lib.rs:154) et le contributeur/registre (omega-plugin-api).",
+      "omega_capability": "registry",
+      "omega_port": "Registre (hooks de cycle de vie)",
+      "omega_adapter": "omega-plugin-api (dispatch de hooks a ecrire sur le port Hook)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "extensions/cli/src/hooks/types.ts:5-45",
+        "extensions/cli/src/hooks/HookService.ts:32",
+        "omega/crates/omega-ports/src/lib.rs:154"
+      ]
+    },
+    {
+      "id": "ct-llm-providers",
+      "domain": "routage",
+      "name": "Registre multi-fournisseurs (60+ classes) + autodetect de template + roles dedies",
+      "what": "Une centaine d'adaptateurs de modeles (API et locaux) resolus depuis la config, avec autodetection du template de prompt par nom de modele et roles dedies (embeddings, rerank, apply, autocomplete).",
+      "how": "core/llm/llms/index.ts:73 LLMClasses et :137 llmFromDescription (registre de classes : Anthropic, Azure, Bedrock, Gemini, Groq, LlamaCpp, LMStudio, Ollama, OpenRouter, HuggingFace..., 79 fichiers) ; autodetect.ts:313 autodetectTemplateType et :471 autodetectPromptTemplates ; couche API unifiee packages/openai-adapters (30+ apis, src/apis) ; roles : embeddings locaux (llms/TransformersJsEmbeddingsProvider.ts:41), reranking (llms/llm.ts:45 LLMReranker), tabAutocompleteModel, model-roles docs.continue.dev/customize/model-roles/* ; cote Omega, seule la couche Ollama existe (omega-providers::OllamaProvider + ollama_catalog + capabilities).",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider",
+      "omega_adapter": "omega-providers::OllamaProvider (catalogue multi-fournisseurs a etendre)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "core/llm/llms/index.ts:73-190",
+        "core/llm/autodetect.ts:313-471",
+        "packages/openai-adapters/src/apis",
+        "core/llm/llms/TransformersJsEmbeddingsProvider.ts:41",
+        "docs.continue.dev/customize/model-roles/embeddings"
+      ]
+    },
+    {
+      "id": "ct-telemetry-otel",
+      "domain": "observabilite",
+      "name": "Telemetrie OpenTelemetry (metriques OTLP + console)",
+      "what": "Metriques de la CLI exportees en OTLP ou console, avec intervalle et en-tetes OTel configurables, desactivees par defaut.",
+      "how": "extensions/cli/src/telemetry/telemetryService.ts:4 SDK OpenTelemetry, :110-149 exporteurs OTLPMetricExporter (:121) et ConsoleMetricExporter (:148), intervalle OTEL_METRIC_EXPORT_INTERVAL (:139), config TelemetryConfig (:28) ; en-tetes OTel parses headerUtils.ts:1 ; documentation officielle https://docs.continue.dev/telemetry ; contrat equivalent deja couvert : TelemetrySink (omega-ports/src/lib.rs:126) + StdoutSink/FileSink (omega-otel/src/sinks.rs:16, :41) + metric.rs.",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "omega_adapter": "omega-otel::{Stdout,File}Sink",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "extensions/cli/src/telemetry/telemetryService.ts:4-149",
+        "extensions/cli/src/telemetry/headerUtils.ts:1",
+        "docs.continue.dev/telemetry",
+        "omega/crates/omega-otel/src/sinks.rs:16-68"
+      ]
+    },
+    {
+      "id": "ct-serve-bg-agents",
+      "domain": "execution",
+      "name": "cn serve : agent expose en HTTP, prompt initial, reprise de session",
+      "what": "Mode serveur de la CLI : un agent tourne en fond derriere une API HTTP (express), accepte des prompts, expose l'etat de session et permet la reprise.",
+      "how": "extensions/cli/src/commands/serve.ts :4 express, etat serveur ServerState (serve.helpers.ts), file d'attente de messages (stream/messageQueue.ts), prompt initial seulement sur session neuve (shouldQueueInitialPrompt), snapshot git de fin (util/git.ts), reprise via loadOrCreateSessionById (session.ts), updateAgentMetadata a la sortie ; background agents cotes (docs.continue.dev/hub/agents/overview, cite core/context/mcp/MCPConnection.ts:185) ; cote Omega, omega-server expose deja /api/run et /api/trace.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-server (routes /api/run + /api/trace existantes)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "extensions/cli/src/commands/serve.ts:4-70",
+        "extensions/cli/src/commands/serve.helpers.ts",
+        "docs.continue.dev/hub/agents/overview"
+      ]
+    },
+    {
+      "id": "ct-review-automation",
+      "domain": "automatisation",
+      "name": "Revue de PR : cn review en workers + worktrees isoles + GitHub Action",
+      "what": "Revue automatique de pull requests : chaque revue tourne dans un worker forké avec un worktree git isole, produit un rapport (et peut proposer un patch), et une GitHub Action officielle declenche la revue au message @continue-review.",
+      "how": "extensions/cli/src/commands/review.ts :29 runReviewInWorker fork le binaire CLI avec un drapeau worker interne ; worktrees git dedies extensions/cli/src/commands/review/worktree.ts:15 createWorktree, :81 captureWorktreeDiff, :100 cleanupWorktree ; rapport renderReport.ts + options --base/--format/--fix/--patch/--failFast (:22-29) ; GitHub Action actions/README.md (continuedev/continue/actions/general-review@main) ; 'cn checks' interroge l'API Continue (commands/checks.ts:8).",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-sandbox::LocalSandboxBackend (worktrees) + omega-server (API de revue)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "extensions/cli/src/commands/review.ts:22-60",
+        "extensions/cli/src/commands/review/worktree.ts:15-100",
+        "actions/README.md",
+        "extensions/cli/src/commands/checks.ts:8"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,181 @@
+{
+ "schema_version": 1,
+ "id": "nanocoder",
+ "name": "Nanocoder",
+ "editor": "Nanotech-NanoCode",
+ "oss": true,
+ "language": "TypeScript",
+ "license": "Apache-2.0",
+ "repo": "https://github.com/Nanotech-NanoCode/Nanocoder",
+ "architecture": "CLI agent coding local-first (Ink/React) : tool-registry + profiles, tools LSP, client MCP multi-transports, memoire semantique + summarizer, sous-agents markdown, bash failure capsule + approval policy, stats locales, mode daemon + SDK, repo-map, extensions declaratives skills/custom-tools.",
+ "functionalities": [
+  {
+   "id": "nano-tool-registry",
+   "domain": "extension",
+   "name": "ToolManager/ToolRegistry : registry de tools avec profils et conventions de sortie",
+   "what": "Un registre de tools structure : tool-registry (modules), tool-manager (instances), tool-profiles (selecteurs par contexte), conventions de sorties contractuelles.",
+   "how": "source/tools/tool-registry.ts + tool-manager.ts + tool-profiles.ts (profiles spec : tool-profiles.spec.ts). Omega : ToolSurface + ToolExecutor ; retenu : les 'tool profiles' qui activent des sous-ensembles de tools selon contexte.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "omega-context::ToolSurfaceIndex (profiles de tools)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "source/tools/tool-registry.ts",
+    "source/tools/tool-profiles.ts"
+   ]
+  },
+  {
+   "id": "nano-lsp-tools",
+   "domain": "automatisation",
+   "name": "Tools LSP natives : diagnostics + format document",
+   "what": "Deux tools LSP integres : lsp_get_diagnostics (erreurs du language server) et lsp_format_document, utilises comme bouffee revert de l'agent.",
+   "how": "source/tools/lsp-get-diagnostics.tsx + lsp-format-document.tsx + source/lsp/. Omega : EventStore (diagnostics) + tool format ; le tool diagnostics est un signal de verification post-edit.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolExecutor",
+   "omega_adapter": "omega-app (lsp diagnostics comme verification)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "source/tools/lsp-get-diagnostics.tsx",
+    "source/tools/lsp-format-document.tsx"
+   ]
+  },
+  {
+   "id": "nano-mcp",
+   "domain": "extension",
+   "name": "Client MCP : transports multiples (stdio/http/sse) via factory",
+   "what": "Un client MCP generique avec transport-factory (stdio, http, sse) pour brancher tout serveur MCP externe.",
+   "how": "source/mcp/mcp-client.ts + transport-factory.ts. Omega : couvert (MCP natifs) ; retenu : la factory de transports.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "omega-app (mcp client + transports)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "source/mcp/mcp-client.ts",
+    "source/mcp/transport-factory.ts"
+   ]
+  },
+  {
+   "id": "nano-semantic-memory",
+   "domain": "memoire",
+   "name": "SemanticMemoryManager : memoire semantique persistante dedisquee + summarizer",
+   "what": "Une memoire semantique : SemanticMemoryManager (index recherchee), project-context, proposal-store, summarizer-service (compaction).",
+   "how": "source/memory/semantic-memory-manager.ts:297 (class) + project-context.ts + summarizer-service.ts. Omega : MemoryStore + ContextEngine ; retenu : la memoire semantique requetable.",
+   "omega_capability": "memory-store",
+   "omega_port": "MemoryStore",
+   "omega_adapter": "omega-app::FileMemoryStore (+ semantic index)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "source/memory/semantic-memory-manager.ts:297",
+    "source/memory/summarizer-service.ts"
+   ]
+  },
+  {
+   "id": "nano-subagents",
+   "domain": "agents",
+   "name": "Sous-agents built-in avec executor et parsing markdown d'assignation",
+   "what": "Un systeme de sous-agents : built-in (definis en markdown), subagent-executor, parser d'assignation, messages d'echec structurés.",
+   "how": "source/subagents/{built-in/,subagent-executor.ts,markdown-parser.ts,failure-message.ts}. Omega : LocalSubagentRunner couvert.",
+   "omega_capability": "subagent-runner",
+   "omega_port": "SubagentRunner",
+   "omega_adapter": "omega-app::LocalSubagentRunner (markdown agents)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "source/subagents/subagent-executor.ts",
+    "source/subagents/built-in"
+   ]
+  },
+  {
+   "id": "nano-bash-capsule",
+   "domain": "securite",
+   "name": "Bash failure capsule : encapsulation d'erreur + approval policy",
+   "what": "Les commandes shell passent une 'failure capsule' (sortie d'erreur structuree) + approval-policy + validation de chemins + guard command-injection.",
+   "how": "source/tools/bash-failure-capsule.ts + approval-policy.ts + file-tools-path-validation + source/security/command-injection. Omega : ExecPolicy couvert ; retenu : la capsule de sortie structuree.",
+   "omega_capability": "exec-policy",
+   "omega_port": "ExecPolicy",
+   "omega_adapter": "omega-core::ExecPolicy (+ capsule de sortie)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "source/tools/bash-failure-capsule.ts",
+    "source/tools/approval-policy.ts"
+   ]
+  },
+  {
+   "id": "nano-stats",
+   "domain": "observabilite",
+   "name": "Stats locales : aggregation usage par date, charts",
+   "what": "Un module stats : record/aggregators/chart par date (runs, tokens, models).",
+   "how": "source/stats/{record.ts,aggregators.ts,chart.ts}. Omega : TelemetrySink.",
+   "omega_capability": "telemetry-sink",
+   "omega_port": "TelemetrySink",
+   "omega_adapter": "omega-otel (aggregation locale)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "source/stats/aggregators.ts"
+   ]
+  },
+  {
+   "id": "nano-daemon-sdk",
+   "domain": "configuration",
+   "name": "Mode daemon + SDK : API programme local pour integrations",
+   "what": "Le CLI peut tourner en daemon (API locale) et un SDK headless expose le run d'agent aux programmes.",
+   "how": "source/daemon/ + source/sdk/. Omega : omega-server (API) couvert.",
+   "omega_capability": "config-source",
+   "omega_port": "—",
+   "omega_adapter": "omega-server (mode daemon + SDK)",
+   "integration": "service",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "source/daemon",
+    "source/sdk"
+   ]
+  },
+  {
+   "id": "nano-repo-map",
+   "domain": "contexte",
+   "name": "Repo map : cartographie du depot pour le contexte",
+   "what": "Un module repo-map : generating cartographie du depot (structure/fichiers) injecte au prompt.",
+   "how": "source/repo-map/. Omega : ContextEngine (repo map deja note chez other harnesses).",
+   "omega_capability": "context-engine",
+   "omega_port": "ContextEngine",
+   "omega_adapter": "omega-context (repo map)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "source/repo-map"
+   ]
+  },
+  {
+   "id": "nano-skills-tasks",
+   "domain": "configuration",
+   "name": "Skills + custom tools + tasks : extension par fichiers markdown/TOML",
+   "what": "Extension utilisateur par dossiers declaratives : skills/, custom-tools/, custom-commands/ (markdown/TOML charges au boot).",
+   "how": "source/skills/ + source/custom-tools/ + source/custom-commands/. Omega : chargement declaratif deja couvert (agents/skills md).",
+   "omega_capability": "config-source",
+   "omega_port": "—",
+   "omega_adapter": "omega-app (skills + custom tools declaratifs)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "source/skills",
+    "source/custom-tools"
+   ]
+  }
+ ]
+}

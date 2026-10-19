@@ -1,0 +1,18 @@
+[package]
+name = "omega-context"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Omega — economie de contexte : estimateur, budget, moteur par defaut, tool search BM25, disclosure des skills, compaction."
+
+[dependencies]
+omega-types = { path = "../omega-types" }
+omega-ports = { path = "../omega-ports" }
+omega-registry = { path = "../omega-registry" }
+omega-plugin-api = { path = "../omega-plugin-api" }
+async-trait = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }

@@ -1,0 +1,2626 @@
+[
+  {
+    "id": "7696204305342254358",
+    "url": "https://www.tiktok.com/@0xloucash/video/7696204305342254358",
+    "title": "Couplé avec GTA V, c'est littéralement un mod fabriqué avec l'IA. Le ...",
+    "summary_fr": "Universal Modder est un mod open source gratuit (GTA V) installable dans Codex ou Claude pour générer des scénarios de jeu uniques.",
+    "primary_category": "github-repos",
+    "resource_type": "github-repo",
+    "named_entities": [
+      "Universal Modder",
+      "GTA V",
+      "GitHub",
+      "Codex",
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "ai",
+      "videogame",
+      "claude",
+      "github-repos",
+      "github-repo"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 1,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 3965,
+    "duration": 51,
+    "upload_date": "2026-10-13"
+  },
+  {
+    "id": "7695818876159823126",
+    "url": "https://www.tiktok.com/@0xloucash/video/7695818876159823126",
+    "title": "J'ai découvert une méthode qui permet à ton IA d'arrêter de te dire n...",
+    "summary_fr": "Un repo GitHub public gratuit promet d'empêcher l'IA de refuser certaines requêtes (contournement des refus).",
+    "primary_category": "github-repos",
+    "resource_type": "github-repo",
+    "named_entities": [
+      "GitHub"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "ai",
+      "tips",
+      "github-repos",
+      "github-repo"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 1,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 1,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 222300,
+    "duration": 51,
+    "upload_date": "2026-10-12"
+  },
+  {
+    "id": "7695073583533493526",
+    "url": "https://www.tiktok.com/@0xloucash/video/7695073583533493526",
+    "title": "On peut maintenant prédire comment un cerveau humain réagit à une vid...",
+    "summary_fr": "Un modèle open source entraîné sur 700 cerveaux prédit la réaction cérébrale à une vidéo, transformé en outil pour créateurs via Codex d'OpenAI.",
+    "primary_category": "model-releases",
+    "resource_type": "model",
+    "named_entities": [
+      "OpenAI",
+      "Codex"
+    ],
+    "sponsor": true,
+    "actionable_link": null,
+    "keywords": [
+      "openaipartner",
+      "model-releases",
+      "model"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 1,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 1
+    },
+    "views": 23700,
+    "duration": 65,
+    "upload_date": "2026-10-10"
+  },
+  {
+    "id": "7694323778330856726",
+    "url": "https://www.tiktok.com/@0xloucash/video/7694323778330856726",
+    "title": "Si t'es déjà demandé comment une application ou une feature fonctionn...",
+    "summary_fr": "Un repo GitHub permet à ChatGPT ou Claude de faire du reverse engineering d'applications pour en copier la structure.",
+    "primary_category": "github-repos",
+    "resource_type": "github-repo",
+    "named_entities": [
+      "GitHub",
+      "ChatGPT",
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "ai",
+      "claude",
+      "chatgpt",
+      "github-repos",
+      "github-repo"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 3,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 9446,
+    "duration": 42,
+    "upload_date": "2026-10-08"
+  },
+  {
+    "id": "7693968617624407318",
+    "url": "https://www.tiktok.com/@0xloucash/video/7693968617624407318",
+    "title": "Si tu débutes sur ChatGPT ou Claude et que tu aimerais faire des site...",
+    "summary_fr": "Un combo de deux outils génère des sites web très qualitatifs via un simple prompt copié dans Blink.",
+    "primary_category": "web-design",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "ChatGPT",
+      "Claude",
+      "Blink"
+    ],
+    "sponsor": true,
+    "actionable_link": null,
+    "keywords": [
+      "ai",
+      "websitedesign",
+      "tools",
+      "web-design",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 2,
+      "economy-frugality": 0
+    },
+    "views": 22100,
+    "duration": 51,
+    "upload_date": "2026-10-07"
+  },
+  {
+    "id": "7693601058353859862",
+    "url": "https://www.tiktok.com/@0xloucash/video/7693601058353859862",
+    "title": "Voici un outil qui regroupe toutes les alternatives gratuites au logi...",
+    "summary_fr": "Un outil regroupe les alternatives gratuites à des logiciels payants (Zapier, Canva, Perplexity) et s'installe via un prompt dans ChatGPT ou Claude.",
+    "primary_category": "free-alternatives",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "ChatGPT",
+      "Claude",
+      "Zapier",
+      "Canva",
+      "Perplexity"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "ai",
+      "tools",
+      "claude",
+      "free-alternatives",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 3
+    },
+    "views": 7994,
+    "duration": 42,
+    "upload_date": "2026-10-06"
+  },
+  {
+    "id": "7691743535934049558",
+    "url": "https://www.tiktok.com/@0xloucash/video/7691743535934049558",
+    "title": "Certaines agences IA vendent ce genre de dashboard pour plusieurs mil...",
+    "summary_fr": "Un dashboard d'entreprise se construit en un prompt Claude et se branche au MCP Pennylane pour suivre CA, encaissements et trésorerie.",
+    "primary_category": "business-monetization",
+    "resource_type": "mcp-server",
+    "named_entities": [
+      "Claude",
+      "Pennylane",
+      "MCP"
+    ],
+    "sponsor": true,
+    "actionable_link": null,
+    "keywords": [
+      "business-monetization",
+      "mcp-server"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 2,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 1,
+      "economy-frugality": 1
+    },
+    "views": 18900,
+    "duration": 54,
+    "upload_date": "2026-10-01"
+  },
+  {
+    "id": "7691361505693945110",
+    "url": "https://www.tiktok.com/@0xloucash/video/7691361505693945110",
+    "title": "Oxloucash Si tu utilises Claude ou ChatGPT tous les jours pour ton pr...",
+    "summary_fr": "Un répertoire d'API donne à Claude ou ChatGPT un accès gratuit à de nombreuses données (sport, news, etc.).",
+    "primary_category": "free-alternatives",
+    "resource_type": "api-directory",
+    "named_entities": [
+      "Claude",
+      "ChatGPT"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "tips",
+      "api",
+      "ai",
+      "free-alternatives",
+      "api-directory"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 2
+    },
+    "views": 35300,
+    "duration": 45,
+    "upload_date": "2026-09-30"
+  },
+  {
+    "id": "7691014969214749974",
+    "url": "https://www.tiktok.com/@0xloucash/video/7691014969214749974",
+    "title": "J'ai construit mon propre Jarvis. (et oui, je là joue tony stark pour...",
+    "summary_fr": "Une orbe JARVIS imprimée en 3D (Raspberry Pi) suit les sessions Claude et répond à la voix, avec code promo PcComponentes.",
+    "primary_category": "hardware",
+    "resource_type": "content",
+    "named_entities": [
+      "Claude",
+      "Raspberry Pi",
+      "PcComponentes"
+    ],
+    "sponsor": true,
+    "actionable_link": null,
+    "keywords": [
+      "raspberrypi",
+      "claude",
+      "ia",
+      "hardware",
+      "content"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 1,
+      "sandbox": 1,
+      "ui": 1,
+      "economy-frugality": 0
+    },
+    "views": 8220,
+    "duration": 142,
+    "upload_date": "2026-09-29"
+  },
+  {
+    "id": "7690697624361471254",
+    "url": "https://www.tiktok.com/@0xloucash/video/7690697624361471254",
+    "title": "Beaucoup de personnes vibe code leurs sites web et leurs applications...",
+    "summary_fr": "Une checklist de 16 points aide à passer d'un rendu vibecodé médiocre à une qualité professionnelle.",
+    "primary_category": "web-design",
+    "resource_type": "technique",
+    "named_entities": [],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "prompt",
+      "ai",
+      "vibecode",
+      "web-design",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 1,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 2,
+      "economy-frugality": 0
+    },
+    "views": 9020,
+    "duration": 37,
+    "upload_date": "2026-09-28"
+  },
+  {
+    "id": "7689131872017960225",
+    "url": "https://www.tiktok.com/@0xloucash/video/7689131872017960225",
+    "title": "Ça paraît illégal, et pourtant, tout est public :) \"God's Eyes View\",...",
+    "summary_fr": "« God's Eyes View » est un globe 3D open source qui affiche en temps réel avions, navires, satellites et caméras publiques (OSINT).",
+    "primary_category": "osint",
+    "resource_type": "github-repo",
+    "named_entities": [
+      "God's Eyes View",
+      "GitHub"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "osint",
+      "tools",
+      "github-repo"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 2,
+      "sandbox": 1,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 98500,
+    "duration": 50,
+    "upload_date": "2026-09-24"
+  },
+  {
+    "id": "7688836279508798752",
+    "url": "https://www.tiktok.com/@0xloucash/video/7688836279508798752",
+    "title": "On s'est rendu cette semaine chez Gaspard, présent au lac du Bourget,...",
+    "summary_fr": "Premier épisode d'une série présentant FramIQ, l'app vibecodée d'un abonné qui vulgarise les consultations d'étude posturale.",
+    "primary_category": "meta-content",
+    "resource_type": "content",
+    "named_entities": [
+      "FramIQ",
+      "Gaspard"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "vibecoding",
+      "ai",
+      "meta-content",
+      "content"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 1,
+      "economy-frugality": 0
+    },
+    "views": 3710,
+    "duration": 143,
+    "upload_date": "2026-09-23"
+  },
+  {
+    "id": "7687273339257097504",
+    "url": "https://www.tiktok.com/@0xloucash/video/7687273339257097504",
+    "title": "Si tu as vibecodé ton site web ou ton application en 2026, fais atten...",
+    "summary_fr": "Une checklist à donner à Claude ou ChatGPT permet de mettre son site ou app vibecodé en conformité pour éviter des amendes en France/Europe.",
+    "primary_category": "security",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude",
+      "ChatGPT"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "tips",
+      "ai",
+      "security",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 1,
+      "ui": 0,
+      "economy-frugality": 1
+    },
+    "views": 466100,
+    "duration": 40,
+    "upload_date": "2026-09-19"
+  },
+  {
+    "id": "7687169626253298977",
+    "url": "https://www.tiktok.com/@0xloucash/video/7687169626253298977",
+    "title": "Des acteurs et des actrices IA, on en voit partout, mais aussi réalis...",
+    "summary_fr": "Une méthode en trois étapes (Pinterest + génération de visage + Arcads) produit des acteurs et actrices IA réalistes et persistants.",
+    "primary_category": "video-generation",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "Arcads",
+      "Pinterest"
+    ],
+    "sponsor": true,
+    "actionable_link": null,
+    "keywords": [
+      "video-generation",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 1,
+      "economy-frugality": 0
+    },
+    "views": 229600,
+    "duration": 44,
+    "upload_date": "2026-09-19"
+  },
+  {
+    "id": "7686601511652150560",
+    "url": "https://www.tiktok.com/@0xloucash/video/7686601511652150560",
+    "title": "Il y a des milliers de skills pour Claude. (Et c'est relou je sais) S...",
+    "summary_fr": "Un plugin unique offre 68 agents spécialisés et près de 300 skills Claude, de la sécurité au pen testing, gratuit et open source.",
+    "primary_category": "skills-plugins",
+    "resource_type": "skill",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "ai",
+      "skills",
+      "claude",
+      "skills-plugins",
+      "skill"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 1,
+      "plugin-architecture": 3,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 26700,
+    "duration": 51,
+    "upload_date": "2026-09-17"
+  },
+  {
+    "id": "7686187459146747168",
+    "url": "https://www.tiktok.com/@0xloucash/video/7686187459146747168",
+    "title": "Tu payes chaque mois des logiciels pour te rendre service, alors qu'i...",
+    "summary_fr": "Une bibliothèque open source créée par l'auteur regroupe les alternatives gratuites aux logiciels payants, installable en un clic.",
+    "primary_category": "free-alternatives",
+    "resource_type": "library",
+    "named_entities": [],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "opensource",
+      "tools",
+      "free-alternatives",
+      "library"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 3
+    },
+    "views": 31800,
+    "duration": 66,
+    "upload_date": "2026-09-16"
+  },
+  {
+    "id": "7685810270370893089",
+    "url": "https://www.tiktok.com/@0xloucash/video/7685810270370893089",
+    "title": "Beaucoup de créateurs de contenu utilisent ManyChat tous les jours et...",
+    "summary_fr": "Cinq erreurs fréquentes d'usage de ManyChat et comment les corriger.",
+    "primary_category": "automation",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "ManyChat"
+    ],
+    "sponsor": true,
+    "actionable_link": null,
+    "keywords": [
+      "manychatpartner",
+      "automation",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 1,
+      "economy-frugality": 1
+    },
+    "views": 6323,
+    "duration": 68,
+    "upload_date": "2026-09-15"
+  },
+  {
+    "id": "7682736895805361430",
+    "url": "https://www.tiktok.com/@0xloucash/video/7682736895805361430",
+    "title": "Presque 80 000 abonnés en 4 mois, je ne peux que vous dire merci. Mai...",
+    "summary_fr": "L'auteur explique la mécanique d'automatisation ManyChat qui, selon lui, a soutenu sa croissance à 80 000 abonnés en 4 mois.",
+    "primary_category": "automation",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "ManyChat"
+    ],
+    "sponsor": true,
+    "actionable_link": null,
+    "keywords": [
+      "manychatpartner",
+      "automation",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 1,
+      "economy-frugality": 0
+    },
+    "views": 18800,
+    "duration": 79,
+    "upload_date": "2026-09-07"
+  },
+  {
+    "id": "7681604951914663190",
+    "url": "https://www.tiktok.com/@0xloucash/video/7681604951914663190",
+    "title": "La Chine vient de sortir un modèle de génération vidéo aussi puissant...",
+    "summary_fr": "Un modèle chinois de génération vidéo gratuit et auto-hébergé rivalise avec les offres payantes à partir d'un texte, d'une image ou d'une vidéo.",
+    "primary_category": "video-generation",
+    "resource_type": "model",
+    "named_entities": [
+      "MiniMax"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "minimax",
+      "aivideo",
+      "video-generation",
+      "model"
+    ],
+    "relevance": {
+      "routing": 1,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 2
+    },
+    "views": 87400,
+    "duration": 51,
+    "upload_date": "2026-09-04"
+  },
+  {
+    "id": "7678638661272898838",
+    "url": "https://www.tiktok.com/@0xloucash/video/7678638661272898838",
+    "title": "Et si on transformait les espaces vides autour de ton ordinateur comm...",
+    "summary_fr": "Un repo GitHub transforme les zones vides autour de l'écran en boutons programmables déclenchés par le microphone pour lancer des automatisations.",
+    "primary_category": "automation",
+    "resource_type": "github-repo",
+    "named_entities": [
+      "GitHub"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "github",
+      "automation",
+      "github-repo"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 1,
+      "ui": 1,
+      "economy-frugality": 0
+    },
+    "views": 28500,
+    "duration": 43,
+    "upload_date": "2026-08-27"
+  },
+  {
+    "id": "7677899925488798998",
+    "url": "https://www.tiktok.com/@0xloucash/video/7677899925488798998",
+    "title": "J'ai découvert un outil qui permet de générer des acteurs UGC IA pour...",
+    "summary_fr": "Arcads génère en masse des acteurs UGC IA multilingues pour promouvoir une marque.",
+    "primary_category": "video-generation",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "Arcads"
+    ],
+    "sponsor": true,
+    "actionable_link": null,
+    "keywords": [
+      "video-generation",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 1,
+      "economy-frugality": 0
+    },
+    "views": 52900,
+    "duration": 57,
+    "upload_date": "2026-08-25"
+  },
+  {
+    "id": "7675738236668595459",
+    "url": "https://www.tiktok.com/@0xloucash/video/7675738236668595459",
+    "title": "Faites attention à développer vos sites web, votre Saas et vos applic...",
+    "summary_fr": "Un outil open source gratuit permet de tester ses propres sites/SaaS (générés par Claude ou ChatGPT) pour détecter et corriger leurs vulnérabilités.",
+    "primary_category": "security",
+    "resource_type": "github-repo",
+    "named_entities": [
+      "GitHub",
+      "Claude",
+      "ChatGPT"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "security",
+      "github-repo"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 1,
+      "sandbox": 3,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 14900,
+    "duration": 50,
+    "upload_date": "2026-08-19"
+  },
+  {
+    "id": "7673117147861749024",
+    "url": "https://www.tiktok.com/@0xloucash/video/7673117147861749024",
+    "title": "J'ai testé une technique (un peu) particulière si vous voulez réussir...",
+    "summary_fr": "L'auteur utilise Claude et Gamma pour créer un slide humoristique de 20 pages dans un contexte de rencontre.",
+    "primary_category": "meta-content",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "Claude",
+      "Gamma"
+    ],
+    "sponsor": true,
+    "actionable_link": null,
+    "keywords": [
+      "date",
+      "claude",
+      "gamma",
+      "meta-content",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 1,
+      "economy-frugality": 0
+    },
+    "views": 5675,
+    "duration": 93,
+    "upload_date": "2026-08-12"
+  },
+  {
+    "id": "7670949221159193888",
+    "url": "https://www.tiktok.com/@0xloucash/video/7670949221159193888",
+    "title": "Je me suis un petit peu amusé avec du python, beaucoup de Claude, cod...",
+    "summary_fr": "Un repo GitHub open source gratuit, construit avec Claude et Python, ajoute une fonctionnalité geek avec un guide d'installation en une ligne.",
+    "primary_category": "github-repos",
+    "resource_type": "github-repo",
+    "named_entities": [
+      "Claude",
+      "GitHub",
+      "Python"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "github-repos",
+      "github-repo"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 67000,
+    "duration": 65,
+    "upload_date": "2026-08-06"
+  },
+  {
+    "id": "7669167177102003478",
+    "url": "https://www.tiktok.com/@0xloucash/video/7669167177102003478",
+    "title": "Tu veux ton propre personnage IA, reconnaissable sur toutes tes vidéo...",
+    "summary_fr": "Higgsfield apprend, à partir d'une soixantaine d'images, un personnage IA réutilisable à l'infini dans les vidéos.",
+    "primary_category": "video-generation",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "Higgsfield"
+    ],
+    "sponsor": true,
+    "actionable_link": null,
+    "keywords": [
+      "higgsfieldcreator",
+      "video-generation",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 1,
+      "economy-frugality": 0
+    },
+    "views": 11700,
+    "duration": 82,
+    "upload_date": "2026-08-01"
+  },
+  {
+    "id": "7667935946893004054",
+    "url": "https://www.tiktok.com/@0xloucash/video/7667935946893004054",
+    "title": "Et si ton IA arrêtait d'oublier ? Hermès se souvient de toi, de tes p...",
+    "summary_fr": "Hermès est un agent qui se souvient de toi et construit une bibliothèque de compétences à partir de tes sessions Claude.",
+    "primary_category": "ai-agents",
+    "resource_type": "library",
+    "named_entities": [
+      "Hermès",
+      "Claude",
+      "Claude Code"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "hermesagent",
+      "claude",
+      "claudecode",
+      "hermes",
+      "ai-agents",
+      "library"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 2,
+      "context-economy": 2,
+      "memory": 3,
+      "observability": 1,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 29600,
+    "duration": 146,
+    "upload_date": "2026-07-29"
+  },
+  {
+    "id": "7664901404997192982",
+    "url": "https://www.tiktok.com/@0xloucash/video/7664901404997192982",
+    "title": "Mes 5 skills favoris dans une seule vidéo, de la mémoire persistante ...",
+    "summary_fr": "Les 5 skills Claude préférés de l'auteur, de la mémoire persistante aux compétences auto-évolutives.",
+    "primary_category": "skills-plugins",
+    "resource_type": "skill",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "skills",
+      "claude",
+      "ai",
+      "skills-plugins",
+      "skill"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 2,
+      "context-economy": 1,
+      "memory": 3,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 37000,
+    "duration": 55,
+    "upload_date": "2026-07-21"
+  },
+  {
+    "id": "7664170613006781718",
+    "url": "https://www.tiktok.com/@0xloucash/video/7664170613006781718",
+    "title": "Un développeur a trouvé un moyen de ne plus jamais atteindre sa limit...",
+    "summary_fr": "Une technique permet de ne plus atteindre la limite d'usage de Claude Code en basculant sur des modèles open source gratuits.",
+    "primary_category": "free-alternatives",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude Code"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "tips",
+      "free-alternatives",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 3,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 2,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 3
+    },
+    "views": 25600,
+    "duration": 56,
+    "upload_date": "2026-07-19"
+  },
+  {
+    "id": "7663572819250269462",
+    "url": "https://www.tiktok.com/@0xloucash/video/7663572819250269462",
+    "title": "Cet outil te permet de générer des présentations parfaites qui conver...",
+    "summary_fr": "Un outil génère des présentations efficaces directement depuis une session Claude (Gamma).",
+    "primary_category": "claude-tooling",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "Claude",
+      "Gamma"
+    ],
+    "sponsor": true,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "gamma",
+      "claude-tooling",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 1,
+      "economy-frugality": 0
+    },
+    "views": 6703,
+    "duration": 48,
+    "upload_date": "2026-07-17"
+  },
+  {
+    "id": "7660154237564767510",
+    "url": "https://www.tiktok.com/@0xloucash/video/7660154237564767510",
+    "title": "4 repos GitHub gratuits pour des effets visuels dignes d'Apple. Gradi...",
+    "summary_fr": "Quatre repos GitHub gratuits offrent des effets visuels façon Apple (gradients animés, métal liquide, verre, 3D).",
+    "primary_category": "web-design",
+    "resource_type": "github-repo",
+    "named_entities": [
+      "GitHub",
+      "Apple"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "design",
+      "ia",
+      "web-design",
+      "github-repo"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 2,
+      "economy-frugality": 0
+    },
+    "views": 32200,
+    "duration": 54,
+    "upload_date": "2026-07-08"
+  },
+  {
+    "id": "7659512794085166358",
+    "url": "https://www.tiktok.com/@0xloucash/video/7659512794085166358",
+    "title": "Le système prompt complet de Claude fable 5 à fuité sur GitHub, 120 0...",
+    "summary_fr": "Le system prompt complet de Claude (120 000 caractères) a fuité sur GitHub et peut être injecté dans des modèles gratuits comme MiniMax ou GLM.",
+    "primary_category": "claude-tooling",
+    "resource_type": "technique",
+    "named_entities": [
+      "Anthropic",
+      "Claude",
+      "GitHub",
+      "MiniMax",
+      "GLM"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "ia",
+      "claude-tooling",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 2,
+      "harness-reverse-eng": 3,
+      "plugin-architecture": 0,
+      "context-economy": 2,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 2
+    },
+    "views": 15500,
+    "duration": 43,
+    "upload_date": "2026-07-06"
+  },
+  {
+    "id": "7656124879174913302",
+    "url": "https://www.tiktok.com/@0xloucash/video/7656124879174913302",
+    "title": "60 % des entreprises prévoient de licencier leur employés qui n’adopt...",
+    "summary_fr": "Quatre certifications IA gratuites pour se démarquer face aux entreprises qui comptent licencier d'ici 2027.",
+    "primary_category": "business-monetization",
+    "resource_type": "certification",
+    "named_entities": [],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "ia",
+      "certification",
+      "business-monetization"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 1
+    },
+    "views": 175500,
+    "duration": 59,
+    "upload_date": "2026-06-27"
+  },
+  {
+    "id": "7655657180208631062",
+    "url": "https://www.tiktok.com/@0xloucash/video/7655657180208631062",
+    "title": "Une équipe de geeks japonais viennent de créer Fugu Ultra, un model d...",
+    "summary_fr": "Fugu Ultra, modèle d'une équipe japonaise, dépasserait Claude Opus 4.8 et orchestre une équipe d'agents.",
+    "primary_category": "model-releases",
+    "resource_type": "model",
+    "named_entities": [
+      "Fugu Ultra",
+      "Claude Opus 4.8"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "ai",
+      "fugu",
+      "agent",
+      "model-releases",
+      "model"
+    ],
+    "relevance": {
+      "routing": 2,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 9833,
+    "duration": 53,
+    "upload_date": "2026-06-26"
+  },
+  {
+    "id": "7653054181397384451",
+    "url": "https://www.tiktok.com/@0xloucash/video/7653054181397384451",
+    "title": "Une librairie de boucle pour Claude et même codex, tu copie/colle et ...",
+    "summary_fr": "Une librairie de boucle (loop) pour Claude et Codex installe automatiquement la boucle optimale pour un projet.",
+    "primary_category": "claude-tooling",
+    "resource_type": "library",
+    "named_entities": [
+      "Claude",
+      "Codex"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "tips",
+      "claude-tooling",
+      "library"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 1,
+      "plugin-architecture": 1,
+      "context-economy": 1,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 16500,
+    "duration": 59,
+    "upload_date": "2026-06-19"
+  },
+  {
+    "id": "7650892106843622678",
+    "url": "https://www.tiktok.com/@0xloucash/video/7650892106843622678",
+    "title": "ChatGPT peut tester tous les codes promo à ta place jusqu'à en trouve...",
+    "summary_fr": "ChatGPT teste automatiquement des codes promo jusqu'à en trouver un valide.",
+    "primary_category": "automation",
+    "resource_type": "technique",
+    "named_entities": [
+      "ChatGPT"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "chatgpt",
+      "ia",
+      "automation",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 2
+    },
+    "views": 12100,
+    "duration": 43,
+    "upload_date": "2026-06-13"
+  },
+  {
+    "id": "7649507064884284694",
+    "url": "https://www.tiktok.com/@0xloucash/video/7649507064884284694",
+    "title": "Claude te dit oui à 49% des cas, même dans des cas où c'est important...",
+    "summary_fr": "Un skill corrige la complaisance de Claude (qui dit oui environ 49% du temps) pour le rendre plus juste.",
+    "primary_category": "skills-plugins",
+    "resource_type": "skill",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "skill",
+      "ai",
+      "skills-plugins"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 2,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 3093,
+    "duration": 69,
+    "upload_date": "2026-06-09"
+  },
+  {
+    "id": "7647188708793371926",
+    "url": "https://www.tiktok.com/@0xloucash/video/7647188708793371926",
+    "title": "Avec seulement ton nom je peux sortir ton adresse mail, ta localisati...",
+    "summary_fr": "À partir d'un simple nom, un outil OSINT retrouve e-mail, localisation et anciens comptes.",
+    "primary_category": "osint",
+    "resource_type": "technique",
+    "named_entities": [],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "osint",
+      "ai",
+      "tool",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 2,
+      "sandbox": 1,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 169500,
+    "duration": 60,
+    "upload_date": "2026-06-03"
+  },
+  {
+    "id": "7646716118211513622",
+    "url": "https://www.tiktok.com/@0xloucash/video/7646716118211513622",
+    "title": "Je génère des audits clients à plus de 1000€ avec cet outil et le tou...",
+    "summary_fr": "L'auteur génère en quelques minutes des audits clients à plus de 1000 € via Claude et Gamma.",
+    "primary_category": "business-monetization",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "Claude",
+      "Gamma"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "gamma",
+      "business-monetization",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 1,
+      "economy-frugality": 1
+    },
+    "views": 2789,
+    "duration": 55,
+    "upload_date": "2026-06-02"
+  },
+  {
+    "id": "7646528326265474306",
+    "url": "https://www.tiktok.com/@0xloucash/video/7646528326265474306",
+    "title": "J'ai postulé à une centaine d'offres d'emploi LinkedIn en une seule j...",
+    "summary_fr": "Claude a permis de postuler à une centaine d'offres LinkedIn en une journée sans rédiger à la main.",
+    "primary_category": "automation",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude",
+      "LinkedIn"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "ai",
+      "automation",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 1
+    },
+    "views": 29400,
+    "duration": 54,
+    "upload_date": "2026-06-01"
+  },
+  {
+    "id": "7645249350402051350",
+    "url": "https://www.tiktok.com/@0xloucash/video/7645249350402051350",
+    "title": "Les 5 meilleurs repos GitHub de la semaine qui valent le détour, du w...",
+    "summary_fr": "Les 5 meilleurs repos GitHub de la semaine, dont un wifi qui voit à travers les murs et une mémoire persistante pour Claude Code.",
+    "primary_category": "github-repos",
+    "resource_type": "github-repo",
+    "named_entities": [
+      "GitHub",
+      "Claude Code"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "github",
+      "github-repos",
+      "github-repo"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 2,
+      "observability": 1,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 87700,
+    "duration": 62,
+    "upload_date": "2026-05-29"
+  },
+  {
+    "id": "7644867833863654678",
+    "url": "https://www.tiktok.com/@0xloucash/video/7644867833863654678",
+    "title": "Ton nom, ton adresse et ton numéro de téléphone circulent sur des diz...",
+    "summary_fr": "Une méthode Claude + RGPD permet d'effacer ses données personnelles diffusées sur des dizaines de sites.",
+    "primary_category": "osint",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude",
+      "RGPD"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "automation",
+      "osint",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 1,
+      "sandbox": 1,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 18400,
+    "duration": 58,
+    "upload_date": "2026-05-28"
+  },
+  {
+    "id": "7641663750499552534",
+    "url": "https://www.tiktok.com/@0xloucash/video/7641663750499552534",
+    "title": "Cette automatisation permet de tout retenir ce que tu regardes sur In...",
+    "summary_fr": "Une automatisation mémorise tout ce qui est vu sur Instagram dans un second cerveau avec Claude.",
+    "primary_category": "automation",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude",
+      "Instagram"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "automation",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 2,
+      "memory": 3,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 11300,
+    "duration": 53,
+    "upload_date": "2026-05-19"
+  },
+  {
+    "id": "7640540555545578775",
+    "url": "https://www.tiktok.com/@0xloucash/video/7640540555545578775",
+    "title": "Mes 5 skills Claude favoris que tout débutant doit absolument avoir p...",
+    "summary_fr": "Les 5 skills Claude favoris de l'auteur pour être productif en tant que débutant.",
+    "primary_category": "skills-plugins",
+    "resource_type": "skill",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "skill",
+      "skills-plugins"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 12900,
+    "duration": 46,
+    "upload_date": "2026-05-16"
+  },
+  {
+    "id": "7639708825217551638",
+    "url": "https://www.tiktok.com/@0xloucash/video/7639708825217551638",
+    "title": "Anthropics nous sort une suite de plusieurs skills pour la juridictio...",
+    "summary_fr": "Anthropic publie une suite de skills Claude pour la juridiction.",
+    "primary_category": "skills-plugins",
+    "resource_type": "skill",
+    "named_entities": [
+      "Anthropic",
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "skills-plugins",
+      "skill"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 5033,
+    "duration": 53,
+    "upload_date": "2026-05-14"
+  },
+  {
+    "id": "7639002840312171798",
+    "url": "https://www.tiktok.com/@0xloucash/video/7639002840312171798",
+    "title": "Les comptables c'est au revoir avec ce nouveau skill Claude qui te pe...",
+    "summary_fr": "Un skill Claude fournit une suite d'agents comptable, fiscaliste et notaire.",
+    "primary_category": "skills-plugins",
+    "resource_type": "skill",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "skills-plugins",
+      "skill"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 58800,
+    "duration": 56,
+    "upload_date": "2026-05-12"
+  },
+  {
+    "id": "7637255738678742295",
+    "url": "https://www.tiktok.com/@0xloucash/video/7637255738678742295",
+    "title": "Claude sort une mise à jour pour de connecter avec Higgsfield et ça t...",
+    "summary_fr": "Claude se connecte à Higgsfield via leur MCP pour générer gratuitement des publicités UGC pour une marque.",
+    "primary_category": "video-generation",
+    "resource_type": "mcp-server",
+    "named_entities": [
+      "Claude",
+      "Higgsfield",
+      "MCP"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "ugc",
+      "video-generation",
+      "mcp-server"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 2,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 30800,
+    "duration": 56,
+    "upload_date": "2026-05-07"
+  },
+  {
+    "id": "7636909868934466839",
+    "url": "https://www.tiktok.com/@0xloucash/video/7636909868934466839",
+    "title": "Claude sorry 4 agents ia pour la finance et ça va déjà remplacer les ...",
+    "summary_fr": "Claude propose 4 agents IA pour la finance susceptibles de remplacer des consultants.",
+    "primary_category": "ai-agents",
+    "resource_type": "skill",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "ai-agents",
+      "skill"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 1
+    },
+    "views": 34000,
+    "duration": 57,
+    "upload_date": "2026-05-06"
+  },
+  {
+    "id": "7636152067534408982",
+    "url": "https://www.tiktok.com/@0xloucash/video/7636152067534408982",
+    "title": "Un outil qui regroupe tout t’es agents la pour piloter ton entreprise...",
+    "summary_fr": "Un outil regroupe tous tes agents (Claude, Codex) pour piloter ton entreprise.",
+    "primary_category": "ai-agents",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "Claude",
+      "Codex"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "ia",
+      "claude",
+      "codex",
+      "ai-agents",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 2,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 1,
+      "economy-frugality": 0
+    },
+    "views": 11600,
+    "duration": 47,
+    "upload_date": "2026-05-04"
+  },
+  {
+    "id": "7634551104965020950",
+    "url": "https://www.tiktok.com/@0xloucash/video/7634551104965020950",
+    "title": "1 skill Claude à ajouter qui te permettrais de faire des résultats su...",
+    "summary_fr": "Un skill Claude à ajouter pour obtenir des résultats web design très qualitatifs.",
+    "primary_category": "web-design",
+    "resource_type": "skill",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "webdesign",
+      "ai",
+      "web-design",
+      "skill"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 2,
+      "economy-frugality": 0
+    },
+    "views": 43800,
+    "duration": 39,
+    "upload_date": "2026-04-30"
+  },
+  {
+    "id": "7634115376514649366",
+    "url": "https://www.tiktok.com/@0xloucash/video/7634115376514649366",
+    "title": "Des agents IA à portée de main, il suffît juste d’avoir telegram et u...",
+    "summary_fr": "Les « managed bots » de Telegram offrent des agents IA accessibles avec un simple téléphone.",
+    "primary_category": "ai-agents",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "Telegram"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "bot",
+      "ai",
+      "ai-agents",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 10600,
+    "duration": 34,
+    "upload_date": "2026-04-29"
+  },
+  {
+    "id": "7633709772058955030",
+    "url": "https://www.tiktok.com/@0xloucash/video/7633709772058955030",
+    "title": "Cet outil te créer un deuxième cerveau et map tout ton savoir faire d...",
+    "summary_fr": "Un outil crée un second cerveau et cartographie ton savoir-faire dans un graphique (Claude + Obsidian).",
+    "primary_category": "ai-agents",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "Claude",
+      "Obsidian"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "obsidian",
+      "ai-agents",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 1,
+      "memory": 3,
+      "observability": 1,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 19100,
+    "duration": 47,
+    "upload_date": "2026-04-28"
+  },
+  {
+    "id": "7632272295901547798",
+    "url": "https://www.tiktok.com/@0xloucash/video/7632272295901547798",
+    "title": "Claude sort les lives artefact et ça te permet de connecter toutes t’...",
+    "summary_fr": "Les live artifacts de Claude connectent toutes tes applications pour créer de beaux dashboards.",
+    "primary_category": "claude-tooling",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "webdesign",
+      "claude-tooling",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 2,
+      "economy-frugality": 0
+    },
+    "views": 8918,
+    "duration": 52,
+    "upload_date": "2026-04-24"
+  },
+  {
+    "id": "7631235691246013718",
+    "url": "https://www.tiktok.com/@0xloucash/video/7631235691246013718",
+    "title": "Mes 5 skills Claude qui te permette de remplacer une équipe marketing...",
+    "summary_fr": "Cinq skills Claude qui permettent de remplacer une équipe marketing complète.",
+    "primary_category": "skills-plugins",
+    "resource_type": "skill",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "marketingtips",
+      "skills-plugins",
+      "skill"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 16000,
+    "duration": 53,
+    "upload_date": "2026-04-21"
+  },
+  {
+    "id": "7630928463234403606",
+    "url": "https://www.tiktok.com/@0xloucash/video/7630928463234403606",
+    "title": "4 conseils pour éviter d’atteindre ton quota max de Claude… #claude #...",
+    "summary_fr": "Quatre conseils pour éviter d'atteindre le quota maximum de Claude.",
+    "primary_category": "claude-tooling",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "tips",
+      "claude-tooling",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 2,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 2
+    },
+    "views": 33400,
+    "duration": 59,
+    "upload_date": "2026-04-20"
+  },
+  {
+    "id": "7630177593823612163",
+    "url": "https://www.tiktok.com/@0xloucash/video/7630177593823612163",
+    "title": "Claude sort leur nouvelle fonctionnalité \"Claude Design\" et ça va fai...",
+    "summary_fr": "Claude Design, la nouvelle fonctionnalité de design de Claude.",
+    "primary_category": "web-design",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "webdesign",
+      "web-design",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 2,
+      "economy-frugality": 0
+    },
+    "views": 14700,
+    "duration": 52,
+    "upload_date": "2026-04-18"
+  },
+  {
+    "id": "7629749468098809110",
+    "url": "https://www.tiktok.com/@0xloucash/video/7629749468098809110",
+    "title": "Anthropic sort son nouveau modèle d’ia Opus 4.7 et ça va te rendre de...",
+    "summary_fr": "Anthropic sort le modèle Opus 4.7, présenté comme deux fois plus productif.",
+    "primary_category": "model-releases",
+    "resource_type": "model",
+    "named_entities": [
+      "Anthropic",
+      "Claude Opus 4.7"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "ia",
+      "claude",
+      "model-releases",
+      "model"
+    ],
+    "relevance": {
+      "routing": 2,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 3902,
+    "duration": 44,
+    "upload_date": "2026-04-17"
+  },
+  {
+    "id": "7629471590228577558",
+    "url": "https://www.tiktok.com/@0xloucash/video/7629471590228577558",
+    "title": "Tu peux désormais créer de sites web en deux clics en deux secondes 😅...",
+    "summary_fr": "Créer des sites web en deux clics et deux secondes.",
+    "primary_category": "web-design",
+    "resource_type": "saas-tool",
+    "named_entities": [],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "webdesign",
+      "web-design",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 2,
+      "economy-frugality": 0
+    },
+    "views": 6760,
+    "duration": 43,
+    "upload_date": "2026-04-16"
+  },
+  {
+    "id": "7629015047548734742",
+    "url": "https://www.tiktok.com/@0xloucash/video/7629015047548734742",
+    "title": "La nouvelle mise à jour de Claude te permet te faire tourner ton Clau...",
+    "summary_fr": "Une mise à jour de Claude permet de le laisser finir ses tâches pendant la nuit.",
+    "primary_category": "claude-tooling",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "claude-tooling",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 1,
+      "memory": 0,
+      "observability": 1,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 37800,
+    "duration": 53,
+    "upload_date": "2026-04-15"
+  },
+  {
+    "id": "7628238652929314070",
+    "url": "https://www.tiktok.com/@0xloucash/video/7628238652929314070",
+    "title": "Il créer un bot qui scan les maisons qui n’ont pas de piscines pour d...",
+    "summary_fr": "Un bot scanne les maisons sans piscine pour générer une marge commerciale.",
+    "primary_category": "business-monetization",
+    "resource_type": "technique",
+    "named_entities": [
+      "OpenClaw"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "ia",
+      "automatisation",
+      "openclaw",
+      "business-monetization",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 1
+    },
+    "views": 8786,
+    "duration": 46,
+    "upload_date": "2026-04-13"
+  },
+  {
+    "id": "7627523869208907031",
+    "url": "https://www.tiktok.com/@0xloucash/video/7627523869208907031",
+    "title": "Des agents ia de trading que tu peux copier/coller en deux clics et a...",
+    "summary_fr": "Des agents IA de trading (Polymarket), copiables-collables et améliorables en deux clics.",
+    "primary_category": "trading-bots",
+    "resource_type": "skill",
+    "named_entities": [
+      "Polymarket",
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "trading",
+      "polymarket",
+      "claude",
+      "trading-bots",
+      "skill"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 17700,
+    "duration": 65,
+    "upload_date": "2026-04-11"
+  },
+  {
+    "id": "7626805565054029079",
+    "url": "https://www.tiktok.com/@0xloucash/video/7626805565054029079",
+    "title": "Anthropic nous sort la nouvelle update avec Claude managed Agents et ...",
+    "summary_fr": "Anthropic lance les Claude managed Agents, présentés comme capables de remplacer des équipes entières.",
+    "primary_category": "ai-agents",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "Anthropic",
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "ia",
+      "agent",
+      "ai-agents",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 1,
+      "plugin-architecture": 2,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 50400,
+    "duration": 46,
+    "upload_date": "2026-04-09"
+  },
+  {
+    "id": "7626466406825069846",
+    "url": "https://www.tiktok.com/@0xloucash/video/7626466406825069846",
+    "title": "Claude te génère de base des design ennuyant alors que personne ne sa...",
+    "summary_fr": "Ajouter un fichier design.md change radicalement la qualité des designs générés par Claude.",
+    "primary_category": "web-design",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "webdesign",
+      "claude",
+      "web-design",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 1,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 2,
+      "economy-frugality": 0
+    },
+    "views": 1005,
+    "duration": 47,
+    "upload_date": "2026-04-08"
+  },
+  {
+    "id": "7625998320472739094",
+    "url": "https://www.tiktok.com/@0xloucash/video/7625998320472739094",
+    "title": "Google qui sort Gemma4, classé top 3 mondial le tout gratuit et open-...",
+    "summary_fr": "Google sort Gemma 4, classé top 3 mondial, gratuit et open source.",
+    "primary_category": "model-releases",
+    "resource_type": "model",
+    "named_entities": [
+      "Google",
+      "Gemma 4"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "gemma4",
+      "google",
+      "ia",
+      "model-releases",
+      "model"
+    ],
+    "relevance": {
+      "routing": 2,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 2
+    },
+    "views": 9747,
+    "duration": 46,
+    "upload_date": "2026-04-07"
+  },
+  {
+    "id": "7624577062396874006",
+    "url": "https://www.tiktok.com/@0xloucash/video/7624577062396874006",
+    "title": "Une libraire de prompt pour faire des sites internet d’une qualité pr...",
+    "summary_fr": "Une librairie de prompts pour produire des sites web de qualité professionnelle.",
+    "primary_category": "web-design",
+    "resource_type": "library",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "ai",
+      "web-design",
+      "library"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 2,
+      "economy-frugality": 0
+    },
+    "views": 50200,
+    "duration": 35,
+    "upload_date": "2026-04-03"
+  },
+  {
+    "id": "7624269671780617494",
+    "url": "https://www.tiktok.com/@0xloucash/video/7624269671780617494",
+    "title": "10 fonctionnalités que tu payes sur Claude codes sans mêmes les utili...",
+    "summary_fr": "Dix fonctionnalités payantes de Claude Code que l'on n'utilise pas forcément.",
+    "primary_category": "claude-tooling",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude Code",
+      "Anthropic"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "anthropic",
+      "claude",
+      "ia",
+      "claude-tooling",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 2,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 2
+    },
+    "views": 892,
+    "duration": 101,
+    "upload_date": "2026-04-02"
+  },
+  {
+    "id": "7623863018832596246",
+    "url": "https://www.tiktok.com/@0xloucash/video/7623863018832596246",
+    "title": "Le code de Claude à fuité hier alors voici 4 fonctionnalité cachées q...",
+    "summary_fr": "Le code de Claude aurait fuité, révélant 4 fonctionnalités cachées.",
+    "primary_category": "claude-tooling",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "ai",
+      "tools",
+      "claude-tooling",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 2,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 802,
+    "duration": 70,
+    "upload_date": "2026-04-01"
+  },
+  {
+    "id": "7623453038639926550",
+    "url": "https://www.tiktok.com/@0xloucash/video/7623453038639926550",
+    "title": "Voici comment rendre votre Claude code 10 fois plus puissants avec se...",
+    "summary_fr": "Quatre fichiers suffisent pour rendre Claude Code dix fois plus puissant.",
+    "primary_category": "claude-tooling",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude Code"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "ai",
+      "claude-tooling",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 2,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 2347,
+    "duration": 65,
+    "upload_date": "2026-03-31"
+  },
+  {
+    "id": "7623143642433129750",
+    "url": "https://www.tiktok.com/@0xloucash/video/7623143642433129750",
+    "title": "Google à drop 7 bombes avec des outils IA super puissant, et il faut ...",
+    "summary_fr": "Google a lancé 7 outils IA à tester.",
+    "primary_category": "free-alternatives",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "Google"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "ia",
+      "tools",
+      "free-alternatives",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 1,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 1
+    },
+    "views": 2825,
+    "duration": 64,
+    "upload_date": "2026-03-30"
+  },
+  {
+    "id": "7622247779666119958",
+    "url": "https://www.tiktok.com/@0xloucash/video/7622247779666119958",
+    "title": "10 Claude skills à ne pas rater en 2026… #claude #code #vibecoding ",
+    "summary_fr": "Dix skills Claude à ne pas manquer en 2026.",
+    "primary_category": "skills-plugins",
+    "resource_type": "skill",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "code",
+      "vibecoding",
+      "skills-plugins",
+      "skill"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 81500,
+    "duration": 43,
+    "upload_date": "2026-03-28"
+  },
+  {
+    "id": "7621977620917423362",
+    "url": "https://www.tiktok.com/@0xloucash/video/7621977620917423362",
+    "title": "SlapMac.  L'app qui détecte quand tu frappes ton ordi et qui répond.....",
+    "summary_fr": "SlapMac, une app détectant quand on frappe son ordi, a généré 8 000 $ de ventes en 72 heures sans publicité.",
+    "primary_category": "business-monetization",
+    "resource_type": "content",
+    "named_entities": [
+      "SlapMac",
+      "tonnoz"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "business-monetization",
+      "content"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 1
+    },
+    "views": 1825,
+    "duration": 61,
+    "upload_date": "2026-03-27"
+  },
+  {
+    "id": "7621951241257585942",
+    "url": "https://www.tiktok.com/@0xloucash/video/7621951241257585942",
+    "title": "Un mec a construit un bot qui voit l'avenir, 8 secondes dans le futur...",
+    "summary_fr": "Un bot de trading prétend prédire 8 secondes d'avance sur le marché (Polymarket).",
+    "primary_category": "trading-bots",
+    "resource_type": "github-repo",
+    "named_entities": [
+      "Polymarket"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "trading",
+      "bot",
+      "polymarket",
+      "trading-bots",
+      "github-repo"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 25000,
+    "duration": 46,
+    "upload_date": "2026-03-27"
+  },
+  {
+    "id": "7621628776375471382",
+    "url": "https://www.tiktok.com/@0xloucash/video/7621628776375471382",
+    "title": "Google stitch c’est vraiment une folie, des maquettes web d’une quali...",
+    "summary_fr": "Google Stitch génère des maquettes web de grande qualité en 20 secondes.",
+    "primary_category": "web-design",
+    "resource_type": "saas-tool",
+    "named_entities": [
+      "Google Stitch",
+      "Google"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "webdesign",
+      "design",
+      "ai",
+      "tools",
+      "web-design",
+      "saas-tool"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 2,
+      "economy-frugality": 0
+    },
+    "views": 1678,
+    "duration": 47,
+    "upload_date": "2026-03-26"
+  },
+  {
+    "id": "7621128019800886550",
+    "url": "https://www.tiktok.com/@0xloucash/video/7621128019800886550",
+    "title": "1/ SELF-IMPROVING AGENT Ton agent devient meilleur à chaque erreur. C...",
+    "summary_fr": "Quatre skills (agent auto-améliorant, humanizer, growth Instagram, Word/DOCX) font gagner environ 10h par semaine.",
+    "primary_category": "skills-plugins",
+    "resource_type": "skill",
+    "named_entities": [
+      "Instagram",
+      "Word"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "skills-plugins",
+      "skill"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 2,
+      "context-economy": 0,
+      "memory": 2,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 48400,
+    "duration": 21,
+    "upload_date": "2026-03-25"
+  },
+  {
+    "id": "7620836124948221206",
+    "url": "https://www.tiktok.com/@0xloucash/video/7620836124948221206",
+    "title": "La nouvelle update de Claude d’hier est folle, elle accède à ton mac,...",
+    "summary_fr": "Une mise à jour de Claude permet d'accéder et de contrôler son Mac depuis son téléphone.",
+    "primary_category": "claude-tooling",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude",
+      "Anthropic"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claude",
+      "code",
+      "vibecoding",
+      "claude-tooling",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 2,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 4091,
+    "duration": 38,
+    "upload_date": "2026-03-24"
+  },
+  {
+    "id": "7620479472445295894",
+    "url": "https://www.tiktok.com/@0xloucash/video/7620479472445295894",
+    "title": "Et franchement cette semaine a tout changé. 1/ TELEGRAM MESSAGING Tu ...",
+    "summary_fr": "Récapitulatif hebdo : Claude Code pilotable via Telegram, tâches planifiées, sessions distantes et subagents.",
+    "primary_category": "ai-agents",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude Code",
+      "Telegram",
+      "Anthropic"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "claudecode",
+      "anthropic",
+      "aiagents",
+      "tech",
+      "ai-agents",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 2,
+      "context-economy": 1,
+      "memory": 0,
+      "observability": 1,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 12200,
+    "duration": 23,
+    "upload_date": "2026-03-23"
+  },
+  {
+    "id": "7620403627064167702",
+    "url": "https://www.tiktok.com/@0xloucash/video/7620403627064167702",
+    "title": "Ils ont connecté Claude Code à Telegram... et ça change tout. #ai #cl...",
+    "summary_fr": "Claude Code connecté à Telegram permet de piloter son agent depuis son téléphone.",
+    "primary_category": "ai-agents",
+    "resource_type": "technique",
+    "named_entities": [
+      "Claude Code",
+      "Telegram",
+      "OpenClaw"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "ai",
+      "claude",
+      "openclaw",
+      "cl",
+      "ai-agents",
+      "technique"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 10900,
+    "duration": 26,
+    "upload_date": "2026-03-23"
+  },
+  {
+    "id": "7618507724267130134",
+    "url": "https://www.tiktok.com/@0xloucash/video/7618507724267130134",
+    "title": "Comment créer un bot Claude de trading avec 68,4% de réussite #ai #tr...",
+    "summary_fr": "Tutoriel pour créer un bot Claude de trading affichant 68,4% de réussite.",
+    "primary_category": "trading-bots",
+    "resource_type": "tutorial",
+    "named_entities": [
+      "Claude"
+    ],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "ai",
+      "trading",
+      "bot",
+      "claude",
+      "tr",
+      "trading-bots",
+      "tutorial"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 1,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 91500,
+    "duration": 101,
+    "upload_date": "2026-03-18"
+  },
+  {
+    "id": "7615300648610893078",
+    "url": "https://www.tiktok.com/@0xloucash/video/7615300648610893078",
+    "title": "And the best part it’s free…",
+    "summary_fr": "Teaser évoquant un outil gratuit sans détail exploitable dans la description.",
+    "primary_category": "meta-content",
+    "resource_type": "content",
+    "named_entities": [],
+    "sponsor": false,
+    "actionable_link": null,
+    "keywords": [
+      "meta-content",
+      "content"
+    ],
+    "relevance": {
+      "routing": 0,
+      "harness-reverse-eng": 0,
+      "plugin-architecture": 0,
+      "context-economy": 0,
+      "memory": 0,
+      "observability": 0,
+      "sandbox": 0,
+      "ui": 0,
+      "economy-frugality": 0
+    },
+    "views": 1381,
+    "duration": 41,
+    "upload_date": "2026-03-09"
+  }
+]

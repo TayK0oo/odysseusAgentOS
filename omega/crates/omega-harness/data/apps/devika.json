@@ -1,0 +1,162 @@
+{
+ "schema_version": 1,
+ "id": "devika",
+ "name": "Devika",
+ "editor": "stitionai",
+ "oss": true,
+ "language": "Python",
+ "license": "MIT",
+ "repo": "https://github.com/stitionai/devika",
+ "architecture": "Agent ingénieur logiciel autonome en Python (19k etoiles, depuis archivé/très bogué) : Agent core execute un pipeline fixe de sous-agents Dans Vue (planner -> researcher -> coder -> action -> runner -> patcher -> reporter), AgentState SQLModel persiste par projet, knowledge base RAG BERT, sandbox firejail, services github/netlify, socket.io pour la UI temps réel.",
+ "functionalities": [
+  {
+   "id": "dvk-agent-core",
+   "domain": "agents",
+   "name": "Agent core : chef d'orchestre de sous-agents especialises",
+   "what": "Un Agent singleton orchestre un pipeline fixe de sous-agents : planner -> researcher -> coder -> action -> runner -> patcher -> reporter, avec monologue interne chauffant le serveur de chat.",
+   "how": "class Agent (src/agents/agent.py:36) def execute(prompt, project_name) (agent.py:270) ; les sous-agents sont des classes par dossier (src/agents/{planner,researcher,coder,action,runner,patcher,reporter,decision}) ; internal_monologue communique l'etape a l'UI. Omega : SubagentRunner + agent-store couvent ; l'ecart : la digestion sequentiale dure de la chaine (fixe) fait c'est un spin deterministe.",
+   "omega_capability": "subagent-runner",
+   "omega_port": "SubagentRunner",
+   "omega_adapter": "omega-app (pipeline fixe de sous-agents)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "src/agents/agent.py:36-270"
+   ]
+  },
+  {
+   "id": "dvk-agentstate",
+   "domain": "contexte",
+   "name": "AgentState : etat persiste par projet avec SQLModel + loi d'activite",
+   "what": "L'etat de chaque projet (historique d'interaction, token usage, agent actif) est persiste en base par project name.",
+   "how": "class AgentState (src/state.py:18) : create_state/delete_state/add_to_current_state/get_latest_state (state.py:47-102) ; set_agent_active/is_agent_active (state.py:109-125) ; AgentStateModel SQLModel table (state.py:10). Omega : MemoryStore couvert par FileMemoryStore ; la surfacization par project-id du state couvre.",
+   "omega_capability": "memory-store",
+   "omega_port": "MemoryStore",
+   "omega_adapter": "omega-app::FileMemoryStore (state par project)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/state.py:10-125"
+   ]
+  },
+  {
+   "id": "dvk-knowledge-base",
+   "domain": "memoire",
+   "name": "Knowledge base RAG : embeddings bert locaux, retrieval par tag",
+   "what": "La memoire long-shot par base de conocimiento : erreurs de connaissance ajputent/taggable, retrieval par embeddings BERT sante locale + RAG.",
+   "how": "class KnowledgeBase (src/memory/knowledge_base.py:15) : add_knowledge/get_knowledge par tag (knowledge_base.py:22-28) ; Knowledge SQLModel (knowledge_base.py:10) ; src/memory/rag.py + src/bert/ pour les embeddings locaux. Omega : MemoryStore couve au stockage ; l'ecart : retrieval semantique.",
+   "omega_capability": "memory-store",
+   "omega_port": "MemoryStore",
+   "omega_adapter": "omega-context (knowledge base par tag + RAG)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "src/memory/knowledge_base.py:10-28"
+   ]
+  },
+  {
+   "id": "dvk-firejail",
+   "domain": "securite",
+   "name": "Sandbox firejail : approximation bash contrainte en require",
+   "what": "La sandbox de code local utilise FireJail pour contraindre l'éx Braun avec permission restrictives.",
+   "how": "src/sandbox/firejail.py + code_runner.py : code execute as firejail process + la gauche est a la policy permissive/secure. Omega : omega-sandbox::NamespaceSandboxBackend (namespace Linux) ; firejail est une alt de l'approche ; a retenir : process bash contrôlable sandboxé.",
+   "omega_capability": "sandbox-backend",
+   "omega_port": "SandboxBackend",
+   "omega_adapter": "omega-sandbox (firejail sandbox adapter)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/sandbox/firejail.py",
+    "src/sandbox/code_runner.py"
+   ]
+  },
+  {
+   "id": "dvk-browser-agent",
+   "domain": "extension",
+   "name": "Browser agent: navigation aléatoire, click, gather d'information web",
+   "what": "Un agent navigateur autonome, gobble net + interaction et collecte d'information de la page (search, interaction).",
+   "how": "src/browser/browser.py + interaction.py + search.py. Omega : passe ; la recherche web sera le plugin ToolsSurface dans la version Universe web.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "plugin/browser (outil web du ToolSurface)",
+   "integration": "plugin",
+   "status": "rejected",
+   "rust_cost": "M",
+   "refs": [
+    "src/browser/browser.py",
+    "src/browser/interaction.py"
+   ]
+  },
+  {
+   "id": "dvk-git-netlify",
+   "domain": "automatisation",
+   "name": "Services GitHub + Netlify : push et deploys externals",
+   "what": "The recording from a Completion: push to github and deploy to netlify.",
+   "how": "src/services/github.py + netlify.py + git.py. Omega : omega-app job de deploy.",
+   "omega_capability": "scheduler-job",
+   "omega_port": "—",
+   "omega_adapter": "omega-app (job de push + deploy)",
+   "integration": "service",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/services/github.py",
+    "src/services/netlify.py"
+   ]
+  },
+  {
+   "id": "dvk-llm-providers",
+   "domain": "routage",
+   "name": "Registre LLM multi-modes : claude/gpt/ollama local + selection par tache",
+   "what": "Un catalogue de providers sélectionnés par tache (plan/coder/execute), sélectionnés en adaptation des modèles.",
+   "how": "src/llm/ (les models par familles, avec requete par type de tache) ; sample.config.toml donne les selections. Omega : omega-router::Selector + FallbackPolicy, deja riche.",
+   "omega_capability": "llm-provider",
+   "omega_port": "Provider",
+   "omega_adapter": "omega-providers (selection par tache)",
+   "integration": "plugin",
+   "status": "rejected",
+   "rust_cost": "S",
+   "refs": [
+    "src/llm",
+    "sample.config.toml"
+   ]
+  },
+  {
+   "id": "dvk-socket-ui",
+   "domain": "ui",
+   "name": "UI temps réel : socket.io pour les tables/times du run",
+   "what": "L'UI reçoit les专著還 des sous-agents par socket.io en temps réel (agent list, etape en cours, log terminal).",
+   "how": "src/socket_instance.py + devika.py (serveur Flask + socket). Omega : omega-server (API + UI une origine) ; la couche socket temps réel est a appareiller avec le journal d'events.",
+   "omega_capability": "(ui)",
+   "omega_port": "UiPanel",
+   "omega_adapter": "omega-server (socket temps reel du run)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "src/socket_instance.py",
+    "devika.py"
+   ]
+  },
+  {
+   "id": "dvk-ui-autonomous",
+   "domain": "ui",
+   "name": "Interface de pilotage : webui pour envoyer des objectif et suivre les agents",
+   "what": "Un frontend React/WebUI pour lancer un objectif, suivre les etapes internes (monologue), approuver.",
+   "how": "ui/ devika : Web UI (React). Omega : omega-ui couvre. Rien de nouveau.",
+   "omega_capability": "(ui)",
+   "omega_port": "UiPanel",
+   "omega_adapter": "omega-ui",
+   "integration": "service",
+   "status": "rejected",
+   "rust_cost": "S",
+   "refs": [
+    "devika.py"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "agent-zero",
+  "name": "Agent Zero",
+  "repo": "frdel/agent-zero",
+  "stars": 19506,
+  "language": "Python",
+  "license": "NOASSERTION",
+  "nature": "python",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_ab7556d336e51252c5119afe9db2f725c58fb5e22419269df91064a8727d56b7",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "14fea78a0e80edf62406866f6fd0c89c40efe357e7f07718219cf96f55c5e278"
+  },
+  "counts": {
+    "graph_nodes": 4343,
+    "graph_edges": 4704
+  },
+  "limitations_count": 141
+}

@@ -1,7 +1,7 @@
 ---
 name: explore
 description: Fast agent for codebase exploration. Use when you need to find files by patterns (eg. "src/components/**/*.tsx"), search code for keywords (eg. "API endpoints"), or answer questions about the codebase (eg. "how do API endpoints work?"). Call with thoroughness: "quick", "medium", or "very thorough".
-model: opencode/deepseek-v4-pro
+model: opencode/mimo-v2.6-flash-free
 permission:
   read: allow
   glob: allow

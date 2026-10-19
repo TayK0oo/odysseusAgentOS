@@ -1,0 +1,36 @@
+{
+  "target": "omega-crate-elf (Ghidra)",
+  "what": "Analyse binaire PROFONDE de notre binaire Rust (Ghidra 12.1.4)",
+  "subject": "omega/target/debug/deps/omega_types-*",
+  "status": "analyzed",
+  "evidence_id": "ev_0950877f82554db58f30426ff9f0aa825d479d83b9f2a2b83fa85dc341ab5bc3",
+  "provider": "rea-workflow",
+  "provider_detail": {
+    "id": "rea-workflow",
+    "name": "REA composed investigation workflow",
+    "version": "1"
+  },
+  "confidence": "derived",
+  "operation": "binary_overview",
+  "digest": {
+    "sha256": "fdf366a9f2ea54eb98a33b80374efcfb609d281574ab292d3e2c99b0dc08df17"
+  },
+  "counts": {
+    "segments": 44,
+    "procedures": 1458,
+    "strings": 2668
+  },
+  "image_base": "0x100000",
+  "limitations": [
+    "Derived by an REA composed workflow.",
+    "A headless Ghidra session contains exactly one imported Program, unlike Hopper's multi-document GUI session.",
+    "Cancelling an active Ghidra request terminates its ephemeral database and discards session annotations. The selected target remains open; the next provider query imports the original artifact again.",
+    "Charset is reported, while a non-missing terminator cannot distinguish a present terminator from a fixed or Pascal layout.",
+    "Default-space addresses use lowercase 0x-prefixed hexadecimal; other address spaces use <percent-encoded-space>:0x<hex>.",
+    "External functions and local thunks are distinct; procedure metadata identifies both and preserves a thunk target when Ghidra resolves one.",
+    "Memory-block end addresses are exclusive; permissions come from Ghidra MemoryBlock flags rather than inference from section names.",
+    "Only Ghidra-defined string Data is observed; packed or undefined string bytes may be absent. Completeness applies to that inventory, and an empty search does not establish that text is absent from the artifact. If an address is known, use read_bytes and xrefs to inspect bytes and references.",
+    "The imported Program and temporary project are ephemeral and deleted on close. Annotation operations edit session database metadata; original executable bytes are never written.",
+    "The session serves operations only after Ghidra reports default auto-analysis complete; incomplete analysis does not expose partial results."
+  ]
+}

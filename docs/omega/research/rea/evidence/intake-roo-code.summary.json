@@ -1,0 +1,24 @@
+{
+  "id": "roo-code",
+  "name": "Roo Code",
+  "repo": "RooCodeInc/Roo-Code",
+  "stars": 24272,
+  "language": "TypeScript",
+  "license": "Apache-2.0",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_94ed892ffa782eea2f488d88f6d947bafd56f0a4976db6b0dd4c15a19aed5f9b",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "f45851da4b19f9db5ead82094f884b5a9bc5a9938ed23a062c7ed534e769ab02"
+  },
+  "counts": {
+    "graph_nodes": 9694,
+    "graph_edges": 11876
+  },
+  "limitations_count": 1693
+}

@@ -1,7 +1,7 @@
 ---
 description: SFD Auto-Evolution — researches best skills/plugins/services, creates custom solutions when none exist. Runs after each project to improve the system.
 mode: subagent
-model: opencode/deepseek-v4-pro
+model: opencode/deepseek-v4.1-flash-free
 permission:
   edit: allow
   bash: allow

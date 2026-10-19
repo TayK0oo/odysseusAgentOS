@@ -1,0 +1,48 @@
+{
+  "rea_version": "6.5.0",
+  "catalog": {
+    "cli_commands": 153,
+    "mcp_tools": 207,
+    "mcp_prompts": 6
+  },
+  "digests": {
+    "tools_sha256": "805433f17bb4f709558ff20c04f96fe561fca2938fd0f459b1f8cc0f6b438ded",
+    "prompts_sha256": "7152916ab48bd2a9677a5ad9cdbde0a51dc53c113934952ad096e93f5f18aa7e",
+    "combined_sha256": "405725e736ec8dc8483435b970acbf20f9f26b9f1fd25203b992f5ab4cd2a4f4"
+  },
+  "skill_state": "missing",
+  "providers": [
+    {
+      "id": "native-macos",
+      "name": "macOS native inspection utilities",
+      "available_ops": 0,
+      "unavailable_ops": 9
+    },
+    {
+      "id": "rea-artifact-graph",
+      "name": "REA safe artifact graph provider",
+      "available_ops": 5,
+      "unavailable_ops": 1
+    },
+    {
+      "id": "rea-dotnet-static",
+      "name": "REA managed static analysis provider",
+      "available_ops": 3,
+      "unavailable_ops": 0
+    },
+    {
+      "id": "sqlite",
+      "name": "REA SQLite database inspector",
+      "available_ops": 1,
+      "unavailable_ops": 0
+    }
+  ],
+  "host": {
+    "platform": "linux",
+    "node": "24.21.0",
+    "native_engines": [
+      "objdump (systeme)"
+    ]
+  },
+  "note": "Instantane capte le 2026-10-17 (rea 6.5.0). Pas de Ghidra/Hopper/IDA sur cette machine ; pwntools/pyelftools/unicorn fournis via venv3 (python3.12)."
+}

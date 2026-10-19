@@ -1,0 +1,24 @@
+{
+  "id": "gemini-cli",
+  "name": "Gemini CLI",
+  "repo": "google-gemini/gemini-cli",
+  "stars": 107412,
+  "language": "TypeScript",
+  "license": "Apache-2.0",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_2312eb67ed7303ab0eec8e5f62203267e51a2da171c1a18ffb173615faff70fa",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "c8a81e8a3af1b88f926286e1988460403f82999db958f6450cfde4ce70ee0630"
+  },
+  "counts": {
+    "graph_nodes": 9177,
+    "graph_edges": 13543
+  },
+  "limitations_count": 3666
+}

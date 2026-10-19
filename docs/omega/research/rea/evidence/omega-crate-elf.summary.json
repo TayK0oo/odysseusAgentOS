@@ -1,0 +1,43 @@
+{
+  "target": "omega-crate-elf",
+  "what": "Binaire ELF de nos crates (omega_types-87bafd0760c1235a)",
+  "subject": "/home/tayk0oo/Projets/odysseusAgentOS-omega/omega/target/debug/deps/omega_types-87bafd0760c1235a",
+  "status": "analyzed",
+  "exit_code": 0,
+  "evidence_id": "ev_c779a8e39c3e2af2250d9f46d1025982438226135ec6ad8a0173e5ac39222b35",
+  "provider": "pwntools-elf",
+  "provider_version": "pwntools@4.15.0;pyelftools@0.33;unicorn@2.1.2",
+  "confidence": "observed",
+  "operation": "inspect_binary_layout",
+  "predicate_type": "rea.analysis",
+  "authority": "shipped-artifact",
+  "digest": {
+    "sha256": "b4f35dd1fcfbc69905ebc37092f68103afd348e95c29169e87a110fca562f7af"
+  },
+  "format": "elf",
+  "architecture": {
+    "machine": "EM_X86_64",
+    "bits": 64,
+    "byte_order": "little"
+  },
+  "counts": {
+    "sections": 44,
+    "segments": 12,
+    "symbols": 2248,
+    "relocations": 2349
+  },
+  "limitations": [
+    "PT_NULL payload fields are unused and retain their reported numbers without file-byte or permission claims. Zero-file-size segments provide no file bytes.",
+    "SHN_XINDEX symbol values remain unresolved in this upstream representation; an external index table does not establish a resolved index in this report.",
+    "Reported values preserve linked addresses, section offsets, TLS offsets, alignment and absolute values separately. Runtime load base and library paths are unknown.",
+    "Names are display strings plus raw bytes and file ranges where resolvable; section/table/entry indices preserve identity and duplicates. Name ranges include their terminating NUL; raw name bytes exclude it.",
+    "Ordinary relocation rows cover REL/RELA. RELR tables retain complete encoded bytes and upstream-decoded offsets as derived evidence; per-offset packed-word locations and implicit addends remain unknown. Relocation inventory completeness is unknown, including other encodings and missing section tables.",
+    "Relocation symbol index zero uses a zero symbol value without a table lookup. Positive indices reference validated original symbol-table entries; raw table and symbol indices remain reported.",
+    "Relocatable relocation targets with SHN_UNDEF or inactive SHT_NULL headers retain their reported section index/offset as unknown; they do not establish an associated target section.",
+    "GOT/PLT are derived upstream convenience maps; PLT inference can emulate selected instructions in Unicorn. They do not establish target runtime behavior; aliases may collapse and warnings may indicate incomplete coverage. Their completeness is unknown.",
+    "Mitigations are upstream static heuristics, not runtime protection. ET_DYN does not prove an executable; absent canary symbols do not prove every function unprotected.",
+    "This profile inspects ELF EXEC/DYN/REL layout only. It does not analyze recorded cores, resolve loaded libraries, launch the target as a host process or start a debugger.",
+    "Symbol/relocation inventories reflect original section tables. A sectionless image can still report dynamic dependency names; missing tables do not prove absence of dynamic symbols or relocations.",
+    "Effective owned Python resource soft limits: {\"address_space_bytes\": 3221225472, \"cpu_seconds\": 30, \"file_size_bytes\": 67108864}. Inherited tighter limits are retained."
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "dsh-web",
+  "name": "DSH Web",
+  "repo": "zhu1090093659/dsh-web",
+  "stars": 8835,
+  "language": "TypeScript",
+  "license": "Apache-2.0",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "deja clone",
+  "status": "analyzed",
+  "evidence_id": "ev_c8166e90c1ecd1a0b2f5da3a11bb1f233c22a7a68712a0928a9d7c43bfd3c240",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "60d7e33dcfff35ae125f933a731e26a51bc590143f664bd74c0fa479165b998a"
+  },
+  "counts": {
+    "graph_nodes": 7515,
+    "graph_edges": 12085
+  },
+  "limitations_count": 3240
+}

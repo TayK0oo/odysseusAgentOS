@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "updated": "2026-10-17",
+  "doctrine": "Sous-agents sur modèles GRATUITS par défaut ; exception payante uniquement parmi opencode-go/* (inclus dans l'abonnement Go), après échec gratuit constaté.",
+  "free_only_default": true,
+  "paid_allowlist_prefix": "opencode-go/",
+  "rules": {
+    "subagent-light": {
+      "free": [
+        "opencode/nemotron-3.5-lightning-free",
+        "opencode/mimo-v2.6-flash-free",
+        "opencode/glm-5.3-flash-free"
+      ],
+      "paid": [
+        "opencode-go/glm-5.3-flash",
+        "opencode-go/qwen3.8-flash"
+      ],
+      "note": "Recherche, extraction, edition courte, taches repetitives. nemotron-3.5-lightning est concu pour les harnais d'agents (30B/3B actifs)."
+    },
+    "subagent-code": {
+      "free": [
+        "opencode/space-bunny-free",
+        "opencode/deepseek-v4.1-flash-free"
+      ],
+      "paid": [
+        "opencode-go/deepseek-v4.1-flash",
+        "opencode-go/gpt-6-luna"
+      ],
+      "note": "Écriture de code, dissection, refactor local."
+    },
+    "reasoning": {
+      "free": [
+        "opencode/deepseek-v4.1-flash-free",
+        "opencode/space-bunny-free"
+      ],
+      "paid": [
+        "opencode-go/gpt-6-luna",
+        "opencode-go/glm-5.3",
+        "opencode-go/kimi-k3"
+      ],
+      "note": "Analyse, planification. Payant seulement si le gratuit échoue."
+    },
+    "long-context": {
+      "free": [
+        "opencode/deepseek-v4.1-flash-free",
+        "opencode/space-bunny-free",
+        "opencode/longcat-2.5-preview-free"
+      ],
+      "paid": [
+        "opencode-go/gpt-6-luna",
+        "opencode-go/minimax-m3"
+      ],
+      "note": "Contexte ~1M."
+    },
+    "multimodal": {
+      "free": [
+        "opencode/space-bunny-free",
+        "opencode/longcat-2.5-preview-free"
+      ],
+      "paid": [
+        "opencode-go/step-5-preview",
+        "opencode-go/minimax-m3"
+      ],
+      "note": "Image/vidéo en entrée."
+    },
+    "confidential": {
+      "free": [
+        "opencode/space-bunny-free",
+        "opencode/deepseek-v4.1-flash-free",
+        "opencode/longcat-2.5-preview-free"
+      ],
+      "paid": [],
+      "note": "Zéro rétention exigé. Interdit : modèles 'entraîne' ou journalisés."
+    },
+    "hard-task": {
+      "free": [],
+      "paid": [
+        "opencode-go/glm-5.3",
+        "opencode-go/kimi-k3",
+        "opencode-go/qwen3.8-max"
+      ],
+      "note": "Exception : tâche très difficile, après échec gratuit constaté. Quota faible (490–1 080 req/mois) : rare."
+    },
+    "massive-migration": {
+      "free": [],
+      "paid": [
+        "opencode-go/gemini-4-argon-contributor"
+      ],
+      "note": "Migrations de très gros volumes. ATTENTION : entraîne sur les données."
+    },
+    "fallback": {
+      "free": [
+        "opencode-go/beam-free",
+        "opencode-go/longcat-2.5-preview-free",
+        "opencode/beam-free"
+      ],
+      "paid": [],
+      "note": "Si un gratuit principal est indisponible."
+    },
+    "typed-decision": {
+      "free": [
+        "opencode/jev-1.13-free"
+      ],
+      "paid": [],
+      "note": "Reponses typees (oui/non, choix, score) + probabilites : pour du determinisme assiste par modele, jamais pour du texte libre."
+    }
+  },
+  "no_retention_free": [
+    "opencode/space-bunny-free",
+    "opencode/deepseek-v4.1-flash-free",
+    "opencode/longcat-2.5-preview-free"
+  ],
+  "avoid_for_confidential": [
+    "opencode/mimo-v2.6-flash-free",
+    "opencode/nemotron-3.5-super-vl-free",
+    "opencode/beam-free",
+    "opencode-go/beam-free",
+    "opencode-go/muse-spark-1.3-contributor",
+    "opencode-go/gemini-4-argon-contributor",
+    "opencode/nemotron-3.5-lightning-free",
+    "opencode/jev-1.13-free"
+  ],
+  "forbidden": [
+    "opencode/deepseek-v4-pro",
+    "opencode/minimax-m3",
+    "opencode/gpt-5.5",
+    "opencode/gpt-5.5-pro",
+    "opencode/gpt-6-astra",
+    "opencode/grok-4.7",
+    "opencode/kimi-k3",
+    "opencode/claude-haiku-5-5"
+  ],
+  "quota": {
+    "window_5h_percent": 20,
+    "week_percent": 50,
+    "month_percent": 100,
+    "note": "Plafond par modèle. Les gratuits restent utilisables au-delà."
+  },
+  "agent_defaults": {
+    "general": "opencode/deepseek-v4.1-flash-free",
+    "explore": "opencode/mimo-v2.6-flash-free",
+    "executor": "opencode/space-bunny-free",
+    "reviewer": "opencode/deepseek-v4.1-flash-free",
+    "planner": "opencode/deepseek-v4.1-flash-free",
+    "auto-evolve": "opencode/deepseek-v4.1-flash-free",
+    "sfd-orchestrator": "opencode/deepseek-v4.1-flash-free"
+  },
+  "free_detection": {
+    "suffix": "-free",
+    "explicit": [
+      "big-pickle"
+    ],
+    "note": "L'API OpenCode ne publie pas les prix : un modele est gratuit si son id finit par '-free' ou figure dans 'explicit'."
+  },
+  "free_verified_2026_10_17": [
+    "opencode/space-bunny-free",
+    "opencode/deepseek-v4.1-flash-free",
+    "opencode/longcat-2.5-preview-free",
+    "opencode/mimo-v2.6-flash-free",
+    "opencode/glm-5.3-flash-free",
+    "opencode/nemotron-3.5-lightning-free",
+    "opencode/nemotron-3.5-super-vl-free",
+    "opencode/jev-1.13-free",
+    "opencode/beam-free",
+    "opencode-go/beam-free",
+    "opencode-go/longcat-2.5-preview-free"
+  ]
+}

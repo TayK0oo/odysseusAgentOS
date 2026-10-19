@@ -1,0 +1,287 @@
+{
+  "schema_version": 1,
+  "id": "plandex",
+  "name": "Plandex",
+  "editor": "PlandexAI Inc.",
+  "oss": true,
+  "language": "Go",
+  "license": "MIT",
+  "repo": "https://github.com/plandex-ai/plandex",
+  "architecture": "Agent de codage terminal en deux phases (tell = planification conversationnelle, build = génération de diffs) ; serveur Go + CLI Cobra ; isolation git des diffs ; project map tree-sitter ; ~30 fournisseurs de modèles avec rôles et fallbacks grands contextes.",
+  "entrypoints": [
+    "plandex CLI (Cobra, ~50 sous-commandes)",
+    "serveur HTTP Go (routes + streaming SSE)",
+    "proxy LiteLLM embarqué (litellm_proxy.py)"
+  ],
+  "functionalities": [
+    {
+      "domain": "agents",
+      "how": "Deux boucles de streaming serveur séparées : tell (activeTellStreamState, prompts de planification, réponses conversationnelles) puis build (activeBuildStreamState, génération de diffs par fichier). Le CLI orchestre via plan_exec/tell.go et plan_exec/build.go.",
+      "id": "pl-tell-build-loop",
+      "integration": "plugin",
+      "name": "Boucle tell→build en deux phases",
+      "omega_adapter": "plugins/agent-tell-build",
+      "omega_capability": "agent-loop",
+      "omega_port": "AgentLoop (plan/act)",
+      "refs": [
+        "app/server/model/plan/tell_stream_main.go",
+        "app/server/model/plan/build_exec.go",
+        "app/cli/plan_exec/tell.go",
+        "app/cli/plan_exec/build.go"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "La phase tell produit un plan en langage naturel, la phase build le convertit en diffs fichier par fichier ; séparation stricte planification/exécution."
+    },
+    {
+      "domain": "memoire",
+      "how": "Chaque plan possède des branches listables (api.Client.ListBranches, cmd/branches.go) ; l'état courant (CurrentPlanState : PlanResult, PlanApplies, ConvoMessageDescriptions) est versionné par apply et réversible via rewind (AnalyzeRewind, ApplyRewindChanges).",
+      "id": "pl-plan-branches",
+      "integration": "plugin",
+      "name": "Arbre de versions du plan (branches par modèle)",
+      "omega_adapter": "plugins/plan-branches",
+      "omega_capability": "plan-store",
+      "omega_port": "PlanStore (branch/fork/rewind)",
+      "refs": [
+        "app/cli/cmd/branches.go:20-40",
+        "app/shared/data_models.go:295-303",
+        "app/cli/lib/rewind.go:107-258"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Les plans sont branchables et versionnés : chaque apply est horodaté, listable, et annulable par retour arrière ciblé."
+    },
+    {
+      "domain": "contexte",
+      "how": "loadPendingBuilds (build_load.go:17) charge les builds en attente par chemin via PendingBuildsByPath sous verrou repo ; loadBuildFile (build_load.go:159) hydrate un seul fichier à la fois pendant le stream ; côté tell, loadTellPlan (tell_load.go:20) charge conversations, résumés, sous-tâches et contextes en goroutines parallèles sous scope de verrou adaptatif (write au tour 0, read ensuite).",
+      "id": "pl-per-step-loading",
+      "integration": "plugin",
+      "name": "Chargement à la demande par étape",
+      "omega_adapter": "plugins/context-per-step",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (loadStep)",
+      "refs": [
+        "app/server/model/plan/build_load.go:17-159",
+        "app/server/model/plan/tell_load.go:20-60"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Ni tout le plan ni tous les fichiers ne sont chargés d'un coup : chaque étape de build n'hydrate que le fichier courant plus les builds en attente."
+    },
+    {
+      "domain": "execution",
+      "how": "GetDiffs (diff.go:18) écrit original/updaté dans un répertoire temporaire et lance git diff --no-color --no-index ; GetDiffReplacements (diff.go:67) parse les hunks en remplacements structurés (processHunk, diff.go:147) ; l'apply côté CLI rejoue ces remplacements hors de l'arbre de travail avant commit éventuel.",
+      "id": "pl-diff-sandbox",
+      "integration": "plugin",
+      "name": "Diff cumulatif en sandbox hors arbre de travail",
+      "omega_adapter": "plugins/diff-sandbox",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend (stage/diff/apply)",
+      "refs": [
+        "app/server/diff/diff.go:18-67",
+        "app/server/diff/diff.go:147",
+        "app/server/db/diff_helpers.go"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Les modifications proposées sont calculées comme diffs cumulés dans un répertoire temporaire isolé, jamais directement dans l'arbre de travail."
+    },
+    {
+      "domain": "contexte",
+      "how": "MapFile (file_map/map.go:34) parse chaque fichier via go-tree-sitter ; parsers.go:42 mappe ~35 grammaires (go, python, rust, ts/tsx, java…) vers shared.Language ; nodes_find.go/nodes_config.go extraient définitions + signatures + commentaires ; GetCachedMap (context_helpers_map.go) met en cache les cartes par hash md5 du chemin.",
+      "id": "pl-project-map",
+      "integration": "plugin",
+      "name": "Project map tree-sitter multi-langages",
+      "omega_adapter": "plugins/project-map",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (map)",
+      "refs": [
+        "app/server/syntax/file_map/map.go:34",
+        "app/server/syntax/parsers.go:42",
+        "app/server/db/context_helpers_map.go",
+        "app/server/syntax/file_map/nodes_find.go"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Carte compacte du codebase (définitions + signatures, sans implémentations) construite par parsing tree-sitter et servie au rôle architecte pour décider du contexte à charger."
+    },
+    {
+      "domain": "contexte",
+      "how": "Sept types énumérés en data_models.go:85-94 (file, url, note, directory tree, piped data, image, map) avec plafonds en context.go (MaxContextBodySize 25MB, MaxContextCount 1000, MaxTotalContextSize 1GB) ; chargement via MustLoadContext (context_load.go:26) et rafraîchissement via UpdateContext (context_update.go:224).",
+      "id": "pl-context-types",
+      "integration": "plugin",
+      "name": "Sept types de contexte avec budgets explicites",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (attach/refresh)",
+      "refs": [
+        "app/shared/data_models.go:85-102",
+        "app/shared/context.go",
+        "app/cli/lib/context_load.go:26",
+        "app/cli/lib/context_update.go:224"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Fichiers, URLs, notes, arbres de répertoires, données pipées, images et cartes cohabitent comme contextes typés, chacun compté en tokens et borné par des plafonds durs."
+    },
+    {
+      "domain": "contexte",
+      "how": "AutoLoadContextFiles (context_auto_load.go) liste les contextes existants, vérifie les plafonds (taille, nombre), puis charge chaque fichier en goroutine avec canal d'erreurs et listes de fichiers ignorés (trop gros / hors limite).",
+      "id": "pl-auto-context",
+      "integration": "plugin",
+      "name": "Auto-chargement du contexte au fil de l'eau",
+      "omega_adapter": "plugins/context-autoload",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (autoload)",
+      "refs": [
+        "app/cli/lib/context_auto_load.go",
+        "app/cli/lib/context_update.go:305-469"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Les fichiers pertinents sont chargés automatiquement dans le contexte du plan, en parallèle, avec garde-fous de taille et de nombre."
+    },
+    {
+      "domain": "routage",
+      "how": "Neuf rôles énumérés (ai_models_roles.go:3-12 : planner, coder, architect, summarizer, builder, whole-file-builder, names, commit-messages, auto-continue) ; chaque rôle a sa config modèle propre (ai_models_roles.go, ai_models_config.go) et le proxy LiteLLM route vers ~30 fournisseurs (OpenAI, Anthropic, Google, DeepSeek, OpenRouter…).",
+      "id": "pl-model-roles",
+      "integration": "plugin",
+      "name": "Rôles de modèles spécialisés par tâche",
+      "omega_adapter": "omega-router::HeuristicTaskClassifier",
+      "omega_capability": "task-classifier",
+      "omega_port": "TaskClassifier (role)",
+      "refs": [
+        "app/shared/ai_models_roles.go:3-12",
+        "app/shared/ai_models_providers.go",
+        "app/server/litellm_proxy.py"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Chaque étape (planifier, coder, résumer, nommer, builder…) utilise un modèle et un fournisseur distincts, configurables par rôle."
+    },
+    {
+      "domain": "routage",
+      "how": "Chaque rôle porte LargeContextFallback / LargeOutputFallback (ai_models_large_context.go) résolus jusqu'à profondeur 10 ; GetRoleForInputTokens sélectionne le fallback selon les tokens d'entrée gonflés d'un padding configurable, atteignant ~2M tokens effectifs.",
+      "id": "pl-large-context-fallback",
+      "integration": "plugin",
+      "name": "Fallbacks grands contextes (~2M tokens)",
+      "omega_adapter": "plugins/router-large-ctx",
+      "omega_capability": "router-policy",
+      "omega_port": "Selector (fallback)",
+      "refs": [
+        "app/shared/ai_models_large_context.go",
+        "app/shared/ai_models_config.go"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Quand le contexte dépasse la fenêtre d'un modèle, une chaîne de fallbacks vers des modèles à plus large fenêtre prend le relais automatiquement."
+    },
+    {
+      "domain": "observabilite",
+      "how": "model_request.go:201-214 lit PromptTokensDetails.CachedTokens du stream et replie sur WillCacheNumTokens (model_request.go:49) en estimation ; le hook DidSendModelRequest (model_request.go:218+) journalise input/output/cached tokens par modèle, rôle et plan.",
+      "id": "pl-cache-accounting",
+      "integration": "plugin",
+      "name": "Comptabilité du context caching",
+      "omega_adapter": "omega-otel::StdoutSink",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink (usage)",
+      "refs": [
+        "app/server/model/model_request.go:49-214",
+        "app/server/model/model_request.go:218"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Les tokens cachés (prompt caching fournisseur) sont mesurés réponse par réponse et imputés par modèle, rôle et plan."
+    },
+    {
+      "domain": "memoire",
+      "how": "PlanSummary (summarize.go:31) rejoue la conversation avec le prompt Identity puis demande un résumé au rôle summarizer ; tell_load.go:246-271 charge les résumés stockés et estime leurs tokens pour borner la fenêtre de conversation.",
+      "id": "pl-convo-summarize",
+      "integration": "plugin",
+      "name": "Résumé de conversation pour conversations longues",
+      "omega_adapter": "plugins/convo-summarize",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (compact)",
+      "refs": [
+        "app/server/model/summarize.go:31",
+        "app/server/model/plan/tell_load.go:246-271"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Au-delà du budget de conversation, un modèle résumeur condense l'historique et seuls le résumé plus les messages récents sont rejoués."
+    },
+    {
+      "domain": "execution",
+      "how": "MustApplyPlan/MustApplyPlanAttempt (apply.go:37-43) applique les remplacements avec flags (auto-confirm, auto-commit, no-exec) et exécution post-apply ; AnalyzeRewind (rewind.go:107) calcule les applies à défaire par horodatage et ApplyRewindChanges (rewind.go:258) restaure les fichiers affectés.",
+      "id": "pl-apply-rewind",
+      "integration": "plugin",
+      "name": "Apply transactionnel + rewind horodaté",
+      "omega_adapter": "omega-sandbox::LocalSandboxBackend",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend (apply/revert)",
+      "refs": [
+        "app/cli/lib/apply.go:37-43",
+        "app/cli/lib/rewind.go:107-258",
+        "app/cli/plan_exec/apply_exec.go"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "L'application d'un plan est transactionnelle (confirmation, commit optionnel, hooks d'exécution) et chaque apply peut être défait par retour à un horodatage cible."
+    },
+    {
+      "domain": "execution",
+      "how": "Le builder whole-file (build_whole_file.go) réécrit le fichier entier quand les edits structurés échouent ; build_validate_and_fix.go (MaxValidationFixAttempts=3) boucle validation syntaxique + correction par le modèle ; ExecApplyTreeSitter (structured_edits_tree_sitter.go:29) applique références et suppressions en s'ancrant sur l'arbre syntaxique.",
+      "id": "pl-structured-edits",
+      "integration": "plugin",
+      "name": "Edits structurés tree-sitter + boucle validate-and-fix",
+      "omega_adapter": "plugins/structured-edits",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor (edit)",
+      "refs": [
+        "app/server/syntax/structured_edits_tree_sitter.go:29",
+        "app/server/model/plan/build_validate_and_fix.go",
+        "app/server/model/plan/build_whole_file.go",
+        "app/server/syntax/validate.go"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Les modifications sont appliquées par ancrage syntaxique plutôt que par remplacement textuel, avec jusqu'à 3 tentatives de correction validée."
+    },
+    {
+      "domain": "configuration",
+      "how": "~50 sous-commandes Cobra (app/cli/cmd : new, tell, build, apply, branches, rewind, context_show, set_model…) + serveur HTTP (app/server/routes/routes.go, main.go) + configuration partagée plandex-shared (plan_config.go, plan_model_settings.go) ; hooks serveur (DidSendModelRequest) pour la télémétrie.",
+      "id": "pl-cli-server",
+      "integration": "plugin",
+      "name": "CLI Cobra + serveur HTTP + config partagée",
+      "omega_adapter": "omega-config",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "refs": [
+        "app/cli/cmd/root.go",
+        "app/server/routes/routes.go",
+        "app/server/main.go",
+        "app/shared/plan_config.go"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Une CLI riche commande un serveur auto-hébergé ou cloud, les deux partageant les mêmes types et la même configuration de plans et de modèles."
+    },
+    {
+      "domain": "configuration",
+      "how": "Facturation cloud (cmd/billing.go, crédits, rachats auto), invitations et RBAC org (rbac.go, invite_helpers.go) n'ont de sens que dans l'offre SaaS Plandex ; non transférables à un harnais self-hosted modulaire.",
+      "id": "pl-cloud-billing",
+      "integration": "rejected",
+      "name": "Facturation cloud et RBAC SaaS",
+      "omega_adapter": "",
+      "omega_capability": "",
+      "omega_port": "",
+      "refs": [
+        "app/cli/cmd/billing.go",
+        "app/shared/rbac.go"
+      ],
+      "rust_cost": "L",
+      "status": "rejected",
+      "what": "Crédits cloud, abonnements et gestion d'organisation SaaS : écarté car propre au modèle économique hébergé, pas au harnais."
+    }
+  ]
+}

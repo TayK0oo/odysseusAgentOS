@@ -1,0 +1,24 @@
+{
+  "id": "tabby",
+  "name": "Tabby",
+  "repo": "TabbyML/tabby",
+  "stars": 33917,
+  "language": "Rust",
+  "license": "NOASSERTION",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_e1927731304e0df8c4cfed70ab9a6b39dfcc58fa2b28515d24d513defddb3377",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "50a8f668c641b41d5cce9140aae47cec9f102b775eb400a83b40f44750f65bcd"
+  },
+  "counts": {
+    "graph_nodes": 8144,
+    "graph_edges": 10307
+  },
+  "limitations_count": 650
+}

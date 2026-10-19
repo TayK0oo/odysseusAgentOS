@@ -1,0 +1,332 @@
+{
+  "schema_version": 1,
+  "id": "dsh-web",
+  "name": "DSH Web",
+  "editor": "communauté DSH",
+  "oss": true,
+  "language": "TypeScript",
+  "license": "Apache-2.0",
+  "repo": "https://github.com/zhu1090093659/dsh-web",
+  "architecture": "Monorepo pnpm (packages/*) construit sur le framework Cordis (@deepseek-ai/cordis) : chaque plugin est un package npm avec un cordis.patch.yml (insert rows) et un profile cordis.patch.yml (user layer). Le aggregate dsh-web-all replie toute la famille dans un seul package npm avec des lignes web-ui-* namespaces. Le host (Node.js) et le browser (React) sont separes ; le host expose des routes HTTP loopback-only et le browser injecte des panneaux dans les slots DSH.",
+  "entrypoints": [
+    "plugin npm @linxin666/dsh-web-all (aggregate, host + browser)",
+    "plugins individuels dsh-plugin-manager / dsh-market / dsh-remote-bridge / etc.",
+    "serveur web DSH host (routes /api/plugin-manager/*, /api/market/*, /ios/v1)",
+    "cli dsh plugin --profile <name> add|remove (writer officiel)"
+  ],
+  "functionalities": [
+    {
+      "id": "dsh-plugin-registry-gateway",
+      "domain": "extension",
+      "what": "Registre de plugins avec inventaire, installation, mise a jour, desactivation et restauration — via un gateway HTTP loopback-only qui proxyfie le CLI officiel (single writer).",
+      "how": "Le host half de dsh-plugin-manager expose /api/plugin-manager/* (list, install, update, remove, status, set-enabled, failures, check-updates, restart). Le snapshot se lit depuis profile/package.json + node_modules/*/cordis.patch.yml + cordis.patch.yml (user layer). Les mutations passent par le CLI officiel 'dsh plugin --profile <name> add|remove' (CliGateway avec job table, mutation lock, capture before/after). Le set-enabled ecrit des bare rows { id, name, disabled } dans cordis.patch.yml via yaml round-trip. Dual-channel : si les canaux officiels /plugin-installer existent (DSHCode), le browser les utilise sinon ce gateway.",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "omega_adapter": "omega-registry::Registry (Slot/Ensemble + quarantaine)",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "packages/dsh-plugin-manager/src/core/service.ts:1-62",
+        "packages/dsh-plugin-manager/src/core/protocol.ts:1-292",
+        "packages/dsh-plugin-manager/src/host/gateway.ts:685-1200",
+        "packages/dsh-plugin-manager/src/host/routes.ts:207-651"
+      ],
+      "name": "Dsh Plugin Registry Gateway"
+    },
+    {
+      "id": "dsh-plugin-manager-loopback-fence",
+      "domain": "securite",
+      "what": "Barriere de confiance loopback pour toutes les routes sensibles : socket address (127/8, ::1, ::ffff:127/8) + Host header + browser same-origin markers (sec-fetch-site, Origin).",
+      "how": "isLoopbackRequest() combine trois verifications : socket.remoteAddress dans 127/8 ou ::1 (X-Forwarded-For jamais confiance), Host header dans localhost/[::1]/127/8, et si Origin present il doit matcher le Host. sec-fetch-site: cross-site refuse. La variante remote-bridge est encore plus stricte (127.0.0.1 exact + Host exact) car un tunnel cloudflared arrive aussi en loopback.",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "packages/dsh-plugin-manager/src/host/loopback.ts:1-63",
+        "packages/dsh-remote-bridge/src/core/loopback.ts:1-60",
+        "packages/dsh-plugin-manager/src/host/routes.ts:260-272"
+      ],
+      "name": "Dsh Plugin Manager Loopback Fence"
+    },
+    {
+      "id": "dsh-plugin-manager-spec-validation",
+      "domain": "securite",
+      "what": "Validation stricte des specs d'installation : rejet des metacharacteres shell (& | < > \" ' etc.), validation des chemins relatifs du manifest (pas de .., pas absolu, pas //), taille limites (1 MiB manifest, 200 MiB fichier, 2000 fichiers/asset).",
+      "how": "unsafeSpecReason() rejette les specs contenant &|<>'\" etc. (car le CLI forward a pnpm avec cmd.exe sur Windows). isSafeRel() valide chaque path du manifest : regex conservative, pas de .., pas de //, pas absolu, pas de / final. readBodyLimited() streaming avec cap (Content-Length pre-check + compteur qui depasse). planDownload() reconstruit l'URL depuis la base validee, jamais depuis le client.",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "packages/dsh-plugin-manager/src/host/gateway.ts:39-56",
+        "packages/dsh-market/src/core/installer.ts:117-152",
+        "packages/dsh-market/src/core/installer.ts:220-261"
+      ],
+      "name": "Dsh Plugin Manager Spec Validation"
+    },
+    {
+      "id": "dsh-market-asset-installer",
+      "domain": "extension",
+      "what": "Installation d'assets (skins, pets, presets) depuis le manifest public dsh-market.com vers $DSH_HOME/{skins,pets,agent-presets}/<id> avec provenance sha254 atomic write.",
+      "how": "installAsset() : fetch manifest (1 MiB cap), trouver l'item, planDownload() valide chaque rel, streaming readBodyLimited() (200 MiB cap, 30s timeout), ecriture dans tmp dir, rename atomique vers dest. Provenance dsh-market.provenance.json (sha254 de chaque fichier, source, kind, id, installedAt, assetVersion). Replace only with force (UI confirme). dsh-market.com est le seul origin accepte.",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore",
+      "omega_adapter": "omega-context::SkillIndex",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/dsh-market/src/core/installer.ts:1-351",
+        "packages/dsh-market/src/routes.ts:1-135"
+      ],
+      "name": "Dsh Market Asset Installer"
+    },
+    {
+      "id": "dsh-market-provenance",
+      "domain": "observabilite",
+      "what": "Manifest de provenance (sha254 de chaque fichier installe) pour distinguer le contenu officiel du market des droposes a la main.",
+      "how": "InstallProvenance { version, source, kind, id, installedAt, assetVersion, files: Record<path, sha254> }. Ecrit dans chaque repertoire d'asset. Permet aux consumers (skin center) de verifier l'integrite et l'origine.",
+      "omega_capability": "provenance",
+      "omega_port": null,
+      "omega_adapter": "omega-otel::Provenance",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "packages/dsh-market/src/core/installer.ts:39-56",
+        "packages/dsh-market/src/core/installer.ts:323-332"
+      ],
+      "name": "Dsh Market Provenance"
+    },
+    {
+      "id": "dsh-plugin-manager-compatibility-gate",
+      "domain": "configuration",
+      "what": "Gate de compatibilite : chaque plugin declare un dsh.engines.dsh minimum ; le host verifie que la version DSH courante satisfait >=X.Y.Z avant installer/mettre a jour.",
+      "how": "parseDshVersion() parse semver avec prerelease. meetsMinimumDsh() compare en semver pur (pas semver.satisfies, pour autoriser les cross-cohort upgrades). dshRequirementOf() lit dsh.engines.dsh, engines.dsh, peerDependencies['@deepseek-ai/dsh']. Le host version se lit depuis profileContext.installAnchor (package.json local) ou fallback dsh --version (subprocess). Fail-closed si inconnu.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "omega_adapter": "omega-config",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "packages/dsh-plugin-manager/src/core/version.ts:1-142",
+        "packages/dsh-plugin-manager/src/host/routes.ts:130-179"
+      ],
+      "name": "Dsh Plugin Manager Compatibility Gate"
+    },
+    {
+      "id": "dsh-plugin-manager-bundle-guard",
+      "domain": "extension",
+      "what": "Garde anti-double-mount : detecte quand l'CLI ajoute un bundle qui est deja monte via patch row et le retire pour eviter un boot avec duplicate entry id.",
+      "how": "duplicateMountBundles() compare before/after bundles, rowMountedPackageNames() lit les insert rows du patch + chaque dependency's cordis.patch.yml, retourne les nouveaux bundles qui sont deja montes par un row. Le gateway les strip de dsh.profile.bundles. Le bundle-guard est specifique au loader Cordis (insert rows).",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "omega_adapter": "omega-registry::Registry (Slot/Ensemble + quarantaine)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/dsh-plugin-manager/src/host/bundle-guard.ts:1-113",
+        "packages/dsh-plugin-manager/src/host/gateway.ts:24-25"
+      ],
+      "name": "Dsh Plugin Manager Bundle Guard"
+    },
+    {
+      "id": "dsh-plugin-manager-conflict-ledger",
+      "domain": "observabilite",
+      "what": "Ledger de conflits : capture l'etat des rows avant/apres chaque mutation pour montrer exactement ce que l'installation a change (rows disabled, bundles added/removed).",
+      "how": "LayerSnapshot { rows: Map<id, enabled>, bundles: string[] }. diffLayer() compare before/after, significantChanges() filtre les nouveaux plugins (uninstalled->enabled = pas un conflit). ControlChange { id, name, from: 'enabled'|'disabled'|'uninstalled', to: ... }. Le gateway expose ces conflicts dans la reponse job.",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "omega_adapter": "omega-app::FileEventStore",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "packages/dsh-plugin-manager/src/core/patch-diff.ts:1-77",
+        "packages/dsh-plugin-manager/src/core/conflict.ts:1-23"
+      ],
+      "name": "Dsh Plugin Manager Conflict Ledger"
+    },
+    {
+      "id": "dsh-remote-bridge-pairing",
+      "domain": "securite",
+      "what": "Pairing de terminaux : bootstrap token (30s, 32 bytes, loopback-only) puis nonce (60s, 16 bytes) signe par ES256 (P-256) pour enroller un device dans le roster.",
+      "how": "PairingService: issueToken/consumeToken (one-shot, TTL), issueNonce/consumeNonce. pair.begin consume le token, emet un nonce. pair.finish consume le nonce AVANT de verifier la signature (brute-force = nonce brule). verifyEs256() avec P-256 SPKI strict (importP256Spki refuse P-384 etc). DeviceRoster: devices.json (0600, dir 0700), stocke tokenHash (SHA-254) pas le token, fingerprint du SPKI. authenticate() compare en constant-time (toutes les rows, pas de early-exit).",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/dsh-remote-bridge/src/core/pairing.ts:1-113",
+        "packages/dsh-remote-bridge/src/core/crypto.ts:1-113",
+        "packages/dsh-remote-bridge/src/core/devices.ts:1-209",
+        "packages/dsh-remote-bridge/src/host/routes.ts:1-85"
+      ],
+      "name": "Dsh Remote Bridge Pairing"
+    },
+    {
+      "id": "dsh-remote-bridge-approval-claim",
+      "domain": "securite",
+      "what": "Le bridge claim les approval/request tant qu'un device paired est connecte, delegue au host sinon (fail-closed 'unavailable').",
+      "how": "BridgeHub.approve(): si pairedClients > 0, ApprovalRegistry.open() (question id random 16 bytes, timeout 120s), broadcast a tous les paired devices. Si la phone ne repond pas ou si le dernier phone se deconnecte, abandonAll() delegue au host. Resolution via approval.resolve { id, decision: 'allowed-once'|'rejected' }.",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "integration": "service",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "packages/dsh-remote-bridge/src/core/approvals.ts:1-142",
+        "packages/dsh-remote-bridge/src/core/hub.ts:97-117",
+        "packages/dsh-remote-bridge/src/core/protocol.ts:55-77"
+      ],
+      "name": "Dsh Remote Bridge Approval Claim"
+    },
+    {
+      "id": "dsh-remote-bridge-protocol-v1",
+      "domain": "agents",
+      "what": "Protocole v1 WebSocket (/ios/v1) pour piloter les sessions DSH a distance : list, titles, snapshot (baseline + page), history, prompt, interrupt, approval.resolve.",
+      "how": "BridgeConnection (state machine transport-agnostic). Frames: req/res/ev/ping/pong (10 MiB cap, UTF-8). session.follow (assistantStream:true, maxMessages:200) ouvert une fois par session, drain loop emet session.delta. session.snapshot = opening frame. session.history = backward page by entry (before = durable seq watermark). session.prompt avec idempotency (receipts Set, 512 limit). Capabilities: session.snapshot.trim.v1, session.snapshot.page.v1. Follow stream aborted on connection end.",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner",
+      "omega_adapter": "plugins/subagent-isolated (spawn/resume, isolation worktree)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "packages/dsh-remote-bridge/src/core/connection.ts:1-797",
+        "packages/dsh-remote-bridge/src/core/envelope.ts:1-173",
+        "packages/dsh-remote-bridge/src/core/protocol.ts:1-89",
+        "packages/dsh-remote-bridge/src/core/dsh-frames.ts:1-348"
+      ],
+      "name": "Dsh Remote Bridge Protocol V1"
+    },
+    {
+      "id": "dsh-skill-explorer-frontmatter",
+      "domain": "contexte",
+      "what": "Parsing frontmatter SKILL.md (zero dependance) : name, description, whenToUse (block scalars | />), input.hint, input.recordInput, disable-model-invocation, user-invocable.",
+      "how": "parseFrontmatter() : regex ^---...---, YAML scalars, block scalars (| />), nested input block (indented sub-keys), YAML bool (true/yes/on/1, false/no/off/0). stripFrontmatter() extrait le body. setFrontmatterField() reecrit un bool atomiquement (tmp file O_EXCL + rename). Compatible avec le provider officiel dsh-skill-filesystem.",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore",
+      "omega_adapter": "omega-context::SkillIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "packages/dsh-skill-explorer/src/frontmatter.ts:1-153"
+      ],
+      "name": "Dsh Skill Explorer Frontmatter"
+    },
+    {
+      "id": "dsh-web-all-aggregate",
+      "domain": "extension",
+      "what": "Paquet agrégatif repliant toute la famille (16+ plugins) dans un seul npm package avec des lignes web-ui-* namespaces et un shell compat pour les anciens profiles.",
+      "how": "aggregate.yml : patchFrom (insert rows des enfants summaries dans le patch du parent), deps (children comme dependencies npm), self (agregat charge comme plugin), rows (npm externes: pet, skin-center, preset-center, community-plugins), familyIds (overrides de noms), inactive (rows par defaut disabled), tombstones (retire les anciennes lignes pour eviter les ERR_PACKAGE_PATH_NOT_EXPORTED). generateur children.generated.ts. Ordre explicite : settings en premier, remote-web-ui avant pet.",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "omega_adapter": "omega-registry::Registry (Slot/Ensemble + quarantaine)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/dsh-web-all/aggregate.yml:1-100",
+        "packages/dsh-web-all/src/client/children.generated.ts:1-50",
+        "packages/dsh-web-all/src/shells/shell.ts:1-50"
+      ],
+      "name": "Dsh Web All Aggregate"
+    },
+    {
+      "id": "dsh-plugin-manager-mount-once",
+      "domain": "extension",
+      "what": "Guard d'instance unique : un plugin npm ne monte qu'une fois par processus ; un mount refuse est queued et rejoue quand le holder libere le nom.",
+      "how": "mountOnce(packageName, fn) : symbol global (Symbol.for('dsh-web.mounted-plugins')) = Set des packages montes. Si deja monte, queue dans WAITERS. Quand le holder dispose, le queue rejoue (microtask pour laisser les effects se detruire). Cross-repository contract (symbol shape : Set avec has/add/delete).",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "omega_adapter": "omega-registry::Registry (Slot/Ensemble + quarantaine)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "packages/dsh-plugin-manager/src/mount-once.ts:1-142"
+      ],
+      "name": "Dsh Plugin Manager Mount Once"
+    },
+    {
+      "id": "dsh-plugin-manager-restart",
+      "domain": "execution",
+      "what": "Redemarrage du host DSH pour appliquer les changements de plugins : shell (Electron), relaunch (terminal interactif), manual (supervise).",
+      "how": "planRestart(facts) : desktop ou ELECTRON_RUN_AS_NODE -> shell (Electron owned). Pas interactif -> manual. Sinon relaunch (detached helper attend l'exit, re-exec la meme commande). Helper inline (node -e) avec retries (5x, 3s), log fichier. performRestart() schedule l'exit (400ms pour laisser la reponse partir).",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/dsh-plugin-manager/src/host/restart.ts:1-238"
+      ],
+      "name": "Dsh Plugin Manager Restart"
+    },
+    {
+      "id": "dsh-plugin-manager-detached-work",
+      "domain": "execution",
+      "what": "Escape hatch AsyncLocalStorage : ecriture dans cordis.patch.yml hors du contexte HMR transaction pour eviter les 'HMR transactions cannot be nested'.",
+      "how": "AsyncResource au module scope (triggerAsyncId: 0) = pas de store herite. runDetached(work) = DETACHED.runInAsyncScope(work). setImmediate herite du store vide (pas du caller). Utilise par setEnabledHandler pour ecrire le patch hors du transaction mark.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "native",
+      "status": "rejected",
+      "rust_cost": "S",
+      "refs": [
+        "packages/dsh-plugin-manager/src/host/detached-work.ts:1-58"
+      ],
+      "name": "Dsh Plugin Manager Detached Work"
+    },
+    {
+      "id": "dsh-plugin-manager-console-output",
+      "domain": "observabilite",
+      "what": "Capture de output console avec budget byte et decode UTF-8 strict + fallback GBK (Windows OEM code page).",
+      "how": "createOutputCapture(maxBytes) : accumulateur byte, overflow drop front (tail wins), read() decode une fois. decodeConsoleBytes() : TextDecoder utf-8 fatal, si echec essaie gbk puis utf-8 lossy, choisit le moins de replacement chars. Gestion des bytes qui chevauchent les frontieres de lecture.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "native",
+      "status": "rejected",
+      "rust_cost": "S",
+      "refs": [
+        "packages/dsh-plugin-manager/src/host/console-output.ts:1-97"
+      ],
+      "name": "Dsh Plugin Manager Console Output"
+    },
+    {
+      "id": "dsh-market-client-categories",
+      "domain": "ui",
+      "what": "Navigation du market client : categories, filtres, tri, cards avec install/update buttons.",
+      "how": "categories.ts : liste des categories avec id, label, icon. filter.ts : filter entries par category, search, installed status. MarketCard.tsx : card avec nom, description, version, boutons. install-source.ts : isRowMatch() avec 4 strategies (direct id, npm base, unscoped, git repo canonical).",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "native",
+      "status": "rejected",
+      "rust_cost": "M",
+      "refs": [
+        "packages/dsh-market/src/client/categories.ts:1-50",
+        "packages/dsh-market/src/client/filter.ts:1-50",
+        "packages/dsh-market/src/client/MarketCard.tsx:1-50",
+        "packages/dsh-market/src/client/install-source.ts:1-135"
+      ],
+      "name": "Dsh Market Client Categories"
+    }
+  ]
+}

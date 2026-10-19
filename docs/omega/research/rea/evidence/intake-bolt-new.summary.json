@@ -1,0 +1,24 @@
+{
+  "id": "bolt-new",
+  "name": "bolt.new",
+  "repo": "stackblitz/bolt.new",
+  "stars": 16578,
+  "language": "TypeScript",
+  "license": "MIT",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_25f4aa71733be7636e06fb5a6b1c7a370df9c2553a2b4c290738c51c83cb8703",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "f4d661200ae11102a0729d4bca1ec089628e2ed41f7621949b237742aab04c91"
+  },
+  "counts": {
+    "graph_nodes": 970,
+    "graph_edges": 1111
+  },
+  "limitations_count": 6
+}

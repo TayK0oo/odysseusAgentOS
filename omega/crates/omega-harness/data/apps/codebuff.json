@@ -1,0 +1,144 @@
+{
+ "schema_version": 1,
+ "id": "codebuff",
+ "name": "Codebuff",
+ "editor": "CodebuffAI",
+ "oss": true,
+ "language": "TypeScript",
+ "license": "Apache-2.0",
+ "repo": "https://github.com/CodebuffAI/codebuff",
+ "architecture": "Monorepo Bun/Turbo d'un agent multi-modeles (agents/* en definitions declaratives, client CLI + SDK + backend) : root base3/base3-fast, fan-out programmatique (code-searcher sans LLM) + workers herites prefix-cache, compaction mecanique par modele + windowedFileReads, 40+ tool handlers, evals par agent, catalogue freebuff des model ids measures.",
+ "functionalities": [
+  {
+   "id": "bf-multi-agent",
+   "domain": "agents",
+   "name": "Fan-out multi-agents : root base3-fast + workers herites, prefix-cache partage",
+   "what": "Architecture multi-agents : le root 'base3' fait deux fan-out (code-searcher programmatique sans LLM + workers herites du meme modele). L'heritage est byte-for-byte (system prompt + tool schemas + histoire) : le prefix cache du provider absorbe le cout des N workers.",
+   "how": "agents/base3-fast.ts:12-25 : le worker recoit inheritParentSystemPrompt + includeMessageHistory (packages/agent-runtime/src/run-agent-step.ts) et n'ajoute que son assignation en suffixe ; le worker pinne le modele du root sinon gate reject mid-run (base3-fast.ts:31-33). Omega : omega-app::LocalSubagentRunner + omega-router : le pattern d'heritage prefix-cache est le modele a retenir.",
+   "omega_capability": "subagent-runner",
+   "omega_port": "SubagentRunner",
+   "omega_adapter": "omega-app::LocalSubagentRunner (heritage prefix-cache par agent)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "L",
+   "refs": [
+    "agents/base3-fast.ts:12-25",
+    "packages/agent-runtime/src/run-agent-step.ts:1246"
+   ]
+  },
+  {
+   "id": "bf-turn-ending",
+   "domain": "agents",
+   "name": "Turn-ending rule : re-demander l'outil quand le modele repond en prose",
+   "what": "Les modeles qui terminent un tour sans appel d'outil recoivent une note re-injectee apres chaque message user (a cote du system prompt) ; l'effet est mesure (8.5% -> 2.9% de turns prose-only).",
+   "how": "common/constants/turn-ending-rule.ts TURN_ENDING_RULE + TURN_ENDING_NOTE en instructionsPrompt (agents/base3.ts:29-35) ; chaque copie reste dans l'histoire pour garder le prefix cache continu. Omega : EventStore + AgentLoop couverts ; ajout utile : re-injonction d'appel d'outil a chaque tour.",
+   "omega_capability": "agent-loop",
+   "omega_port": "—",
+   "omega_adapter": "omega-core::AgentLoop (re-injonction d'outil par turn)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "agents/base3.ts:29-35"
+   ]
+  },
+  {
+   "id": "bf-compaction",
+   "domain": "contexte",
+   "name": "Compaction mecanique : seuils par modele + windowedFileReads + ceiling post-compaction",
+   "what": "Economie de contexte structurelle : seuil de compaction par provider/model, compaction mecanique deterministe, plafond re-calculé après compactage, lectures de fichiers fenetrees.",
+   "how": "packages/agent-runtime/src/compaction.ts:74-132 : automaticCompactionPostCeiling(thresholdTokens), compactionThreshold(model), automaticCompactionIsWorthwhile, compactMechanically(params) ; windowedFileReads parametrable par agent (run-agent-step.ts:1246). Omega : LlmCompactionEngine double couche ; retenu : le windowedFileReads comme levier per-agent.",
+   "omega_capability": "context-engine",
+   "omega_port": "ContextEngine",
+   "omega_adapter": "omega-context::LlmCompactionEngine (+ windowed reads)",
+   "integration": "plugin",
+   "status": "adopted",
+   "rust_cost": "M",
+   "refs": [
+    "packages/agent-runtime/src/compaction.ts:74-132",
+    "packages/agent-runtime/src/run-agent-step.ts:1246"
+   ]
+  },
+  {
+   "id": "bf-tools",
+   "domain": "extension",
+   "name": "Tool executor + parse des appels bruts + 40+ handlers",
+   "what": "Runtime des outils avec parsing custom du call (parseRawToolCall), catalogue de 40 handlers declarees.",
+   "how": "packages/agent-runtime/src/tools/tool-executor.ts:207-628 ; handlers/tool/: apply-patch, spawn-agent(-inline), str-replace, propose-write-file, browser-logs, web-search, skill, write-todos, think-deeply... Omega : ToolSurface + ToolExecutor couverts ; retenu : les tools propose-* (contenu propose, commit differe).",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolExecutor",
+   "omega_adapter": "omega-app (handler catalogue + parse brut)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "packages/agent-runtime/src/tools/tool-executor.ts:207"
+   ]
+  },
+  {
+   "id": "bf-llm-providers",
+   "domain": "routage",
+   "name": "llm-providers : catalogue par vendor/type + ids freebuff mesures",
+   "what": "Catalogue de providers avec mappage aux modeles (freebuff model ids), chaque model benché documenté.",
+   "how": "packages/llm-providers/src/ + common/constants/freebuff-model-ids.ts FREEBUFF_FAST_MODE_MODEL_IDS. Omega : omega-router::Selector + CatalogSource ; retenu : le bench quantifie chaque modele.",
+   "omega_capability": "llm-provider",
+   "omega_port": "Provider",
+   "omega_adapter": "omega-providers (catalogue benché des model ids)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "packages/llm-providers/src",
+    "agents/constants.ts"
+   ]
+  },
+  {
+   "id": "bf-browser-logs",
+   "domain": "observabilite",
+   "name": "browser-logs : l'agent lit les logs de la preview render",
+   "what": "Le tool browser-logs remonte les logs de l'app previewe (rendue via render-ui) a l'agent pour le debug.",
+   "how": "packages/agent-runtime/src/tools/handlers/tool/browser-logs.ts + render-ui.ts. Omega : EventStore (capture de logs de preview) deja couvert.",
+   "omega_capability": "telemetry-sink",
+   "omega_port": "TelemetrySink",
+   "omega_adapter": "omega-app (logs de preview capture)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "packages/agent-runtime/src/tools/handlers/tool/browser-logs.ts"
+   ]
+  },
+  {
+   "id": "bf-evals",
+   "domain": "observabilite",
+   "name": "Eval harness par agent : definition d'un -evals par root de tri de qualité",
+   "what": "Un benchmark par agent definitionnel : un -evals.ts par base3-X + docs/benchmarks/base3-fast/.",
+   "how": "agents/base3-evals.ts + docs/benchmarks/base3-fast/. Omega : omega-harness (suite de regression par agents).",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "omega-harness (bench par agent)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "agents/base3-fast.ts:12-40"
+   ]
+  },
+  {
+   "id": "bf-project-profile",
+   "domain": "contexte",
+   "name": "report_project_profile : profile de projet recue par GLUT (tool)",
+   "what": "Le tool report_project_profile construit un profile du projet (framework, dependances, paths) et l'utilisateur ne le voit pas.",
+   "how": "packages/agent-runtime/src/tools/handlers/tool/report-project-profile.ts + PROJECT_PROFILE_TOOL_NAME. Omega : ContextEngine : un 'profile de projet' propose estaing de la configuration et la capacité d'injection de contexte.",
+   "omega_capability": "context-engine",
+   "omega_port": "ContextEngine",
+   "omega_adapter": "omega-context (report_project_profile profile du projet)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "packages/agent-runtime/src/project-profile.ts"
+   ]
+  }
+ ]
+}

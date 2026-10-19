@@ -1,0 +1,229 @@
+{
+ "schema_version": 1,
+ "id": "swe-agent",
+ "name": "SWE-agent",
+ "editor": "Princeton NLP",
+ "oss": true,
+ "language": "Python",
+ "license": "MIT",
+ "repo": "https://github.com/princeton-nlp/SWE-agent",
+ "architecture": "Harnais de resolution d'issues GitHub : pydantic BaseModel tout au centre (config YAML partiels), SWEEnv bash persistant + outils installes comme bundles de scripts (windowed editing, diff_state), chaine de history processors, tool parsing double (function-calling ou backticks), reviewer + retry loop, harness de run batch/replay/comparison (SWE-bench).",
+ "functionalities": [
+  {
+   "id": "swea-template-config",
+   "domain": "configuration",
+   "name": "Templates Jinja versionnes par config et valides au chargement",
+   "what": "Les templates de prompt (system/instance/next_step) sont des champs de config versionnes, valides pour la syntaxe Jinja des le chargement, changenant par pack de config.",
+   "how": "TemplateConfig (sweagent/agent/agents.py:60) model_post_init valide la syntaxe Jinja des templates (agents.py:128) et genere des warnings (agents.py:136) ; les packs de config sont des YAML partiels (config/default.yaml). Omega : omega-config couvre la config_cv cs le remplacement {{variable}} par Jinja du model_prompt: le pattern de validation systématique du template est une preuve.",
+   "omega_capability": "config-source",
+   "omega_port": "—",
+   "omega_adapter": "omega-config (validation du template de config)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "sweagent/agent/agents.py:60-136",
+    "config/default.yaml"
+   ]
+  },
+  {
+   "id": "swea-tool-handler",
+   "domain": "extension",
+   "name": "ToolHandler : install/reset des outils dans la sandbox, avec registry de bundles",
+   "what": "Les outils sont des bundles installes dans l'env (script de bash), avec une commande d'etat qui expose l'etat du systeme de fichiers/env a l'agent.",
+   "how": "ToolHandler (sweagent/tools/tools.py:227) a from_config/install/reset (tools.py:252-256) ; Bundle (sweagent/tools/bundle.py:17) empaquette commands + state_command (bundle.py:44) ; tools/registry est un bundle standard installable (tools/registry/install.sh). Omega : le plugin-api couvre les plugins ; le pattern bundle commande bash+state_command est un port chaud d'outre.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolExecutor",
+   "omega_adapter": "omega-app (tool bundles installes dans la sandbox)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "sweagent/tools/tools.py:227-256",
+    "sweagent/tools/bundle.py:17-52"
+   ]
+  },
+  {
+   "id": "swea-toolfilter",
+   "domain": "securite",
+   "name": "ToolFilterConfig : le model chois/dispose les outils avec regex, per-sandbox",
+   "what": "Un sous-ensemble des outils peut etre expose au model selon un filtre par regex ; utile pour des politiques prevenus.",
+   "how": "ToolFilterConfig (sweagent/tools/tools.py:29) sur ToolConfig (tools.py:75) : filters regex sur les commandes visibles. Omega : ExecPolicy + ToolSurface (allowlist declarative) ; l'ecart : filtre dynamique per-run.",
+   "omega_capability": "exec-policy",
+   "omega_port": "ExecPolicy",
+   "omega_adapter": "omega-ports::ExecPolicy (filter regex per-run)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "sweagent/tools/tools.py:29-75"
+   ]
+  },
+  {
+   "id": "swea-history-processor",
+   "domain": "contexte",
+   "name": "History processors chiains : LastN, tagging, cache control",
+   "what": "Une chaine de history processors reecrit l'historique avant envoie : omis au dela de N observations, tags d'outils, cache control anthropique, clipping des fenetres.",
+   "how": "AbstractHistoryProcessor (sweagent/agent/history_processors.py:13) : Protocol __call__(history)->History ; LastNObservations (history_processors.py:85) garde les N derniers avec _get_omit_indices (147) ; TagToolCallObservations (history_processors.py:179) _add_tags (194) ; _set_cache_control/_clear_cache_control (history_processors.py:53-46). Omega : omega-context couvre la compaction LLM ; le pattern de chaine de transformations testables (Protocol) est exactement un port.",
+   "omega_capability": "context-engine",
+   "omega_port": "ContextEngine",
+   "omega_adapter": "omega-context (chaine de history processors)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "sweagent/agent/history_processors.py:13-46",
+    "sweagent/agent/history_processors.py:85-157"
+   ]
+  },
+  {
+   "id": "swea-retry-loop",
+   "domain": "agents",
+   "name": "Reviewer + retry loop : self-review du submit, rejouer ou accepter",
+   "what": "Un reviewer separat critique la soumission finale ; la boucle de retry decide si une nouvelle tentative strategique est jugee.",
+   "how": "AbstractReviewer (sweagent/agent/reviewer.py:81) review(instance, submission)->ReviewerResult (reviewer.py:87) ; AbstractRetryLoop (reviewer.py:91) retry/on_submit ; reviewers de type chooser/preselector (reviewer.py:65-71). Omega : pas de self-review du noyau ; un plugin review pose au dessus de l'AgentLoop, acceptable par ExecPolicy d'outils limiting.",
+   "omega_capability": "agent-loop",
+   "omega_port": "—",
+   "omega_adapter": "plugin/self-review (reviewer + retry loop)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "L",
+   "refs": [
+    "sweagent/agent/reviewer.py:81-100"
+   ]
+  },
+  {
+   "id": "swea-action-sampler",
+   "domain": "routage",
+   "name": "Action sampler : propositions paralleles de plusieurs modeles (ask colleagues)",
+   "what": "Plutôt qu'une seule action, le sampler propose des actions concurrentes par plusieurs fournisseurs et demande la make choice a un chooser/collegue.",
+   "how": "AbstractActionSampler (sweagent/agent/action_sampler.py:23) ; AskColleagues (action_sampler.py:49) get_colleague_discussion (54) fait un tour d'avis entre outputs ; get_action remet la meilleur (action_sampler.py:76). Omega : omega-router::Selector pare un mode ; le sampler des collegues est differerent : decision a travers l'agent lui-meme (1M+ selectors).",
+   "omega_capability": "router-policy",
+   "omega_port": "Selector",
+   "omega_adapter": "plugin/action-sampler (avis concurrent des collegues)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "L",
+   "refs": [
+    "sweagent/agent/action_sampler.py:23-76"
+   ]
+  },
+  {
+   "id": "swea-tool-parsing",
+   "domain": "agents",
+   "name": "Parsing des actions : backup function-call ou backticks ouvert",
+   "what": "Deux modes d'appel d'outils : function-calling natif (tools declares en JSON schema) ou parsing des backticks de bloc bash ; le parsing est un re-entrant evitent de forcer le model.",
+   "how": "sweagent/tools/parsing.py + ToolConfig.use_function_calling (sweagent/tools/tools.py:155) ; Command.get_function_calling_tool (sweagent/tools/commands.py:133) construit le schema du tool JSON. Omega : le noyau parse un movement ; un mode parsing de output magistral peut ajouter a omega-context (tool-parse des backticks).",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "omega-context (tool parsing backticks)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "sweagent/tools/parsing.py",
+    "sweagent/tools/commands.py:133",
+    "sweagent/tools/tools.py:155-168"
+   ]
+  },
+  {
+   "id": "swea-env",
+   "domain": "contexte",
+   "name": "SWEEnv : env bash durable avec reset/clone repo et hooks",
+   "what": "L'environnement est un process bash persistant avec copy/reset/hard_reset du repo, et des hooks (env) sur chaque etape ; l'outillage (tools) est installe des le deploy.",
+   "how": "class SWEEnv (sweagent/environment/swe_env.py:51) ; _copy_repo (swe_env.py:116), hard_reset/reset (swe_env.py:128-135), reset_repository (swe_env.py:149) ; env hooks en add_hook (swe_env.py:100). Omega : omega-sandbox::LocalSandboxBackend + NomeSandbox (namespace) : le pattern worktree reset budget par task est couvert.",
+   "omega_capability": "sandbox-backend",
+   "omega_port": "SandboxBackend",
+   "omega_adapter": "omega-sandbox (repo clone + reset par task)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "sweagent/environment/swe_env.py:51-149"
+   ]
+  },
+  {
+   "id": "swea-repo-diff",
+   "domain": "execution",
+   "name": "Edit fenetre 1000 lignes : diff diff_state sur tools windowed",
+   "what": "L'edition de fichier est diffe : le tools edit_windowed est windowed: seuils limitant le nombre de lignes et linter-only.",
+   "how": "tools/windowed_edit_linting/ + tools/diff_state/ : l'outil d'edition garde le diff IHM. Omega : EventStore capture le sys ça ; les edits sont des atomicéstics reversibles dans les EventStore...",
+   "omega_capability": "event-store",
+   "omega_port": "EventStore",
+   "omega_adapter": "omega-core (edit diff windowed + reversible)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "tools/windowed_edit_linting",
+    "tools/diff_state"
+   ]
+  },
+  {
+   "id": "swea-forfeit",
+   "domain": "securite",
+   "name": "Forfeit : capa de rendre la tâch fait à un mode speciale expert",
+   "what": "Le outil forfeit émet un signal d'abandon de la tâche pendant le loop.",
+   "how": "tools/forfeit/ + sweagent/agent/agents.py:_ExitForfeit (agents.py:211). Omega : la control de l'agent a un mode expert existe (Execution complète certificate, gold inherent); l'ecart au noyau est le signal 'mockground' agnosticos.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "tool forfeit plugin (signal d'abandon coloc)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "sweagent/agent/agents.py:211",
+    "tools/forfeit"
+   ]
+  },
+  {
+   "id": "swea-hooks",
+   "domain": "extension",
+   "name": "Hooks modélisés partout : agent, env, run, model, tools",
+   "what": "Un pattern de hook uniforme (AbstractAgentHook, EnvHook, etc.) avec add_hook sur chaque subsystem, pour des props de réversibilité en betaiment.",
+   "how": "sweagent/agent/agents.py:233 AbstractAgent.add_hook ; sweagent/environment/swe_env.py:100 SWEEnv.add_hook ; hooks/__init__ par side. Omega : la totalité des hooks Omega couvre déjà le pattern Hook ; a retenir : le batch run hook a aussi des side effects sur les sous taches.",
+   "omega_capability": "hook",
+   "omega_port": "Hook",
+   "omega_adapter": "omega-ports::Hook (hooks par sous-systems)",
+   "integration": "plugin",
+   "status": "adopted",
+   "rust_cost": "S",
+   "refs": [
+    "sweagent/agent/agents.py:224-242"
+   ]
+  },
+  {
+   "id": "swea-run-batch",
+   "domain": "observabilite",
+   "name": "Run batch reproducible : run/inspector/compare_runs sur les seeds",
+   "what": "Une suite de run (run.py, run_batch.py, run_replay...) rejoue une trace, compare les runs, extrait les preducts diff.",
+   "how": "sweagent/run/run.py + run_batch.py + run_replay.py + compare_runs.py + extract_pred.py. Omega : la reutilisation de trace (Traces panel) est deja EventStore ; l'ecart : comparaison + extraction de diffs entre runs.",
+   "omega_capability": "event-store",
+   "omega_port": "EventStore",
+   "omega_adapter": "omega-app (comparaison/replay de run)",
+   "integration": "service",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "sweagent/run/run.py",
+    "sweagent/run/run_replay.py"
+   ]
+  },
+  {
+   "id": "swea-cost-tracking",
+   "domain": "observabilite",
+   "name": "Traçage de cout et statuts de run : tokens par forme, quick_stats",
+   "what": "Le cout de chaque tour et le nombre de forms du model sont tracker par run, avec une stats rapide sur les batches.",
+   "how": "sweagent/run/quick_stats.py + api_cost/_l. Omega : TelemetrySink + EventStore.",
+   "omega_capability": "telemetry-sink",
+   "omega_port": "TelemetrySink",
+   "omega_adapter": "omega-otel (quick stats + coût)",
+   "integration": "native",
+   "status": "rejected",
+   "rust_cost": "S",
+   "refs": [
+    "sweagent/run/quick_stats.py"
+   ]
+  }
+ ]
+}

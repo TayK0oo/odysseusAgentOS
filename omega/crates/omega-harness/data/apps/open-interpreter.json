@@ -1,0 +1,361 @@
+{
+  "schema_version": 1,
+  "id": "open-interpreter",
+  "name": "Open Interpreter",
+  "editor": "OpenInterpreter",
+  "oss": true,
+  "language": "Rust",
+  "license": "Apache-2.0",
+  "repo": "https://github.com/OpenInterpreter/open-interpreter",
+  "architecture": "Fork Rust d'OpenAI Codex (~127 crates sous codex-rs/) recentre sur l'emulation de harnais : un enum Harness (16 variantes) + un routeur (wire_api x harness -> StreamTransportRoute) faconne prompt, schemas d'outils, conversion de messages et post-traitement des reponses, tout en executant les appels dans le runtime Rust natif (jamais de shell-out vers les CLI externes).",
+  "entrypoints": [
+    "interpreter CLI (codex-rs/cli)",
+    "interpreter TUI (codex-rs/tui)",
+    "interpreter exec (non-interactif)",
+    "interpreter acp (Agent Client Protocol over stdio)",
+    "app-server JSON-RPC (codex-rs/app-server)"
+  ],
+  "functionalities": [
+    {
+      "domain": "routage",
+      "how": "Enum exhaustif dans codex-rs/tools/src/harness.rs:2 (~16 variantes : Native, ClaudeCode, ClaudeCodeBare, DeepSeekTui, KimiCode, KimiCli, ZCode, LittleCoder, MiniSweAgent, OpenCode, Pi, QwenCode, SweAgent, Terminus2, Minimal, Other(String)) avec from_config_name (harness.rs:23) qui mappe les chaines de config ; predicates is_* par variante ; guidance_for_harness (guidance.rs:5) n'injecte aujourd'hui un <extra_instruction> que pour kimi-cli (guidance=false pour un run strictement harnais).",
+      "id": "oi-harness-catalog",
+      "integration": "plugin",
+      "name": "Catalogue de harnais emulables (enum Harness)",
+      "omega_adapter": "omega-harness",
+      "omega_capability": "harness-catalog",
+      "omega_port": "Registre",
+      "refs": [
+        "codex-rs/tools/src/harness.rs:2-100",
+        "codex-rs/core/src/harness/guidance.rs:5-20",
+        "codex-rs/config/src/config_toml.rs:166-170",
+        "docs/harness.md:17-60"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Registre ferme des 15 surfaces d'agent reimplementees (claude-code, kimi-code, swe-agent, minimal...) parse depuis la config, avec guidance optionnelle par harnais."
+    },
+    {
+      "domain": "routage",
+      "how": "resolve_stream_transport_route (routing.rs:56) croise WireApi {Responses, Chat, Messages} x Harness -> StreamTransportRoute (routing.rs:38 : ResponsesApi, ChatCompletionsCompat, ChatHarness(..), MessagesHarness(..), ClaudeCodeResponses(..), ClaudeCodeChat(..)) ; le fil Messages exige un transport natif harnais et rejette Native avec un message d'erreur explicite ; le point d'integration unique client est build_chat_harness_request + apply_chat_harness_postprocess (request.rs:75,214) : ajouter un harnais = ajouter un bras de route, sans toucher au client.",
+      "id": "oi-harness-routing",
+      "integration": "plugin",
+      "name": "Routage strict wire_api x harness",
+      "omega_adapter": "plugins/harness-router",
+      "omega_capability": "router-policy",
+      "omega_port": "Selector",
+      "refs": [
+        "codex-rs/core/src/harness/routing.rs:38-160",
+        "codex-rs/core/src/harness/request.rs:43-120,214-260",
+        "codex-rs/model-provider-info/src/lib.rs:111-130",
+        "docs/harness.md:62-90"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Route (wire_api, harness) decide le transport et le faconnage (prompt, outils, conversion, post-traitement) ; incompatibilites refusees avec erreur."
+    },
+    {
+      "domain": "routage",
+      "how": "default_harness_for_provider_model (model-provider-info/src/lib.rs:216) inspecte provider_id, nom, base_url et id de modele en minuscules : messages/anthropic/claude -> claude-code ; kimi/moonshot -> kimi-code ; qwen/qwq/dashscope -> qwen-code ; deepseek -> claude-code-bare (decision produit : meilleur rendement) ; zai-zcode ou endpoint api.z.ai/api/anthropic -> zcode ; le harness explicite gagne toujours sur l'inference.",
+      "id": "oi-harness-auto-default",
+      "integration": "plugin",
+      "name": "Inference automatique du harnais par famille de modele",
+      "omega_adapter": "plugins/harness-autoselect",
+      "omega_capability": "router-policy",
+      "omega_port": "Selector",
+      "refs": [
+        "codex-rs/model-provider-info/src/lib.rs:216-285",
+        "codex-rs/core/src/config/mod.rs:3910",
+        "docs/harness.md:92-110"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Sans config explicite, le harnais qui maximise le modele est deduit du provider/modele (Kimi->kimi-code, DeepSeek->claude-code-bare...)."
+    },
+    {
+      "domain": "outils",
+      "how": "claude_code.rs (4870 lignes) construit des requetes Claude-shaped sur les 3 transports : build_request_for_profile (claude_code.rs:100) distingue Full vs Bare (prompt + toolset reduits), build_claude_code_responses_shaped_request (claude_code.rs:255) porte le faconnage sur /responses, build_title_request (claude_code.rs:294) genere les titres ; handlers Bash/PowerShell, Read, Write, Edit, TodoWrite, Glob, Grep, web search/fetch, LSP, reveils planifies et sous-agents style Claude ; conversion de messages specifique au transport via chat-wire-compat.",
+      "id": "oi-harness-claude-code",
+      "integration": "plugin",
+      "name": "Emulation Claude Code sur 3 transports (+ profil bare)",
+      "omega_adapter": "plugins/harness-claude-code",
+      "omega_capability": "harness-emulation",
+      "omega_port": "HarnessEmulation (build_request/handle_output)",
+      "refs": [
+        "codex-rs/core/src/harness/claude_code.rs:83-320",
+        "codex-rs/core/src/harness/claude_code_prompt.rs:1-60",
+        "codex-rs/chat-wire-compat/src/client.rs:45-80",
+        "docs/harness.md:112-130"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Reimplemente la surface agent Claude Code (prompt, thinking, tools, subagents) sur Responses, Chat et Messages avec un profil bare allege."
+    },
+    {
+      "domain": "outils",
+      "how": "kimi_code.rs:32 construit messages system (KIMI_CODE_SYSTEM_PROMPT via include_str! kimi_code.rs:18) + historique via le builder partage de kimi_cli, ajoute prompt_cache_key=session_{conversation_id}, max_completion_tokens=32768, thinking {type:enabled, keep:all}, stream_options include_usage ; les 25 tools de kimi_code_tools.json (Agent, AgentSwarm, AskUserQuestion, Bash, Cron*, Enter/ExitPlanMode, Skill, TaskList/TaskOutput/TaskStop, TodoList...) sont mappees en ToolKinds Function ; SKILL.md natifs + reminder auto-permission injectes ; defaut pour Kimi K3.",
+      "id": "oi-harness-kimi-code",
+      "integration": "plugin",
+      "name": "Emulation Kimi Code (prompt-cache + thinking + 25 tools)",
+      "omega_adapter": "plugins/harness-kimi-code",
+      "omega_capability": "harness-emulation",
+      "omega_port": "HarnessEmulation (build_request/handle_output)",
+      "refs": [
+        "codex-rs/core/src/harness/kimi_code.rs:18-110",
+        "codex-rs/core/src/harness/kimi_code_tools.json",
+        "codex-rs/core/src/harness/kimi_code_system_prompt.md",
+        "docs/kimi-k3.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Surface Kimi Code actuelle sur Chat Completions : cache de prompt par session, thinking conserve, 25 tools executes par le runtime natif."
+    },
+    {
+      "domain": "execution",
+      "how": "Pas de schemas d'outils (ToolKinds::new() vide, swe_agent.rs:30-50) : system prompt minimal + boucle discussion/commande ; inject_action_calls (swe_agent.rs:60+) parse le texte assistant (extract_bash_action / extract_named_tool_code / extract_tagged_code / extract_fenced_bash_action, swe_agent.rs:396-540) et injecte un appel d'action suivi de l'observation ; timeout de commande 30 s (SWE_AGENT_BASH_TIMEOUT_MS) ; correction de format renvoyee quand la sortie ne matche pas.",
+      "id": "oi-harness-swe-agent",
+      "integration": "plugin",
+      "name": "Boucle discussion/commande SWE-agent sans tool schemas",
+      "omega_adapter": "plugins/harness-swe-agent",
+      "omega_capability": "harness-emulation",
+      "omega_port": "HarnessEmulation (build_request/handle_output)",
+      "refs": [
+        "codex-rs/core/src/harness/swe_agent.rs:18-100,238-300,396-540",
+        "codex-rs/core/src/harness/mini_swe_agent.rs:18-60",
+        "docs/harness.md:190-200"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Emule SWE-agent : la commande shell est extraite du texte libre du modele, executee, et sa sortie revient comme observation."
+    },
+    {
+      "domain": "outils",
+      "how": "zcode.rs (2729 lignes) + zcode_tools.json faconnent des requetes Anthropic Messages : system prompt ZCode, headers, tools, comportement todo/plan, skills, contexte de session et surface subagents ; exige wire_api=messages (les providers Z.AI integres restant en chat, la doc impose un endpoint Messages dedie) ; skill-creator embarque (zcode_skill_creator.md).",
+      "id": "oi-harness-zcode",
+      "integration": "plugin",
+      "name": "Emulation ZCode sur transport Messages",
+      "omega_adapter": "plugins/harness-zcode",
+      "omega_capability": "harness-emulation",
+      "omega_port": "HarnessEmulation (build_request/handle_output)",
+      "refs": [
+        "codex-rs/core/src/harness/zcode.rs:1-80",
+        "codex-rs/core/src/harness/zcode_tools.json",
+        "codex-rs/core/src/harness/zcode_skill_creator.md",
+        "docs/harness.md:132-142",
+        "docs/zai-glm.md"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Surface GLM/ZCode (todos, plans, skills, subagents) sur requetes Anthropic Messages, execution dans le runtime natif."
+    },
+    {
+      "domain": "outils",
+      "how": "minimal.rs (745 lignes, build_request analogue aux autres bras de request.rs) : system prompt compact d'agent logiciel generique + mapping direct des outils fonctionnels en tool list Chat Completions, sans surface specifique au provider ; autres bras du meme point d'integration : deepseek_tui (876 lignes, metadonnees de tour + instructions projet generees), qwen_code (echange synthetique date/OS/cwd + listing), opencode/pi/little-coder/terminus_2.",
+      "id": "oi-harness-minimal",
+      "integration": "plugin",
+      "name": "Surface minimale + harnais secondaires (qwen, opencode, pi...)",
+      "omega_adapter": "plugins/harness-minimal",
+      "omega_capability": "harness-emulation",
+      "omega_port": "HarnessEmulation (build_request/handle_output)",
+      "refs": [
+        "codex-rs/core/src/harness/minimal.rs:1-60",
+        "codex-rs/core/src/harness/qwen_code.rs:1-60",
+        "codex-rs/core/src/harness/deepseek_tui.rs:1-60",
+        "codex-rs/core/src/harness/opencode.rs:1-60",
+        "docs/harness.md:160-210"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Repli generique : prompt compact + tools brutes pour tout provider chat, et gabarits fins par famille (Qwen, DeepSeek-TUI, OpenCode, Pi)."
+    },
+    {
+      "domain": "contexte",
+      "how": "session_skills.rs : le bloc developer <skills_instructions> est assemble au-dessus de la couche harnais et ne doit jamais etre jete ; find_skills_instructions_text + parse_session_skills (session_skills.rs:30-80) extraient les entrees '### Available skills' (- nom: description (file: path), chemins absolus ou alias rN/ sous pression budget) pour que chaque harnais les re-rende dans son format natif de skills (ex. Skill kimi-code, skills ZCode).",
+      "id": "oi-harness-session-skills",
+      "integration": "plugin",
+      "name": "Re-rendu des skills de session par harnais",
+      "omega_adapter": "plugins/harness-skill-bridge",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "refs": [
+        "codex-rs/core/src/harness/session_skills.rs:1-100",
+        "codex-rs/core/src/harness/kimi_cli.rs:1-60"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Les skills de la session survivent a l'emulation : parsees une fois, re-exprimees dans le format natif de chaque harnais."
+    },
+    {
+      "domain": "extension",
+      "how": "Un skill = dossier avec SKILL.md (front-matter name/description) + scripts/, references/, assets/ optionnels ; decouverte priorisee .agents/skills/ (repo/local), ~/.agents/skills/ (perso), skills embarques, avec repli legacy ~/.openinterpreter/skills/ ; metadonnees lues d'abord, corps charge a la demande (SkillRootSnapshotCache, loading.rs:26,93-119) ; mention @ et /skills dans le TUI.",
+      "id": "oi-skills-agents-dir",
+      "integration": "plugin",
+      "name": "Skills .agents/skills a chargement paresseux",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "refs": [
+        "docs/skills.md:36-80",
+        "codex-rs/skills/src/loading.rs:26,93-119",
+        "codex-rs/skills/src/selection.rs",
+        ".codex/skills/"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Workflows reutilisables au format partage .agents/skills (neutre-outil), metadata-first puis chargement paresseux."
+    },
+    {
+      "domain": "outils",
+      "how": "Serveurs MCP stdio (command/args/env) ou HTTP (url + bearer_token_env_var), geres par interpreter mcp {add,list,get,remove,login,logout} ; connection_manager + catalog + tool_catalog_cache avec pagination dans codex-mcp ; trusted_access et elicitation pour les acces sensibles ; les outils MCP rejoignent le catalogue d'outils du runtime comme les outils natifs.",
+      "id": "oi-mcp-servers",
+      "integration": "plugin",
+      "name": "Serveurs MCP stdio/HTTP geres en CLI",
+      "omega_adapter": "plugins/tool-mcp",
+      "omega_capability": "tool-source",
+      "omega_port": "ToolSource (list/call)",
+      "refs": [
+        "docs/mcp.md:1-60",
+        "codex-rs/codex-mcp/src/catalog.rs",
+        "codex-rs/codex-mcp/src/connection_manager.rs",
+        "codex-rs/codex-mcp/src/trusted_access.rs",
+        "codex-rs/cli/src/main.rs"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Outils externes via Model Context Protocol (trackers, docs, DB) declares en config ou CLI, avec cache de catalogue et acces de confiance."
+    },
+    {
+      "domain": "extension",
+      "how": "interpreter acp (cli/src/main.rs:1422,2791) parle ACP sur stdin/stdout pour les editeurs compatibles ; meme home/config/auth/providers/MCP/skills/sandbox/approvals que le TUI ; permissions remontees au client via RequestPermission (acp-server/src/lib.rs:915-927) avec options AllowOnce/AllowAlways/RejectOnce ; pendant modulaire : mcp-server embarque inversement exposant Open Interpreter comme outil appelable par un autre agent.",
+      "id": "oi-acp-server",
+      "integration": "service",
+      "name": "Agent Client Protocol + MCP server inverse",
+      "omega_adapter": "plugins/acp-bridge",
+      "omega_capability": "agent-protocol",
+      "omega_port": "AcpServer (serve/request_permission)",
+      "refs": [
+        "docs/acp.md:1-50",
+        "codex-rs/acp-server/src/lib.rs:900-930",
+        "codex-rs/cli/src/main.rs:1422,2791",
+        "docs/mcp-server.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Pilote Open Interpreter depuis un editeur via ACP (permissions deleguees au client) ; exposable a l'inverse comme serveur MCP."
+    },
+    {
+      "domain": "automatisation",
+      "how": "10 phases : session_start, user_prompt_submit, pre_tool_use, post_tool_use, permission_request, stop, session_end, compact, interrupt (+ AfterAgent typé, types.rs:92) ; decouverte a cote des couches de config (~/.openinterpreter/hooks.json, .openinterpreter/hooks.json, inline config.toml, plugins) sans remplacement par precedence ; commandes non gerees soumises a revue de confiance (trust enregistre contre la definition exacte) ; /hooks dans le TUI ; feature flag hooks.",
+      "id": "oi-hooks-lifecycle",
+      "integration": "plugin",
+      "name": "Hooks deterministes du cycle de vie agent",
+      "omega_adapter": "plugins/lifecycle-hooks",
+      "omega_capability": "lifecycle-hook",
+      "omega_port": "HookEngine (fire/register)",
+      "refs": [
+        "docs/hooks.md:1-80",
+        "codex-rs/hooks/src/events/mod.rs:1-10",
+        "codex-rs/hooks/src/types.rs:92-97",
+        "codex-rs/hooks/src/registry.rs"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Scripts de confiance autour des evenements agent (policy, log, injection de contexte, validation) avec couches et revue de trust."
+    },
+    {
+      "domain": "securite",
+      "how": "Deux systemes exclusifs : profils de permissions fins (:read-only, :workspace, :danger-full-access, default_permissions) avec regles filesystem read/write/deny (deny gagne, racines :minimal/:workspace_roots/:tmpdir/:root, globs **/*.env) et reseau deny-by-default avec domaines allow/deny (docs/permissions.md) ; ancien systeme sandbox_mode {read-only, workspace-write, danger-full-access} + approval_policy {untrusted, on-request, never} ; moteur execpolicy : Decision {Allow, Prompt, Forbidden} (decision.rs:9-18) + Policy::check(cmd, heuristiques) avec regles par prefixe et domaines reseau compiles (policy.rs:128-265) ; --yolo supprime les deux garde-fous.",
+      "id": "oi-permissions-execpolicy",
+      "integration": "plugin",
+      "name": "Profils de permissions + DSL execpolicy",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "refs": [
+        "docs/permissions.md:1-80",
+        "docs/sandbox.md:1-60",
+        "codex-rs/execpolicy/src/decision.rs:9-25",
+        "codex-rs/execpolicy/src/policy.rs:128-265",
+        "codex-rs/protocol/src/models.rs"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Moindre-privilege declaratif (fichiers + reseau, deny prioritaire) evalue par un moteur de decision Allow/Prompt/Forbidden, approvals separes."
+    },
+    {
+      "domain": "agents",
+      "how": "Feature multi_agent (defaut on) ; /agent dans le TUI pour creer/basculer des threads subagents ; roles integres default/worker/explorer via agent-roles (AgentRoleConfig, load_agent_roles, agent-roles/src/lib.rs:1-8) ; le parent peut spawner des helpers en parallele, seul un resume remonte ; represente cote harness par Agent/AgentSwarm (kimi) et subagents Claude-style.",
+      "id": "oi-subagents-roles",
+      "integration": "plugin",
+      "name": "Sous-agents isoles a roles",
+      "omega_adapter": "plugins/subagent-isolated",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/resume)",
+      "refs": [
+        "docs/subagents.md:1-60",
+        "codex-rs/agent-roles/src/lib.rs:1-8",
+        "codex-rs/core/src/tools/multi_agent_tool.rs"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Threads agents paralleles isoles (investigation, review) avec roles et remontage de resume uniquement."
+    },
+    {
+      "domain": "ui",
+      "how": "interpreter exec 'tache' (stdin -, git diff | ..., -i image, sortie JSON) pour scripts/CI (docs/exec.md) ; TUI plein ecran avec slash commands adaptees au mode (/model, /fast, /permissions, /approvals, /new, /resume, /fork, /compact, /agent, /init, /review, /mcp, /skills, /memories, /hooks...) documentees dans docs/slash_commands.md ; bascule de harnais persistee via config_update (tui/src/app/config_persistence.rs + config_update.rs:122-123) ; --chat-completions force wire_api=chat pour un run.",
+      "id": "oi-cli-exec-tui",
+      "integration": "plugin",
+      "name": "CLI + exec non-interactif + TUI a slash commands",
+      "omega_adapter": "plugins/cli-tui-surface",
+      "omega_capability": "ui-surface",
+      "omega_port": "UiSurface (exec/interact)",
+      "refs": [
+        "docs/exec.md:1-50",
+        "docs/slash_commands.md:1-80",
+        "codex-rs/tui/src/app/config_persistence.rs",
+        "codex-rs/tui/src/config_update.rs:122-123",
+        "docs/open-interpreter-delta.md:10-30"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Trois surfaces coherentes : one-shot scriptable, TUI riche pilotable au clavier, et forcade ponctuelle du transport chat."
+    },
+    {
+      "domain": "memoire",
+      "how": "Conversations stockees sous ~/.openinterpreter/ : resume --last / picker / fork / rename (docs/sessions.md) ; journal JSONL par session lu via decode_rollout_line / parse_rollout_line (rollout/src/lib.rs:50-80) avec maintenance et compression ; memories opt-in (features.memories) avec extraction/consolidation par modele dedie (memories.extract_model / consolidation_model) et injection des souvenirs pertinents.",
+      "id": "oi-sessions-rollout",
+      "integration": "plugin",
+      "name": "Sessions persistantes + journal rejouable + memories",
+      "omega_adapter": "plugins/session-rollout",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "refs": [
+        "docs/sessions.md:1-60",
+        "docs/memories.md:1-40",
+        "codex-rs/rollout/src/lib.rs:50-80",
+        "codex-rs/rollout/src/maintenance.rs"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Historique local resumable/forkable adosse a un journal d'evenements parseable, plus memoires personnelles extraites par modele."
+    },
+    {
+      "domain": "execution",
+      "how": "Inventaire exhaustif de codex-rs/ (~127 crates) : aucun crate d'automatisation GUI (pas de controle souris/clavier, capture assiste, ni protocole d'accessibilite) et aucune section computer-use dans docs/ ; l'action sur machine passe uniquement par shell/files/patch sandboxe ; on ne reprend donc rien sur cet axe, documente ici pour clore la perspective.",
+      "id": "oi-computer-use-absent",
+      "integration": "rejected",
+      "name": "Computer-use GUI : absent (constate)",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend",
+      "refs": [
+        "docs/exec.md (aucune section computer-use/screenshot-action)",
+        "codex-rs/cli/src/main.rs (aucune sous-commande computer-use)",
+        "inventaire codex-rs/ : aucun crate gui/automation"
+      ],
+      "rust_cost": "S",
+      "status": "rejected",
+      "what": "Aucune capacite computer-use (controle d'ecran/souris) : l'execution reste shell + fichiers + patch.",
+      "omega_adapter": null
+    }
+  ]
+}

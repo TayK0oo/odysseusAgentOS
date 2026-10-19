@@ -1,7 +1,7 @@
 ---
 description: SFD Executor — écrit le code, exécute les commandes, crée les fichiers
 mode: subagent
-model: opencode/minimax-m3
+model: opencode/space-bunny-free
 permission:
   edit: allow
   bash: allow

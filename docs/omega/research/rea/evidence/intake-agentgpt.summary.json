@@ -1,0 +1,24 @@
+{
+  "id": "agentgpt",
+  "name": "AgentGPT",
+  "repo": "reworkd/AgentGPT",
+  "stars": 36279,
+  "language": "TypeScript",
+  "license": "GPL-3.0",
+  "nature": "other",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_e59053561ead5707984c331c3a32af0483a704d5a382e2b5facdd84bed92c372",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "5943ae628b4e6d6c28eb31b73f6387dfbf7ad5eeb2a8a168846dab87f35f22e5"
+  },
+  "counts": {
+    "graph_nodes": 1854,
+    "graph_edges": 2055
+  },
+  "limitations_count": 6
+}

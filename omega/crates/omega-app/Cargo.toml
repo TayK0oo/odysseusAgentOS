@@ -1,0 +1,26 @@
+[package]
+name = "omega-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Omega — assemblage applicatif : registre depuis contributeurs, cablage de la boucle, execution durable (journal + reprise)."
+
+[dependencies]
+omega-types = { workspace = true }
+omega-ports = { workspace = true }
+omega-config = { workspace = true }
+omega-registry = { workspace = true }
+omega-plugin-api = { workspace = true }
+omega-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+tokio = { version = "1", features = ["sync", "rt", "macros", "process", "time"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+omega-providers = { path = "../omega-providers" }
+omega-context = { path = "../omega-context" }
+omega-router = { path = "../omega-router" }
+omega-otel = { path = "../omega-otel" }

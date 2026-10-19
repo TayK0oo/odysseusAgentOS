@@ -1,0 +1,24 @@
+{
+  "id": "devika",
+  "name": "Devika",
+  "repo": "stitionai/devika",
+  "stars": 19551,
+  "language": "Python",
+  "license": "MIT",
+  "nature": "python",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_f087541640aa7bda8c47e7a316e56642bbc9e2401ca7a5f45f0474073e1693af",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "ef74030c3880b2ed3410f29f5607f8a508b1b2490a4a9d3d8fde043e522fe3f0"
+  },
+  "counts": {
+    "graph_nodes": 207,
+    "graph_edges": 251
+  },
+  "limitations_count": 5
+}

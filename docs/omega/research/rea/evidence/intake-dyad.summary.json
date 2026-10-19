@@ -1,0 +1,24 @@
+{
+  "id": "dyad",
+  "name": "Dyad",
+  "repo": "dyad-sh/dyad",
+  "stars": 21972,
+  "language": "TypeScript",
+  "license": "NOASSERTION",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_4e44777bd186c5365d79b2cf8f31eedba7dfd4073fe67dc06e91654b329a9e46",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "689bf9d1463f557b894a253aa23b8b51da7232ffe52975320e0ceebd668bd25c"
+  },
+  "counts": {
+    "graph_nodes": 14337,
+    "graph_edges": 16395
+  },
+  "limitations_count": 4379
+}

@@ -1,0 +1,160 @@
+{
+ "schema_version": 1,
+ "id": "superagi",
+ "name": "SuperAGI",
+ "editor": "TransformerOptimus",
+ "oss": true,
+ "language": "Python",
+ "license": "MIT",
+ "repo": "https://github.com/TransformerOptimus/SuperAGI",
+ "architecture": "Framework d'agents autonomes multi-tenant (Python/FastAPI/Celery) : workflow persiste par etapes (iteration/tool/wait-permission/queue), toolbox de 25+ tools, stockage vectoriel par adapters (pinecone/qdrant/weaviate/workspace), jobs Celery recurrents, orchestration Redis, isolation par organisation.",
+ "functionalities": [
+  {
+   "id": "sup-workflow-steps",
+   "domain": "agents",
+   "name": "Boucle par etapes de workflow (iteration/tool/wait/queue) persistee",
+   "what": "L'agent marche par etapes de workflow persistantes en base (iteration, tool, wait, queue) : chaque etape a un handler execute_step(), et la prochaine etape est pointee en base.",
+   "how": "AgentIterationStepHandler (superagi/agent/agent_iteration_step_handler.py:35) execute_step (:46) construit le prompt (_build_agent_prompt :135) et propose la suite via _update_agent_execution_next_step (:123) ; QueueStepHandler (queue_step_handler.py:20) gère une queue de taches ; AgentWorkflowStepWaitHandler (:18) attend une permission humaine. Omega : omega-app::App::run durable + EventStore : le point d'etape persiste + resume est deja couvert, le pattern des handler-step par type est un shablon.",
+   "omega_capability": "agent-loop",
+   "omega_port": "—",
+   "omega_adapter": "omega-core::AgentLoop + omega-app (etapes persiste/reprise)",
+   "integration": "native",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "superagi/agent/agent_iteration_step_handler.py:35-170",
+    "superagi/agent/queue_step_handler.py:20-55"
+   ]
+  },
+  {
+   "id": "sup-wait-permission",
+   "domain": "securite",
+   "name": "Wait-for-permission : l'agent s'arrete et attend l'humain",
+   "what": "Une etape peut requérir l'approbation humaine : l'execution se met en attente (status WAITING) jusqu'au clic.",
+   "how": "_handle_wait_for_permission (agent/agent_iteration_step_handler.py:170) pose le statut WAITING sur l'execution ; AgentWorkflowStepWaitHandler gere la reprise (agent_workflow_step_wait_handler.py:18). Omega : pas de checkpoint d'explicit-approval sur la boucle ; utile pour un ExecPolicy avec confirmation tierce.",
+   "omega_capability": "exec-policy",
+   "omega_port": "ExecPolicy",
+   "omega_adapter": "omega-ports::ExecPolicy (confirm-then-run)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "superagi/agent/agent_iteration_step_handler.py:170"
+   ]
+  },
+  {
+   "id": "sup-tool-bundles",
+   "domain": "extension",
+   "name": "Un catalogue de 25+ tools immuable : base_tool, each tool self-contained",
+   "what": "Un toolbox categorisé (code, file, github, google, slack, email, thinking, knowledge_search...) ou chaque tool s'auto-déclare avec sa schema ; le registre est fixé.",
+   "how": "superagi/tools/ : dossiers par outil + base_tool.py (la classe de base, independent) ; tool_builder.py assembles le set pour l'agent. Omega : ToolExecutor + ToolSurface : la couverture est deja couverte ; le pattern toolbox-par-domaine note pour le catalogue initial.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolExecutor",
+   "omega_adapter": "omega-app (toolkit catalogue initiale)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "superagi/tools/base_tool.py",
+    "superagi/agent/tool_builder.py"
+   ]
+  },
+  {
+   "id": "sup-vector-stores",
+   "domain": "memoire",
+   "name": "Vector store by adapter : pinecone/qdrant/weaviate/workspace",
+   "what": "Les memories vectorielles passent par une multiplex de fournisseurs, avec une factory d'adaptation par key.",
+   "how": "superagi/vector_embeddings/vector_embedding_factory.py + vector_store/ par dossiers (pinecone, qdrant, weaviate, workspace local). Omega : MemoryStore couvert ; l'ecart : les embeddings cloud multiples sont le pattern a ajouter : adapter par fournisseur.",
+   "omega_capability": "memory-store",
+   "omega_port": "MemoryStore",
+   "omega_adapter": "omega-app (memory store par fournisseur vecteur)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "superagi/vector_embeddings/vector_embedding_factory.py"
+   ]
+  },
+  {
+   "id": "sup-celery-jobs",
+   "domain": "automatisation",
+   "name": "Jobs via Celery : executions d'agents planifiees et recurrence",
+   "what": "Les executions d'agents (batch et recurrent) sont des jobs Celery queueux, avec scheduler de recurrence.",
+   "how": "superagi/worker.py (workers celery) + jobs/ + DockerfileCelery. Omega : omega-app::App jobs + planificateur : couvre le pattern cron+queue, en Rust.",
+   "omega_capability": "scheduler-job",
+   "omega_port": "—",
+   "omega_adapter": "omega-app (scheduler + job queue durable)",
+   "integration": "service",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "superagi/worker.py"
+   ]
+  },
+  {
+   "id": "sup-tools-json",
+   "domain": "configuration",
+   "name": "tools.json + config par fichier yaml (orga/étanchéité clé)",
+   "what": "La config est decouple en environnements de YAML (config_template.yaml, org keys par env), et les tools déclarés en tools.json.",
+   "how": "tools.json (la definition des schemas du registre d'outils) + config_template.yaml (les clés par environnement, personnelles sans créer). Omega : omega-config avec le manifeste (declarator par les fichiers d'assets).",
+   "omega_capability": "config-source",
+   "omega_port": "—",
+   "omega_adapter": "omega-config + manifestes declares anque",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "tools.json",
+    "config_template.yaml"
+   ]
+  },
+  {
+   "id": "sup-llm-factories",
+   "domain": "routage",
+   "name": "Registre LLM par familles (openai/anthropic/replicate/local)",
+   "what": "Un registre de fournisseurs LLM construits par factory, avec mappage de la tache au modele.",
+   "how": "superagi/llms/ : pour chaque famille de provider, la classe de base. Omega : omega-router + omega-providers couvert.",
+   "omega_capability": "llm-provider",
+   "omega_port": "Provider",
+   "omega_adapter": "omega-providers (factory par famille)",
+   "integration": "plugin",
+   "status": "rejected",
+   "rust_cost": "S",
+   "refs": [
+    "superagi/llms"
+   ]
+  },
+  {
+   "id": "sup-apm",
+   "domain": "observabilite",
+   "name": "Agent Performance Monitoring : run metrics exposee en API",
+   "what": "Un module APM : les metrics par execution d'agent (time take, number of calls, comodity) sont exposes API/webview.",
+   "how": "superagi/apm/ : data collectors des execution (run, tokens, etc.) par agents/task. Omega : otel + EventStore.",
+   "omega_capability": "telemetry-sink",
+   "omega_port": "TelemetrySink",
+   "omega_adapter": "omega-otel (peformance per run)",
+   "integration": "native",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "superagi/apm"
+   ]
+  },
+  {
+   "id": "sup-organisations",
+   "domain": "securite",
+   "name": "Organisations / isolation multi-tenant en base",
+   "what": "Chaque agent/tool/resource est scope par organisation_id ; l'isolation est guidée par la base de donees (SQLAlchemy).",
+   "how": "superagi/models/*.py nous font chaque entité avec organization_id (SQLAlchemy, alembic migrations). Omega : le worktree isolation de l'agent-harness est au niveau nos runners ; le pattern de scope en base est le meme que ExecutionScope.",
+   "omega_capability": "config-source",
+   "omega_port": "—",
+   "omega_adapter": "omega-harness (scope par organisation)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "superagi/models"
+   ]
+  }
+ ]
+}

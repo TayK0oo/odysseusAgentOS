@@ -1,0 +1,24 @@
+{
+  "id": "nanocoder",
+  "name": "Nanocoder",
+  "repo": "Nano-Collective/nanocoder",
+  "stars": 2523,
+  "language": "TypeScript",
+  "license": "NOASSERTION",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_0099ff24bd05ac9ae94b7ea4b6d159a5c304cd28751c077be366cdc49b200d1d",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "7b0c10277849a263101866909fda4ef9897c53957c9ef2558d0b9005d80c52b4"
+  },
+  "counts": {
+    "graph_nodes": 9693,
+    "graph_edges": 11491
+  },
+  "limitations_count": 1026
+}

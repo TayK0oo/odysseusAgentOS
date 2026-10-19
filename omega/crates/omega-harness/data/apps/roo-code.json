@@ -1,0 +1,243 @@
+{
+ "schema_version": 1,
+ "id": "roo-code",
+ "name": "Roo Code",
+ "editor": "Roo Code",
+ "oss": true,
+ "language": "TypeScript",
+ "license": "Apache-2.0",
+ "repo": "https://github.com/RooCodeInc/Roo-Code",
+ "architecture": "Extension VS Code (monorepo pnpm : src + packages/core|ipc|types|vscode-shim), successeur de Cline : boucle Task recursive avec 20+ outils BaseTool, modes orthogonaux definissables (.roomodes, hot reload), checkpoints shadow-git par task, auto-approbation allowlist/denylist, index de code semantique configurable (embedders injectes), client MCP integre, surface IPC programmatique, 30+ providers factorises sur une base compat OpenAI.",
+ "functionalities": [
+  {
+   "id": "roo-task-loop",
+   "domain": "agents",
+   "name": "Task : boucle agent recursive avec messages streames et timeline",
+   "what": "Boucle principale d'un task (extends EventEmitter) : requetes API recursives vers le modele, acquisition/desact de la reponse assistant, outils en streaming, reprise apres interruption.",
+   "how": "export class Task extends EventEmitter<TaskEvents> (src/core/task/Task.ts:158) ; recursivelyMakeClineRequests (Task.ts:2461) enchaine requete -> parse assistant-message -> execution outils -> recurs ; persistence via task-persistence. Omega : omega-core::AgentLoop couvre ; pattern a ajouter : EventEmitter de TaskEvents internes.",
+   "omega_capability": "agent-loop",
+   "omega_port": "—",
+   "omega_adapter": "omega-core::AgentLoop (events internes taches)",
+   "integration": "native",
+   "status": "rejected",
+   "rust_cost": "S",
+   "refs": [
+    "src/core/task/Task.ts:158",
+    "src/core/task/Task.ts:2461"
+   ]
+  },
+  {
+   "id": "roo-repetition-guard",
+   "domain": "execution",
+   "name": "ToolRepetitionDetector : garde de repetition d'appel d'outil",
+   "what": "Detecte N appels identiques consecutifs (defaut 3) au meme outil avec le meme input et coupe/escalade a l'utilisateur.",
+   "how": "export class ToolRepetitionDetector (src/core/tools/ToolRepetitionDetector.ts:9) ; previousToolCallJson + compteur consecutiveIdenticalToolCallCount ; check() serialize le ToolUse en JSON canonique et compare (ToolRepetitionDetector.ts:31-40) ; limite injectable au constructeur (defaut 3, ToolRepetitionDetector.ts:15). Omega : omega-core::AgentLoop n'a pas de garde de repetition ; meme famille que gemini-cli loop-guard.",
+   "omega_capability": "agent-loop",
+   "omega_port": "—",
+   "omega_adapter": "omega-core::AgentLoop (garde de repetition en serie)",
+   "integration": "native",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/core/tools/ToolRepetitionDetector.ts:9-40"
+   ]
+  },
+  {
+   "id": "roo-allowlist-commands",
+   "domain": "securite",
+   "name": "Allowlist/denylist de commandes shell avec wildcards et match le plus long",
+   "what": "L'auto-approbation des commandes shell suit une garde positive : allowlist explicite, denylist peut toujours bloquer, wildcard '*' permitif, et match le plus long gagne.",
+   "how": "src/core/auto-approval/commands.ts:118-139 : une commande n'est auto-approuvee que si elle matche l'allowlist explicite ET ne matche pas la denylist (ou matche une entree allowlist plus longue) ; le wildcard '*' dans l'allowlist permet tout, la denylist peut quand meme bloquer (commands.ts:139) ; charge par AutoApprovalHandler (AutoApprovalHandler.ts:13). Omega : ExecPolicy actuel n'a que le set statique ; le pattern allow/deny avec match le plus long est utile.",
+   "omega_capability": "exec-policy",
+   "omega_port": "ExecPolicy",
+   "omega_adapter": "omega-core (exec-policy allow/deny, le plus long gagne)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/core/auto-approval/commands.ts:118-139"
+   ]
+  },
+  {
+   "id": "roo-validate-tool-use",
+   "domain": "securite",
+   "name": "validateToolUse : nom connu + permis par mode, avant execution",
+   "what": "Un garde unique d'un appel d'outil avant execution : nom valide, outil permis pour le mode courant, exigences par outil.",
+   "how": "src/core/tools/validateToolUse.ts:32-60 : isValidToolName rejette les outils inconnus (validateToolUse.ts:38-41) ; isToolAllowedForMode (validateToolUse.ts:120) croise mode + customModes + toolRequirements + params. Omega : ExecPolicy + PermissionPolicy couvrent ; le mode est ici la cle d'organisation (croise avec custom-modes).",
+   "omega_capability": "permission-policy",
+   "omega_port": "PermissionPolicy",
+   "omega_adapter": "omega-core (validate tool-use avant execution)",
+   "integration": "native",
+   "status": "rejected",
+   "rust_cost": "S",
+   "refs": [
+    "src/core/tools/validateToolUse.ts:32-60"
+   ]
+  },
+  {
+   "id": "roo-custom-modes",
+   "domain": "agents",
+   "name": "Modes composable utilisateur avec prompts et outils par delta",
+   "what": "Un systeme orthogonal de modes (architect, code, debug...) dont chacun possede son role, ses prompts et ses outils requis ; defini par l'utilisateur (.roomodes a hot reload).",
+   "how": "src/core/config/CustomModesManager.ts:19 ROOMODES_FILENAME='.roomodes' chargee depuis le workspace root (CustomModesManager.ts:101) ; le schema modeConfigSchema (@roo-code/types) tient roleDefinition, groupes d'outils, promptComponent (CustomModesManager.ts:9) ; config import/exportable (src/core/config/importExport.ts). Omega : omega-app::App agents ; l'ecart : definition de mode par dossier workspace avec hot reload",
+   "omega_capability": "agent-store",
+   "omega_port": "SubagentRunner",
+   "omega_adapter": "omega-app (modes definis par dossier workspace)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "src/core/config/CustomModesManager.ts:19-101"
+   ]
+  },
+  {
+   "id": "roo-checkpoints",
+   "domain": "contexte",
+   "name": "Checkpoints shadow-git : snapshot du workspace par etape taske",
+   "what": "Avant chaque modification, un snapshot de l'etat de l'espace de travail (shadow git) permet de restituer/remonte a n'importe quelle etape.",
+   "how": "src/services/checkpoints/RepoPerTaskCheckpointService (RepoPerTaskCheckpointService.ts:6) extends ShadowCheckpointService (ShadowCheckpointService.ts:79) = git cache par task ; restore passe par le webview handler (src/core/webview/checkpointRestoreHandler.ts). Omega : omega-core a des effets reversibles dans le registre mais pas de snapshot FS par tache.",
+   "omega_capability": "context-engine",
+   "omega_port": "ContextEngine",
+   "omega_adapter": "omega-sandbox (checkpoints shadow-git)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "L",
+   "refs": [
+    "src/services/checkpoints/ShadowCheckpointService.ts:79",
+    "src/services/checkpoints/RepoPerTaskCheckpointService.ts:6"
+   ]
+  },
+  {
+   "id": "roo-condense-folded",
+   "domain": "contexte",
+   "name": "Condense fichier : contexte de fichier en signatures only",
+   "what": "Economie de contexte : le contenu d'un fichier est replie pour ne garder que les signatures (functions/classes) avec des renvois numeriques de ligne.",
+   "how": "src/core/condense/foldedFileContext.ts:48-76 : generateFoldedFileContext decrit chaque bloc de signature par `1--15 | export function formatDate(...)` (foldedFileContext.ts:67-68). Omega : le port ContextEngine couvre la compaction chez provider ; le pattern FoldedFileContext est un format disjoint (fold-map numerique) transposable.",
+   "omega_capability": "context-engine",
+   "omega_port": "ContextEngine",
+   "omega_adapter": "omega-context (folded file context)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/core/condense/foldedFileContext.ts:1-76"
+   ]
+  },
+  {
+   "id": "roo-providers",
+   "domain": "routage",
+   "name": "Registre de 30+ providers composes sur une base compat OpenAI",
+   "what": "Registre de providers d'entree : anthropic, bedrock, vertex, openrouter, openai-native, deepseek, fireworks, gemini, poe, unbound, ollama local, VSCode LM, vercel AI gateway, etc.",
+   "how": "src/api/providers/*.ts ; base-openai-compatible-provider.ts factorise toutes les familles de providers compatibles OpenAI (base unique+) ; router-provider.ts en couche de composition. Omega : omega-router + omega-providers couvrent deja un registre multiple ; le pattern a refactoriser est la base communitaire compatible OpenAI par derive.",
+   "omega_capability": "llm-provider",
+   "omega_port": "Provider",
+   "omega_adapter": "omega-providers (base commune pour compat OpenAI)",
+   "integration": "plugin",
+   "status": "rejected",
+   "rust_cost": "S",
+   "refs": [
+    "src/api/providers/base-openai-compatible-provider.ts",
+    "src/api/providers/index.ts"
+   ]
+  },
+  {
+   "id": "roo-mentions",
+   "domain": "contexte",
+   "name": "Mentions unifiees : @fichier, @terminal, @image, @url resolues dans le message",
+   "what": "Un message utilisateur peut citer @fichier, dossier, @screen terminal, image, url ou probleme IDE ; chaque mention est resolue en contenu prompt avant envoi.",
+   "how": "src/core/mentions/processUserContentMentions.ts + resolveImageMentions.ts decouvrent et remplacent chaque mention en un fragment exploitable. Omega : utile pour un resolver de data-sources (mention=data source) sur ContextEngine.",
+   "omega_capability": "context-engine",
+   "omega_port": "ContextEngine",
+   "omega_adapter": "omega-context (resolver de mentions)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/core/mentions/processUserContentMentions.ts"
+   ]
+  },
+  {
+   "id": "roo-code-index",
+   "domain": "contexte",
+   "name": "Index de code semantique : embedders + orchestrator + search + cache",
+   "what": "Index semantique du code : embedders faciles a changer (openai/ollama/gemini/voyage), parseur tree-sitter, cache persistant, service de recherche hybride.",
+   "how": "src/services/code-index : CodeIndexManager (manager.ts:17), CodeIndexOrchestrator (orchestrator.ts:13), CodeIndexSearchService (search-service.ts:11), CodeIndexServiceFactory (service-factory.ts:31) injecte les dependances ; CacheManager (cache-manager.ts:10) ; embedders dans interfaces/. Omega : omega-context a ToolSurface BM25 ; l'ecart : index semantique par embeddings configurables.",
+   "omega_capability": "context-engine",
+   "omega_port": "CatalogSource",
+   "omega_adapter": "omega-context (index semantique par embedder)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "src/services/code-index/manager.ts:17-31",
+    "src/services/code-index/service-factory.ts:29-31"
+   ]
+  },
+  {
+   "id": "roo-skills",
+   "domain": "contexte",
+   "name": "Skills invocables par mode : systeme de contenu ad hoc",
+   "what": "Le tool skill charge et applique un skill du workspace selon le mode courant.",
+   "how": "src/core/tools/SkillTool.ts:16 class SkillTool extends BaseTool ; resolveSkillContentForMode(skillsManager, skillName, currentMode) (SkillTool.ts:51) ; SkillsManager (src/services/skills/SkillsManager.ts:21). Omega : CatalogSource + ToolSurface hydratent ; l'ecart : le detabpacage de contenu estDONE au niveau ToolSurface.",
+   "omega_capability": "skill-store",
+   "omega_port": "CatalogSource",
+   "omega_adapter": "omega-context (ToolSurface skills par mode)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/core/tools/SkillTool.ts:16-51",
+    "src/services/skills/SkillsManager.ts:21"
+   ]
+  },
+  {
+   "id": "roo-mcp",
+   "domain": "extension",
+   "name": "MCP client integre : tools + resources geres depuis des serveurs distants",
+   "what": "Client MCP unifie : tools ammenees, resources chargees, auto-approbation par serveur.",
+   "how": "src/services/mcp + core/tools/UseMcpToolTool.ts / accessMcpResourceTool.ts : chaque serveur MCP declare ses tools qui rejoignent le toolset du modele. Omega : catalogue deja gere par plugin/api ; l'interfacing MCP se couvre au-dessus du ToolSurface.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolSurface",
+   "omega_adapter": "omega-context::ToolSurfaceIndex (catalogue MCP)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "src/core/tools/UseMcpToolTool.ts"
+   ]
+  },
+  {
+   "id": "roo-ipc",
+   "domain": "extension",
+   "name": "Serveur IPC workspace : surface programmatique de l'extension",
+   "what": "Une surface programmatique (node-ipc) expose les capacites de l'extension (demarrage de task, config, etat) a des processus externes.",
+   "how": "packages/ipc/src/ipc-server.ts + ipc-client.ts echangent via node-ipc (ipc-client.ts:13) ; nom d'instance unique `roo-code-ipc-${hex}` (ipc-client.ts:27). Omega : comparable a un plugin v2 omega : la surface programmatique locale du core (exporte par omega-server).",
+   "omega_capability": "tool",
+   "omega_port": "—",
+   "omega_adapter": "omega-server (surface programmatique locale)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "packages/ipc/src/ipc-server.ts",
+    "packages/ipc/src/ipc-client.ts:13-30"
+   ]
+  },
+  {
+   "id": "roo-costs",
+   "domain": "observabilite",
+   "name": "Tracing de cout : tokens et prix par requete, agreges par task",
+   "what": "Cout mesure pour chaque requete (tokens entree/sortie, prix source), agreges par task et exposes au webview.",
+   "how": "src/core/webview/aggregateTaskCosts.ts agrege les couts par task ; l'aggregate alimente le compte de run. Omega : omega-otel + EventStore capture deja ; pattern a ajouter : prix de la demande reconstruit par provider.",
+   "omega_capability": "telemetry-sink",
+   "omega_port": "TelemetrySink",
+   "omega_adapter": "omega-app (aggregate de couts par run)",
+   "integration": "native",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "src/core/webview/aggregateTaskCosts.ts"
+   ]
+  }
+ ]
+}

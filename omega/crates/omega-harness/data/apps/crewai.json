@@ -1,0 +1,492 @@
+{
+  "schema_version": 1,
+  "id": "crewai",
+  "name": "CrewAI",
+  "editor": "CrewAI Inc.",
+  "oss": true,
+  "language": "Python",
+  "license": "MIT",
+  "repo": "https://github.com/crewAIInc/crewAI",
+  "architecture": "Monorepo uv (lib/* : crewai, crewai-core, crewai-tools, crewai-files, cli, devtools) : framework d'orchestration multi-agents en Python. Un Crew = liste d'Agents (role/goal/backstory) + liste de Tasks, execute en process sequentiel ou hierarchique (manager agent/LLM). Le moteur d'agent est lui-meme un Flow (boucle ReAct etatisee). Les Flows forment un graphe start/listen/router avec etat persiste (SQLite). Memoire unifiee analysee par LLM (LanceDB/Qdrant, scopes/poids), knowledge vectorielle ChromaDB, bus d'evenements typable + hooks d'interception + tracing OpenTelemetry. Couche LLM LiteLLM (multi-fournisseurs), integrations MCP (stdio/HTTP/SSE) et A2A (agent card HTTP).",
+  "entrypoints": [
+    "API Python : Crew(...).kickoff() / kickoff_async (lib/crewai/src/crewai/crew.py:995)",
+    "API Python : Flow(...).kickoff() (lib/crewai/src/crewai/flow/flow.py:33)",
+    "LiteAgent : agent leger single-run (lib/crewai/src/crewai/lite_agent.py:193)",
+    "CLI crewai (lib/cli/src/crewai_cli : create_crew/create_flow/run/deploy/train/evaluate)",
+    "Serveur A2A : kickoff_with_a2a + agent card HTTP (lib/crewai/src/crewai/a2a/wrapper.py:97,175)"
+  ],
+  "functionalities": [
+    {
+      "id": "crw-agent-identity",
+      "domain": "agents",
+      "name": "Agent = role/goal/backstory + allow_delegation",
+      "what": "Un agent est un triplet identitaire (role, goal, backstory) injecte dans le system prompt, avec delegation, retries et limites de temps reglables par instance.",
+      "how": "BaseAgent (agents/agent_builder/base_agent.py:186) porte role/goal/backstory (l.255-257) et allow_delegation (l.278) ; la sous-classe Agent (agent/core.py:213) ajoute max_retry_limit (l.301), max_execution_time (l.253), respect_context_window (l.293). Les valeurs originales sont conservees en PrivateAttr (_original_role/goal/backstory) pour la serialization.",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore (define/load)",
+      "omega_adapter": "plugins/agent-identity (schema Agent + system prompt compose)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "lib/crewai/src/crewai/agents/agent_builder/base_agent.py:186-278",
+        "lib/crewai/src/crewai/agent/core.py:213-331"
+      ]
+    },
+    {
+      "id": "crw-agent-executor-flow",
+      "domain": "agents",
+      "name": "AgentExecutor : boucle ReAct etatisee implementee comme Flow",
+      "what": "La boucle agent (penser/agir/repondre) est un automate a etats : a chaque iteration on route vers l'action outil, la continuation du raisonnement ou la finale ; au-dela de max_iter on force la reponse finale au lieu de boucler.",
+      "how": "AgentExecutor herite de Flow[AgentExecutorState] (agents/agent_executor.py:187) avec max_iter=25 (l.211), un routeur @router(force_final_answer) (l.1600-1610) et check_max_iterations retournant 'force_final_answer' (l.2411-2418) avec message formate (handle_max_iterations_exceeded).",
+      "omega_capability": "orchestrator",
+      "omega_port": "AgentRunner (boucle step/route/finalise)",
+      "omega_adapter": "plugins/agent-executor (automate etatise + garde max_iter)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/agents/agent_executor.py:149-262",
+        "lib/crewai/src/crewai/agents/agent_executor.py:1600-1610",
+        "lib/crewai/src/crewai/agents/agent_executor.py:2411-2418"
+      ]
+    },
+    {
+      "id": "crw-delegation-tools",
+      "domain": "agents",
+      "name": "Delegation par outils (delegate_work / ask_question)",
+      "what": "Dans le process hierarchique, le manager delegue en appelant deux outils synthetiques : delegate_work (confie une sous-mission a un pair) et ask_question (interroge un pair), cibles choisies par leur role cite dans le prompt.",
+      "how": "AgentTools.tools() (tools/agent_tools/agent_tools.py:16-33) construit DelegateWorkTool (delegate_work_tool.py:16) et AskQuestionTool (ask_question_tool.py:14) avec descriptions I18N listant les roles des coworkers ; allow_delegation conditionne leur presence.",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/ask)",
+      "omega_adapter": "plugins/delegation-tools (outil pair vers SubagentRunner)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/tools/agent_tools/agent_tools.py:16-33",
+        "lib/crewai/src/crewai/tools/agent_tools/delegate_work_tool.py:16-22",
+        "lib/crewai/src/crewai/tools/agent_tools/ask_question_tool.py:14"
+      ]
+    },
+    {
+      "id": "crw-crew-process",
+      "domain": "execution",
+      "name": "Crew sequentiel vs hierarchique (manager agent/LLM)",
+      "what": "Un Crew orchestre ses taches selon deux process : sequentiel (chaque tache a son agent) ou hierarchique (un manager auto-instantie attribue chaque tache et agrège les sorties).",
+      "how": "Crew (crew.py:164) dispatche vers _run_sequential_process (l.1522) ou _run_hierarchical_process (l.1526) selon Process (process.py:4-10) ; _create_manager_agent (l.1531) construit le manager a partir de manager_llm (l.278) ou manager_agent (l.283), avec validations check_manager_llm (l.725-741) et interdiction que le manager figure dans agents (l.737-741).",
+      "omega_capability": "orchestrator",
+      "omega_port": "Orchestration (sequence/hierarchy)",
+      "omega_adapter": "plugins/crew-process (sequence + hierarchy manager)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "lib/crewai/src/crewai/crew.py:164-358",
+        "lib/crewai/src/crewai/crew.py:1056-1058",
+        "lib/crewai/src/crewai/crew.py:1522-1571",
+        "lib/crewai/src/crewai/process.py:4-10"
+      ]
+    },
+    {
+      "id": "crw-task-graph",
+      "domain": "execution",
+      "name": "Tasks : contexte, parallelisme, sorties structurees, human_input",
+      "what": "Une Tache est une unitee de travail (description + expected_output) qui recoit le contexte des taches amont, peut tourner en parallele, impose une sortie JSON/Pydantic, persiste dans un fichier et peut demander une validation humaine.",
+      "how": "Task (task.py:120) : context: list[Task] (l.167), async_execution (l.171), output_json/output_pydantic (l.175-185), output_file + create_directory (l.205-210), human_input (l.233), callback post-execution (l.160) ; crews/utils.py:163 assemble tools/taches amont par tache.",
+      "omega_capability": "orchestrator",
+      "omega_port": "Orchestration (taches + contexte)",
+      "omega_adapter": "plugins/task-graph (contexte amont + sorties typées)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/task.py:120-233",
+        "lib/crewai/src/crewai/crews/utils.py:140-175"
+      ]
+    },
+    {
+      "id": "crw-conditional-task",
+      "domain": "execution",
+      "name": "ConditionalTask (skip conditionnel)",
+      "what": "Tache optionnelle : une fonction condition evaluee sur la sortie de la tache precedente decide si elle s'execute ou est sautee.",
+      "how": "ConditionalTask(Task) (tasks/conditional_task.py:14) ajoute le champ condition: Callable[[Any], bool] (l.28-39), valide en field_validator.",
+      "omega_capability": "orchestrator",
+      "omega_port": "Orchestration (gating)",
+      "omega_adapter": "plugins/conditional-task (predicate sur output precedent)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "lib/crewai/src/crewai/tasks/conditional_task.py:14-39"
+      ]
+    },
+    {
+      "id": "crw-crew-planning",
+      "domain": "execution",
+      "name": "Planning prealable (CrewPlanner) + planning_config",
+      "what": "Option planning=True : avant execution, un planner LLM produit un plan pas-a-pas par tache qui est injecte dans chaque tache ; le ancien 'reasoning' par agent est deprecie au profit de PlanningConfig(max_attempts).",
+      "how": "Champ planning (crew.py:347-351) + planning_llm (l.351-358) ; CrewPlanner (utilities/planning_handler.py:37) preprompte un agent planner (defaut gpt-5.4-mini, l.55) et retourne PlannerTaskPydanticOutput (_handle_crew_planning, l.57) ; agent/core.py:331-344 deprecie reasoning au profit de planning_config.",
+      "omega_capability": "planner",
+      "omega_port": "Planner (plan -> taches)",
+      "omega_adapter": "plugins/crew-planner (plan LLM injecte en contexte)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/crew.py:347-358",
+        "lib/crewai/src/crewai/utilities/planning_handler.py:37-58",
+        "lib/crewai/src/crewai/agent/core.py:331-446"
+      ]
+    },
+    {
+      "id": "crw-train-replay",
+      "domain": "execution",
+      "name": "Boucles d'evaluation : train / test / replay / kickoff_for_each",
+      "what": "Le pilote peut entrainer un crew sur des exemples (ajustement de prompts), le tester avec des metrics, rejouer depuis une tache donnee en reutilisant les sorties stockees, et batcher des kickoffs en entrees multiples.",
+      "how": "Crew.train (crew.py:943), Crew.test (l.2299), Crew.replay(task_id) (l.2101) qui restaure les sorties des taches precedentes depuis le stockage, kickoff_for_each (l.1099) + variante async (l.1189).",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (replay)",
+      "omega_adapter": "omega-otel::TraceReplayer (rejeu depuis journal)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/crew.py:943-1099",
+        "lib/crewai/src/crewai/crew.py:2101-2186",
+        "lib/crewai/src/crewai/crew.py:2299"
+      ]
+    },
+    {
+      "id": "crw-guardrails",
+      "domain": "securite",
+      "name": "Guardrails de sortie (fonction / LLM / hallucination) + retries",
+      "what": "Chaque sortie de tache peut etre validee avant de passer a la suite : par une fonction (reponse validee ou correction proposee), par un garde LLM, ou par un detecteur d'hallucination ; en echec la tache est relancee jusqu'a un plafond de retries.",
+      "how": "Champs guardrail(s) + guardrail_max_retries=3 (task.py:252-280) avec validateurs de signature (l.315-393) ; process_guardrail (utilities/guardrail.py:123) retourne GuardrailResult (l.60) ; LLMGuardrail (tasks/llm_guardrail.py:49) et HallucinationGuardrail (tasks/hallucination_guardrail.py:20) ; events emis via llm_guardrail_events.",
+      "omega_capability": "output-guardrail",
+      "omega_port": "OutputGuardrail (validate/rewrite)",
+      "omega_adapter": "plugins/guardrails (chaine validate-correction-retry)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/task.py:252-393",
+        "lib/crewai/src/crewai/utilities/guardrail.py:60-123",
+        "lib/crewai/src/crewai/tasks/llm_guardrail.py:39-49",
+        "lib/crewai/src/crewai/tasks/hallucination_guardrail.py:20"
+      ]
+    },
+    {
+      "id": "crw-memory-unified",
+      "domain": "memoire",
+      "name": "Memoire unifiee analysee par LLM (scopes, poids composites, stockage LanceDB/Qdrant)",
+      "what": "Une memoire standalone (sans agent) qui, a chaque save, demande a un LLM d'inférerer scope/categories/importance, stocke dans un backend vectoriel pluggable, et score les rappels par combinaison recency/semantic/importance avec consolidation des doublons.",
+      "how": "Memory (memory/unified_memory.py:76) : llm d'analyse (l.88-92), storage lancedb/qdrant (l.93-97, dispatch l.248-254), poids recency/semantic/importance 0.3/0.5/0.2 avec demi-vie (l.100-115), consolidation_threshold 0.85 (l.116-120) ; MemoryScope/MemorySlice (memory_scope.py:39,229) bornent les vues ; MemoryConfig (types.py:135) ; backends LanceDBStorage (storage/lancedb_storage.py:65) et QdrantEdgeStorage (l.81).",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (save/recall/scope)",
+      "omega_adapter": "plugins/memory-unified (analyse LLM + score composite + backend vectoriel)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "lib/crewai/src/crewai/memory/unified_memory.py:76-254",
+        "lib/crewai/src/crewai/memory/memory_scope.py:39-229",
+        "lib/crewai/src/crewai/memory/types.py:20-135",
+        "lib/crewai/src/crewai/memory/storage/lancedb_storage.py:65",
+        "lib/crewai/src/crewai/memory/storage/qdrant_edge_storage.py:81"
+      ]
+    },
+    {
+      "id": "crw-memory-recall",
+      "domain": "memoire",
+      "name": "Recall adaptatif (RecallFlow) + analyse de pertinence",
+      "what": "Le rappel n'est pas un simple top-k : un Flow determine la profondeur de recherche selon le contexte (taille/categories du scope), et une passe LLM classe l'importance des elements recuperees.",
+      "how": "RecallFlow (memory/recall_flow.py:58) orchestre une retrieval a profondeur adaptive (docstring l.3) ; MemoryAnalysis (memory/analyze.py:37-47) = categories/importance infers, fonction infer (l.281-293) alimentee par les categories existantes (l.227).",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (recall)",
+      "omega_adapter": "plugins/memory-recall (profondeur adaptive)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/memory/recall_flow.py:3-58",
+        "lib/crewai/src/crewai/memory/analyze.py:37-293"
+      ]
+    },
+    {
+      "id": "crw-knowledge",
+      "domain": "contexte",
+      "name": "Knowledge sources + vector store ChromaDB",
+      "what": "Connaissance statique injectee en contexte : sources fichier (txt/csv/json/pdf/excel/string/docling) chunked et indexees dans un store vectoriel, interrogeable en direct (query_knowledge).",
+      "how": "Knowledge (knowledge/knowledge.py:88-116) = sources + storage ; sources specialisees (knowledge/source/* : csv_knowledge_source.py:8, json_knowledge_source.py:8, pdf_knowledge_source.py:8, excel_knowledge_source.py:12, string_knowledge_source.py:8, crew_docling_source.py:82) heritant de BaseFileKnowledgeSource (l.13) ; KnowledgeStorage (storage/knowledge_storage.py:22-47) configure ChromaDB ; Crew.query_knowledge (crew.py:2143).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (sources + retrieval)",
+      "omega_adapter": "plugins/knowledge-sources (sources typees + index vectoriel)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/knowledge/knowledge.py:88-116",
+        "lib/crewai/src/crewai/knowledge/source/base_file_knowledge_source.py:13",
+        "lib/crewai/src/crewai/knowledge/storage/knowledge_storage.py:22-47",
+        "lib/crewai/src/crewai/crew.py:2143"
+      ]
+    },
+    {
+      "id": "crw-tool-contract",
+      "domain": "outils",
+      "name": "BaseTool + decorateur @tool + ToolUsage avec cache par appel",
+      "what": "Contrat d'outil pydantic : schema d'entree auto-genere depuis la signature, execution via ToolUsage qui normalise l'appel LLM, dedoublonne via un cache (tool|input) et decide du cacheage par une fonction cache_function arbitraire.",
+      "how": "BaseTool (tools/base_tool.py:103) + decorateur @tool (l.678-701) ; ToolUsage.use (tools/tool_usage.py:84-148) lit le cache (l.294-312) et ecrit via cache_function(argument,result) (l.377-390) ; CacheHandler (agents/cache/cache_handler.py:10) + outil maison CacheTools (tools/cache_tools/cache_tools.py:10-30).",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/tools/base_tool.py:103-701",
+        "lib/crewai/src/crewai/tools/tool_usage.py:84-390",
+        "lib/crewai/src/crewai/agents/cache/cache_handler.py:10",
+        "lib/crewai/src/crewai/tools/cache_tools/cache_tools.py:10-30"
+      ]
+    },
+    {
+      "id": "crw-tool-failure",
+      "domain": "outils",
+      "name": "Politique d'echec d'outil (retryable / abort) + evenements",
+      "what": "Un echec d'outil n'est pas silencieux : il est type (ToolFailureReason), marque retryable ou non, emis en evenement, et la politique decide relance ou abort propre avec message.",
+      "how": "ToolFailurePolicy (tools/tool_failure.py:60) : record + emit + abort ; ToolFailure (l.74-100) porte retryable (l.98) ; construction depuis l'exception (l.169-176) ; isolation des retries (l.275) ; politique appliquee par BaseTool.",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy (tool failure)",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "lib/crewai/src/crewai/tools/tool_failure.py:60-176",
+        "lib/crewai/src/crewai/tools/base_tool.py:41"
+      ]
+    },
+    {
+      "id": "crw-mcp",
+      "domain": "outils",
+      "name": "Integrations MCP (stdio/HTTP/SSE) + filtres d'outils",
+      "what": "Un crew peut consommer des outils exposees par des serveurs MCP distants ou locaux, avec trois transports, un cache de liste d'outils, et des filtres d'inclusion/exclusion contextuelles.",
+      "how": "MCPServerStdio (mcp/config.py:12), MCPServerHTTP (l.53), MCPServerSSE (l.90), chacun avec cache_tools_list (l.47,84,117) ; transports stdio/sse/http (mcp/client.py:39-41) ; ToolFilterContext + filtres (mcp/filters.py:17) ; outil natif MCPTool (tools/mcp_native_tool.py:13) ; tool_resolver.py resout les outils en BaseTool.",
+      "omega_capability": "mcp-bridge",
+      "omega_port": "McpBridge (connect/list/call)",
+      "omega_adapter": "plugins/mcp-client (transports stdio/http/sse + filtres)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/mcp/config.py:12-117",
+        "lib/crewai/src/crewai/mcp/client.py:39-41",
+        "lib/crewai/src/crewai/mcp/filters.py:17",
+        "lib/crewai/src/crewai/tools/mcp_native_tool.py:13"
+      ]
+    },
+    {
+      "id": "crw-flows",
+      "domain": "automatisation",
+      "name": "Flows : graphe start/listen/router + persistance d'etat + feedback humain",
+      "what": "Les Flows decomposent une automatisation en methode @start/@listen/@router formant un DAG oriente par les retours de router, avec etat partage persiste (SQLite), reprise apres feedback humain et visualisation.",
+      "how": "Flow (flow/flow.py:33) + DSL (flow/dsl/_start.py:18, _listen.py:18, _router.py:97) ; persistance : BaseFlowPersistence.save_state/load_state (flow/persistence/base.py:48-97), SqliteFlowPersistence.save_state (flow/persistence/sqlite.py:193), decorateur de sauvegarde (persistence/decorators.py:49-158) ; HumanFeedbackResult/Config (flow/human_feedback.py:150-194) pour pause/reprise.",
+      "omega_capability": "workflow-engine",
+      "omega_port": "FlowRuntime (kickoff/resume)",
+      "omega_adapter": "plugins/flow-runtime (DAG etatise + persistance + human-in-the-loop)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "lib/crewai/src/crewai/flow/flow.py:33",
+        "lib/crewai/src/crewai/flow/dsl/_start.py:18",
+        "lib/crewai/src/crewai/flow/dsl/_listen.py:18",
+        "lib/crewai/src/crewai/flow/dsl/_router.py:97",
+        "lib/crewai/src/crewai/flow/persistence/base.py:48-97",
+        "lib/crewai/src/crewai/flow/human_feedback.py:150-194"
+      ]
+    },
+    {
+      "id": "crw-event-bus",
+      "domain": "observabilite",
+      "name": "Bus d'evenements typable + listeners structurees",
+      "what": "Toute la vie du framework emet des evenements types (crew/agent/task/flow/llm/tool/mcp/memory/...) consommes par des listeners enregistrees avec @on(TypeEvent), ce qui separe le moteur du logging/UI.",
+      "how": "BaseEvent (events/base_events.py:66) ; EventBus.on(event_type, depends_on) (events/event_bus.py:245-280) et emit (l.572) ; types dedieses (events/types/* : crew_events, task_events, agent_events, llm_events, tool_usage_events, memory_events, ...) ; EventListener par defaut (events/event_listener.py:212-441) pour le rendu console.",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (+ TelemetrySink)",
+      "omega_adapter": "omega-app::FileEventStore + omega-otel::TraceReplayer",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/events/base_events.py:66",
+        "lib/crewai/src/crewai/events/event_bus.py:245-280",
+        "lib/crewai/src/crewai/events/event_bus.py:572",
+        "lib/crewai/src/crewai/events/event_listener.py:212-441"
+      ]
+    },
+    {
+      "id": "crw-hooks",
+      "domain": "extension",
+      "name": "Hooks d'interception (pre/post model/tool/step) + abort + portee",
+      "what": "Points d'interception fixes (frontiere execution, modele, outil, etape) ou un hook peut observer, transformer le resultat ou aborter l'operation ; portee globale ou scoped par contexte.",
+      "how": "InterceptionPoint enum : execution_start/input/output/execution_end, pre/post_model_call, pre/post_tool_call, pre/post_step (hooks/dispatch.py:40-61) ; HookAborted (l.75-84) ; registre register/unregister/clear (l.119-153) ; scoped_hooks via contextvars (l.103,160) ; reducers typed (hooks/tool_hooks.py:142).",
+      "omega_capability": "registry",
+      "omega_port": "Registre (register_hook)",
+      "omega_adapter": "omega-plugin-api (Hook live par point d'interception)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/hooks/dispatch.py:40-160",
+        "lib/crewai/src/crewai/hooks/tool_hooks.py:142"
+      ]
+    },
+    {
+      "id": "crw-otel-tracing",
+      "domain": "observabilite",
+      "name": "Tracing OpenTelemetry (spans) + mode ephemere locales avant consentement",
+      "what": "Les executions produisent des spans OTEL (crews/agents/taches/LLM) synchronisees parent-enfant via un contexte de spans, avec upload optionnel : les utilisateurs non authentifies gardent leurs traces en local (ephemeral) tant qu'ils n'ont pas consenti.",
+      "how": "TracerProvider OTEL + BatchSpanProcessor (telemetry/telemetry.py:30-33) ; TraceContext avec active_spans/pending_span_ends et verrous (telemetry/tracing/context.py:19-67) ; ephemeral.py garde les spans locales ; TraceListener auto-active l'ephemeral aux premieres executions (events/listeners/tracing/trace_listener.py:930-944).",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "omega_adapter": "omega-otel::{Stdout,File}Sink + omega-otel::Provenance",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/telemetry/telemetry.py:30-33",
+        "lib/crewai/src/crewai/telemetry/tracing/context.py:19-67",
+        "lib/crewai/src/crewai/telemetry/tracing/ephemeral.py:1",
+        "lib/crewai/src/crewai/events/listeners/tracing/trace_listener.py:930-944"
+      ]
+    },
+    {
+      "id": "crw-llm-layer",
+      "domain": "routage",
+      "name": "Couche LLM unifiee LiteLLM (lazy-load, streaming, RPM)",
+      "what": "Une seule classe LLM couvre des centaines de modeles via LiteLLM (charge en paresseux), avec streaming, function calling, parametres specifiques par fournisseur et limitation de debit RPM.",
+      "how": "Classe LLM (llm.py:258) ; litellm lazy-load pour eviter ses side-effects dotenv (l.86-132) ; streaming avec tool-calls incrementales (l.768-949) ; RPMController (utilities/rpm_controller.py:12-44) compte les requetes par fenetre.",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider (call/stream)",
+      "omega_adapter": "omega-providers::OllamaProvider",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/llm.py:86-132",
+        "lib/crewai/src/crewai/llm.py:258",
+        "lib/crewai/src/crewai/llm.py:768-949",
+        "lib/crewai/src/crewai/utilities/rpm_controller.py:12-44"
+      ]
+    },
+    {
+      "id": "crw-skills",
+      "domain": "extension",
+      "name": "Skills SKILL.md (frontmatter, registry, cache, niveaux d'activation)",
+      "what": "Les skills sont des dossiers contenant un SKILL.md avec frontmatter YAML, decouverts par scan, installes/registres, actives a differents niveaux de detail (resume vs instructions completes) et cachees.",
+      "how": "SKILL_FILENAME='SKILL.md' + parse_frontmatter (skills/parser.py:30-39) ; scan de repertoire (skills/loader.py:48-77) et construction depuis string/path (l.162-194) ; registry avec chemins qualifies et cache (skills/registry.py:134-154, skills/cache.py) ; niveaux d'activation INSTRUCTIONS (loader.py:297-305).",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "omega_adapter": "omega-context::SkillIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "lib/crewai/src/crewai/skills/parser.py:30-39",
+        "lib/crewai/src/crewai/skills/loader.py:48-194",
+        "lib/crewai/src/crewai/skills/registry.py:134-154"
+      ]
+    },
+    {
+      "id": "crw-yaml-config",
+      "domain": "configuration",
+      "name": "Crews declaratifs YAML (agents.yaml / tasks.yaml)",
+      "what": "Classe @CrewBase liant un crew a des fichiers YAML de config (agents, taches) : le code ne contient plus que la wiring, le contenu reste declaratif et rechargable.",
+      "how": "crew_base.py : decorateur posant agents_config='config/agents.yaml' et tasks_config='config/tasks.yaml' (project/crew_base.py:154-156), resolution depuis le repertoire du projet et load_yaml safe (l.343-392) ; wrappers.py:115 reexporte load_yaml injectable.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "omega_adapter": "omega-config (couches + precedence)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "lib/crewai/src/crewai/project/crew_base.py:154-156",
+        "lib/crewai/src/crewai/project/crew_base.py:343-392",
+        "lib/crewai/src/crewai/project/wrappers.py:115-132"
+      ]
+    },
+    {
+      "id": "crw-a2a",
+      "domain": "execution",
+      "name": "Protocole A2A : exposition HTTP d'un agent/crew + agent card",
+      "what": "N'importe quel agent ou crew devient un serveur agent-to-agent conforme : une agent card decrit la capacite, les requests sont des tasks A2A asynchrones avec etats/updates.",
+      "how": "wrap_agent_with_a2a_instance (a2a/wrapper.py:97) recupere/fetch l'AgentCard (l.252-262, fetch concurrent) ; kickoff_with_a2a / kickoff_async_with_a2a exposent le crew (l.175-202) ; types/errors/updates dedieses (a2a/types.py, errors.py:443).",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-server (endpoint agent + agent card)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/a2a/wrapper.py:97-262",
+        "lib/crewai/src/crewai/a2a/types.py",
+        "lib/crewai/src/crewai/a2a/errors.py:443"
+      ]
+    },
+    {
+      "id": "crw-lite-agent",
+      "domain": "agents",
+      "name": "LiteAgent : agent leger single-run sans Crew",
+      "what": "Execution d'un agent autonome (system prompt + outils + model) sans l'appareil Crew, pour les cas simples, avec gestion du depassement de contexte et evenements dedieses.",
+      "how": "LiteAgent (lite_agent.py:193) : tools (l.225), respect_context_window (l.242), kickoff (l.501) / kickoff_async (l.805), FlowTrackable ; detection is_context_length_exceeded + handle_context_length (l.87-93) ; events lite_agent_execution_* (events/event_listener.py:314-332).",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentRunner",
+      "omega_adapter": "plugins/lite-agent (run simple + garde contexte)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "lib/crewai/src/crewai/lite_agent.py:193-501",
+        "lib/crewai/src/crewai/lite_agent.py:805",
+        "lib/crewai/src/crewai/events/event_listener.py:314-332"
+      ]
+    },
+    {
+      "id": "crw-agent-adapters",
+      "domain": "extension",
+      "name": "Adaptateurs LangGraph / OpenAI Agents (ecarte : dependances Python externes)",
+      "what": "ECARTE : CrewAI peut enrober des agents LangGraph et l'OpenAI Agents SDK comme s'ils etaient des agents CrewAI ; l'interop depend de ces framework Python et n'a pas d'equivalent Rust.",
+      "how": "BaseAgentAdapter (agents/agent_adapters/base_agent_adapter.py:15), LangGraphAgentAdapter (langgraph/langgraph_adapter.py:40) et OpenAIAgentAdapter (openai_agents/openai_adapter.py:51) plus convertisseurs d'outil/sortie ; hors perimetre Omega (Rust core) : rejoue uniquement comme etude du pattern adaptateur.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "rejected",
+      "status": "rejected",
+      "rust_cost": "L",
+      "refs": [
+        "lib/crewai/src/crewai/agents/agent_adapters/base_agent_adapter.py:15",
+        "lib/crewai/src/crewai/agents/agent_adapters/langgraph/langgraph_adapter.py:40",
+        "lib/crewai/src/crewai/agents/agent_adapters/openai_agents/openai_adapter.py:51"
+      ]
+    },
+    {
+      "id": "crw-security-fingerprint",
+      "domain": "securite",
+      "name": "Fingerprint deterministe d'agent (identite stable)",
+      "what": "Chaque agent porte une empreinte UUID derivée d'un seed (role/goal/backstory), stable dans le temps et servant d'identite de provenance pour les traces et la telemetry.",
+      "how": "Fingerprint (security/fingerprint.py:41) : generation depuis seed via _generate_uuid (l.75-90), validateur de metadata (l.17), champs uuid/created_at derives (l.61-71) ; integre aux agents comme identite de suivi.",
+      "omega_capability": "provenance",
+      "omega_port": "Provenance",
+      "omega_adapter": "omega-otel::Provenance",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "lib/crewai/src/crewai/security/fingerprint.py:17-91"
+      ]
+    }
+  ]
+}

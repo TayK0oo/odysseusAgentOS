@@ -1,0 +1,24 @@
+{
+  "id": "dsh-desktop",
+  "name": "DSH Desktop",
+  "repo": "anywhere-labs/dsh-desktop",
+  "stars": 31119,
+  "language": "TypeScript",
+  "license": "MIT",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "deja clone",
+  "status": "analyzed",
+  "evidence_id": "ev_7da86dbd68ed73ad2e7a5c5ae87b3577cd72c973b0dbc348c3f1617d84c057b4",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "d0bd46b58afd95d4f4cf5232912b607c6584897409f3491c930d48f228251e83"
+  },
+  "counts": {
+    "graph_nodes": 6812,
+    "graph_edges": 12028
+  },
+  "limitations_count": 1079
+}

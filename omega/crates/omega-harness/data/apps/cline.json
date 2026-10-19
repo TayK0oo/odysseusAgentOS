@@ -1,0 +1,341 @@
+{
+  "schema_version": 1,
+  "id": "cline",
+  "name": "Cline",
+  "editor": "Cline",
+  "oss": true,
+  "language": "TypeScript",
+  "license": "Apache-2.0",
+  "repo": "https://github.com/cline/cline",
+  "architecture": "Monorepo TypeScript (SDK + apps) : un runtime d'agent stateless (`@cline/agents`) pilote par tours, un noyau `@cline/core` (outils, MCP, checkpoints git, cron, equipes) et des hotes (CLI headless/TUI, VS Code, hub cloud) ; contrats partages dans `@cline/shared`, LLM via `@cline/llms`.",
+  "entrypoints": [
+    "CLI headless (`apps/cli`, `run-agent`)",
+    "extension VS Code",
+    "Cline Hub (SaaS)",
+    "SDK `@cline/sdk` (Agent + createTool)",
+    "connecteurs messagerie (Telegram/Slack/Discord/WhatsApp/gchat/Linear)"
+  ],
+  "functionalities": [
+    {
+      "domain": "execution",
+      "how": "`AgentRuntime` dans sdk/packages/agents/src/agent-runtime.ts prepare chaque tour (prompt systeme + outils), appelle le modele, execute les tool calls puis boucle ; borne anti-divergence : MAX_TOKENS_RECOVERY_LIMIT=3 avec nudge de concision, retry backoff borne sur erreurs provider transient uniquement (jamais auth/contexte), messages terminaux dedies filtre-contenu vs reponse vide, et double garde overflow fenetre-contexte (compaction forcee puis echec explicite).",
+      "id": "cl-agent-runtime-loop",
+      "integration": "plugin",
+      "name": "Boucle agent avec recuperation bornee",
+      "omega_adapter": "plugins/agent-loop",
+      "omega_capability": "agent-runtime",
+      "omega_port": "AgentRunner (run/continue)",
+      "refs": [
+        "sdk/packages/agents/src/agent-runtime.ts:58-115",
+        "sdk/packages/agents/src/agent-runtime.ts:1-57"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Boucle tours modele -> outils avec retries backoff, relance concision apres troncature tokens, et echec explicite sur overflow de contexte."
+    },
+    {
+      "domain": "outils",
+      "how": "Neuf fabriques dans sdk/packages/core/src/extensions/tools/definitions.ts exposees par createDefaultTools: run_commands (shell), read_files (lecture paginee + cache oversized via URI cline://cache), search_codebase, fetch_web_content, apply_patch, editor, skills, ask_question (question a choix), submit_and_exit ; chaque outil declare nom/description/schema JSON strictement objet.",
+      "id": "cl-default-toolkit",
+      "integration": "plugin",
+      "name": "Boite a outils par defaut (9 outils)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "refs": [
+        "sdk/packages/core/src/extensions/tools/definitions.ts:915-981",
+        "sdk/packages/core/src/extensions/tools/definitions.ts:268-364"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Neuf outils natifs couvrant shell, fichiers, recherche, web, patch, skills et dialogue (ask_question / submit_and_exit)."
+    },
+    {
+      "domain": "extension",
+      "how": "Surcharges dans sdk/packages/shared/src/tools/create.ts:81-108 acceptant schema zod ou JSON brut, normalise via normalizeToolInputSchema (nettoie $schema zod-v4, exige top-level object, echoue fort sur branches non-objet) ; AgentTool (agent.ts:208) ajoute executionMode sequentiel/parallele, timeoutMs, retryable/maxRetries et lifecycle ; re-exporte par @cline/agents pour les auteurs d'outils.",
+      "id": "cl-sdk-create-tool",
+      "integration": "plugin",
+      "name": "SDK createTool (definition d'outils typee)",
+      "omega_adapter": "plugins/tool-sdk",
+      "omega_capability": "tool",
+      "omega_port": "Tool (define/execute)",
+      "refs": [
+        "sdk/packages/shared/src/tools/create.ts:81-138",
+        "sdk/packages/shared/src/agent.ts:208-228",
+        "sdk/packages/agents/src/index.ts:43"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Fabrique d'outils typee (zod ou JSON Schema) avec validation stricte, mode d'execution, timeout, retries et hooks de cycle de vie."
+    },
+    {
+      "domain": "extension",
+      "how": "Contrats dans sdk/packages/shared/src/hooks/contracts.ts (HookControl: cancel/review/context/overrideInput/systemPrompt/appendMessages) et evenements dans events.ts:58 (HookEventNameSchema: agent_start/resume/abort/end/error, tool_call/result, prompt_submit, pre_compact, session_shutdown) ; branchements via hook-file-hooks.ts (fichiers), hook-extension.ts et subprocess-runner.ts (sous-processus).",
+      "id": "cl-lifecycle-hooks",
+      "integration": "plugin",
+      "name": "Hooks de cycle de vie (10 evenements)",
+      "omega_adapter": "plugins/hook-runner",
+      "omega_capability": "hook",
+      "omega_port": "HookRunner (on/emit)",
+      "refs": [
+        "sdk/packages/shared/src/hooks/events.ts:58-71",
+        "sdk/packages/shared/src/hooks/contracts.ts:1-40",
+        "sdk/packages/core/src/hooks/subprocess-runner.ts:1-60"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Dix evenements de cycle de vie interceptables (start, tool_call/result, prompt_submit, pre_compact, shutdown) via fichiers, extensions ou sous-processus."
+    },
+    {
+      "domain": "execution",
+      "how": "Modes declares act | plan | yolo dans sdk/packages/shared/src/tasks.ts:57 et hub.ts:342 ; en plan, run_commands reste disponible en lecture seule et command-guard.ts:512 bloque toute commande modificatrice avec message oriente (explorer, presenter un plan, basculer en act apres approbation) ; masquage du texte non-commande (quotes, heredocs, echappements) avant analyse.",
+      "id": "cl-plan-act-modes",
+      "integration": "plugin",
+      "name": "Modes Plan / Act / Yolo + garde plan-mode",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "refs": [
+        "sdk/packages/shared/src/tasks.ts:56-57",
+        "sdk/packages/core/src/extensions/tools/command-guard.ts:1-20",
+        "sdk/packages/core/src/extensions/tools/command-guard.ts:512-521"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Trois modes d'autonomie ; en Plan, les commandes shell modificatrices sont bloquees avec consigne de produire un plan approuvable."
+    },
+    {
+      "domain": "securite",
+      "how": "Politiques par outil dans agent.ts:589 (toolPolicies: Record<string, ToolPolicy>) routees vers approbation ; la CLI expose --yolo/--auto-approve normalises (normalizeAutoApproveArgs) et des tool-policies par defaut (runtime/tool-policies.ts) ; les connecteurs messagerie ajoutent une garde allow/deny par acteur (ex. hook jq slack:team:user).",
+      "id": "cl-tool-approval",
+      "integration": "plugin",
+      "name": "Approbation par outil + politiques auto-approve",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "refs": [
+        "sdk/packages/shared/src/agent.ts:589",
+        "apps/cli/src/runtime/tool-policies.ts:1-60",
+        "sdk/packages/shared/src/connectors/platforms.ts:230-260"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Chaque outil a une politique d'approbation ; garde anti-spam cote connecteurs (allow/deny par acteur) et drapeaux --yolo normalises."
+    },
+    {
+      "domain": "outils",
+      "how": "InMemoryMcpManager (manager.ts:43) avec registre de serveurs, cache d'outils TTL 5s et verrous par operation ; client.ts (transport), config-loader.ts, policies.ts (garde-fous), remote-proxy.ts, oauth.ts, name-transform.ts ; pont vers outils natifs dans extensions/mcp/tools.ts avec resultPolicy cache-oversized ; installation via services/mcp-install.ts et CLI `mcp`.",
+      "id": "cl-mcp-bridge",
+      "integration": "plugin",
+      "name": "Pont MCP (manager + cache + politiques)",
+      "omega_adapter": "plugins/mcp-bridge",
+      "omega_capability": "mcp-bridge",
+      "omega_port": "McpBridge (register/call)",
+      "refs": [
+        "sdk/packages/core/src/extensions/mcp/manager.ts:43-80",
+        "sdk/packages/core/src/extensions/mcp/tools.ts:1-60",
+        "sdk/packages/shared/src/mcp.ts:1-51"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Gestionnaire MCP en memoire (cache TTL, OAuth, proxy distant, politiques) bridge vers les outils natifs avec recuperation des resultats surdimensionnes."
+    },
+    {
+      "domain": "contexte",
+      "how": "Chargeur unifie (user-instruction-config-loader.ts) resolvant .clinerules / AGENTS.md (paths.ts:57), repertoires rules/skills/workflows et frontmatter YAML ; skills au format SKILL.md parses par parseAgentSkillMarkdown (agent-plugin/agent-skill.ts) ; outil `skills` natif (definitions.ts:761) pour la divulgation progressive ; bascule frontmatter skill-frontmatter-toggle.ts.",
+      "id": "cl-rules-skills",
+      "integration": "plugin",
+      "name": "Regles .clinerules/AGENTS.md + skills SKILL.md",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "refs": [
+        "sdk/packages/shared/src/storage/paths.ts:53-57",
+        "sdk/packages/core/src/extensions/config/user-instruction-config-loader.ts:1-60",
+        "sdk/packages/core/src/extensions/tools/definitions.ts:761-818"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Instructions persistantes par projet (.clinerules, AGENTS.md) et skills decouvrables au format SKILL.md avec frontmatter, exposes via l'outil skills."
+    },
+    {
+      "domain": "memoire",
+      "how": "Avant chaque tour modifiant, checkpoint-hooks.ts cree un stash git prefixe `cline checkpoint session=` (avec index persistant par session pour la stat-cache des untracked et reaper 14j) ; checkpoint-diff.ts calcule le diff, checkpoint-restore.ts:478 restaure fichiers + messages, deleteCheckpointRefs nettoie ; expose dans ClineCore (checkpoint) et le hub runtime-host.",
+      "id": "cl-checkpoints-git",
+      "integration": "plugin",
+      "name": "Checkpoints git avec restauration",
+      "omega_adapter": "omega-app::FileEventStore",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (append/restore)",
+      "refs": [
+        "sdk/packages/core/src/hooks/checkpoint-hooks.ts:11-60",
+        "sdk/packages/core/src/session/checkpoint-restore.ts:1-60",
+        "sdk/packages/core/src/session/checkpoint-diff.ts:1-50"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Snapshot git automatique avant chaque mutation, avec diff, restauration fichiers+conversation et nettoyage des refs."
+    },
+    {
+      "domain": "agents",
+      "how": "Coordinateur (team-session-coordinator.ts:15-55) suit les runs d'equipe (queued/started/completed/failed/cancelled) et notifie les attendeurs ; outils natifs spawn-agent-tool.ts / configured-agent-tool.ts lancent des agents enfants durables ; team-child-session-manager.ts gere les sessions filles ; evenements durables vs volatils (heartbeat) distingues pour le resume.",
+      "id": "cl-team-multiagent",
+      "integration": "plugin",
+      "name": "Equipes multi-agents persistantes",
+      "omega_adapter": "plugins/subagent-isolated",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/resume)",
+      "refs": [
+        "sdk/packages/core/src/session/team/team-session-coordinator.ts:15-70",
+        "sdk/packages/core/src/extensions/tools/team/spawn-agent-tool.ts:1-60",
+        "sdk/packages/core/src/session/team/team-child-session-manager.ts:1-50"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Essaimage d'agents enfants persistants coordonnes (progression, heartbeat, reprise) avec outillage natif de spawn."
+    },
+    {
+      "domain": "routage",
+      "how": "Paquet @cline/llms abstrayant les fournisseurs (createGateway, classifyProviderError, isRetryableProviderError utilises par agent-runtime) ; adaptateur apihandler-agent-model-adapter.ts, catalogue cline-recommended-models.ts, selection par source model-source.ts, model-tool-routing.ts ; transcription/decouverte voix via getLocalTranscriptionModels.",
+      "id": "cl-multi-provider-gateway",
+      "integration": "plugin",
+      "name": "Passerelle multi-fournisseurs LLM",
+      "omega_adapter": "omega-providers::OllamaProvider",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider",
+      "refs": [
+        "sdk/packages/llms/src/providers.ts:1-60",
+        "sdk/packages/core/src/services/llms/apihandler-agent-model-adapter.ts:1-50",
+        "sdk/packages/core/src/services/providers/model-source.ts:1-50"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Abstraction gateway multi-provider avec classification d'erreurs retryables, routage d'outils par modele et catalogue de modeles recommandes."
+    },
+    {
+      "domain": "contexte",
+      "how": "Estimation de tokens (estimateTokens) et double pipeline : basic-compaction.ts (troncature) et agentic-compaction.ts (resume par modele) partageant compaction-shared.ts ; orchestration dans extensions/context/compaction.ts:812 et session/models/session-compaction.ts ; declenchee sur overflow reel (compteur provider) ou estime, avec pre_compact hookedes avant.",
+      "id": "cl-compaction-pipeline",
+      "integration": "plugin",
+      "name": "Compaction basique + agentique",
+      "omega_adapter": "omega-context::truncate_compact",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (compact)",
+      "refs": [
+        "sdk/packages/core/src/extensions/context/compaction.ts:1-60",
+        "sdk/packages/core/src/extensions/context/agentic-compaction.ts:1-50",
+        "sdk/packages/core/src/session/models/session-compaction.ts:1-50"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Double strategie de compaction (troncature deterministe ou resume agentique) declenchee par compteur provider reel, avec hook pre_compact."
+    },
+    {
+      "domain": "contexte",
+      "how": "Token-awareness explicite : estimateTokens borne les previews, resultPolicy cache-oversized pagine les resultats d'outils volumineux via URI cline://cache + read_files, limite 16 MiB/session avec eviction LRU et expiration apres 5 iterations sans lecture ; messages terminaux guides en cas d'overflow (reduire pieces jointes ou changer de modele).",
+      "id": "cl-context-budget",
+      "integration": "plugin",
+      "name": "Budget de contexte explicite + cache oversized",
+      "omega_adapter": "omega-context::ContextBudget",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine + ContextBudget",
+      "refs": [
+        "sdk/packages/agents/src/agent-runtime.ts:100-140",
+        "sdk/packages/shared/src/agent.ts:251-280"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Budgets tokens explicites, pagination des resultats surdimensionnes via cache adressable, et consignes d'overflow actionnables."
+    },
+    {
+      "domain": "automatisation",
+      "how": "Parseur cron 5 champs (scheduler.ts:1-143, parseCronField avec plages/pas/noms), CronRunner (cron-runner.ts:194) materialisant les dues via cron-materializer.ts, persistance SQLite (sqlite-cron-store) et specs versionnees ; au-dessus, AgendaTaskManager (agenda-task-manager.ts, 1478 lignes, store SQLite + reconciliateur fichier + spec-parser) expose via agenda-task-tool.ts ; CLI `schedule` (commands/schedule.ts) et livraison schedule-delivery.ts.",
+      "id": "cl-scheduled-runs",
+      "integration": "plugin",
+      "name": "Runs planifies (cron) + taches agenda",
+      "omega_adapter": "plugins/scheduler-cron",
+      "omega_capability": "scheduler-job",
+      "omega_port": "Scheduler (schedule/fire)",
+      "refs": [
+        "sdk/packages/core/src/cron/schedule/scheduler.ts:1-60",
+        "sdk/packages/core/src/cron/runner/cron-runner.ts:194-250",
+        "sdk/packages/core/src/tasks/agenda-task-manager.ts:1-60",
+        "apps/cli/src/commands/schedule.ts:1-40"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Planificateur cron persistant (SQLite) avec materialisation des dus, plus gestionnaire de taches agenda reconciliables par fichier et CLI dediee."
+    },
+    {
+      "domain": "execution",
+      "how": "Catalogue fixe de 6 connecteurs (platforms.ts:6-34 : discord, gchat, linear, slack, telegram, whatsapp) avec descripteurs de champs/flags (CONNECTOR_PLATFORMS), builders d'args non-interactifs et fusion d'args dashboard vs CLI ; hotes runtime (connector-host.ts, session-runtime.ts, thread-bindings.ts, runtime-turn.ts) pontant chaque fil vers une session RPC ; commandes CLI `connect`/`connect-via-hub`.",
+      "id": "cl-connectors-messagerie",
+      "integration": "plugin",
+      "name": "Connecteurs messagerie (6 plateformes)",
+      "omega_adapter": "plugins/channel-*",
+      "omega_capability": "channel",
+      "omega_port": "Channel (bind/deliver)",
+      "refs": [
+        "sdk/packages/shared/src/connectors/platforms.ts:6-34",
+        "apps/cli/src/connectors/connector-host.ts:1-60",
+        "apps/cli/src/connectors/session-runtime.ts:1-60"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Six ponts messagerie (Telegram polling, Slack socket/webhook, Discord/WhatsApp/gchat/Linear webhooks) reliant chaque fil a une session agent RPC."
+    },
+    {
+      "domain": "execution",
+      "how": "run-agent.ts:432 orchestre un run non-interactif (prompt, politiques d'outils, evenements session, format de sortie) ; run-interactive.ts/run-zen.ts pour le TUI, session-events.ts pour le streaming, program.ts definissant les commandes (run, chat, schedule, hook, mcp, skill, plugin, kanban, history, doctor) ; e2e couverts par cli.e2e.test.ts.",
+      "id": "cl-cli-headless",
+      "integration": "plugin",
+      "name": "CLI headless/CI + TUI",
+      "omega_adapter": "plugins/headless-cli",
+      "omega_capability": "headless-run",
+      "omega_port": "HeadlessRun (run/stream)",
+      "refs": [
+        "apps/cli/src/runtime/run-agent.ts:1-60",
+        "apps/cli/src/commands/program.ts:1-60",
+        "apps/cli/src/main.ts:1-40"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "CLI utilisable en CI (run non-interactif avec politiques d'outils et codes de sortie) partageant le runtime avec le TUI interactif."
+    },
+    {
+      "domain": "extension",
+      "how": "Chargeur de plugins (plugin-loader.ts:107-163, loadAgentPluginFromPath/FromPathsWithDiagnostics) avec registre (plugin-registry.ts), contributions declarees (plugin-contributions.ts), sandbox bootstrappe (plugin-sandbox-bootstrap.ts) et exemples (sdk/examples/plugins : web-search, typescript-lsp, telemetry, openrouter-provider) ; place de marche geree par services/marketplace.ts et CLI `plugin`.",
+      "id": "cl-plugin-registry",
+      "integration": "plugin",
+      "name": "Registre de plugins + sandbox + marketplace",
+      "omega_adapter": "omega-registry",
+      "omega_capability": "registry",
+      "omega_port": "Registre (Slot/Ensemble)",
+      "refs": [
+        "sdk/packages/core/src/extensions/plugin/plugin-loader.ts:107-163",
+        "sdk/packages/core/src/extensions/plugin/plugin-registry.ts:1-60",
+        "sdk/packages/core/src/services/marketplace.ts:1-50"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Chargement de plugins avec diagnostics, registre de contributions, bac a sable et place de marche avec CLI dediee."
+    },
+    {
+      "domain": "configuration",
+      "how": "Hub SaaS proprietaire (sdk/packages/core/src/hub, cloud/, remote/) : authentification WorkOS device-auth, sessions cloud distantes (CloudSessionController), facturation/quotas, connecteurs geres par dashboard ; le code est ouvert mais le service impose une dependance operateur (URLs d'API, tokens frais, feature flags distants).",
+      "id": "cl-cloud-hub",
+      "integration": "rejected",
+      "name": "Cline Hub cloud (SaaS operateur)",
+      "refs": [
+        "sdk/packages/core/src/hub/server/hub-user-instruction-rules.ts:1-40",
+        "sdk/packages/core/src/cloud/controller.ts:1-60"
+      ],
+      "rust_cost": "L",
+      "status": "rejected",
+      "what": "Backend SaaS (auth, sessions distantes, dashboard) : dependance operateur incompatible avec l'exigence self-hosted d'Omega.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null
+    }
+  ]
+}

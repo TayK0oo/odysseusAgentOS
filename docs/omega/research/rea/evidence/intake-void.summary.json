@@ -1,0 +1,14 @@
+{
+  "id": "void",
+  "name": "Void",
+  "repo": "voideditor/void",
+  "stars": 28750,
+  "language": "TypeScript",
+  "license": "Apache-2.0",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "unavailable",
+  "code": "resource_constraint",
+  "message": "The parent's result capacity was exhausted after retaining static facts for src/vs/workbench/contrib/notebook/browser/contrib/find/notebookFindReplaceWidget.ts; remaining sources were not analyzed"
+}

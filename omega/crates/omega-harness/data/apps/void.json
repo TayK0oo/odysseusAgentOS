@@ -1,0 +1,570 @@
+{
+  "schema_version": 1,
+  "id": "void",
+  "name": "Void",
+  "editor": "Void Editor",
+  "oss": true,
+  "language": "TypeScript",
+  "license": "Apache-2.0",
+  "repo": "https://github.com/voideditor/void",
+  "architecture": "Fork complet de VS Code (Electron) : tout le code IA vit dans src/vs/workbench/contrib/void/, reparti en trois couches (common/ = types + prompts sans import, browser/ = services + composants React, electron-main/ = reseau/node_modules) communiquees par canaux IPC ProxyChannel. Les briques sont des singletons VS Code (createDecorator + registerSingleton) ; la selection du modele est par functionality (Chat | Ctrl+K | Autocomplete | Apply | SCM) et non globale, et chaque Message du thread est persiste dans le storage applicatif.",
+  "entrypoints": [
+    "Void Editor (fork VS Code, Electron : electron-main + browser)",
+    "Sidebar Chat (Ctrl+L, agent sidebar pane React)",
+    "Quick Edit (Ctrl+K)",
+    "Inline Autocomplete (InlineCompletionItemProvider)",
+    "Apply (decorations inline, DiffZone)",
+    "Generateur de message de commit (Source Control, featureName 'SCM')",
+    "Settings pane (voidSettingsPane, React)",
+    "Client MCP (stdio / streamable-http / SSE)"
+  ],
+  "functionalities": [
+    {
+      "id": "vd-fork-vscode",
+      "domain": "extension",
+      "name": "Fork amont de VS Code (Void n'est pas une extension)",
+      "what": "Void modifie VS Code en amont : tout le code IA est directement dans src/vs/workbench/contrib/void/, monte par void.contribution.ts, avec sa propre chaine de build pour compiler React + Tailwind.",
+      "how": "Le README assume le fork et documente les deux adaptations de build (compilation React, scope Tailwind) ; VOID_CODEBASE_GUIDE.md explique que 'Void is no longer an extension' ; void.contribution.ts importe une trentaine de modules (editCodeService, sidebarActions, autocompleteService, toolsService, chatThreadService...). Aucune API d'extension VS Code n'est utilisee : les outils builtin appellent directement IFileService/ISearchService/IMarkerService. Cout enorme de maintenance (rebases VS Code) et couplage total au workbench.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "rejected",
+      "status": "rejected",
+      "rust_cost": "L",
+      "refs": [
+        "README.md:14-24",
+        "VOID_CODEBASE_GUIDE.md (section 'VSCode Rundown' et 'Void's LLM Message Pipeline')",
+        "src/vs/workbench/contrib/void/browser/void.contribution.ts:1-85",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:144-156"
+      ]
+    },
+    {
+      "id": "vd-service-diagram",
+      "domain": "extension",
+      "name": "Diagramme de services (3 couches + canaux IPC)",
+      "what": "Chaque brique est un service unique declare par createDecorator + registerSingleton ; common/ ne peut importer ni node ni DOM, browser/ n'a pas le droit d'importer node_modules, electron-main/ porte le reseau.",
+      "how": "Le guide officiel (VOID_CODEBASE_GUIDE.md) impose deux contournements : bundler React dans le navigateur, ou porter le code dans electron-main/ et ouvrir un canal. Concretement : sendLLMMessageService.ts (browser) appelle un ProxyChannel 'void-channel-send-llm-message' vers electron-main/llmMessage/sendLLMMessage.impl.ts ; metricsService.ts fait pareil vers metricsMainService.ts ; mcpService.ts vers mcpChannel.ts. Les types traversent le canal sous forme d'evenements (onText/onFinalMessage/onError) car les fonctions ne sont pas serialisables (BlockedMainLLMMessageParams, sendLLMMessageTypes.ts:143-151).",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "omega_adapter": "omega-registry::Registry (Slot/Ensemble + quarantaine)",
+      "integration": "native",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "VOID_CODEBASE_GUIDE.md (section 'VSCode Rundown')",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:127-136",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:593",
+        "src/vs/workbench/contrib/void/common/sendLLMMessageTypes.ts:142-151",
+        "src/vs/workbench/contrib/void/common/metricsService.ts:26-54",
+        "src/vs/workbench/contrib/void/electron-main/sendLLMMessageChannel.ts:1-156"
+      ]
+    },
+    {
+      "id": "vd-agent-loop",
+      "domain": "agents",
+      "name": "Boucle agent outillee (sendLLM -> validate -> exec -> feedback)",
+      "what": "Boucle while (shouldSendAnotherMessage) : on convertit l'historique du thread en messages provider, on envoie, si le modele renvoie un toolCall on le valide puis on l'execute, on reincorpore le resultat et on renvoie a nouveau, jusqu'a ce que le modele ne demande plus d'outil.",
+      "how": "_runChatAgent (chatThreadService.ts:732-911). Details observes : retry d'erreur LLM borne a CHAT_RETRIES=3 avec RETRY_DELAY=2500ms (chatThreadService.ts:45-46, 791-875) ; reentree dans la boucle seulement si le toolCall n'a pas demande d'approbation (894-895) ; PAS de plafond d'iterations (seule garde : l'approbation humaine ou l'interruption) ; l'historique est reconstruit a chaque tour via prepareLLMChatMessages (779-784) ; abortRunning() (557-590) traite les 4 etats isRunning = LLM | tool | awaiting_user | idle et rejette proprement le tool pending. Point faible releve : la boucle ne borne ni le cout ni le nombre d'etapes.",
+      "omega_capability": "agent-runtime",
+      "omega_port": "AgentRuntime (step/finish/abort)",
+      "omega_adapter": "omega-app::App::run (pipeline Operation) + plugins/agent-loop (StepBudget)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "src/vs/workbench/contrib/void/browser/chatThreadService.ts:45-46",
+        "src/vs/workbench/contrib/void/browser/chatThreadService.ts:557-590",
+        "src/vs/workbench/contrib/void/browser/chatThreadService.ts:732-911",
+        "src/vs/workbench/contrib/void/browser/chatThreadService.ts:879-898"
+      ]
+    },
+    {
+      "id": "vd-chat-mode-tool-gating",
+      "domain": "agents",
+      "name": "Trois modes de chat qui filtrent la surface d'outils",
+      "what": "ChatMode = normal | gather | agent ; le mode ne montre pas seulement un prompt different, il RETIRE des outils de la surface : normal = aucun outil, gather = outils de lecture seule, agent = tous les outils builtin + les outils MCP.",
+      "how": "availableTools() (prompts.ts:361-378) : 'normal' -> undefined (aucun outil), 'gather' -> builtinTools moins les cles de approvalTypeOfBuiltinToolName (donc tout ce qui ecrit ou lance un terminal est retire), 'agent' -> tous + mcpTools. Le prompt systeme est lui aussi branche sur le mode (chat_systemMessage, prompts.ts:428-530) : l'agent recoit 'ALWAYS use tools to take actions' et 'NEVER modify a file outside the user's workspace', le mode normal recoit 'You're allowed to ask the user for more context'. C'est une separation lecture/ecriture par capacite, pas seulement par prompt.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex + ContextContributor (filtre par effet de bord)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:361-378",
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:428-530",
+        "src/vs/workbench/contrib/void/common/toolsServiceTypes.ts:21-30",
+        "src/vs/workbench/contrib/void/common/voidSettingsTypes.ts:438"
+      ]
+    },
+    {
+      "id": "vd-checkpoint-timeline",
+      "domain": "memoire",
+      "name": "Checkpoints dans le fil + voyage temporel multi-fichiers",
+      "what": "Chaque point de controle est un Message du thread (role='checkpoint') qui capture, par URI touche, un VoidFileSnapshot ; on peut sauter vers n'importe quel message et le code est rejoue fichier par fichier, en avant comme en arriere.",
+      "how": "Trois types : _addUserCheckpoint (994-1002), _addToolEditCheckpoint appele juste apres edit_file/rewrite_file (1004-1016), et les sauts utilisateur. Un VoidFileSnapshot = { snapshottedDiffAreaOfId, entireFileCode } (editCodeServiceTypes.ts:112-119). L'algorithme de saut (1080-1185) est le point fort : _getCheckpointsBetween donne le dernier index par URI sur un intervalle, puis pour l'annulation un generateur idxes() remonte de toIdx vers 0 puis redescend (1126-1133) car la derniere version d'un fichier peut etre posterieure au point vise ; pour le redo il applique au contraire le snapshot le plus bas entre from et to. Les modifications manuelles de l'utilisateur sont stockees a part (userModifications.voidFileSnapshotOfURI) et ne sont pas melangees lors d'un saut (1038). Snapshot du tout : editCodeService.getVoidFileSnapshot / restoreVoidFileSnapshot (761-768).",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore",
+      "omega_adapter": "omega-app::FileEventStore + omega-otel::TraceReplayer (replay d'un saut)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "src/vs/workbench/contrib/void/browser/chatThreadService.ts:914-1016",
+        "src/vs/workbench/contrib/void/browser/chatThreadService.ts:1031-1043",
+        "src/vs/workbench/contrib/void/browser/chatThreadService.ts:1080-1185",
+        "src/vs/workbench/contrib/void/common/editCodeServiceTypes.ts:92-119",
+        "src/vs/workbench/contrib/void/browser/editCodeService.ts:661-768"
+      ]
+    },
+    {
+      "id": "vd-builtin-tool-contract",
+      "domain": "outils",
+      "name": "16 outils builtin en contrat modal (validate / call / stringify)",
+      "what": "Chaque outil builtin expose trois fonctions homonymes : validateParams (RawToolParamsObj -> params typees), callTool (params -> resultat type + interruptTool optionnel) et stringOfResult (params + resultat -> texte remis au LLM).",
+      "how": "Les trois tables sont construites dans le constructeur de ToolsService (toolsService.ts:159-293 / 296-464 / 477-567). La validation est explicite et defensive : validateStr/validateOptionalStr/validateNumber/validateBoolean/validatePageNum (34-118) ; validateURI (42-68) accepte un chemin nu OU une URI avec schema (vscode-remote://, file://) et leve sur format invalide ; le commentaire ligne 41 assume 'We are NOT checking to make sure in workspace'. L'interruption est un retour de callTool : { result, interruptTool } (26, 449). Les 16 outils couvrent lecture (read_file, ls_dir, get_dir_tree, search_pathnames_only, search_for_files, search_in_file, read_lint_errors), ecriture (create_file_or_folder, delete_file_or_folder, rewrite_file, edit_file) et terminal (run_command, run_persistent_command, open_persistent_terminal, kill_persistent_terminal) ; liste exacte : toolsServiceTypes.ts:44-61. Sur les ecritures, editCodeService.callBeforeApplyOrEdit est appele AVANT l'ecriture (418, 434).",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate) + ToolExecutor",
+      "omega_adapter": "plugins/tool-contract (validate/call/stringify par outil)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:24-27",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:30-125",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:159-567",
+        "src/vs/workbench/contrib/void/common/toolsServiceTypes.ts:44-61"
+      ]
+    },
+    {
+      "id": "vd-tool-surface-index",
+      "domain": "outils",
+      "name": "Surface d'outils searchable (descriptions vivantes)",
+      "what": "Les outils ne sont pas une liste figee dans le prompt : ils ont nom + description + description par parametre, filtres selon le mode, et injectes dans le system prompt.",
+      "how": "builtinTools est un objet type satisfies BuiltinToolResultType (prompts.ts:186-345) ; chaque InternalToolInfo = { name, description, params: { [p]: { description } }, mcpServerName? } (144-152). Les noms de parametres sont generes en snake_case par un type recursif SnakeCase/SnakeCaseKeys (170-182). availableTools(chatMode, mcpTools) fusionne builtin + MCP (361-378), puis toolCallDefinitionsXMLString (380-390) rend la definition et reParsedToolXMLString (392-398) re-serialise un tool call dans l'historique pour les modèles sans tool calling natif. Corrobore REA : la preuve intake-void est indisponible (voir limite plus bas), les sources sont donc uniquement le clone.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:144-182",
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:186-378",
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:380-398",
+        "omega/crates/omega-context/src/tool_surface.rs:7-232"
+      ]
+    },
+    {
+      "id": "vd-mcp-client",
+      "domain": "outils",
+      "name": "Client MCP multi-transport (stdio / streamable-http / SSE)",
+      "what": "Lecture d'un fichier .mcp.json { mcpServers: { nom: { command|args|env } | { url, headers } } }, demarrage d'un client par serveur, exposition de tools/list comme outils internes de l'agent, execution de tools/call, et rechargement a chaud quand le fichier de config change.",
+      "how": "mcpChannel.ts (electron-main, 395 l.) construit le transport : StreamableHTTPClientTransport si server.url (174), SSEClientTransport si URL non streamable (186), sinon StdioClientTransport avec env = {...server.env, ...process.env} (199-204). mcpService.ts (browser) orchestre : _parseMCPConfigFile (243), _refreshMCPServers (262), getMCPTools qui prefixe le nom par le serveur via removeMCPToolNamePrefix (186-202, mcpServiceTypes.ts:240-242), _transformInputSchemaToParams qui degrade le JSON Schema MCP vers le format plat {param: description} attendu par Void (203-225), toggleServerIsOn (317), callMCPTool (325), et _addMCPConfigFileWatcher (157). Chaque serveur a un etat loading | success | offline | error (mcpServiceTypes.ts:137-148). Les resultats sont un union type discrimine text | image | audio | resource | error (182-230). Limite assumee : les outils MCP ne sont proposes qu'en mode agent (prompts.ts:369).",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate) + ToolExecutor",
+      "omega_adapter": "omega-mcp::McpClient + McpToolSurface + McpToolExecutor (impl ToolExecutor)",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "src/vs/workbench/contrib/void/electron-main/mcpChannel.ts:13-204",
+        "src/vs/workbench/contrib/void/common/mcpService.ts:157-332",
+        "src/vs/workbench/contrib/void/common/mcpServiceTypes.ts:119-148",
+        "src/vs/workbench/contrib/void/common/mcpServiceTypes.ts:182-242",
+        "omega/crates/omega-mcp/src/lib.rs:54-140",
+        "omega/crates/omega-mcp/src/lib.rs:391-490"
+      ]
+    },
+    {
+      "id": "vd-xml-tool-grammar",
+      "domain": "outils",
+      "name": "Grammaire XML de tool calling pour modeles sans tools natifs",
+      "what": "Quand le modele ne sait pas appeler d'outils nativement, Void lui fait emettre des balises XML <outil><param>valeur</param></outil> et les reparse en cours de streaming pour les remonter comme un vrai toolCall.",
+      "how": "extractGrammar.ts : findPartiallyWrittenToolTagAtEnd (146) detecte une balise ouvertesur en cours (indispensable en streaming), findIndexOfAny (156), parseXMLPrefixToToolCall (168-262) valide que seuls les parametres declares sont retenus (206 allowedParams), extractXMLToolsWrapper (263-364) branche onText/onFinalMessage et reconnait l'identifiant d'ouverture pour attribuer le bon nom d'outil. Le prompt qui definit la grammaire est systemToolsXMLPrompt (prompts.ts:402-423) : 'After you write the tool call, you must STOP and WAIT for the result', 'You are only allowed to output ONE tool call, and it must be at the END of your response'. Cote historique, prepareMessages_XML_tools (convertToLLMMessageService.ts:199-240) re-injecte le XML dans le message precedent pour que le modele garde la memoire de son appel. Le choix du format est porte par VoidStaticModelInfo.specialToolFormat ('openai-style' | 'anthropic-style' | 'gemini-style' | undefined = XML). Interet Omega : c'est le seul schema de tool calling qui fonctionne sur un qwen2.5-coder local.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate)",
+      "omega_adapter": "plugins/xml-tool-grammar (parseur streaming tolerant + prompt)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "src/vs/workbench/contrib/void/electron-main/llmMessage/extractGrammar.ts:146-364",
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:380-423",
+        "src/vs/workbench/contrib/void/browser/convertToLLMMessageService.ts:199-240",
+        "src/vs/workbench/contrib/void/common/modelCapabilities.ts:170",
+        "src/vs/workbench/contrib/void/electron-main/llmMessage/sendLLMMessage.impl.ts:323-327"
+      ]
+    },
+    {
+      "id": "vd-fast-apply",
+      "domain": "execution",
+      "name": "Fast Apply par blocs Search/Replace (au lieu de la reecriture complete)",
+      "what": "Au lieu de demander au modele de renvoyer le fichier entier, Void lui fait renvoyer des blocs <<<<<<< ORIGINAL / ======= / >>>>>>> UPDATED, applicables en O(zone) y compris sur un fichier de 1000 lignes.",
+      "how": "Les marqueurs sont des constantes (prompts.ts:38-40 ORIGINAL/DIVIDER/FINAL). extractSearchReplaceBlocks (extractCodeFromResult.ts:187-265) est un parseur INCREMENTAL : il cherche ORIGINAL puis DIVIDER puis FINAL et, pour chacun, gere le cas 'je suis en train d'ecrire le delimiteur' via endsWithAnyPrefixOf (177-185) ; sur FINAL il privilege '\\n'+FINAL pour ne pas confondre avec une occurrence ulterieure (218-222). Les ~25 jeux de tests du fichier (269-399) couvrent exactement ces etats de streaming. L'application : editCodeService.instantlyApplySearchReplaceBlocks cree une DiffZone sur le fichier puis stream le changement (VOID_CODEBASE_GUIDE.md, section 'Apply'). Deux outils distincts : edit_file (Search/Replace) et rewrite_file (ecriture complete, pour les fichiers crees), et le meme code sert au bouton Apply et a l'outil Edit de l'agent. Reglage enableFastApply (voidSettingsTypes.ts:447, 463).",
+      "omega_capability": "apply-engine",
+      "omega_port": "ApplyEngine (apply/accept/reject)",
+      "omega_adapter": "plugins/search-replace-apply (parseur streaming + FindDiffs)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:38-40",
+        "src/vs/workbench/contrib/void/common/helpers/extractCodeFromResult.ts:175-265",
+        "src/vs/workbench/contrib/void/common/helpers/extractCodeFromResult.ts:269-399",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:413-445",
+        "VOID_CODEBASE_GUIDE.md (section 'Apply')"
+      ]
+    },
+    {
+      "id": "vd-diffarea-realign",
+      "domain": "ui",
+      "name": "Moteur de zones de diff (DiffZone / CtrlKZone / TrackingZone)",
+      "what": "Une region de texte suivie (startLine/endLine) qui se recalcule a chaque edition du fichier ; les diffs rouges/verts s'y recalculent automatiquement et chaque diff peut etre accepte ou refuse isolement.",
+      "how": "Trois types de DiffArea (editCodeServiceTypes.ts:46-90) ; seul DiffZone peut streamer (_streamState.isStreaming, 71-80). findDiffs (helpers/findDiffs.ts, 251 l.) produit un ComputedDiff de type edit | insertion | deletion (editCodeServiceTypes.ts:6-31). A chaque evenement de texte, _realignAllDiffAreasLines (editCodeService.ts:876-945) decale les bornes de toutes les zones du fichier puis relance findDiffs (353-361) et emet les evenements onDidChangeDiffsInDiffZoneNotStreaming / onDidChangeStreamingInDiffZone (169-176). Une DiffZone sans diff est auto-supprimee (255-265). La traduction en CSS passe par _addDiffAreaStylesToURI (317-345). C'est la brique qui rend l'edition inline et l'undo par checkpoint coherents.",
+      "omega_capability": "apply-engine",
+      "omega_port": "ApplyEngine (apply/accept/reject)",
+      "omega_adapter": "plugins/diff-zone (zones + realign + FindDiffs)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "src/vs/workbench/contrib/void/common/editCodeServiceTypes.ts:6-90",
+        "src/vs/workbench/contrib/void/browser/helpers/findDiffs.ts:1-251",
+        "src/vs/workbench/contrib/void/browser/editCodeService.ts:157-176",
+        "src/vs/workbench/contrib/void/browser/editCodeService.ts:255-265",
+        "src/vs/workbench/contrib/void/browser/editCodeService.ts:353-361",
+        "src/vs/workbench/contrib/void/browser/editCodeService.ts:876-945"
+      ]
+    },
+    {
+      "id": "vd-tool-approvals",
+      "domain": "securite",
+      "name": "Approbation par classe d'outil (edits / terminal / MCP) + interrupt",
+      "what": "Un outil est categorise en 'edits', 'terminal' ou 'MCP tools' ; l'utilisateur peut auto-approuver classe par classe, et toute approbation en attente sort la boucle avec un etat awaiting_user interruptible.",
+      "how": "approvalTypeOfBuiltinToolName (toolsServiceTypes.ts:21-30) : create_file_or_folder, delete_file_or_folder, rewrite_file, edit_file -> 'edits' ; les 4 outils terminal -> 'terminal' ; tout outil MCP -> 'MCP tools'. Dans _runToolCall (chatThreadService.ts:605-727) l'ordre est strict : (1) validation des params, (2) ajout d'un checkpoint si edit_file/rewrite_file (639-640), (3) test approvalType + autoApprove, retour { awaitingUserApproval: true } qui SORT de la boucle (644-652), (4) execution avec interruptor resolu, (5) stringification, (6) push dans l'historique. rejectLatestToolRequest est appele par abortRunning quand isRunning === 'awaiting_user' (574-576). Reglage autoApprove par classe (voidSettingsTypes.ts:449, 465). Limite : aucun filtrage par chemin ou par argument (une suppression recursive est approuvee comme une edition).",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy (evaluate/ruleset)",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "src/vs/workbench/contrib/void/common/toolsServiceTypes.ts:21-38",
+        "src/vs/workbench/contrib/void/browser/chatThreadService.ts:605-727",
+        "src/vs/workbench/contrib/void/browser/chatThreadService.ts:557-590",
+        "src/vs/workbench/contrib/void/common/voidSettingsTypes.ts:441-471",
+        "omega/crates/omega-sandbox/src/approvals.rs:21-165"
+      ]
+    },
+    {
+      "id": "vd-terminal-tools",
+      "domain": "execution",
+      "name": "Terminaux temporaires vs persistants avec raison de resolution",
+      "what": "Deux natures de commande : run_command attend la fin (tue apres 8s d'inactivite), open_persistent_terminal + run_persistent_command laissent tourner en fond (retour apres 5s) jusqu'a kill_persistent_terminal — le cas d'usage 'npm run dev'.",
+      "how": "terminalToolService.ts (388 l.) ; le resultat est toujours { result, resolveReason } avec resolveReason: { type: 'done', exitCode } | { type: 'timeout' } (toolsServiceTypes.ts:7). Constantes : MAX_TERMINAL_INACTIVE_TIME = 8s, MAX_TERMINAL_BG_COMMAND_TIME = 5s, MAX_TERMINAL_CHARS = 100_000 (prompts.ts:29-31). Le texte remis au modele est contextuel : sur timeout de run_command il explique le kill et propose d'ouvrir un terminal persistant (toolsService.ts:540-542) ; sur timeout de run_persistent_command il precise que la commande continue (554-556). terminalId est un uuid genere dans validateParams, pas par le modele (272). Aucun controle de la commande elle-meme (pas d'ExecPolicy).",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend",
+      "omega_adapter": "omega-sandbox::LocalSandboxBackend + RuleBasedExecPolicy + ApprovalQueue (persistant a ajouter)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "src/vs/workbench/contrib/void/browser/terminalToolService.ts:1-388",
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:29-31",
+        "src/vs/workbench/contrib/void/common/toolsServiceTypes.ts:7",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:447-463",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:533-558",
+        "omega/crates/omega-sandbox/src/backend.rs:19-60"
+      ]
+    },
+    {
+      "id": "vd-lint-feedback-loop",
+      "domain": "execution",
+      "name": "Boucle de retour lint apres ecriture",
+      "what": "Apres edit_file ou rewrite_file, Void attend 2s, relit les marqueurs du fichier et renvoie les erreurs de compilation directement dans le resultat de l'outil pour que le modele les corrige au tour suivant.",
+      "how": "Dans callTool.rewrite_file et callTool.edit_file, le retour n'est pas resolu immediatement : result: lintErrorsPromise avec un timeout(2000) puis _getLintErrors(uri) (toolsService.ts:413-445). _getLintErrors (574-588) lit IMarkerService, filtre Error | Warning, plafonne a 100 marqueurs et projette en { code, message, startLineNumber, endLineNumber }. Le texte remis au modele est conditionne par includeToolLintErrors (516-531) : 'Lint errors found after change... you might want to fix the error'. read_lint_errors est aussi un outil a part entiere avec un timeout(1000) (391-395). Limite assumee : lecture du marqueur VS Code, donc depend d'un linter actif et d'un delai fixe de 2s.",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "omega_adapter": "plugins/lint-feedback (diagnostics -> tool_result)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:391-395",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:413-445",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:469-474",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:515-532",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:574-588",
+        "src/vs/workbench/contrib/void/browser/_markerCheckService.ts:28-60"
+      ]
+    },
+    {
+      "id": "vd-fim-autocomplete",
+      "domain": "ui",
+      "name": "Autocompletion FIM avec strategie de prediction et post-traitement",
+      "what": "Autocompletion inline en fill-in-middle (prefix + curseur + suffix), avec 4 strategies de prediction, un cache LRU par document, un anti-rebond, et un post-traitement qui recadre la sortie pour qu'elle ne soit ni trop longue ni mal fermee.",
+      "how": "Constantes : DEBOUNCE_TIME=500ms, TIMEOUT_TIME=60s, MAX_CACHE_SIZE=20, MAX_PENDING_REQUESTS=2 (autocompleteService.ts:169-172) ; le LRU est defini a la main (69-76) et sa eviction appelle llmMessageService.abort (651-657). getCompletionOptions (536-610) borne le prefix/suffix a 25 lignes puis choisit : 'multi-line-start-on-next-line' si on vient d'accepter une completion (stop = double saut de ligne), 'single-line-fill-middle' si la ligne est vide ou a un prefixe, 'single-line-redo-suffix' si le suffixe fait <= 3 caracteres non blancs (on ignore la ligne courante), sinon 'do-not-predict'. Post-traitement (271-363) : supprime l'espace deja tape par l'utilisateur, mange les sauts de ligne de depart sur ligne vide, coupe a la premiere parenthese fermante non equilibree (getStringUpToUnbalancedClosingParenthesis, 234-267), verifie que l'ancien suffixe est une sous-sequence du nouveau avant de remplacer une ligne (getIsSubsequence, 213-231), et borne le resultat a une ligne si le prefixe existe et le suffixe non. Enregistrement via ILanguageFeaturesService (892-904).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "plugins/fim-autocomplete (PrefixSuffix + PredictionStrategy + PostProcess)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "src/vs/workbench/contrib/void/browser/autocompleteService.ts:69-76",
+        "src/vs/workbench/contrib/void/browser/autocompleteService.ts:169-172",
+        "src/vs/workbench/contrib/void/browser/autocompleteService.ts:213-267",
+        "src/vs/workbench/contrib/void/browser/autocompleteService.ts:271-363",
+        "src/vs/workbench/contrib/void/browser/autocompleteService.ts:536-610",
+        "src/vs/workbench/contrib/void/browser/autocompleteService.ts:633-670"
+      ]
+    },
+    {
+      "id": "vd-quick-edit-fim",
+      "domain": "ui",
+      "name": "Quick Edit Ctrl+K en FIM tags configurables",
+      "what": "Ctrl+K ouvre une boite de saisie sur la selection ; la reponse du modele est inseree en streaming comme une DiffZone restreinte a la selection.",
+      "how": "quickEditActions.ts enregistre VOID_CTRL_K_ACTION_ID sur CtrlCmd+K (editorFocus && !terminalFocus), arrondit la selection aux lignes (roundRangeToLines) puis appelle editCodeService.addCtrlKZone. Le prompt ctrlKStream_systemMessage / ctrlKStream_userMessage (prompts.ts:759-817) sont parametrables par l'utilisateur : QuickEditFimTagsType = { preTag, midTag, sufTag } avec defaultQuickEditFimTags (747-757) ; voidPrefixAndSuffix (698-745) tronque prefix et suffix a MAX_PREFIX_SUFFIX_CHARS = 20_000 en ajoutant ligne par ligne. Le CtrlKZone porte un _linkedStreamingDiffZone : la zone de diff creee pour le streaming est liee a la zone d'entree, et elle est de taille reduite (pas tout le fichier) — c'est la seule difference avec Apply.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "plugins/quick-edit (FimTags + ContextBudget::enforce)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "src/vs/workbench/contrib/void/browser/quickEditActions.ts:36-69",
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:35",
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:698-757",
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:759-817",
+        "src/vs/workbench/contrib/void/common/editCodeServiceTypes.ts:38-58"
+      ]
+    },
+    {
+      "id": "vd-directory-str",
+      "domain": "contexte",
+      "name": "Arborescence compressee en chaine, budget de caracteres",
+      "what": "Un apercu du systeme de fichiers injecte dans le system prompt sous forme d'arbre texte, plafonne en caracteres, calcule en deux passes pour maximiser la densite.",
+      "how": "Algorithme computeAndStringifyDirectoryTree (directoryStrService.ts:145-250) qui respecte maxDepth et maxItemsPerDir. La deux-passe est le point cle : on tente d'abord START_MAX_DEPTH=Infinity et START_MAX_ITEMS_PER_DIR=Infinity (19-20) ; si wasCutOff, on recommence avec DEFAULT_MAX_DEPTH=3 et DEFAULT_MAX_ITEMS_PER_DIR=3 (22-23), ce qui garantit un arbre lisible meme sur un monorepo. Budgets : MAX_DIRSTR_CHARS_TOTAL_BEGINNING = 20_000 pour le prompt systeme, MAX_DIRSTR_CHARS_TOTAL_TOOL = 20_000 pour l'outil get_dir_tree, MAX_DIRSTR_RESULTS_TOTAL_* = 100 (prompts.ts:19-22). Le budget restant est retranche du pre-alloc : MAX_DIRSTR_CHARS_TOTAL_BEGINNING - str.length (462, 473), donc plusieurs dossiers racine se partagent le budget. En cas de troncature on ecrit explicitement '...Result was truncated...' (431, 480).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::ContextContributor (DirectoryStr, budget partagé) + DefaultContextEngine",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "src/vs/workbench/contrib/void/common/directoryStrService.ts:19-23",
+        "src/vs/workbench/contrib/void/common/directoryStrService.ts:145-250",
+        "src/vs/workbench/contrib/void/common/directoryStrService.ts:389-435",
+        "src/vs/workbench/contrib/void/common/directoryStrService.ts:440-485",
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:19-22",
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:456-459"
+      ]
+    },
+    {
+      "id": "vd-paginated-tools",
+      "domain": "contexte",
+      "name": "Pagination systematique des resultats d'outils",
+      "what": "Toutes les outils qui peuvent deborder renvoient une page et un booleen hasNextPage ; le modele redemande avec page_number.",
+      "how": "Constantes : MAX_FILE_CHARS_PAGE = 500_000 (read_file), MAX_CHILDREN_URIs_PAGE = 500 (ls_dir, search_pathnames_only, search_for_files), MAX_TERMINAL_CHARS = 100_000 (prompts.ts:25-29). read_file (toolsService.ts:297-320) lit d'abord le modele en memoire (voidModelService.initializeModel, pas de rechargement disque), decoupe sur [MAX_FILE_CHARS_PAGE*(page-1), MAX_FILE_CHARS_PAGE*page - 1] et renvoie { fileContents, totalFileLen, hasNextPage, totalNumLines } ; le texte remis ajoute '(more on next page...)' et le nombre total de lignes/caracteres quand c'est tronque (479). search_pathnames_only utilise queryBuilder.file avec sortByScore: true, commentaire 'makes results 10x better' (332-349). validatePageNum (81-87) rejette un numero de page non entier ou < 1. Limite : read_file lit le fichier ENTIER en memoire avant de paginer — pas de fenetre glissante sur disque.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::ContextBudget + plugins/paginated-tools (Page{index,total,has_next})",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:25-29",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:81-87",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:297-371",
+        "src/vs/workbench/contrib/void/browser/toolsService.ts:467-502",
+        "src/vs/workbench/contrib/void/common/voidModelService.ts:44-52",
+        "omega/crates/omega-context/src/budget.rs:9-60"
+      ]
+    },
+    {
+      "id": "vd-gather-context",
+      "domain": "contexte",
+      "name": "Contexte systeme assemble a chaque tour (workspace, fichiers ouverts, terminaux)",
+      "what": "A chaque requete, le system prompt est reconstruit avec l'OS, les dossiers du workspace, le fichier actif, la liste des fichiers ouverts, les terminaux persistants disponibles et l'arborescence.",
+      "how": "chat_systemMessage (prompts.ts:428-530) prend { workspaceFolders, openedURIs, activeURI, persistentTerminalIDs, directoryStr, chatMode, mcpTools, includeXMLToolDefinitions } et assemble dans un ordre fixe : header, <system_info>, definitions d'outils XML, notes importantes, <files_overview>. Les terminaux persistants ne sont annonces qu'en mode agent (450-452). Regles de formatage imposees au modele : premier bloc de code = chemin complet du fichier, 'NEVER write the whole file', 'Use comments like // ... existing code ... to condense', pas de tableaux, et la date du jour (492-509). Les SELECTIONS sont une zone de staging : addNewStagingSelection est appele par les actions clavier de la sidebar (sidebarActions.ts:106-133, 195-198). Ce que l'on prend : la separation explicite et versionnee de ce qui est contexte systeme / instructions / sortie attendue.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::ContextContributor (SystemInfo + OpenFiles + SelectionStaging)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:428-530",
+        "src/vs/workbench/contrib/void/browser/sidebarActions.ts:106-133",
+        "src/vs/workbench/contrib/void/browser/sidebarActions.ts:190-200",
+        "src/vs/workbench/contrib/void/common/prompt/prompts.ts:565-646"
+      ]
+    },
+    {
+      "id": "vd-provider-registry-hardcoded",
+      "domain": "routage",
+      "name": "16 fournisseurs codés en dur dans un switch (ECARTE comme modele)",
+      "what": "newOpenAICompatibleSDK est une chaine de if/else sur le nom du fournisseur, et sendLLMMessageToProviderImplementation est un objet litteral de 16 entrees ; ajouter un fournisseur oblige de toucher les deux.",
+      "how": "sendLLMMessage.impl.ts:72-172 (SDK) et 857-941 (table de dispatch). Chaque fournisseur est code en dur y compris sa baseURL (deepseek api.deepseek.com/v1, groq, xAI, mistral, openrouter avec HTTP-Referer/X-Title, vertex, azure, bedrock via proxy LiteLLM). awsBedrock n'est PAS natif : commentaire 125-134, 'We treat Bedrock as OpenAI-compatible only through a proxy', endpoint par defaut http://localhost:4000/v1. Chaque fournisseur expose { sendChat, sendFIM, list } et beaucoup de sendFIM sont null (aucun FIM chez Anthropic/OpenAI/Gemini). lmStudio est commentaire 'sendFIM might not work' (915). C'est exactement l'interdit d'Omega : 'Modele/fournisseur en dur hors registre'. On ne reprend pas la forme ; on en retient seulement la table de capacites.",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider (providers/models)",
+      "omega_adapter": null,
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "src/vs/workbench/contrib/void/electron-main/llmMessage/sendLLMMessage.impl.ts:72-172",
+        "src/vs/workbench/contrib/void/electron-main/llmMessage/sendLLMMessage.impl.ts:125-146",
+        "src/vs/workbench/contrib/void/electron-main/llmMessage/sendLLMMessage.impl.ts:857-941",
+        "src/vs/workbench/contrib/void/electron-main/llmMessage/sendLLMMessage.impl.ts:914-919",
+        "src/vs/workbench/contrib/void/common/voidSettingsTypes.ts:16-20"
+      ]
+    },
+    {
+      "id": "vd-model-capabilities",
+      "domain": "routage",
+      "name": "Descripteur de capacites par modele (fenetre, FIM, tools, raisonnement, cout)",
+      "what": "Un type declaratif unique decrit ce que sait faire un modele, et tout le routage s'en derive : fenetre de contexte, espace de sortie reserve, format de system message, format d'outils, support FIM, curseur de raisonnement, tags think open source, couts.",
+      "how": "VoidStaticModelInfo (modelCapabilities.ts:162-203) : contextWindow, reservedOutputTokenSpace, supportsSystemMessage ('system-role' | 'developer-role' | 'separated'), specialToolFormat, supportsFIM, additionalOpenAIPayload, reasoningCapabilities = { supportsReasoning, canTurnOffReasoning, canIOReasoning, reasoningSlider: budget_slider | effort_slider, openSourceThinkTags } et cost { input, output, cache_read, cache_write }. Cote provider : ProviderReasoningIOSettings (226-234) avec input.includeInPayload(fonction) et output.nameOfFieldInDelta / needsManualParse ; VoidStaticProviderInfo (236-240) porte modelOptions + modelOptionsFallback (repli sur valeurs connues pour un modele inconnu). Default prudent : contextWindow 4096, reservedOutputTokenSpace 4096 (244-252). Le curseur de raisonnement existe en deux formes : budget (Anthropic/Gemini) et effort (OpenAI-compatible) (181-184) ; getSendableReasoningInfo (1561) convertit l'etat UI en payload, getReservedOutputTokenSpace (1552) reserve la place de sortie.",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider (providers/models)",
+      "omega_adapter": "omega-providers::OllamaCatalogSource + omega-types::Capabilities",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "src/vs/workbench/contrib/void/common/modelCapabilities.ts:162-252",
+        "src/vs/workbench/contrib/void/common/modelCapabilities.ts:208-240",
+        "src/vs/workbench/contrib/void/common/modelCapabilities.ts:1483-1522",
+        "src/vs/workbench/contrib/void/common/modelCapabilities.ts:1534-1586",
+        "src/vs/workbench/contrib/void/common/voidSettingsTypes.ts:487-499",
+        "omega/crates/omega-providers/src/ollama_catalog.rs:58-155",
+        "omega/crates/omega-types/src/routing.rs"
+      ]
+    },
+    {
+      "id": "vd-local-providers-first-class",
+      "domain": "routage",
+      "name": "Fournisseurs locaux de premier plan (Ollama natif + shim OpenAI /v1)",
+      "what": "Les fournisseurs locaux ne sont pas degrades en fin de liste : Ollama dispose d'un SDK et d'un FIM natifs, et les autres passent par le meme client OpenAI en pointant baseURL sur {endpoint}/v1.",
+      "how": "Le shim : ollama, vLLM, liteLLM, lmStudio reutilisent tous new OpenAI({ baseURL: `${endpoint}/v1`, apiKey: 'noop' }) (sendLLMMessage.impl.ts:81-96) — un seul code pour quatre backends locaux. Le natif : newOllamaSDK + sendOllamaFIM (652-681) envoit { prompt: prefix, suffix, raw: true, num_predict: 300, stop }, et ollamaList (628-650) lit les tags. Sécurité notable : un endpoint vide est refuse plutot que de retomber sur le 11434 par defaut (621-626, commentaire explicite). Le FIM est explicitement refuse si le modele ne le supporte pas, avec message 'Model X does not support FIM' et rappel du nom demande (183-189). Cote UI, localProviderNames = ['ollama','vLLM','lmStudio'] est la seule liste rafraichissable (voidSettingsTypes.ts:19, 389).",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider (providers/models)",
+      "omega_adapter": "omega-providers::OllamaProvider",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "src/vs/workbench/contrib/void/electron-main/llmMessage/sendLLMMessage.impl.ts:81-96",
+        "src/vs/workbench/contrib/void/electron-main/llmMessage/sendLLMMessage.impl.ts:621-681",
+        "src/vs/workbench/contrib/void/electron-main/llmMessage/sendLLMMessage.impl.ts:175-208",
+        "src/vs/workbench/contrib/void/common/voidSettingsTypes.ts:19-20",
+        "src/vs/workbench/contrib/void/common/voidSettingsTypes.ts:388-397",
+        "omega/crates/omega-providers/src/ollama.rs:1-251"
+      ]
+    },
+    {
+      "id": "vd-model-override",
+      "domain": "configuration",
+      "name": "Overrides de capacites par modele (corriger une detection)",
+      "what": "L'utilisateur peut corriger a la main les capacites declarees d'un modele, parce que le catalogue statique se trompe regullerement sur les modeles recents.",
+      "how": "modelOverrideKeys (modelCapabilities.ts:208-216) limite l'override a 7 cles seulement : contextWindow, reservedOutputTokenSpace, supportsSystemMessage, specialToolFormat, supportsFIM, reasoningCapabilities, additionalOpenAIPayload. Le type OverridesOfModel est un Record a deux niveaux provider -> modele -> Partial<ModelOverrides> (voidSettingsTypes.ts:505-514). Le commentaire du catalogue l'assume : 'TODO!!! double check all context sizes below' et 'TODO!!! allow user to modify capabilities and tell them if autodetected model or falling back' (modelCapabilities.ts:254-256). Les overrides sont passes a travers toute la chaine jusqu'a getModelCapabilities(providerName, modelName_, overridesOfModel) et fusionnes avec le nom de modele reconnu, ce qui permet d'aliaser un modele distant sur un nom connu.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "omega_adapter": "omega-config (couches + precedence) + omega-providers::Capabilities (patch)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "src/vs/workbench/contrib/void/common/modelCapabilities.ts:208-221",
+        "src/vs/workbench/contrib/void/common/modelCapabilities.ts:254-256",
+        "src/vs/workbench/contrib/void/common/voidSettingsTypes.ts:505-514",
+        "src/vs/workbench/contrib/void/electron-main/llmMessage/sendLLMMessage.impl.ts:1483-1522",
+        "omega/crates/omega-config/src/loader.rs"
+      ]
+    },
+    {
+      "id": "vd-model-refresh-poll",
+      "domain": "configuration",
+      "name": "Rafraichissement automatique du catalogue des modeles locaux",
+      "what": "Un service interroge periodiquement les fournisseurs locaux pour que les modeles installes apparaissent sans redemarrage, et se resynchronise quand le reglage change.",
+      "how": "refreshModelService.ts (222 l.) : etat par fournisseur RefreshModelStateOfProvider, boucle de polling activee uniquement si globalSettings.autoRefreshModels (96, 158), et re-initialisation de la boucle sur voidSettingsService.onDidChangeState quand le reglage change (137). Seuls refreshableProviderNames = localProviderNames sont rafraichissables (voidSettingsTypes.ts:388-390). Trois etats distingues pour un fournisseur : isProviderNameDisabled renvoie 'providerNotAutoDetected' si auto-detecte mais vide, 'notFilledIn' si credentials manquantes, 'addModel' sinon (400-410). Ce qui manque pour Omega : rien n'est journalise, et l'échec de sondage est silencieux.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "omega_adapter": "plugins/catalog-poll + omega-providers::CatalogSource",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "src/vs/workbench/contrib/void/common/refreshModelService.ts:42-74",
+        "src/vs/workbench/contrib/void/common/refreshModelService.ts:96-160",
+        "src/vs/workbench/contrib/void/common/voidSettingsTypes.ts:388-390",
+        "src/vs/workbench/contrib/void/common/voidSettingsTypes.ts:400-430",
+        "omega/crates/omega-providers/src/ollama_catalog.rs:58-92"
+      ]
+    },
+    {
+      "id": "vd-ai-instructions",
+      "domain": "configuration",
+      "name": "Instructions IA persistance (aiInstructions global + settings par fournisseur)",
+      "what": "Un bloc d'instructions libres de l'utilisateur, stocke avec les settings, injecte dans chaque prompt systeme, complementaire de la config par fournisseur.",
+      "how": "globalSettings.aiInstructions: string (voidSettingsTypes.ts:443, defaut '' ligne 459), a distinguer de modelSelectionOfFeature (Record par FeatureName, 365-367) et de optionsOfModelSelection (par provider puis par modele, 493-499). Toute la config transite par voidSettingsService.ts (615 l.), qui expose state + onDidChangeState ; les cles de stockage sont versionnees (VOID_SETTINGS_STORAGE_KEY = 'void.settingsServiceStorageII', avec la liste des valeurs passees commentee, storageKeys.ts:6-12), ce qui documente le cout d'une migration de schema. Les secrets (apiKey) sont des champs du meme objet que les preferences.",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "omega_adapter": "omega-config (couches + precedence)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "src/vs/workbench/contrib/void/common/voidSettingsTypes.ts:441-474",
+        "src/vs/workbench/contrib/void/common/voidSettingsTypes.ts:358-367",
+        "src/vs/workbench/contrib/void/common/voidSettingsTypes.ts:487-514",
+        "src/vs/workbench/contrib/void/common/storageKeys.ts:1-23",
+        "src/vs/workbench/contrib/void/common/voidSettingsService.ts:1-615"
+      ]
+    },
+    {
+      "id": "vd-telemetry-posthog",
+      "domain": "observabilite",
+      "name": "Telemetrie PostHog avec opt-out et evenements de boucle",
+      "what": "Une poignee capture(event, params) envoyee a PostHog depuis le processus main, avec une cle d'opt-out persistee et un bouton de debug qui vide les proprietes.",
+      "how": "MetricsMainService (electron-main/metricsMainService.ts, 162 l.) instancie PostHog('phc_UanIdujHiLp55BkUTjB1AuBXcasVkdqRwgnwRlWESH2', { host: 'https://us.i.posthog.com' }) — la cle de projet est codee en dur dans le binaire. L'opt-out est lu au demarrage : si OPT_OUT_KEY ('void.app.optOutAll', storageKeys.ts:22) est vrai alors client.optOut() sinon optIn() + identify() (127-140). Les identifiants sont memorises dans le .vscdb : distinctId scope MACHINE, userId scope USER, avec migration de l'ancien 'void.machineId' (54-72). Les proprietes collectees sont commit, vscodeVersion, voidVersion, release, os, quality, distinctId, distinctIdUser, oldId, isDevMode, platform, arch (105-121). Evenements de boucle : capture('Agent Loop Done', { nMessagesSent, chatMode }) et sa variante (Aborted) (chatThreadService.ts:826, 910). Ce qu'on ne prend pas : l'envoi a un tiers. Omega a deja StdoutSink/FileSink/Provenance en local.",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "omega_adapter": "omega-otel::{Stdout,File}Sink + omega-otel::Provenance (opt-out a ajouter)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "src/vs/workbench/contrib/void/electron-main/metricsMainService.ts:54-72",
+        "src/vs/workbench/contrib/void/electron-main/metricsMainService.ts:86-100",
+        "src/vs/workbench/contrib/void/electron-main/metricsMainService.ts:100-160",
+        "src/vs/workbench/contrib/void/common/storageKeys.ts:22",
+        "src/vs/workbench/contrib/void/common/metricsService.ts:26-72",
+        "src/vs/workbench/contrib/void/browser/chatThreadService.ts:826",
+        "src/vs/workbench/contrib/void/browser/chatThreadService.ts:909-911",
+        "omega/crates/omega-otel/src/sinks.rs:16-68",
+        "omega/crates/omega-otel/src/provenance.rs:20-38"
+      ]
+    },
+    {
+      "id": "vd-copilot-ext-blacklist",
+      "domain": "extension",
+      "name": "Blacklist d'extensions IA concurrentes + transfert depuis VS Code",
+      "what": "Au demarrage, Void supprime les extensions d'IA concurrentes de la liste d'installations et deduit sa configuration depuis celle de VS Code / Cursor.",
+      "how": "extensionBlacklist (extensionTransferService.ts:30-42) liste ms-vscode-remote.remote, ms-vscode.remote et les copilotes sourcegraph.cody-ai, continue.continue, codeium.codeium, saoudrizwan.claude-dev (Cline), rooveterinaryinc.roo-cline, supermaven.supermaven — commentaire 'other AI copilots that could conflict with Void keybindings' ; github.copilot est commente et NON bloque. Le transfert (59-165) copie les fichiers de config depuis le dossier de l'editeur source vers celui de Void en filtrant la blacklist dans l'extensions.json. Declenche une seule fois via le flag de storage 'void-deleted-blacklist-2' (miscWokrbenchContrib.ts:31-36). On ecarte : ce probleme est propre au fait d'etre un IDE ; Omega n'a pas de keybindings Concurrent a neutraliser.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "rejected",
+      "status": "rejected",
+      "rust_cost": "S",
+      "refs": [
+        "src/vs/workbench/contrib/void/browser/extensionTransferService.ts:28-50",
+        "src/vs/workbench/contrib/void/browser/extensionTransferService.ts:59-165",
+        "src/vs/workbench/contrib/void/browser/miscWokrbenchContrib.ts:22-49"
+      ]
+    }
+  ]
+}

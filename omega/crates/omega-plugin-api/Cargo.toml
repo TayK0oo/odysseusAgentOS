@@ -1,0 +1,13 @@
+[package]
+name = "omega-plugin-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Omega — API d'extension : contributeurs, fabriques de plugins, chargement de manifestes."
+
+[dependencies]
+omega-types = { workspace = true }
+omega-registry = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

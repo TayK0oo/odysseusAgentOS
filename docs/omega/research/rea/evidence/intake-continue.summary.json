@@ -1,0 +1,24 @@
+{
+  "id": "continue",
+  "name": "Continue",
+  "repo": "continuedev/continue",
+  "stars": 36235,
+  "language": "TypeScript",
+  "license": "Apache-2.0",
+  "nature": "js",
+  "cloned": true,
+  "clone_note": "clone ok",
+  "status": "analyzed",
+  "evidence_id": "ev_0d9306c4cfcaf5133cc7147645b7c8dda05f6cadcbb12d0e6d66d3d47e9ccb1b",
+  "provider": "rea-javascript-application",
+  "confidence": "derived",
+  "operation": "analyze_javascript_application",
+  "digest": {
+    "sha256": "80a46dd0caeaf6953258d6bd63a51a8dae2368b0fbdebd7eb2fb140ebdd29ffa"
+  },
+  "counts": {
+    "graph_nodes": 11622,
+    "graph_edges": 14639
+  },
+  "limitations_count": 2215
+}

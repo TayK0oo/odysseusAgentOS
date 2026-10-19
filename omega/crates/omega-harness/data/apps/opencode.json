@@ -1,0 +1,353 @@
+{
+  "schema_version": 1,
+  "id": "opencode",
+  "name": "OpenCode",
+  "editor": "sst",
+  "oss": true,
+  "language": "TypeScript",
+  "license": "MIT",
+  "repo": "https://github.com/sst/opencode",
+  "architecture": "Monorepo Bun + Turbo (packages/*) : contrats effect/Schema dans packages/schema, runtime dans packages/core, transport HTTP dans packages/protocol + packages/server, SDK plugin dans packages/plugin ; le noyau expose ses propres agents/commands/skills via les memes verbes transform/hook que les plugins tiers.",
+  "entrypoints": [
+    "opencode CLI (packages/cli)",
+    "opencode server (packages/server, HTTP/OpenAPI)",
+    "opencode TUI (packages/tui)",
+    "opencode desktop (packages/desktop)",
+    "web app (packages/app)"
+  ],
+  "functionalities": [
+    {
+      "domain": "extension",
+      "how": "Contrat effect/Schema : Source = builtin|package|local|sdk, Features = server|tui|rpc, State = active|failed(error,ref?), Info = {id?,source,features,state} ; declaration config plugins: (string|{package,options})[] ; chargement host.resolve() (entrees server/tui/rpc/index) + load() import dynamique ; supervision protocol plugin.list/check/update.",
+      "id": "oc-plugin-registry",
+      "integration": "plugin",
+      "name": "Registre de plugins (manifeste + capacites + supervision)",
+      "omega_adapter": "omega-registry::Registry (Slot/Ensemble + quarantaine)",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "refs": [
+        "packages/schema/src/plugin.ts:10-43",
+        "packages/schema/src/config/plugin.ts:6-14",
+        "packages/plugin/src/host.ts:17-48",
+        "packages/protocol/src/groups/plugin.ts:10-49"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Un plugin = manifeste versionne (source builtin/package/local/sdk) + capacites par surface d'execution (server/tui/rpc) + etat active/failed non fatal, listable et updatable via API."
+    },
+    {
+      "domain": "extension",
+      "how": "Deux API (@opencode/plugin Promise et @opencode/plugin/effect) aux memes capacites : hook(name,callback) intercepte une operation vivante ; transform(callback) contribue a un etat rejouable via un editeur synchrone (donnees async chargees avant) ; reload() rejoue tous les transforms du domaine. Domaines transform : agent, command, integration, mcp, model, provider, reference, skill, tool, vcs, websearch.",
+      "id": "oc-transform-hook",
+      "integration": "plugin",
+      "name": "Deux verbes d'extension : hook + transform + reload",
+      "omega_adapter": "omega-plugin-api (Transform rejouable + Hook live + reload par domaine)",
+      "omega_capability": "registry",
+      "omega_port": "Registre (register_transform/register_hook/reload)",
+      "refs": [
+        "packages/plugin/src/README.md:5-76",
+        "packages/plugin/src/promise/registration.ts:1-21",
+        "packages/plugin/src/effect/session.ts:138-171"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Toute extensibilite passe par deux verbes seulement : hook (interception live) et transform (contribution declarative rejouable), plus reload ; editeurs synchrones."
+    },
+    {
+      "domain": "extension",
+      "how": "Contrat Tools.register : chaque activation acquiert ses services, construit ses outils et les enregistre dans un Scope frais possede par le plugin ; le PluginHost n'expose que la capacite etroite du domaine (ex. tools.register), jamais le registre interne. Invariant documente : derniere inscription active gagne, fermer retire exactement son effet et revele la precedente ; muter la record source apres coup ne change rien.",
+      "id": "oc-scoped-overlay",
+      "integration": "plugin",
+      "name": "Inscriptions scopees (loi de superposition / overlay)",
+      "omega_adapter": "omega-registry (Scope : fermeture = revelation de la couche precedente)",
+      "omega_capability": "registry",
+      "omega_port": "Registre (Scope)",
+      "refs": [
+        "specs/v2/tools.md:49-81",
+        "packages/core/src/plugin/host.ts:1-702"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Chaque inscription vit dans un Scope : la derniere inscription active gagne, la fermer retire exactement son effet et revele la couche precedente (override propre, zero undo)."
+    },
+    {
+      "domain": "extension",
+      "how": "createPluginSources(watch) : empreinte sha256 du fichier ou du listing trie du repertoire, cache des tentatives d'import (un module en echec n'est pas reevalue a chaque evenement), watch des fichiers avec reload du graphe local change ; trois strategies de preparation selon l'hote (node/bun/package) ; localSource accepte file://, ./... et chemins absolus.",
+      "id": "oc-source-watch",
+      "integration": "plugin",
+      "name": "Decouverte source : fingerprint + cache d'echec + watch",
+      "omega_adapter": "omega-registry (empreinte source + reload)",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "refs": [
+        "packages/plugin/src/source.ts:6-66",
+        "packages/plugin/src/source.node.ts",
+        "packages/plugin/src/source.bun.ts",
+        "packages/plugin/src/source.package.ts"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Decouverte idempotente des plugins : empreinte sha256 des sources, echecs d'import caches, rechargement sur changement de fichier."
+    },
+    {
+      "domain": "agents",
+      "how": "Schema Agent.Info : {id, name, model?, request, system?, description?, mode: subagent|primary|all, hidden, color?, steps?, permissions} ; constructeur statique default(id) posant allow * sauf read *.env -> ask ; plugins internes general/explore aux permissions restreintes ; agent build par defaut.",
+      "id": "oc-agent-schema",
+      "integration": "plugin",
+      "name": "Agents declaratifs (schema + frontmatter + permissions)",
+      "omega_adapter": "plugins/agent-declarative (frontmatter YAML + Ruleset)",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore (discover/load)",
+      "refs": [
+        "packages/schema/src/agent.ts:23-53",
+        "packages/core/src/plugin/agent.ts:87-119",
+        "packages/core/src/agent.ts:13",
+        "packages/core/src/config/markdown.ts:1-40"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Agents definis declarativement (markdown + frontmatter YAML, sanitize des ':' non quotes) avec mode, modele, system et Ruleset de permissions ; compat de lecture ~/.claude/ et ~/.agents/."
+    },
+    {
+      "domain": "agents",
+      "how": "Schema Command.Info = {name, description?} ; config {template, description?, agent?, model?, subagent?} ; chargees depuis un repertoire markdown ; une commande peut executer un session.prompt, un shell ou un subagent.",
+      "id": "oc-command-md",
+      "integration": "plugin",
+      "name": "Commandes markdown (prompt/shell/subagent)",
+      "omega_adapter": "plugins/command-md",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore",
+      "refs": [
+        "packages/schema/src/command.ts:1-18",
+        "packages/schema/src/config/command.ts",
+        "packages/core/src/config/plugin/command.ts"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Commandes custom declaratives en markdown : un nom + un template executant un prompt de session, un shell ou un subagent."
+    },
+    {
+      "domain": "contexte",
+      "how": "Schema Skill.Info = {id, name, description?, autoinvoke?, path, content}, Source = directory|url|embedded ; pull reseau via index.json avec garde-fous anti-traversee (isSafeSegment, isSafeRelativePath) ; filtrage available() par Permission.evaluate ; injection modele en bloc <skill_content> + <skill_files> (liste echantillonnee).",
+      "id": "oc-skill-store",
+      "integration": "plugin",
+      "name": "Skills : store + discovery securisee + injection",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "refs": [
+        "packages/schema/src/skill.ts:27-66",
+        "packages/core/src/skill/discovery.ts:16-124",
+        "packages/core/src/skill.ts:30-60"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Skills a disclosure progressive (directory/url/embedded), decouverte via index.json avec garde-fous anti-traversee, filtrage par permissions et injection modele en bloc <skill_content>."
+    },
+    {
+      "domain": "agents",
+      "how": "Outil subagent : cree une session enfant a contexte isole (resume cible uniquement), parametres model (provider/model#variant avec lookup catalogue), sessionID (reprise), background (retour immediat + notification a terminaison) ; sous-agents builtins general et explore.",
+      "id": "oc-subagents",
+      "integration": "plugin",
+      "name": "Sous-agents isoles paralleles (outil subagent)",
+      "omega_adapter": "plugins/subagent-isolated (spawn/resume, isolation worktree)",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/resume)",
+      "refs": [
+        "packages/core/src/tool/plugin/subagent.ts:19-90",
+        "packages/core/src/plugin/agent.ts:87-119",
+        "packages/core/src/session/affinity.ts:7-8"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Delegation a des sessions enfants isolees et paralleles (background, reprise par sessionID, modele par invocation), seul un resume remonte au parent."
+    },
+    {
+      "domain": "agents",
+      "how": "Plugin opencode.plan : transform agent ajoutant un agent plan lecture seule (edit deny sauf ~/.opencode/plan) + hook session.context reapposant ou retirant le rappel de mode pres de la queue pour preserver le prefixe de cache.",
+      "id": "oc-plan-mode",
+      "integration": "plugin",
+      "name": "Plan mode (agent lecture seule + rappel replace)",
+      "omega_adapter": "plugins/plan-mode",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore + ContextEngine (hook context)",
+      "refs": [
+        "packages/core/src/plugin/plan.ts:12-60",
+        "packages/core/src/plugin/plan.ts:105-110"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Mode plan : agent read-only ajoute par transform, rappel de mode reappose pres de la queue du contexte (preservation du cache)."
+    },
+    {
+      "domain": "routage",
+      "how": "Schema Provider.Info : {id, canonical?, integrationID?, name, activation auto|enabled|disabled, package, compatibility?, settings, headers, body} + statics d'IDs connus (defaut, pas verrou) ; custom via Config.Provider.Info (models, cost in/out/cache.read/cache.write, limit, capabilities, variants) ; catalogue Option B : config, models.dev et auth enregistrent des transforms rejouables, la desactivation rematerialise le catalogue sans undo ; ~35 adaptateurs provider.* (ollama, openai, anthropic...).",
+      "id": "oc-provider-catalog",
+      "integration": "plugin",
+      "name": "Registre multi-fournisseurs + catalogue rejouable",
+      "omega_adapter": "omega-providers (catalogue par transforms + scoring communautaire)",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider (providers/models)",
+      "refs": [
+        "packages/schema/src/provider.ts:12-60",
+        "packages/schema/src/config/provider.ts",
+        "packages/core/src/plugin/models-dev.ts:28-60",
+        "packages/core/src/plugin/provider/ollama.ts",
+        "specs/v2/catalog-config-plugin-lifecycle.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Catalogue modeles/fournisseurs construit par transforms rejouables (config, models.dev, auth) avec activation auto/enabled/disabled, couts cache.read/write et compatibilites."
+    },
+    {
+      "domain": "contexte",
+      "how": "Politique cache auto = {tools:true, system:true, messages:{tail:1}} ; BREAKPOINT_CAP=4, hints manuels comptant dans le budget ; RESPECTS_INLINE_HINTS (protocoles ignorant cache_control skippes) ; politiques speciales QWEN/gateway ; affinite session = parentID ?? fork.sessionID ?? session.id (les enfants partagent le cache du parent) ; PromptCacheKeyPlugin et Model.Compatibility.cacheFormat anthropic|alibaba.",
+      "id": "oc-cache-policy",
+      "integration": "plugin",
+      "name": "Prompt caching par prefixe (breakpoints + affinite)",
+      "omega_adapter": "plugins/prompt-cache-policy (breakpoints<=4, TTL 5m/1h)",
+      "omega_capability": "context-engine",
+      "omega_port": "PromptCachePolicy (plan/affinity)",
+      "refs": [
+        "packages/ai/src/cache-policy.ts:17-60",
+        "packages/core/src/session/affinity.ts:7-8",
+        "packages/core/src/plugin/provider/prompt-cache-key.ts",
+        "packages/schema/src/model-compatibility.ts:16"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Prompt caching par prefixe : breakpoints auto (tools->system->messages, max 4), TTL, cle d'affinite parent/fork/self, protocoles non compatibles en no-op."
+    },
+    {
+      "domain": "contexte",
+      "how": "compile() produit un resume structure (Objective/Requirements/Decisions/Work State Completed|Active|Blocked/Next Move/Relevant Files/Important Context) ; SHRINK_STEPS=[0.7,0.5,0.35] sur rejet trop long, RESERVE_MIN=16000, UNKNOWN_WINDOW=200000, keep defaut 15000 tokens ; config auto/buffer/keep.tokens ; variante native (provider_context) ou resume ; transcript complet reste durable, anti-thrash.",
+      "id": "oc-compaction",
+      "integration": "plugin",
+      "name": "Compaction structuree + rechargement cible",
+      "omega_adapter": "omega-context (ContextBudget estimate/compact + resume structure)",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextBudget (estimate/compact)",
+      "refs": [
+        "packages/core/src/session/compaction.ts:95-136",
+        "packages/core/src/session/compaction.ts:197-233",
+        "packages/schema/src/config/compaction.ts:1-14",
+        "packages/schema/src/provider.ts"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Compaction structuree (resume type + recent verbatim, shrink steps anti-boucle) avec variante native provider et rechargement cible."
+    },
+    {
+      "domain": "outils",
+      "how": "Tool.make({description, input, output, execute}) ; Context = {sessionID, agent, messageID, id, progress} ; Result = {output (valeur machine validee), content (valeur modele durable), metadata (JSON compact UI)} ; ValueSchema = Effect Schema | Standard Schema V1 | JSON Schema avec identifier -> JSON Schema stable pour l'OpenAPI derive ; hooks tool execute.before (peut echouer -> rejet avant exec) / execute.after.",
+      "id": "oc-tool-contract",
+      "integration": "plugin",
+      "name": "Contrat d'outil triple (output/content/metadata)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate)",
+      "refs": [
+        "packages/schema/src/tool.ts:14-44",
+        "packages/schema/src/tool.ts:86-99",
+        "packages/plugin/src/effect/tool.ts:21-59",
+        "specs/v2/tools.md:8-15"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Contrat d'outil schema-first (interop Effect/Standard/JSON Schema) distinguant output machine, content modele et metadata UI, avec hooks before/after."
+    },
+    {
+      "domain": "securite",
+      "how": "Permission.Ruleset = regles ordonnees {action, resource, effect allow|ask|deny} evaluees par Permission.evaluate (defaut agent : allow * sauf read *.env -> ask) ; ConfigPolicy {action provider.use|tool.use|integration.use, resource, effect allow|deny} ; evenement permission.asked ; outils builtins appellent permission.assert avant execution.",
+      "id": "oc-permissions",
+      "integration": "plugin",
+      "name": "Permissions allow/ask/deny + policy provider/tool/integration",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy (evaluate/ruleset)",
+      "refs": [
+        "packages/schema/src/permission.ts:56-67",
+        "packages/schema/src/config/policy.ts:1-13",
+        "packages/schema/src/agent.ts:39-53",
+        "specs/v2/tools.md:83-120"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Rulesets ordonnes allow/ask/deny evalues par Permission.evaluate + policies provider/tool/integration, avec assert avant chaque execution d'outil."
+    },
+    {
+      "domain": "observabilite",
+      "how": "Deux durabilites : durable(...) (log d'agregat versionne, manifeste durable) vs ephemeral(...) (pas de persistance) + inventory(...) ; decision documentee event-stream-architecture.md ; evenements types plugin.updated/agent.updated/skill.updated/provider.updated -> invalidation UI.",
+      "id": "oc-event-stream",
+      "integration": "plugin",
+      "name": "Event stream durable vs ephemere + manifeste",
+      "omega_adapter": "omega-app::FileEventStore + omega-otel::TraceReplayer",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (+ TelemetrySink)",
+      "refs": [
+        "packages/schema/src/event.ts:42-100",
+        "packages/schema/src/plugin.ts:45-48",
+        "packages/schema/src/agent.ts:15-17",
+        "specs/v2/event-stream-architecture.md"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Stream d'evenements typant durable (persiste, versionne, rejouable) vs ephemere, avec manifeste et inventaire par type."
+    },
+    {
+      "domain": "execution",
+      "how": "packages/protocol : groupes agent/command/config/credential/event/session/model/provider/skill/mcp/plugin/... exposes en HttpApiEndpoint (plugin.list GET /api/plugin, plugin.check, plugin.update concurrent + notify reload) ; server assemble HttpApi ; TUI/desktop/app consomment la meme API ; plugin declare ses surfaces via Features.",
+      "id": "oc-server-protocol",
+      "integration": "service",
+      "name": "Serveur + protocole HTTP/OpenAPI + surfaces TUI/desktop",
+      "omega_adapter": "omega-server (cockpit + /api/health|plugins|run|trace)",
+      "omega_capability": null,
+      "omega_port": null,
+      "refs": [
+        "packages/protocol/src/groups/plugin.ts:10-61",
+        "packages/server/src/api.ts",
+        "packages/schema/src/plugin.ts:24-30",
+        "specs/v2/README.md:30-42"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Transport HTTP/OpenAPI genere des schemas (une route par groupe), serveur assemblant l'API, surfaces TUI/desktop/web sur la meme origine."
+    },
+    {
+      "domain": "configuration",
+      "how": "Discovery scannant .claude/.agents/.opencode (global + projet, ordre inverse = precedence), repertoires agents/skills separes, option claude:false pour desactiver ; frontmatter YAML via gray-matter avec repli sanitize pour ':' non quotes ; couches config schema-first versionnees.",
+      "id": "oc-config-layers",
+      "integration": "plugin",
+      "name": "Config discovery multi-dossiers + couches",
+      "omega_adapter": "omega-config (couches + precedence)",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "refs": [
+        "packages/core/src/config/discovery.ts:69-141",
+        "packages/core/src/config/markdown.ts:24-39",
+        "packages/schema/src/config.ts"
+      ],
+      "rust_cost": "S",
+      "status": "planned",
+      "what": "Decouverte de config en couches (.claude/.agents/.opencode, global->projet) avec frontmatter YAML tolerant et precedence definie."
+    },
+    {
+      "domain": "outils",
+      "how": "LSP/formatter declaratifs en config (command + extensions) : adaptateurs lancant des serveurs externes ; Code Mode : le modele ecrit du code appelant les outils, schemas JSON rendus en types TypeScript (MAX_RENDER_DEPTH=8, $ref/$defs, tags @deprecated/@default/@format), options tool.codemode/pinned. Runtime JS/TS in-process hors perimetre Rust : a remplacer par WASM sandboxe si besoin.",
+      "id": "oc-codemode-lsp",
+      "integration": "rejected",
+      "name": "Code Mode + LSP/formatter (ecarte : runtime JS)",
+      "omega_adapter": null,
+      "omega_capability": null,
+      "omega_port": null,
+      "refs": [
+        "packages/codemode/src/tool-schema.ts:41-142",
+        "packages/schema/src/config/lsp.ts:11-12",
+        "packages/schema/src/config/formatter.ts"
+      ],
+      "rust_cost": "L",
+      "status": "rejected",
+      "what": "ECARTE : Code Mode (outils appeles via code TS sandboxe) et adaptateurs LSP/formatter, dont le runtime JS in-process est hors perimetre Rust."
+    }
+  ]
+}

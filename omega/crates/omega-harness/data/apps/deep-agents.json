@@ -1,0 +1,326 @@
+{
+  "schema_version": 1,
+  "id": "deep-agents",
+  "name": "Deep Agents",
+  "editor": "LangChain",
+  "oss": true,
+  "language": "Python",
+  "license": "MIT",
+  "repo": "https://github.com/langchain-ai/deepagents",
+  "architecture": "Harnais d'agent « batteries-included » posé AU-DESSUS de LangChain (`create_agent()`) et LangGraph (runtime : état, checkpoints, streaming, interrupts). Deep Agents n'introduit pas de runtime : `create_deep_agent()` (libs/deepagents/deepagents/graph.py) assemble une pile de middleware, un backend de fichiers/mémoire/exécution, des sous-agents, des skills, une mémoire et des profils. Trois couches explicites (libs/ARCHITECTURE.md) : LangGraph = runtime ; LangChain = abstraction agent (modèle + outils + middleware) ; Deep Agents = harnais opinionné. Le code vit dans libs/deepagents (cœur), libs/code (CLI/TUI/extensions/plugins/hooks), libs/acp (Agent Client Protocol).",
+  "entrypoints": [
+    "create_deep_agent() — assemblage du harnais (libs/deepagents/deepagents/graph.py)",
+    "deepagents_code — CLI/TUI (libs/code/deepagents_code/__main__.py)",
+    "ACP — intégration éditeurs (libs/acp/deepagents_acp)"
+  ],
+  "functionalities": [
+    {
+      "id": "da-middleware-stack",
+      "domain": "extension",
+      "name": "Pile de middleware en 3 couches",
+      "what": "Le harnais se construit en empilant des middleware : échafaudage (planification, fichiers, sous-agents, résumé), middleware appelant (au milieu), puis queue dépendant du prompt final (profils, exclusions d'outils, prompt caching, mémoire, approbations).",
+      "how": "libs/ARCHITECTURE.md:53-63 décrit l'ordre exact : « scaffolding middleware first, inserts caller-supplied middleware in the middle, then appends tail behavior ». Les sous-agents ont LEUR PROPRE pile — un comportement peut venir de 4 origines (pile principale, sous-agent déclaratif, sous-agent compilé, sous-agent async).",
+      "omega_capability": "registry",
+      "omega_port": "Registre (composition ordonnée)",
+      "omega_adapter": "omega-registry",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "libs/ARCHITECTURE.md:53-63",
+        "libs/deepagents/deepagents/middleware/__init__.py"
+      ]
+    },
+    {
+      "id": "da-subagents",
+      "domain": "agents",
+      "name": "Sous-agents a contexte isole",
+      "what": "Delegation de taches a des sous-agents dont la fenetre de contexte est isolee ; trois formes : declaratif, compile (fourni par l'appelant), et un sous-agent generaliste par defaut.",
+      "how": "SubAgentMiddleware (libs/deepagents/deepagents/middleware/subagents.py:914) construit l'outil de delegation ; _ForkTaskToolMiddleware (:542) gere la variante fork. libs/ARCHITECTURE.md:41-45 precise que chaque forme a sa propre pile de middleware.",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/deepagents/deepagents/middleware/subagents.py:914",
+        "libs/deepagents/deepagents/middleware/subagents.py:542",
+        "libs/ARCHITECTURE.md:41-45"
+      ]
+    },
+    {
+      "id": "da-async-subagents",
+      "domain": "agents",
+      "name": "Sous-agents asynchrones / distants",
+      "what": "Une quatrieme forme de sous-agent : execution asynchrone ou distante, suivie par un middleware dedie.",
+      "how": "AsyncSubAgentMiddleware (libs/deepagents/deepagents/middleware/async_subagents.py:1361) : le resultat d'un sous-agent peut donc venir d'un autre processus ou d'un service, sans changer la surface cote agent principal.",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner",
+      "omega_adapter": null,
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "libs/deepagents/deepagents/middleware/async_subagents.py:1361"
+      ]
+    },
+    {
+      "id": "da-filesystem-middleware",
+      "domain": "outils",
+      "name": "Outils de fichiers (ls/read/write/edit/grep/glob)",
+      "what": "Le systeme de fichiers est expose a l'agent comme un jeu d'outils, au-dessus d'un backend interchangeable.",
+      "how": "FilesystemMiddleware (libs/deepagents/deepagents/middleware/filesystem.py:1819) declare la surface ; le contrat de backend est BackendProtocol (libs/deepagents/deepagents/backends/protocol.py:404) avec des resultats types (ReadResult:204, WriteResult:278, EditResult:295, GrepResult:344, GlobResult:382) — chaque operation a son type de resultat, pas un dict libre.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolExecutor",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "libs/deepagents/deepagents/middleware/filesystem.py:1819",
+        "libs/deepagents/deepagents/backends/protocol.py:404",
+        "libs/deepagents/deepagents/backends/protocol.py:204"
+      ]
+    },
+    {
+      "id": "da-backend-protocol",
+      "domain": "execution",
+      "name": "Backends interchangeables (local, sandbox, composite, store, distant)",
+      "what": "Le lieu ou vivent les fichiers, la memoire et l'execution shell est un BACKEND derriere un protocole unique : local, sandboxe, composite, adosse a un store, ou distant.",
+      "how": "BackendProtocol (backends/protocol.py:404) est implemente par composite.py, filesystem.py, local_shell.py, sandbox.py, state.py, store.py, langsmith.py, context_hub.py — soit huit implementations du meme contrat. Changer de backend deplace d'un coup fichiers + memoire + shell.",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend",
+      "omega_adapter": "omega-sandbox::LocalSandboxBackend",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "libs/deepagents/deepagents/backends/protocol.py:404",
+        "libs/deepagents/deepagents/backends/composite.py",
+        "libs/deepagents/deepagents/backends/sandbox.py",
+        "libs/deepagents/deepagents/backends/local_shell.py"
+      ]
+    },
+    {
+      "id": "da-summarization",
+      "domain": "contexte",
+      "name": "Resume de fil long + offload des sorties d'outils sur disque",
+      "what": "Gestion de contexte en deux temps : resumer les longs fils de conversation, et sortir les sorties d'outils volumineuses vers le disque plutot que de les garder dans la fenetre.",
+      "how": "SummarizationMiddleware prive + outil de resume (middleware/summarization.py:524 et :1993) ; l'offload est un middleware separe (_blob_offload.py). C'est le pattern « double couche » (microcompact puis resume) que le corpus designe comme la bonne reponse a la saturation de contexte.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "libs/deepagents/deepagents/middleware/summarization.py:524",
+        "libs/deepagents/deepagents/middleware/summarization.py:1993",
+        "libs/deepagents/deepagents/middleware/_blob_offload.py"
+      ]
+    },
+    {
+      "id": "da-memory",
+      "domain": "memoire",
+      "name": "Memoire persistante pluggable (state / store)",
+      "what": "Rappel inter-sessions : la memoire est un backend pluggable, pas un composant fixe.",
+      "how": "MemoryMiddleware (middleware/memory.py:180) injecte la memoire dans la requete ; les implementations vivent dans backends/state.py (etat du graphe) et backends/store.py (store durable) — donc la memoire suit le meme contrat que le systeme de fichiers.",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/deepagents/deepagents/middleware/memory.py:180",
+        "libs/deepagents/deepagents/backends/store.py",
+        "libs/deepagents/deepagents/backends/state.py"
+      ]
+    },
+    {
+      "id": "da-skills",
+      "domain": "contexte",
+      "name": "Skills (SKILL.md) + outils de chargement",
+      "what": "Des competences declaratives chargees a la demande, avec leurs propres outils.",
+      "how": "SkillsMiddleware (middleware/skills.py:916) + outils dedies (_skill_tools.py) ; les skills fournies sont dans libs/code/deepagents_code/built_in_skills. Le format est SKILL.md (frontmatter), le meme standard que notre SkillIndex et que le standard « Agent Plugins ».",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore",
+      "omega_adapter": "omega-context::SkillIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "libs/deepagents/deepagents/middleware/skills.py:916",
+        "libs/deepagents/deepagents/middleware/_skill_tools.py",
+        "libs/code/deepagents_code/built_in_skills"
+      ]
+    },
+    {
+      "id": "da-permissions",
+      "domain": "securite",
+      "name": "Human-in-the-loop : approuver / editer / rejeter un appel d'outil",
+      "what": "Interception des appels d'outils avant execution : l'humain approuve, edite les arguments, ou rejette.",
+      "how": "Middleware de permissions (middleware/permissions.py) + interruption specifique au systeme de fichiers (_fs_interrupt.py) : l'interruption est branchee AU NIVEAU DE L'OUTIL, pas au niveau de la boucle.",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "libs/deepagents/deepagents/middleware/permissions.py",
+        "libs/deepagents/deepagents/middleware/_fs_interrupt.py"
+      ]
+    },
+    {
+      "id": "da-prompt-caching",
+      "domain": "routage",
+      "name": "Prompt caching par middleware",
+      "what": "Le cache de prompt n'est pas un reglage du fournisseur mais un middleware de bout de pile, applique apres que la surface finale est connue.",
+      "how": "middleware/_prompt_caching.py, place en « tail » (libs/ARCHITECTURE.md:56-63) : c'est ce qui lui permet de tenir compte des exclusions d'outils et du prompt final avant de figer les blocs cacheables.",
+      "omega_capability": "prompt-cache-policy",
+      "omega_port": "PromptCachePolicy",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/deepagents/deepagents/middleware/_prompt_caching.py",
+        "libs/ARCHITECTURE.md:56-63"
+      ]
+    },
+    {
+      "id": "da-message-eviction",
+      "domain": "contexte",
+      "name": "Eviction de messages et rognage de debordement",
+      "what": "Deux garde-fous distincts de la saturation : eviction de messages et rognage de sortie trop longue.",
+      "how": "middleware/_message_eviction.py et middleware/_overflow_clip.py — separes du resume (summarization.py) : trois mecanismes complementaires, chacun avec son seuil.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextBudget",
+      "omega_adapter": "omega-context::ContextBudget",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "libs/deepagents/deepagents/middleware/_message_eviction.py",
+        "libs/deepagents/deepagents/middleware/_overflow_clip.py"
+      ]
+    },
+    {
+      "id": "da-rubric",
+      "domain": "observabilite",
+      "name": "Auto-evaluation par rubrique",
+      "what": "Le harnais peut s'auto-evaluer contre une rubrique explicite, en cours de run.",
+      "how": "RubricMiddleware (middleware/rubric.py:492) avec son propre etat (RubricState) : l'evaluation n'est pas un rapport post-mortem mais un middleware qui participe a la boucle.",
+      "omega_capability": "router-feedback",
+      "omega_port": "ScoringPolicy",
+      "omega_adapter": "omega-router::CompositeScoringPolicy",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/deepagents/deepagents/middleware/rubric.py:492"
+      ]
+    },
+    {
+      "id": "da-patch-tool-calls",
+      "domain": "execution",
+      "name": "Reparation des appels d'outils malformes",
+      "what": "Avant execution, les appels d'outils malformes emis par le modele sont repares plutot que rejetes.",
+      "how": "PatchToolCallsMiddleware (middleware/patch_tool_calls.py:11) s'insere dans la pile : meme philosophie que le reparateur de hunks de GPT Engineer, appliquee cette fois aux appels d'outils. Indispensable avec les modeles locaux, qui emettent frequemment du JSON imparfait.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolExecutor",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/deepagents/deepagents/middleware/patch_tool_calls.py:11"
+      ]
+    },
+    {
+      "id": "da-profiles",
+      "domain": "configuration",
+      "name": "Profils fournisseur / harnais",
+      "what": "Le harnais s'adapte au modele : un profil par fournisseur ou par famille de modele ajuste le prompt, les outils et le comportement.",
+      "how": "libs/ARCHITECTURE.md:47-49 : « profiles tune the harness for particular providers or models ». Exemple concret : libs/code/deepagents_code/_glm_5p2_profile.py (profil dedie a un modele precis). C'est le meme besoin que nos overrides de capacites par modele (lecon Void).",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigLayerSource",
+      "omega_adapter": "omega-config",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "libs/ARCHITECTURE.md:47-49",
+        "libs/code/deepagents_code/_glm_5p2_profile.py"
+      ]
+    },
+    {
+      "id": "da-plugins-hooks-extensions",
+      "domain": "extension",
+      "name": "Plugins, hooks et extensions de la CLI",
+      "what": "La CLI expose trois surfaces d'extension distinctes : plugins, hooks et extensions.",
+      "how": "libs/code/deepagents_code/plugins, hooks, extensions — avec des exemples dans libs/code/examples/extensions. Trois surfaces plutot qu'une : le point d'extension depend de ce qu'on veut faire (enregistrer une capacite, reagir a un evenement, ou ajouter une commande).",
+      "omega_capability": "hook",
+      "omega_port": "Hook",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "libs/code/deepagents_code/plugins",
+        "libs/code/deepagents_code/hooks",
+        "libs/code/deepagents_code/extensions"
+      ]
+    },
+    {
+      "id": "da-mcp-providers",
+      "domain": "outils",
+      "name": "Fournisseurs MCP pre-integres",
+      "what": "Des serveurs MCP sont fournis pre-configures, au meme titre que les outils natifs.",
+      "how": "libs/code/deepagents_code/mcp_providers : la couche MCP est traitee comme un fournisseur d'outils ordinaire, exactement le modele de notre `mcp:rea`.",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor",
+      "omega_adapter": "omega-mcp::McpToolSurface",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "libs/code/deepagents_code/mcp_providers"
+      ]
+    },
+    {
+      "id": "da-acp",
+      "domain": "extension",
+      "name": "Agent Client Protocol (integration editeurs)",
+      "what": "Le harnais s'expose aux editeurs tiers via ACP, le protocole d'integration des IDE.",
+      "how": "libs/acp/deepagents_acp : Deep Agents est montable dans un editeur comme on monte un serveur MCP dans un agent. Meme observation que Kilo Code (acp/service.ts) — ACP est devenu un standard de fait du corpus.",
+      "omega_capability": "channel",
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "libs/acp/deepagents_acp"
+      ]
+    },
+    {
+      "id": "da-tui",
+      "domain": "ui",
+      "name": "TUI du harnais de code",
+      "what": "Interface terminal complete pour le harnais de code (deepagents_code).",
+      "how": "libs/code/deepagents_code/tui — meme famille que Crush/OpenCode : le terminal reste la surface principale des harnais de 2026.",
+      "omega_capability": "ui-panel",
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "native",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "libs/code/deepagents_code/tui"
+      ]
+    }
+  ]
+}

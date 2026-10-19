@@ -1,0 +1,341 @@
+{
+  "schema_version": 1,
+  "id": "openclaw",
+  "name": "OpenClaw",
+  "editor": "Peter Steinberger / communaute OpenClaw",
+  "oss": true,
+  "language": "TypeScript",
+  "license": "MIT",
+  "repo": "https://github.com/openclaw/openclaw",
+  "architecture": "Gateway multi-canal adossee a un runner d'agent embarque ; toute capacite exclusive (memoire, moteur de contexte) est fournie par un plugin selectionne via slots ; le comportement des plugins est decrit par manifeste declare (policy-par-code) et intercepte par hooks types de cycle de vie.",
+  "entrypoints": [
+    "openclaw CLI (openclaw.mjs)",
+    "gateway multi-canal (HTTP RPC + messageries)",
+    "node host (sidecar Rust)",
+    "control UI web + TUI"
+  ],
+  "functionalities": [
+    {
+      "domain": "contexte",
+      "how": "Interface ContextEngine (info + ingest/ingestBatch/assemble/compact requis, afterTurn/maintain/commitTurn/prepareSubagentSpawn/onSubagentEnded/dispose optionnels) ; le registre valide la forme via describeResolvedContextEngineContractError (ingest/assemble/compact obligatoires) et retombe sur l'adaptateur legacy ; l'orchestration appelle bootstrap puis assemble avant chaque prompt, afterTurn apres, compact sur depassement, maintain en tache de fond. Le flag ownsCompaction declare qui possede la compaction ; acceptedHostParams filtre les parametres transmis.",
+      "id": "oc-context-engine",
+      "integration": "plugin",
+      "name": "Moteur de contexte enfichable + ownsCompaction",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (ingest/assemble/compact/afterTurn/maintain)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/context-engine/types.ts:191,355-542",
+        "src/context-engine/registry-contract.ts:27-62",
+        "src/agents/harness/context-engine-lifecycle.ts:111-442"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Remplace toute la gestion du contexte (ingestion, assemblage sous budget, compaction, maintenance) par un port unique dont l'implementation peut posseder la compaction."
+    },
+    {
+      "domain": "extension",
+      "how": "Deux cles de slot (memory, contextEngine) avec defauts memory-core et legacy ; resolveSlotSelection normalise la config (default/off/pinned) et applyExclusiveSlotSelection deplace tous les slots d'un kind vers le plugin selectionne ; la resolution lit le manifeste, jamais l'inventaire du gateway courant ; repli sur legacy si l'engine selectionne n'est pas enregistre.",
+      "id": "oc-slots",
+      "integration": "plugin",
+      "name": "Slots d'exclusivite par capacite",
+      "omega_adapter": "omega-registry (Slot/Ensemble)",
+      "omega_capability": "registry",
+      "omega_port": "Registre (slot → implementation active)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/plugins/slots.ts:12-107",
+        "src/plugins/plugin-kind.types.ts:1-2",
+        "src/config/types.plugins.ts:10"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Pour chaque capacite exclusive, une seule implementation est active, resolue par config avec proprietaire implicite par defaut."
+    },
+    {
+      "domain": "extension",
+      "how": "Chaque plugin embarque openclaw.plugin.json : configSchema (JSON Schema), activation/setup/doctorContract lisibles sans executer le code du plugin, champ contracts (snapshot statique des capacites revendiquees), entree scellee par definePluginEntry ; l'activation-planner decide du chargement sur les seules metadonnees.",
+      "id": "oc-manifest",
+      "integration": "plugin",
+      "name": "Manifeste declaratif + policy-par-code",
+      "omega_adapter": "plugins/plugin-manifest (serde + JSON Schema)",
+      "omega_capability": "plugin-manifest",
+      "omega_port": "PluginManifest (validate + inspect sans executer)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/plugins/manifest-types.ts:429,503-535",
+        "src/plugin-sdk/plugin-entry.ts:244-260",
+        "docs/plugins/manifest.md:48-60"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Le comportement d'un plugin est decrit dans un schema type (config, activation, contrats) lu et valide sans executer son code."
+    },
+    {
+      "domain": "extension",
+      "how": "Catalogue documente d'evenements avec semantique Gate (before_agent_run, before_tool_call), Modify (before_model_resolve, before_prompt_build, before_agent_finalize), Observe (after_tool_call, agent_end, compactions, session_start/end) et Claim (before_agent_reply, before_dispatch) ; budgets d'execution 15 s (30 s pour compactions/session) ; enregistrement via api.on.",
+      "id": "oc-hooks",
+      "integration": "plugin",
+      "name": "Hooks types de cycle de vie Gate/Modify/Observe/Claim",
+      "omega_adapter": "plugins/hook-bus (bus async + budgets + ordre deterministe)",
+      "omega_capability": "hook-bus",
+      "omega_port": "HookBus (on/emit + budget)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "docs/plugins/hooks/reference.md:93-188",
+        "src/plugins/plugin-api.types.ts:239-257"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Points d'extension declares du cycle de vie agent/outils/session, chacun avec une semantique d'effet et un budget de temps."
+    },
+    {
+      "domain": "contexte",
+      "how": "Le runtime fournit a l'engine un diagnostic type : retention (none/short/long/in_memory/24h), usage reel du dernier appel, observation de rupture (broke + codes historyRewrite/compaction/pruning/systemPrompt/tools/transport...), horodatages de dernier acces/expiration.",
+      "id": "oc-prompt-cache",
+      "integration": "plugin",
+      "name": "Telemetrie prompt-cache + codes de rupture",
+      "omega_adapter": "omega-context::PromptCacheTelemetry",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (PromptCacheInfo en entree d'assemble)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/context-engine/types.ts:242-286"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Donne au moteur de contexte un diagnostic type des ruptures de cache pour stabiliser le prefixe et eviter les ruptures evitables."
+    },
+    {
+      "domain": "memoire",
+      "how": "Contrat MemoryPluginCapability : promptBuilder, flushPlanResolver, runtime/providerRuntime (searchForCli, getMemorySearchManager, resolveMemoryBackendConfig, authorizeSearchHits, classifyWorkspaceMemoryPaths, prepareReload/close), recallToolNames ; l'extension memory-core l'implemente (search-api, recall-operation-api, session-search-visibility-api) et expose des outils de rappel deterministes.",
+      "id": "oc-memory-plugin",
+      "integration": "plugin",
+      "name": "Contrat memoire enfichable + memory-core",
+      "omega_adapter": "plugins/memory-fts",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (recall/add/replace/patch + authorize)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/plugins/registry-contribution-types.ts:271-376",
+        "extensions/memory-core/openclaw.plugin.json:2",
+        "extensions/memory-core/search-api.ts:1"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "La memoire est un plugin a part entiere : recherche autorisee par politique, classification d'origine des sources, rappel deterministe."
+    },
+    {
+      "domain": "outils",
+      "how": "Surface d'enregistrement de ~73 methodes register* (tools, hooks, channels, providers, storage, embeddings, speech, media, web-fetch, memory, CLI, services, session actions/extensions, control UI) ; les outils agent sont declares via agent-tools.ts et executes dans la phase d'execution du runner (attempt-client-tools / attempt-execution-phase) avec reparation d'appels (tool-call-repair).",
+      "id": "oc-tool-surface",
+      "integration": "plugin",
+      "name": "Registre de capacites (~73 register*) + execution d'outils",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (register + definitions + dispatch)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/plugins/plugin-api.types.ts:239-500",
+        "src/agents/embedded-agent-runner/run/attempt-client-tools.ts:1",
+        "src/agents/agent-tools.ts:1"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Toutes les capacites (outils, providers, canaux, UI) s'enregistrent sur une API plugin unique ; le runner dispatche les appels d'outils du modele."
+    },
+    {
+      "domain": "extension",
+      "how": "Enregistrement declare (registerChannel + catalogue de canaux embarques + metadonnees de config), resolution de comptes et garde-fous DM (direct-dm-guard-policy, allow-from, allowlists), methodes gateway et politique d'acces gateway enregistrables par plugin ; 180 extensions dont telegram, discord, slack, signal, whatsapp.",
+      "id": "oc-gateway-channels",
+      "integration": "plugin",
+      "name": "Gateway multi-canal a canaux enregistrables",
+      "omega_adapter": "plugins/channel-*",
+      "omega_capability": "channel",
+      "omega_port": "Channel (register + config + garde-fous DM)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/plugins/plugin-api.types.ts:257-283",
+        "src/channels/direct-dm-guard-policy.ts:1",
+        "src/channels/allow-from.ts:1"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Chaque messagerie est un adaptateur enregistre avec config typee, allowlists et garde-fous d'acces, derriere un gateway HTTP RPC commun."
+    },
+    {
+      "domain": "securite",
+      "how": "Appairage d'appareils par code de jonction (16 octets, validation/parse du chemin de requete), allowlist d'appairage, et autorite d'approbation du runtime agent (validateur createAgentRuntimeApprovalAuthorityValidator) combinee a before_tool_call (rewriter/blocage/approbation requise) et a la politique d'acces gateway enregistrable.",
+      "id": "oc-pairing-approvals",
+      "integration": "plugin",
+      "name": "Appairage d'appareils + approbations d'execution",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy (approve/deny + file d'attente)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/pairing/join-code.ts:1-9",
+        "src/gateway/agent-runtime-approval-authority.ts:12",
+        "docs/plugins/hooks/reference.md:147"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Les appareils s'appairent par code de jonction + allowlist ; chaque appel d'outil sensible passe par une file d'approbation (gate humain ou politique)."
+    },
+    {
+      "domain": "routage",
+      "how": "Resolution de route entrante (deriveLastRoutePolicy, resolveInboundLastRouteSessionKey, buildAgentSessionKey, pickFirstExistingAgentId) + catalogue de modeles embarque avec planificateur de manifeste, normalisation d'ids, overlay distant et contexte de tarification (resolveModelPricingContext/resolveModelPricing) ; hook before_model_resolve modifiable par plugin.",
+      "id": "oc-model-routing",
+      "integration": "plugin",
+      "name": "Routage de sessions + catalogue de modeles tarife",
+      "omega_adapter": "omega-router::HeuristicTaskClassifier + ParetoSelector + TierFallbackPolicy",
+      "omega_capability": "router-policy",
+      "omega_port": "ScoringPolicy/Selector/FallbackPolicy + TaskClassifier",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/routing/resolve-route.ts:85-204",
+        "src/model-catalog/pricing.ts:201-323",
+        "docs/plugins/hooks/reference.md:126"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Les sessions entrantes sont routees vers agent/modele via politiques resolues, catalogue versionne et tarification, avec fallback modifiable."
+    },
+    {
+      "domain": "automatisation",
+      "how": "Jobs declares (definition-hash, read-view publique qui expurge l'etat scheduler-only), suivi d'executions en cours anti-doublons, liaisons job↔sessions (resolveCronJobBoundSessionKeys, desactivation a la suppression de session), politique d'outils planifies (scheduled-tool-policy), resume de sortie de commande et statuts de completion.",
+      "id": "oc-cron",
+      "integration": "plugin",
+      "name": "Planificateur cron lie aux sessions",
+      "omega_adapter": "plugins/scheduler-cron",
+      "omega_capability": "scheduler-job",
+      "omega_port": "Scheduler (declare/run/bind + garde-fous)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/cron/active-jobs.ts:1-192",
+        "src/cron/public-job.ts:3",
+        "src/cron/job-session-bindings.ts:20-73"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Taches planifiees declaratives liees aux sessions d'agent, avec anti-doublons, nettoyage a la suppression et resume de sortie."
+    },
+    {
+      "domain": "configuration",
+      "how": "Config typee (OpenClawConfig) avec couches, migration d'alias de canaux, rotation de backups, valeurs autorisees validees, tailles d'octets parsees, et cles de slots (PluginSlotsConfig) ; le wizard et la CLI s'appuient sur les metadata de config des canaux embarques.",
+      "id": "oc-config",
+      "integration": "plugin",
+      "name": "Configuration typee a couches + precedence",
+      "omega_adapter": "omega-config (couches + precedence)",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers + validation)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/config/types.plugins.ts:10",
+        "src/plugins/slots.ts:12-22",
+        "src/config/byte-size.ts:1"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Toute la configuration est typee, couchee et validee (canaux, slots, agents, limites), migree et sauvegardable."
+    },
+    {
+      "domain": "observabilite",
+      "how": "Magasin d'evenements de trajectoire sous contrat (runtime-store.contract : scopes sqlite/memoire, fenetres, append/lecture), retention runtime, export de bundles (exportTrajectoryBundle + repertoire par defaut), metadonnees, logging console horodate et diagnostics (churn d'arguments, vivacite backend, profil CPU).",
+      "id": "oc-trajectory",
+      "integration": "native",
+      "name": "Trajectoires persistantes + export rejouable",
+      "omega_adapter": "omega-app::FileEventStore",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (append/read/export + retention)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/trajectory/export.ts:951-968",
+        "src/trajectory/runtime-store.contract.ts:3-33",
+        "src/logging/console.ts:1"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Chaque run laisse une trajectoire d'evenements persistee (sqlite/memoire), exportable en bundle rejouable, avec retention et diagnostics."
+    },
+    {
+      "domain": "contexte",
+      "how": "Metadonnees de skill typees (OpenClawSkillMetadata, SkillInvocationPolicy, SkillCommandSpec), decouverte (bins, filtres d'agent, commandes de chat), chargement paresseux, telemetrie de source (bundled/unknown/workspace) et chemins de lecture workspace ;_invocation restreinte par politique (matcher before/after_tool_call).",
+      "id": "oc-skills",
+      "integration": "plugin",
+      "name": "Skills declares a invocation controlee",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load + policy)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/skills/types.ts:21-93",
+        "src/skills/discovery/command-specs.ts:1",
+        "docs/plugins/hooks/reference.md:39"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Les skills sont decouverts, filtres par pertinence, charges paresseusement et invoques sous politique, avec telemetrie d'origine."
+    },
+    {
+      "domain": "ui",
+      "how": "Descripteurs de control UI et widgets de board declares par les plugins (controlUi/dashboard dans le manifeste, valides contre les enregistrements runtime), actions et extensions de session enregistrables, UI React (ui/src) + TUI embarquee (src/tui/commands.ts) + routes HTTP RPC (registerHttpRoute, registerGatewayMethod).",
+      "id": "oc-control-ui",
+      "integration": "plugin",
+      "name": "Control UI + TUI + RPC pilotées par plugins",
+      "omega_adapter": "plugins/control-ui (descripteurs + session actions)",
+      "omega_capability": "control-ui",
+      "omega_port": "ControlUi (describe + session actions/extensions)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/plugins/plugin-api.types.ts:116-167",
+        "src/plugins/manifest-types.ts:520-535",
+        "src/tui/commands.ts:1"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Les plugins contribuent widgets, actions de session et routes RPC ; le web React et la TUI les rendent sans couplage direct."
+    },
+    {
+      "domain": "agents",
+      "how": "Hooks prepareSubagentSpawn (preparation du contexte enfant, modes isolated|fork, rollback annulable) et onSubagentEnded (raisons deleted/completed/swept/released) ; cles de session et spawn >= contexte (agent-runtime-session-spawn-context) ; runtime worker embarque (embedded-agent.runtime) et node host Rust (duplex, reconnect, handshake sidecar, lifecycle).",
+      "id": "oc-subagents",
+      "integration": "plugin",
+      "name": "Sous-agents isoles + node host Rust",
+      "omega_adapter": "plugins/subagent-isolated",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/rollback/onEnded + modes)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/context-engine/types.ts:206-238,522-536",
+        "src/gateway/agent-runtime-session-spawn-context.ts:1",
+        "crates/openclaw-node-host/src/sidecar_protocol.rs",
+        "crates/openclaw-node-host/src/lifecycle.rs"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Les sous-agents naissent avec un contexte isole ou forke, annulable par rollback, et tournent sur worker embarque ou sidecar Rust."
+    },
+    {
+      "domain": "securite",
+      "how": "Collecteurs d'audit de securite enregistrables (securityAuditCollectors dans definePluginEntry), audits dedies (config/symlinks/perms, surface d'exec, sandbox host, cross-agent session access, filesystem), scan des secrets et profils d'auth, magasins d'audit ; politique reseau (net-policy) et contrats de packages plugin (plugin-package-contract).",
+      "id": "oc-security-audit",
+      "integration": "native",
+      "name": "Audit de securite extensible + scans",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy (allow/deny + audit collectors)",
+      "refs": [
+        "RE-OPENCLAW-HERMES.md",
+        "src/plugin-sdk/plugin-entry.ts:244-260",
+        "src/security/audit-exec-surface.test.ts:1",
+        "src/security/audit-config-symlink.test.ts:1",
+        "packages/net-policy/src/index.ts:1"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "La securite est auditee en continu (exec, fs, config, acces inter-agents, secrets) via des collecteurs que les plugins peuvent etendre."
+    }
+  ]
+}

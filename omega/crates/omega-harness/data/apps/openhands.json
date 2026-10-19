@@ -1,0 +1,360 @@
+{
+  "schema_version": 1,
+  "id": "openhands",
+  "name": "OpenHands",
+  "editor": "OpenHands (All Hands AI)",
+  "oss": true,
+  "language": "Python + TypeScript",
+  "license": "MIT",
+  "repo": "https://github.com/OpenHands/OpenHands",
+  "architecture": "SDK Python (Software Agent SDK : tools, LLM, workspaces, ACP) + Agent Server FastAPI (REST /api, ~20 routers, isolation par conteneur Docker) + Canvas UI React/TS (@openhands/agent-canvas) ; automations via paquet separe openhands-automation.",
+  "entrypoints": [
+    "agent-canvas binary (bin/agent-canvas.mjs)",
+    "openhands-agent-server (FastAPI, __main__.py)",
+    "openhands-automation backend (:18001)",
+    "npm run dev stack (agent-server + automation via uvx + ingress)"
+  ],
+  "functionalities": [
+    {
+      "domain": "execution",
+      "how": "FastAPI monte ~20 routers sous /api (conversation, event, tool, bash, git, file, vscode, skills, sub-agents, plugins, canvas_extensions, hooks, llm, acp, mcp, settings, workspaces, profiles...) ; sante via /alive|/health|/ready et /server_info (runtime_services, usable_tools).",
+      "id": "oh-agent-server-rest",
+      "integration": "plugin",
+      "name": "Agent Server REST multi-routers",
+      "omega_adapter": "plugins/agent-server-rest",
+      "omega_capability": "agent-server",
+      "omega_port": "AgentServer (REST /api)",
+      "refs": [
+        "sdk/openhands-agent-server/openhands/agent_server/api.py:539-589",
+        "sdk/openhands-agent-server/openhands/agent_server/server_details_router.py:113-170",
+        "sdk/openhands-agent-server/openhands/agent_server/__main__.py:232-365"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Un serveur FastAPI expose toutes les operations agent (conversations, evenements, outils, fichiers, git, LLM, MCP, settings) derriere un prefixe /api unique."
+    },
+    {
+      "domain": "execution",
+      "how": "Router FastAPI (search/count/get/start/pause/interrupt/delete/run) + registre ConversationRegistry abstrait ; implementations LocalConversation (persistee, fork/navigate/condense/goal) et RemoteConversation ; RunSlot/semaphore limite les runs concurrents.",
+      "id": "oh-conversation-lifecycle",
+      "integration": "plugin",
+      "name": "Cycle de vie des conversations",
+      "omega_adapter": "plugins/conversation-lifecycle",
+      "omega_capability": "conversation-store",
+      "omega_port": "ConversationStore (start/pause/fork/navigate)",
+      "refs": [
+        "sdk/openhands-agent-server/openhands/agent_server/conversation_router.py:158-835",
+        "sdk/openhands-agent-server/openhands/agent_server/conversation_registry.py:21",
+        "sdk/openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py:180-974",
+        "sdk/openhands-agent-server/openhands/agent_server/event_service.py:104-179"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Creer, lister, mettre en pause, interrompre, supprimer, relancer, forker et naviguer (time-travel) dans des conversations agent isolees."
+    },
+    {
+      "domain": "memoire",
+      "how": "Classe de base Event + EventLog persistant sur FileStore (index, parent_id, marqueurs de longueur, resync disque) ; PubSub generique fan-out vers SessionSocket qui rejoue l'historique (replay pagine) puis diffuse en direct ; recherche/comptage par router.",
+      "id": "oh-event-sourcing",
+      "integration": "plugin",
+      "name": "Journal d'evenements + streaming live/replay",
+      "omega_adapter": "omega-app::FileEventStore",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (append/replay/subscribe)",
+      "refs": [
+        "sdk/openhands-sdk/openhands/sdk/event/base.py:20-75",
+        "sdk/openhands-sdk/openhands/sdk/conversation/event_store.py:34-310",
+        "sdk/openhands-agent-server/openhands/agent_server/pub_sub.py:33-110",
+        "sdk/openhands-agent-server/openhands/agent_server/session_socket.py:277-294",
+        "sdk/openhands-agent-server/openhands/agent_server/event_router.py:71-217"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Tout echange agent est un evenement persiste et rejouable ; les clients reçoivent l'historique puis le live via sockets pub/sub."
+    },
+    {
+      "domain": "outils",
+      "how": "Triplet Action/Observation/ToolDefinition (pydantic, discriminated unions) ; registre global register_tool/resolve/list/seal avec verificateurs d'usabilite ; presets d'outils par modele (default/gemini/gpt5/planning) fusionnant doublons et repliant les vieux switches.",
+      "id": "oh-tool-registry",
+      "integration": "plugin",
+      "name": "Registre d'outils + presets par modele",
+      "omega_adapter": "plugins/tool-registry",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (register/resolve/presets)",
+      "refs": [
+        "sdk/openhands-sdk/openhands/sdk/tool/tool.py:347",
+        "sdk/openhands-sdk/openhands/sdk/tool/schema.py:333-365",
+        "sdk/openhands-sdk/openhands/sdk/tool/registry.py:130-260",
+        "sdk/openhands-sdk/openhands/sdk/tool/defaults.py:27-148"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Catalogue global d'outils typés (Action/Observation) avec résolution, scellement et jeux d'outils par défaut adaptés au modèle."
+    },
+    {
+      "domain": "outils",
+      "how": "Paquet openhands-tools : terminal (TerminalAction/Observation + executor), file_editor (diff/encoding/cache/historique), browser_use (serveur + enregistrement), task_tracker, workflow, planning_file_editor, glob/grep/apply_patch, ask_oracle, tom_consult.",
+      "id": "oh-exec-tools",
+      "integration": "plugin",
+      "name": "Outils d'execution (terminal, fichiers, navigateur)",
+      "omega_adapter": "plugins/tools-exec",
+      "omega_capability": "tool",
+      "omega_port": "ToolExecutor (execute/observe)",
+      "refs": [
+        "sdk/openhands-tools/openhands/tools/terminal/definition.py:86-268",
+        "sdk/openhands-tools/openhands/tools/terminal/impl.py:63",
+        "sdk/openhands-tools/openhands/tools/file_editor/impl.py",
+        "sdk/openhands-tools/openhands/tools/browser_use/impl.py",
+        "sdk/openhands-tools/openhands/tools/delegate/impl.py:34"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Batterie d'outils concrets (shell persistant, edition de fichiers, navigateur instrumente, suivi de taches, workflows) derriere le port ToolExecutor."
+    },
+    {
+      "domain": "agents",
+      "how": "Outil delegate (action/observation dediees) + registre de sous-agents (register_agent, agents fichiers, agents de plugins, fabriques par profil LLM) + goal controller/juge pour objectifs ; cote UI, client-tool de lancement de conversation enfant.",
+      "id": "oh-subagents-delegate",
+      "integration": "plugin",
+      "name": "Sous-agents et delegation (dont conversations enfants)",
+      "omega_adapter": "plugins/subagent-isolated",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/resume)",
+      "refs": [
+        "sdk/openhands-tools/openhands/tools/delegate/definition.py:16-44",
+        "sdk/openhands-sdk/openhands/sdk/subagent/registry.py:85-380",
+        "sdk/openhands-sdk/openhands/sdk/conversation/goal/controller.py:78",
+        "canvas/src/api/launch-child-conversation-client-tool.ts:61"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Deleguer a des sous-agents isoles (fichiers, plugins, conversations enfants) avec objectifs juges, seul un resume remontant au parent."
+    },
+    {
+      "domain": "execution",
+      "how": "BaseWorkspace abstrait + backends local/docker/apptainer/cloud/remote_api ; DockerWorkspace + DockerConversationRegistry (un conteneur par conversation, provisioning, proxy, eviction des runtimes inactifs) ; runtime_router pour attacher du VSCode au runtime.",
+      "id": "oh-workspace-backends",
+      "integration": "plugin",
+      "name": "Workspaces multi-backends + conteneur par conversation",
+      "omega_adapter": "plugins/sandbox-docker",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend (execute/fetch_file/cleanup)",
+      "refs": [
+        "sdk/openhands-sdk/openhands/sdk/workspace/base.py:28",
+        "sdk/openhands-sdk/openhands/sdk/workspace/workspace.py:12",
+        "sdk/openhands-workspace/openhands/workspace/docker/workspace.py:53",
+        "sdk/openhands-agent-server/openhands/agent_server/docker_runtime/registry.py:55-352",
+        "sdk/openhands-agent-server/openhands/agent_server/runtime_router.py:31-98"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Un port workspace unique, N backends (local, Docker, Apptainer, cloud, API distante) ; en mode Docker, chaque conversation tourne dans son propre conteneur evince apres inactivite."
+    },
+    {
+      "domain": "agents",
+      "how": "L'Agent Server engendre la CLI de l'agent tiers en sous-processus et relaie chaque tour en JSON-RPC sur stdio ; registre ACP_PROVIDERS (commandes npx, cles, logins OAuth detectes) ; decouverte de modeles via acp_router ; choix stocke par backend (agent_kind, acp_*).",
+      "id": "oh-acp-agents",
+      "integration": "plugin",
+      "name": "Agents tiers via ACP (Claude Code, Codex, Gemini, Pi, OpenCode)",
+      "omega_adapter": "plugins/agent-acp",
+      "omega_capability": "agent-host",
+      "omega_port": "AgentHost (spawn/relay)",
+      "refs": [
+        "sdk/openhands-sdk/openhands/sdk/agent/acp_agent.py:504-637",
+        "sdk/openhands-sdk/openhands/sdk/settings/acp_providers.py:176-552",
+        "sdk/openhands-agent-server/openhands/agent_server/acp_router.py:150-175",
+        "canvas/docs/ACP_AGENTS.md",
+        "canvas/src/constants/acp-providers.ts:96-296"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Piloter des agents externes au protocole ACP en les lancant comme sous-processus, l'agent gerant lui-meme son LLM et ses outils."
+    },
+    {
+      "domain": "routage",
+      "how": "LLMRegistry (evenements de registre) + modele LLM pydantic avec mixins retry/outils non-natifs + FallbackStrategy ; router list_models/list_verified/device-login OAuth + passerelle OpenAI-compatible (chat/completions, responses) ; suivi de solde cote UI.",
+      "id": "oh-llm-registry",
+      "integration": "plugin",
+      "name": "Registre LLM multi-providers + fallback + device-login",
+      "omega_adapter": "plugins/llm-registry",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider (complete/stream)",
+      "refs": [
+        "sdk/openhands-sdk/openhands/sdk/llm/llm_registry.py:23",
+        "sdk/openhands-sdk/openhands/sdk/llm/llm.py:252",
+        "sdk/openhands-sdk/openhands/sdk/llm/fallback_strategy.py:45",
+        "sdk/openhands-agent-server/openhands/agent_server/llm_router.py:116-266",
+        "sdk/openhands-agent-server/openhands/agent_server/openai/router.py:121-187",
+        "canvas/src/api/llm-balance-service.ts:12-113"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Registre central de providers/modeles avec fallback, verification des modeles, login OAuth par device et facade OpenAI-compatible."
+    },
+    {
+      "domain": "securite",
+      "how": "Enum SecurityRisk + analyseurs (LLM, AST shell, ensemble, DefenseClaw/grayswan/toolshield) ; politiques Always/Never/ConfirmRisky exigibles par conversation ; redaction des secrets avant persistance ; resolvers locaux et credential binding.",
+      "id": "oh-security-gates",
+      "integration": "plugin",
+      "name": "Analyse de risque + politiques de confirmation",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy (review/decide)",
+      "refs": [
+        "sdk/openhands-sdk/openhands/sdk/security/risk.py:13",
+        "sdk/openhands-sdk/openhands/sdk/security/analyzer.py:18-29",
+        "sdk/openhands-sdk/openhands/sdk/security/confirmation_policy.py:9-43",
+        "sdk/openhands-agent-server/openhands/agent_server/_secret_redaction.py",
+        "sdk/openhands-agent-server/openhands/agent_server/conversation_router.py:531-590"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Chaque action risquee est notee (analyseurs multiples) et soumise a confirmation selon la politique de la conversation, secrets redactes."
+    },
+    {
+      "domain": "contexte",
+      "how": "LLMSummarizingCondenser (rolling, raisons de declenchement, condensateur par defaut) + reglages CondenserSettings ; memoire chargee depuis fichiers avec budget de troncature ; endpoint condense ; StuckDetector (seuils action/observation et erreurs).",
+      "id": "oh-condenser-memory",
+      "integration": "plugin",
+      "name": "Condensation LLM du contexte + memoire budgetee",
+      "omega_adapter": "plugins/context-condenser",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (compact/afterTurn)",
+      "refs": [
+        "sdk/openhands-sdk/openhands/sdk/context/condenser/llm_summarizing_condenser.py:54-558",
+        "sdk/openhands-sdk/openhands/sdk/context/memory.py:56",
+        "sdk/openhands-sdk/openhands/sdk/settings/model.py:168-320",
+        "sdk/openhands-agent-server/openhands/agent_server/conversation_router.py:770",
+        "sdk/openhands-sdk/openhands/sdk/conversation/stuck_detector.py:24-55"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Resumer le contexte depassant le budget par LLM (rolling condenser), memoire fichier tronquee, et detecter les boucles bloquees."
+    },
+    {
+      "domain": "contexte",
+      "how": "Modele Skill (chemins, ressources, declencheurs par mots-cles) + chargeurs user/project/marketplace/public avec fusion par nom et cache ; rendu to_prompt borne ; invoke_skill en outil builtin ; routes et services skills cote serveur et UI.",
+      "id": "oh-skills-marketplace",
+      "integration": "plugin",
+      "name": "Skills chargeables (user/projet/marketplace)",
+      "omega_adapter": "omega-context::SkillIndex",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "refs": [
+        "sdk/openhands-sdk/openhands/sdk/skills/skill.py:97-1493",
+        "sdk/openhands-sdk/openhands/sdk/skills/trigger.py:13",
+        "sdk/openhands-sdk/openhands/sdk/tool/builtins/invoke_skill.py",
+        "sdk/openhands-agent-server/openhands/agent_server/skills_service.py"
+      ],
+      "rust_cost": "M",
+      "status": "adopted",
+      "what": "Bibliotheque de skills decouvrables (utilisateur, projet, marketplace publique) injectees au prompt de façon bornee et declenchees par outils."
+    },
+    {
+      "domain": "extension",
+      "how": "SDK : Plugin (manifeste, sources, fetch strict, installation) + HookManager/HookExecutor (evenements, decisions) ; serveur : routers plugins (fetch/install/enable/marketplace) et canvas_extensions (manifeste, backend manage, bridge, bundle) ; UI : chargement de modules d'extension.",
+      "id": "oh-hooks-plugins-extensions",
+      "integration": "plugin",
+      "name": "Plugins + hooks + extensions Canvas",
+      "omega_adapter": "plugins/extension-host",
+      "omega_capability": "extension-host",
+      "omega_port": "ExtensionHost (install/enable/hook)",
+      "refs": [
+        "sdk/openhands-sdk/openhands/sdk/plugin/plugin.py:36",
+        "sdk/openhands-sdk/openhands/sdk/plugin/types.py:242",
+        "sdk/openhands-sdk/openhands/sdk/hooks/manager.py:22",
+        "sdk/openhands-sdk/openhands/sdk/hooks/types.py:9-35",
+        "sdk/openhands-agent-server/openhands/agent_server/plugins_router.py:261-430",
+        "sdk/openhands-agent-server/openhands/agent_server/canvas_extensions/manifest.py:204-317",
+        "sdk/openhands-agent-server/openhands/agent_server/canvas_extensions/backend.py:126",
+        "canvas/src/extensions/canvas-extension-module-loader.ts"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Trois couches d'extension : plugins installables (marketplace), hooks d'evenements conversationnels, et extensions UI Canvas avec backend gere."
+    },
+    {
+      "domain": "automatisation",
+      "how": "Backend dedie openhands-automation (paquet PyPI versionne en sync avec le front) servant /api/automation (dont webhooks) ; le front tague les conversations (automationtrigger/id/name/run_id) et propage le contexte d'observabilite ; stack locale via uvx + ingress.",
+      "id": "oh-automations",
+      "integration": "plugin",
+      "name": "Automations planifiees + webhooks (backend dedie)",
+      "omega_adapter": "plugins/scheduler-cron",
+      "omega_capability": "scheduler-job",
+      "omega_port": "Scheduler (schedule/trigger)",
+      "refs": [
+        "canvas/src/api/automation-service/automation-service.api.ts:60-737",
+        "canvas/src/api/agent-server-adapter.ts:558-572",
+        "sdk/openhands-sdk/openhands/sdk/automation/__init__.py",
+        "canvas/scripts/check-sdk-version-sync.mjs:63-82",
+        "canvas/docs/SELF_HOSTING.md:34-87"
+      ],
+      "rust_cost": "M",
+      "status": "planned",
+      "what": "Runs d'agents declenches (planifies ou webhooks) executes par un backend d'automation separe, traçes via tags de conversation."
+    },
+    {
+      "domain": "configuration",
+      "how": "Schemas de settings generes (sections/champs/choix) + ConversationSettings par conversation + profils d'agents (OpenHands/ACP) ; persistance fichier atomique avec chiffrement (Cipher) pour settings/secrets/workspaces/connexions ; secrets Static/Lookup + redaction.",
+      "id": "oh-settings-secrets",
+      "integration": "plugin",
+      "name": "Settings/profils/secrets chiffres par couches",
+      "omega_adapter": "omega-config (couches + precedence)",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers)",
+      "refs": [
+        "sdk/openhands-sdk/openhands/sdk/settings/model.py:113-2046",
+        "sdk/openhands-agent-server/openhands/agent_server/persistence/store.py:294-916",
+        "sdk/openhands-sdk/openhands/sdk/utils/cipher.py:22",
+        "sdk/openhands-sdk/openhands/sdk/secret/secrets.py:80-113",
+        "canvas/src/api/settings-service/settings-service.api.ts:33-919",
+        "canvas/src/api/secrets-service.ts:26"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Configuration en couches (global, profil, conversation, backend) avec schemas generes, secrets chiffres au repos et resolvers locaux."
+    },
+    {
+      "domain": "observabilite",
+      "how": "Protocole TelemetrySink (NoOp/Buffered) + exporters HTTP/PostHog + politique de consentement (opt-in/out, kill-switch, sanitizer) ; stats de conversation (tokens, couts) ; cote UI, client PostHog avec consentement granulaire local/cloud.",
+      "id": "oh-observability",
+      "integration": "plugin",
+      "name": "Telemetrie a consentement + stats de conversation",
+      "omega_adapter": "omega-otel::{Stdout,File}Sink",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink (emit)",
+      "refs": [
+        "sdk/openhands-agent-server/openhands/agent_server/telemetry/sink.py:42-85",
+        "sdk/openhands-agent-server/openhands/agent_server/telemetry/service.py:56-234",
+        "sdk/openhands-agent-server/openhands/agent_server/telemetry/policy.py:43-124",
+        "sdk/openhands-sdk/openhands/sdk/conversation/conversation_stats.py:13",
+        "canvas/src/services/telemetry.ts:283-532"
+      ],
+      "rust_cost": "S",
+      "status": "adopted",
+      "what": "Telemetrie d'usage evitable (kill-switch, consentement) vers PostHog/HTTP, sanitizee, plus compteurs tokens/couts par conversation."
+    },
+    {
+      "domain": "ui",
+      "how": "React 19 + Router 7 + Zustand + React Query : vues conversation/chat/terminal/navigateur/fichiers/reglages/automations ; adaptateur traduisant les actions UI en REST (toAppConversation, suffixes systeme runtime_services) ; entrypoints librairie (build:lib) ; mocks MSW ; client-tools agent->UI (canvas-ui, request-secret, automation-form).",
+      "id": "oh-canvas-ui",
+      "integration": "plugin",
+      "name": "Canvas UI (chat, terminal, navigateur, fichiers)",
+      "omega_adapter": "plugins/canvas-ui",
+      "omega_capability": "ui-shell",
+      "omega_port": "UiShell (views/actions)",
+      "refs": [
+        "canvas/docs/architecture.md",
+        "canvas/src/api/agent-server-adapter.ts:202-414",
+        "canvas/src/api/conversation-service/agent-server-conversation-service.api.ts:431-1258",
+        "canvas/src/api/event-service/event-service.api.ts:157",
+        "canvas/src/api/canvas-ui-client-tool.ts:9-60",
+        "canvas/src/api/request-secret-client-tool.ts:25",
+        "canvas/package.json:1-60"
+      ],
+      "rust_cost": "L",
+      "status": "planned",
+      "what": "Frontend complet de pilotage d'agents (conversation, terminal, navigateur, fichiers, multi-backends) empaquete aussi en librairie embarquable."
+    }
+  ]
+}

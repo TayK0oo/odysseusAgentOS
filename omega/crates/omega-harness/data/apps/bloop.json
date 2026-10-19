@@ -1,0 +1,146 @@
+{
+ "schema_version": 1,
+ "id": "bloop",
+ "name": "Bloop",
+ "editor": "BloopAI",
+ "oss": true,
+ "language": "Rust + TypeScript",
+ "license": "Apache-2.0",
+ "repo": "https://github.com/BloopAI/bloop",
+ "architecture": "Recherche de code + agent de QDM en Rust (server/bleep) : index de code tree-sitter multi-langage (sqlite), query DSL en pest (parse/planner/execute/ranking), agent d'échange LLM tools.json limité, registre multi-provider openai-compatible + local, client React/TS en alt.",
+ "functionalities": [
+  {
+   "id": "blp-code-index",
+   "domain": "contexte",
+   "name": "Index de code multi-langage tree-sitter (14 langages gérés)",
+   "what": "Un index de recherche de code sémantique (grep-like et QDDM). Le Bloop indexe toutes langues de type grammars tree-sitter (14 langages déclarés) selon l'index file/repo, avec un base de données sqlite local.",
+   "how": "server/bleep/src/indexes.rs + indexes/{doc,file,repo,schema,reader}.rs ; tree-sitter grammars (server/bleep/Cargo.toml:62-66) ; languages.yml declare les langages analysés. Omega : omega-context (index de code local : index de code诗文, CLAY multi-complice).",
+   "omega_capability": "context-engine",
+   "omega_port": "CatalogSource",
+   "omega_adapter": "omega-context (index de code tree-sitter)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "L",
+   "refs": [
+    "server/bleep/Cargo.toml:62-66",
+    "server/bleep/src/indexes.rs"
+   ]
+  },
+  {
+   "id": "blp-query-pest",
+   "domain": "contexte",
+   "name": "Query DSL Compiler : un langage de requete pest parse",
+   "what": "Un meta query langage pete (grammar.pest, planner/compiler/execute): recherche de symbole simplifiée au user.",
+   "how": "server/bleep/src/query/{parser.rs,grammar.pest,compiler.rs,execute.rs,planner.rs},ranking.rs (server/bleep/src/query/ranking.rs). Omega : omega-context (query DSL, parse, planner, execute).",
+   "omega_capability": "context-engine",
+   "omega_port": "CatalogSource",
+   "omega_adapter": "omega-context (query DSL + planner)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "M",
+   "refs": [
+    "server/bleep/src/query/grammar.pest",
+    "server/bleep/src/query/planner.rs"
+   ]
+  },
+  {
+   "id": "blp-agent-tools",
+   "domain": "agents",
+   "name": "Outils de l'agent : answer/code/path/proc",
+   "what": "Les outils de l'assistant LLM sont limités : réponse, interrogation code, path tool, process shell.",
+   "how": "server/bleep/src/agent/tools/{answer.rs,code.rs,path.rs,proc.rs}. Omega : ToolExecutor.",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolExecutor",
+   "omega_adapter": "omega-app (bundle tools limités)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "server/bleep/src/agent/tools/proc.rs"
+   ]
+  },
+  {
+   "id": "blp-agent-model",
+   "domain": "contexte",
+   "name": "exchange/agent : modèle de conversation avec tool requests structurés",
+   "what": "L'agent conversation bloop : exchange structuré (questions/réponses), transcoder.",
+   "how": "server/bleep/src/agent/{exchange.rs,model.rs,transcoder.rs,prompts.rs}. Omega : l'échange maps le ContextEngine.",
+   "omega_capability": "context-engine",
+   "omega_port": "ContextEngine",
+   "omega_adapter": "omega-context (smart exchange)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "server/bleep/src/agent/exchange.rs"
+   ]
+  },
+  {
+   "id": "blp-gpt-provider",
+   "domain": "routage",
+   "name": "Registre LLM : openai-compatible + azure / local (llama)",
+   "what": "Le provider LLM multi-fournisseurs : openai, azure, llama local, HF hub etc.",
+   "how": "server/bleep/src/llm{client.rs,call.rs}. Omega : omega-providers.",
+   "omega_capability": "llm-provider",
+   "omega_port": "Provider",
+   "omega_adapter": "omega-providers (llm multi-providers en Rust)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "server/bleep/src/llm/client.rs",
+    "server/bleep/src/llm/call.rs"
+   ]
+  },
+  {
+   "id": "blp-git-index",
+   "domain": "contexte",
+   "name": "Index de dépét git + commits/remotes : le dépôt entier en map",
+   "what": "Un index github de l'arbre de fichiers + remotes + ongoing commits (bleep.db sqlite local)",
+   "how": "server/bleep/src/{commits.rs,remotes,db.rs,cache.rs}. Omega : corn-structure à test indexing tree (omega-context).",
+   "omega_capability": "context-engine",
+   "omega_port": "CatalogSource",
+   "omega_adapter": "omega-context (index git,re discoveries par commit)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "server/bleep/src/commits.rs",
+    "server/bleep/src/remotes/"
+   ]
+  },
+  {
+   "id": "blp-periodic-jobs",
+   "domain": "automatisation",
+   "name": "Jobs de fond periodiques : re-index des remotes + logrotate",
+   "what": "Un executor de jobs periodiques : re-index des remotes (mirrors) et rotation des logs, en tache de fond single-threaded.",
+   "how": "server/bleep/src/periodic.rs:23 start_background_jobs(app) + periodic/remotes.rs + periodic/logrotate.rs. Omega : omega-app (jobs periodiques ; deja couvert par le planificateur).",
+   "omega_capability": "scheduler-job",
+   "omega_port": "—",
+   "omega_adapter": "omega-app (re-index periodique des remotes)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "server/bleep/src/periodic.rs:23",
+    "server/bleep/src/periodic/remotes.rs"
+   ]
+  },
+  {
+   "id": "blp-background-executor",
+   "domain": "execution",
+   "name": "SyncQueue/BackgroundExecutor : pool rayon + wait des taches longues",
+   "what": "Un executor de taches de fond (SyncQueue, Progress) : le rayon pool absorbe le re-index lourd sans bloquer le serveur.",
+   "how": "server/bleep/src/background.rs:28 rayon_pool, :55 SyncQueue, :66 BackgroundExecutor, :117 spawn<T>. Omega : omega-app::App (execution de fond non bloquante).",
+   "omega_capability": "tool-surface",
+   "omega_port": "ToolExecutor",
+   "omega_adapter": "omega-sandbox (pool de taches de fond)",
+   "integration": "plugin",
+   "status": "planned",
+   "rust_cost": "S",
+   "refs": [
+    "server/bleep/src/background.rs:28-137"
+   ]
+  }
+ ]
+}

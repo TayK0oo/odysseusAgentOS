@@ -28,6 +28,8 @@ secrets.env.*
 data/
 !services/hwfit/data/
 !services/hwfit/data/hf_models.json
+!omega/crates/omega-harness/data/
+!omega/crates/omega-harness/data/**
 logs/
 *.log
 *.db
@@ -106,3 +108,9 @@ compound.config.json
 *.error.log
 _scratch/
 /odysseus/
+
+# corpus TikTok : audio hors depot, transcriptions versionnees
+!docs/omega/research/loucash/transcripts.json
+!docs/omega/research/loucash/ocr.json
+!omega/crates/omega-mcp/data/
+!omega/crates/omega-mcp/data/**

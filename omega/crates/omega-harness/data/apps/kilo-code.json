@@ -1,0 +1,631 @@
+{
+  "schema_version": 1,
+  "id": "kilo-code",
+  "name": "Kilo Code",
+  "editor": "Kilo Org",
+  "oss": true,
+  "language": "TypeScript",
+  "license": "MIT",
+  "repo": "https://github.com/Kilo-Org/kilocode",
+  "architecture": "Monorepo Bun/Turbo (packages/*) qui fusionne deux lignages : le runtime d'agent d'opencode v2 (packages/core, packages/schema, packages/opencode, packages/protocol, packages/server : contrats effect/Schema, events durables, serveur HttpApi, TUI) et l'heritage Cline/Roo (packages/kilo-vscode : extension VS Code, agent manager a git worktrees, modes/groups, approve/checkpoints). Autour gravitent des briques propres a Kilo : kilo-memory (memoire projet persistante), kilo-indexing (RAG codebase tree-sitter + LanceDB/Qdrant), kilo-sandbox (bubblewrap/seatbelt + proxy reseau), kilo-gateway (auth device + provider OpenRouter + FIM), kilo-ui/kilo-web-ui/kilo-console/kilo-jetbrains (surfaces), kilo-telemetry, kilo-i18n (20 langues).",
+  "entrypoints": [
+    "extension VS Code (packages/kilo-vscode, esbuild + webview-ui)",
+    "CLI @kilocode/cli (packages/opencode/src/cli : run, serve, attach, remote, acp, pr, github, mcp, plug, agent, session, import, stats, tui)",
+    "serveur HTTP (packages/opencode/src/server, HttpApi par groupes + SDK @kilocode/sdk)",
+    "TUI (packages/opencode/src/cli/cmd/tui, @opentui)",
+    "plugin JetBrains (packages/kilo-jetbrains, Kotlin backend/frontend)",
+    "console web (packages/kilo-console) et web UI (packages/kilo-web-ui)",
+    "client ACP (packages/opencode/src/acp) pour editeurs compatibles Agent Client Protocol"
+  ],
+  "functionalities": [
+    {
+      "id": "kc-system-context-epoch",
+      "domain": "contexte",
+      "name": "System Context Registry + Context Epoch",
+      "what": "Le prompt systeme n'est pas un texte monolithique mais un registre de sources de contexte typees, rendues en baseline immuable pendant une 'epoch' ; tout changement de source passe ensuite par un message systeme chronologique.",
+      "how": "CONTEXT.md definit le vocabulaire normatif : System Context = collection structuree de Context Source (cle stable + codec JSON + loader infaillible + renderer baseline/update + renderer de retrait), Context Epoch = span pendant laquelle la baseline rendue reste immuable (fin sur compaction, mouvement de session ou transition incompatible), Mid-Conversation System Message = instruction durable annoncant le nouvel etat effectif, Context Snapshot = etat JSON cache au modele pour diffuser les changements, Safe Provider-Turn Boundary = point avant l'appel provider ou les changements sont admis. Les sources v2 vivent dans packages/core/src/session/context-epoch.ts et packages/core/src/kilocode/system-prompt.ts (environment() construit le bloc <env> a partir de InstanceContext + EditorContext).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "CONTEXT.md:1-40",
+        "packages/core/src/session/context-epoch.ts",
+        "packages/opencode/src/kilocode/system-prompt.ts:25-40",
+        "docs/omega/research/rea/evidence/intake-kilo-code.summary.json"
+      ]
+    },
+    {
+      "id": "kc-compaction-history",
+      "domain": "contexte",
+      "name": "Compaction + historique durable et promotion de prompt",
+      "what": "Compaction de session avec epoch de contexte, promotion durable des prompts admis, drain de session (tours provider enchaines) et projection bornee de la sortie d'outil.",
+      "how": "Le transcript complet reste durable et la compaction coupe l'historique ; le vocabulaire impose la sequence 'Prompt Admitted' -> 'Prompt Promotion' -> 'Session History', un 'Session Drain' (span process-local sans identite durable) qui promeut les inputs eligibles, et un 'Model Tool Output' dont la taille finale est bornee par le Tool Registry avec debordement vers un 'Managed Tool Output File'. Les evenements correspondants sont typés dans packages/schema/src/kilocode/session-drain.ts (session.drained, session.drain.interrupted) et packages/core/src/session/prompt.ts / compaction.ts ; la projection DB est dans packages/core/src/session/projector.ts et message-updater.ts (les trois evenements revert y sont explicitement ignores).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextBudget (estimate/compact)",
+      "omega_adapter": "omega-context::ContextBudget (a etendre : epoch + promotion d'input)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "CONTEXT.md:14-30",
+        "packages/schema/src/kilocode/session-drain.ts:1-14",
+        "packages/core/src/session/projector.ts:400-480",
+        "packages/core/src/session/message-updater.ts:385-400"
+      ]
+    },
+    {
+      "id": "kc-codebase-index",
+      "domain": "contexte",
+      "name": "Index semantique du codebase (tree-sitter + embeddings + vecteurs)",
+      "what": "Indexation incrementale du depot : parsing tree-sitter par langage, chunking, embeddings multi-fournisseurs, stockage vectoriel et recherche semantique, avec overlay par worktree et watcher de fichiers.",
+      "how": "CodeIndexManager (packages/kilo-indexing/src/indexing/manager.ts:33-70) orchestre scanner/parser/embedder/vector-store ; constantes de dimensionnement dans indexing/constants/index.ts (DEFAULT_VECTOR_STORE=\"lancedb\", batch d'embeddings 60, chunk 50-1000 chars, MAX_FILE_SIZE_BYTES=1 MiB, parsers 30+ langages dans tree-sitter/queries/*) ; embedders interchangeables (ollama, openai, openai-compatible, gemini, voyage, mistral, bedrock, openrouter, vercel-ai-gateway) ; vector stores lancedb-vector-store.ts et qdrant-client.ts ; worktree-overlay.ts + processors/file-watcher.ts pour l'incremental ; exposé par un serveur de routes (kilo-indexing/src/server/routes.ts) et opt-in via un plugin (kilo-indexing/src/plugin.ts:1-9) protege par un consentement (kilo-vscode/src/indexing-consent.ts).",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine (retrieval)",
+      "omega_adapter": "omega-context (a etendre : index vectoriel + recherche semantique)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "packages/kilo-indexing/src/indexing/manager.ts:33-70",
+        "packages/kilo-indexing/src/indexing/constants/index.ts:1-60",
+        "packages/kilo-indexing/src/indexing/embedders/ollama.ts",
+        "packages/kilo-indexing/src/indexing/vector-store/lancedb-vector-store.ts",
+        "packages/kilo-indexing/src/indexing/worktree-overlay.ts",
+        "packages/kilo-indexing/src/server/routes.ts"
+      ]
+    },
+    {
+      "id": "kc-skills-store",
+      "domain": "contexte",
+      "name": "Skills : sources multiple + discovery securisee + filtrage par permission",
+      "what": "Skills a divulgation progressive (repertoire local, URL distante, embedded), decouverte avec garde-fous anti-traversee, comptes distincts de fichiers/telechargements concurrents, et masquage par permission d'agent.",
+      "how": "packages/core/src/skill.ts:1-40 expose DirectorySource/UrlSource/EmbeddedSource + available() qui filtre via PermissionV2.evaluate(\"skill\", nom, agent.permissions) avec effet != deny, et lit un frontmatter (name, description, slash). SkillDiscovery (packages/core/src/skill/discovery.ts:1-60) definit isSafeSegment/isSafeRelativePath, la concurrence de telechargement (skillConcurrency=4, fileConcurrency=8) et un schema de retry ; le catalogue est aussi servi par le marketplace (packages/opencode/src/kilocode/marketplace/skill-archive.ts) et une surface CLI/TUI (cli/cmd/debug/skill.ts, kilo-vscode skill-remove).",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore (discover/load)",
+      "omega_adapter": "omega-context::SkillIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "packages/core/src/skill.ts:1-40",
+        "packages/core/src/skill/discovery.ts:1-60",
+        "packages/core/src/tool/skill.ts",
+        "packages/schema/src/skill.ts:27-66"
+      ]
+    },
+    {
+      "id": "kc-instruction-chain",
+      "domain": "configuration",
+      "name": "Chaine d'instructions AGENTS.md/CLAUDE.md/CONTEXT.md + migration des regles",
+      "what": "Resolution multi-emplacements des fichiers d'instruction (global, projet, config dir), avec reglages de desactivation Claude et migration des regles Cline/Roo (.kilocode/rules, .kilo/rules) vers le nouveau format.",
+      "how": "packages/opencode/src/session/instruction.ts:63-80 compose globalFiles() (KILO_CONFIG_DIR/AGENTS.md, global.config/AGENTS.md, ~/.claude/CLAUDE.md conditionne a !disableClaudeCodePrompt && !ClaudeMigration.globalHandoff()) et instructionFiles = [AGENTS.md, CLAUDE.md (optionnel), CONTEXT.md (deprecated)] ; resolve() reinjecte le contenu selon le fichier touche par les outils read (extract() suit metadata.loaded). KilocodeInstruction (kilocode/session/instruction.ts) et rules-migrator.ts:11-90 importent .kilo/rules, .kilocode/rules et les variantes par mode (rules-{mode}) ; le serveur expose l'edition des regles projet (server/routes/config-rules.ts:5-30, AGENTS.md editable).",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource (layers + instructions)",
+      "omega_adapter": "omega-config (couches + precedence)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "packages/opencode/src/session/instruction.ts:63-90",
+        "packages/opencode/src/kilocode/rules-migrator.ts:11-90",
+        "packages/opencode/src/kilocode/config/claude-migration.ts:195-310",
+        "packages/opencode/src/kilocode/server/routes/config-rules.ts:5-30"
+      ]
+    },
+    {
+      "id": "kc-memory-store",
+      "domain": "memoire",
+      "name": "Memoire projet persistante (capture selective + consolidation typee)",
+      "what": "Memoire durable par projet : captures automatiques en fin de tour et explicites, consolidees en memoire typee par regles (jamais par LLM), reparties en project.md/environment.md/corrections.md avec redaction de secrets et rejet de contenu inadapte.",
+      "how": "packages/kilo-memory/src/schema.ts:9-14 fixe VERSION=1, Sources=[project.md, environment.md, corrections.md] et Topics=[project, constraints, environment, corrections] ; le defaut de capture (:66-82) est mode \"selective\", turnClose=true, explicit=true, maxOpsPerRun=16, minIntervalMs=300000, timeoutMs=30000, maxProjectIndexBytes=8192, maxConsolidationInputBytes=24000. MemoryOperations (capture/operations.ts:15-40,125-140) applique add/remove et pousse les ops a secret dans skipped({reason:\"secret\", text: MemoryRedact.text(...)}) plutot que d'echouer le lot ; MemoryRedact (capture/redact.ts:2-42) liste les cles sensibles (apikey, token, credential...) et des motifs (sk-, gh[pousr]_, AIza, xox, AKIA, JWT, Bearer, PRIVATE KEY, affectations mot-de-passe) ; MemoryReject filtre le contenu inadapte ; l'etat persiste (enabled, autoInject, autoConsolidate, stats) est versionne.",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (capture/consolidate/state)",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "packages/kilo-memory/src/schema.ts:9-82",
+        "packages/kilo-memory/src/capture/operations.ts:15-40",
+        "packages/kilo-memory/src/capture/redact.ts:2-42",
+        "packages/kilo-memory/src/capture/reject.ts",
+        "packages/kilo-memory/src/memory.ts:1-60"
+      ]
+    },
+    {
+      "id": "kc-memory-recall",
+      "domain": "memoire",
+      "name": "Inject d'index memoire + outil kilo_memory_recall (4 modes)",
+      "what": "Un index memoire borne est injecte dans le prompt systeme dans un bloc cloture et marque 'context_not_instruction', et deux outils (recall/save) permettent au modele de creuser, gated par permission.",
+      "how": "MemoryBudget (recall/budget.ts:1-40) borne l'index en octets/tokens, calcule une empreinte `limits: X/Y/Z` pour invalider un index construit avec d'autres limites, et l'enveloppe dans un bloc ```kilo-memory-v1 context_not_instruction avec scope: project et root. MemoryIndexer (recall/indexer.ts:1-45) reserve des quotas par categorie (facts 8, environment 12, decisions 6, constraints 6), produit LATEST_SESSION_DIGEST / SESSION_DIGEST tronques et un guard 'covered'. MemoryTool (tool.ts:15-55) definit RecallParameters{mode: search|typed|digest|catalog, query?, sessionID?, limit<=20} et SaveParameters{action: remember|correct|forget|skip, text<=12000, query?, key?, reason}, avec AskInput {permission: kilo_memory_recall|kilo_memory_save, patterns, always} : l'appel passe donc par la file d'approbation. system-prompt.ts:41-90 emet la guidance (priorite AGENTS.md/fichiers/tool output sur la memoire, kilo_local_recall pour le transcript).",
+      "omega_capability": "memory-store",
+      "omega_port": "MemoryStore (index/inject)",
+      "omega_adapter": null,
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/kilo-memory/src/recall/budget.ts:1-40",
+        "packages/kilo-memory/src/recall/indexer.ts:1-45",
+        "packages/kilo-memory/src/tool.ts:15-55",
+        "packages/opencode/src/kilocode/system-prompt.ts:41-90"
+      ]
+    },
+    {
+      "id": "kc-tool-surface",
+      "domain": "outils",
+      "name": "Surface d'outils builtins + registre scoped + sortie bornee",
+      "what": "Un ensemble statique d'outils shipped (bash, edit, apply_patch, read, write, glob, grep, skill, question, todowrite, webfetch, websearch) compose par couches, separe du registre dynamique MCP/plugins, avec borne de taille sur la sortie persistee.",
+      "how": "packages/core/src/tool/builtins.ts:1-45 compose BuiltInTools.node = makeLocationNode({deps:[ApplyPatchTool, BashTool, EditTool, GlobTool, GrepTool, QuestionTool, ReadTool, SkillTool, TodoWriteTool, WebFetchTool, WebSearchTool, WriteTool]}) et documente la frontiere : 'Dynamic MCP and plugin tools later use separate scoped canonical registrations' + TODO explicite de portage (edit fuzzy, task, LSP, repo_clone, repo_overview, plan_exit). ApplicationTools (application-tools.ts:1-55) est le registre d'outils applicatifs (register + entries par identite), et le Tool Registry applique la limite finale de taille de 'Model Tool Output' avec debordement en fichier (CONFIG.md 'Managed Tool Output File'). Les outils sont donc des contributions en Slot, pas un tableau en dur.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (index/hydrate)",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "packages/core/src/tool/builtins.ts:1-45",
+        "packages/core/src/tool/application-tools.ts:1-55",
+        "packages/core/src/tool/registry.ts",
+        "packages/schema/src/tool.ts",
+        "CONTEXT.md:28-30"
+      ]
+    },
+    {
+      "id": "kc-browser-automation",
+      "domain": "outils",
+      "name": "Navigateur pilote (Playwright CDP) + politique d'egress",
+      "what": "Un Chromium pilote par CDP est expose a l'agent (navigation, clic, saisie, capture d'element, console/reseau, devtools, streaming video) avec une politique d'URL stricte.",
+      "how": "BrowserBroker (services/browser-automation/browser-broker.ts:246-320,660) lance chromium via playwright-core, ouvre un serveur HTTP local authentifie (randomBytes + timingSafeEqual) pour piloter les sessions, et instancie BrowserDevtools sur un CDP session ; browser-element.ts fait locate()/capture() d'elements, browser-network.ts capture le trafic, browser-stream.ts pousse des frames vers la webview, browser-proxy.ts gere l'indirection. browser-policy.ts:1-31 valide chaque destination : HTTP localhost/127.0.0.1 uniquement (0.0.0.0 normalise en localhost), sinon HTTPS public exige (isPublicAddress), identifiants interdits dans l'URL, ports 0 refuses ; settings.ts/consentement controlent l'activation.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (browser tool)",
+      "omega_adapter": "plugins/browser-cdp (service Playwright hors noyau)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "packages/kilo-vscode/src/services/browser-automation/browser-broker.ts:246-320",
+        "packages/kilo-vscode/src/services/browser-automation/browser-policy.ts:1-31",
+        "packages/kilo-vscode/src/services/browser-automation/browser-devtools.ts",
+        "packages/kilo-vscode/src/shared/browser-stream.ts"
+      ]
+    },
+    {
+      "id": "kc-mcp-bridge",
+      "domain": "outils",
+      "name": "Pont MCP local/remote + OAuth + warmup",
+      "what": "Serveurs MCP locaux (commande) et distants (URL) avec timeouts distincts, OAuth interactif, et prechauffage des serveurs au demarrage.",
+      "how": "packages/core/src/config/mcp.ts:1-60 definit Server = Local{command, cwd, environment, disabled, timeout} | Remote{url, headers, oauth, disabled, timeout} avec Timeout{startup, request}, et OAuth{client_id, client_secret, scope, callback_port, redirect_uri} ou false ; le serveur expose le groupe mcp (server/routes/instance/httpapi/groups/mcp.ts) et le CLI a une commande mcp ; cote extension, mcp-oauth.ts gere le cas 'browser open failed' (URL a ouvrir ou copier, utile en SSH) et mcp-auth/ mcp-removal pour l'authentification et la suppression ; agent-manager/mcp-warmup.ts prechauffe les serveurs lors de la creation d'un worktree.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface (MCP bridge)",
+      "omega_adapter": "plugins/mcp-bridge",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/core/src/config/mcp.ts:1-60",
+        "packages/kilo-vscode/src/kilo-provider/mcp-oauth.ts:1-30",
+        "packages/kilo-vscode/src/services/mcp-auth/",
+        "packages/kilo-vscode/src/agent-manager/mcp-warmup.ts",
+        "packages/opencode/src/server/routes/instance/httpapi/groups/mcp.ts"
+      ]
+    },
+    {
+      "id": "kc-autocomplete-fim",
+      "domain": "outils",
+      "name": "Autocompletion inline (FIM) et chat-autocomplete",
+      "what": "Completion de code en milieu de fichier (fill-in-the-middle) servie soit par la passerelle Kilo, soit directement par Mistral Codestral/Inception, plus l'autocompletion dans le chat.",
+      "how": "packages/kilo-gateway/src/fim.ts:1-40 resout la cible FIM : resolveFimTarget(provider, model) retourne {provider:\"kilo\"} (endpoint gateway fim/completions, modele par defaut mistralai/codestral-2501), \"mistral\" (via MISTRAL_API_KEY) ou \"inception\" (https://api.inceptionlabs.ai/v1/fim/completions, INCEPTION_API_KEY) ; autocomplete.ts resout le modele et mistral-fim-endpoint.ts parle le protocole Mistral ; cote extension, services/autocomplete/ contient AutocompleteServiceManager, AutocompleteCodeActionProvider, ClassicAutoComplete (base sur Continue) et chat-autocomplete, avec un modele dedie (shared/autocomplete-models.ts).",
+      "omega_capability": "completion-provider",
+      "omega_port": "CompletionProvider (FIM)",
+      "omega_adapter": "plugins/autocomplete-fim",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/kilo-gateway/src/fim.ts:1-40",
+        "packages/kilo-gateway/src/autocomplete.ts",
+        "packages/kilo-gateway/src/mistral-fim-endpoint.ts",
+        "packages/kilo-vscode/src/services/autocomplete/AutocompleteServiceManager.ts",
+        "packages/kilo-vscode/src/shared/autocomplete-models.ts"
+      ]
+    },
+    {
+      "id": "kc-permission-rulesets",
+      "domain": "securite",
+      "name": "Regles allow/ask/deny + groupes de modes + ask 'outside workspace'",
+      "what": "Chaque agent porte un ruleset ordonne allow/ask/deny, les modes historiques Cline (groupes read/edit/browser/command/mcp) sont traduits en permissions, et toute sortie du workspace declenche une ask specifique.",
+      "how": "packages/schema/src/permission.ts:25-65 definit Request{sessionID, action, resources, save, metadata, source}, Reply=[once, always, reject], Effect=[allow, deny, ask], Rule{action, resource, effect} et Ruleset (tableau ordonne) ; les evenements permission.v2.asked/replied sont inventaries. packages/opencode/src/kilocode/modes-migrator.ts:38-90 convertit un mode {groups} en permissions : mapping read->read, edit->edit, browser->bash, command->bash, mcp->mcp, `fileRegex` devient {regex: \"allow\", \"*\": \"deny\"}, et toute permission absente des groupes est explicitement 'deny' (car la defaut est 'ask'). Le CLI expose agent --permissions et les garde-fous headless/allow-everything/external-directory vivent dans kilocode/permission/{headless,allow-everything,external-directory,rule,read,agent-manager}.ts.",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy (evaluate/ruleset)",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "packages/schema/src/permission.ts:25-65",
+        "packages/opencode/src/kilocode/modes-migrator.ts:38-90",
+        "packages/opencode/src/kilocode/permission/external-directory.ts",
+        "packages/opencode/src/kilocode/permission/headless.ts",
+        "packages/opencode/src/cli/cmd/agent.ts:20-30"
+      ]
+    },
+    {
+      "id": "kc-permission-provenance",
+      "domain": "securite",
+      "name": "Provenance de la decision d'approbation",
+      "what": "Chaque appel d'outil autorise porte la provenance de la regle gagnante, pour que la surface affiche la raison de l'auto-approbation.",
+      "how": "kilocode/permission/provenance.ts:1-40 : les regles traversent Permission.evaluate (findLast) en portant un marqueur runtime-only `source` dont les valeurs sont [agent, global, project, yolo, session, manual, default] ; isYolo() detecte la regle large allow * installee par le mode auto-approve ; l'approbation enregistree contient {source, agent?, rule?, outsideWorkspace?, outsideWorkspacePath?} et est attachee aux metadata de la tool-call. Le marqueur n'est jamais persiste (il est reconstruit a l'evaluation), ce qui evite de stocker un etat derive.",
+      "omega_capability": "provenance",
+      "omega_port": "Provenance",
+      "omega_adapter": "omega-otel::Provenance",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "packages/opencode/src/kilocode/permission/provenance.ts:1-40",
+        "packages/schema/src/permission.ts:40-52"
+      ]
+    },
+    {
+      "id": "kc-sandbox-profile",
+      "domain": "securite",
+      "name": "Bac a sable processus (bubblewrap/seatbelt) + reseau proxy egress",
+      "what": "Execution des commandes dans un bac a sable OS avec profil filesystem (allowWrite/denyWrite/denyNames), profil reseau (allow/deny/proxy) et assainissement d'environnement, plus un worker pour les mutations",
+      "how": "kilo-sandbox/src/backend.ts:1-49 selectionne le backend selon process.platform (seatbelt sur darwin, bubblewrap/`/usr/bin/bwrap` sur linux, indisponible sur Windows) et expose support()/prepare() ; profile.ts:1-34 definit Profile{FilesystemProfile{allowWrite,denyWrite,denyNames,temporaryDirectory}, NetworkProfile{mode: allow|deny|proxy, allowedHosts}, EnvironmentProfile{deny,set}} ; network.ts masque les variables *_PROXY et renvoie PermissionDenied 'Sandbox denied outbound network access' ; proxy.ts:13-90 demarre un proxy local avec inspection TLS ClientHello (tls-client-hello.ts) pour un allow-list par hostname ; destination.ts:1-40 valide/ canonicalise les destinations (domainToASCII, refus des labels invalides) et isPublicAddress ; mutation.ts + mutation-protocol.ts appliquent les ecritures validees par le sandbox ; le pin du binaire bwrap est verifie par SHA-256 (KILO_BWRAP_SHA256).",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend",
+      "omega_adapter": "omega-sandbox::LocalSandboxBackend",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "packages/kilo-sandbox/src/backend.ts:1-49",
+        "packages/kilo-sandbox/src/profile.ts:1-34",
+        "packages/kilo-sandbox/src/network.ts:1-40",
+        "packages/kilo-sandbox/src/proxy.ts:13-90",
+        "packages/kilo-sandbox/src/destination.ts:1-40",
+        "packages/kilo-sandbox/src/bubblewrap.ts:1-40"
+      ]
+    },
+    {
+      "id": "kc-work-styles-yolo",
+      "domain": "execution",
+      "name": "Profils d'execution (human-in-the-loop / autonomous) et bash allow-list",
+      "what": "Deux profils predefinis qui ecrivent d'un coup les permissions et les reglages d'affichage, un interrupteur auto-approve (YOLO), et une allow-list de prefixes shell en lecture seule.",
+      "how": "kilo-vscode/src/shared/work-style-presets.ts:1-90 definit WorkStyle = human-in-the-loop | autonomous, WorkStyleConfig{permission, terminal_command_display, code_edit_display, mcp_tool_display, reasoning_display, auto_collapse_reasoning} et WorkStylePreset{style, config, settings} ; la table BASH met \"*\": \"ask\" puis allow pour une liste de commandes en lecture (cat, head, ls, tree, pwd, grep, rg, jq, diff ...) et \"*>*\": \"ask\" ; getDisplayPreset() choisit expanded/preview selon le style ; kilo-provider/work-style.ts applique le preset a la config VS Code globale (agentWorkStyle) et l'initialise selon l'existence de sessions. L'interrupteur auto-approve est un bridge (kilo-provider/auto-approve.ts:1-25) qui publie autoApproveState et installera la regle allow * marquee 'yolo' par la provenance. Un garde-fou de cout (core/src/kilocode/cost/max-cost-nudge.ts:1-45) alerte a chaque palier de dollar entier sans bloquer.",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "packages/kilo-vscode/src/shared/work-style-presets.ts:1-90",
+        "packages/kilo-vscode/src/kilo-provider/work-style.ts:1-40",
+        "packages/kilo-vscode/src/kilo-provider/auto-approve.ts:1-25",
+        "packages/core/src/kilocode/cost/max-cost-nudge.ts:1-45",
+        "packages/opencode/src/commands/toggle-auto-approve.ts"
+      ]
+    },
+    {
+      "id": "kc-subagent-task",
+      "domain": "agents",
+      "name": "Sous-agents via l'outil task + permissions derivees",
+      "what": "Le parent delegue a un sous-agent par l'outil task ; le sous-agent recoit un ruleset derive (heritage des deny et du perimetre externe, deny todowrite/task par defaut) et peut lui-meme etre materialise dans un worktree dedie.",
+      "how": "packages/opencode/src/agent/subagent-permissions.ts:1-30 deriveSubagentSessionPermission compose le ruleset du sous-agent : (1) on ne reprend du parent que les regles external_directory et les deny (les restrictions du parent ne gouvernent pas le sous-agent), (2) deny todowrite sauf si le sous-agent l'autorise, (3) deny task sauf s'il est explicitement autorise : la recursivite est donc opt-in. CLI/TUI exposent le suivi des sous-agents (cli/cmd/run/subagent-data.ts, verbose-task-streams.ts) ; l'extension a un SubAgentViewerProvider et l'agent-manager un prune-subagents.ts + command-budget.ts ; la commande ACP et le CLI listent 'task' parmi les permissions disponibles (cli/cmd/run/demo.ts:38).",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner (spawn/resume)",
+      "omega_adapter": "plugins/subagent-isolated",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/opencode/src/agent/subagent-permissions.ts:1-30",
+        "packages/opencode/src/cli/cmd/run/subagent-data.ts",
+        "packages/kilo-vscode/src/SubAgentViewerProvider.ts",
+        "packages/kilo-vscode/src/agent-manager/prune-subagents.ts",
+        "packages/kilo-vscode/src/agent-manager/command-budget.ts"
+      ]
+    },
+    {
+      "id": "kc-worktree-agent-manager",
+      "domain": "agents",
+      "name": "Agent manager : un git worktree par session/groupe",
+      "what": "Gestionnaire d'agents paralleles : chaque tache obtient son git worktree (branche nommee, branche parente, remote), regroupe en sections/pins, avec scripts de setup, suivi git/PR et cycle de vie complet (continue, fork, promotion, discard).",
+      "how": "agent-manager/WorktreeStateManager.ts:1-70 persiste dans .kilo/agent-manager.json un modele decouple Worktree{branch, path, parentBranch, remote, groupId (multi-version), label, prNumber/prUrl/prState, originalBranch, branchOwned, sectionId, pinned} et ManagedSession (plusieurs sessions par worktree) ; SessionTerminalManager/terminal-manager.ts donnent un terminal par worktree, SetupScriptRunner.ts:1-50 execute un script de setup cross-plateforme (powershell.exe -File / cmd.exe /c / sh), creation-plan.ts decale le premier prompt a apresSetup si un script existe, sandbox-bootstrap.ts:1-40 aligne l'etat sandbox avant le premier prompt (status puis toggle si divergence), GitStatsPoller/PRStatusPoller alimentent les badges, et fork-handoff/continue-in-worktree/promotion-handoff/delete-worktree/discard-worktree implementent le cycle de vie ; orchestration-domain.ts:1-60 expose un Overview (sections, worktrees, git additions/deletions/ahead/behind, PR state/checks/review, activite idle|busy|retry|offline).",
+      "omega_capability": "workspace-manager",
+      "omega_port": "WorkspaceManager (worktrees)",
+      "omega_adapter": "plugins/agent-manager-worktree",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "packages/kilo-vscode/src/agent-manager/WorktreeStateManager.ts:1-70",
+        "packages/kilo-vscode/src/agent-manager/SetupScriptRunner.ts:1-50",
+        "packages/kilo-vscode/src/agent-manager/sandbox-bootstrap.ts:1-40",
+        "packages/kilo-vscode/src/agent-manager/orchestration-domain.ts:1-60",
+        "packages/kilo-vscode/src/agent-manager/continue-in-worktree.ts"
+      ]
+    },
+    {
+      "id": "kc-agent-declarative-modes",
+      "domain": "agents",
+      "name": "Agents declaratifs (markdown) et modes d'organisation",
+      "what": "Agents/modes decrits par un fichier markdown (id, scope, description, mode primary/subagent/all, modele, couleur, steps, liste d'outils, permissions, prompt), et surcharge possible par des modes d'organisation venus du cloud.",
+      "how": "AgentBuilder (opencode/src/kilocode/agent/builder.ts:1-60) definit Scope=global|project, Mode=primary|subagent|all, ID regex, Body{scope, description, mode, model, color, steps, tools[], permission, prompt} + Input/SaveInput avec preview/save en markdown ; les fichiers vivent dans .kilo/agent/*.md (system-prompt.ts:29 recommande explicitement .kilo/ et interdit .kilocode//.opencode/ pour les nouveaux). Les modes d'organisation (kilo-gateway/src/api/modes.ts:1-80, cache TTL 5 min sur GET /api/organizations/{id}/modes) portent roleDefinition, whenToUse, customInstructions et groups[(name,[fileRegex, description])] et sont fusionnes dans les agents via config (opencode/src/kilocode/config/config.ts:442) puis ModesMigrator (les slugs builtin code/build/architect/ask/debug/orchestrator sont ecartes en local mais surchargeables par l'organisation).",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore (discover/load/save)",
+      "omega_adapter": "plugins/agent-declarative",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "packages/opencode/src/kilocode/agent/builder.ts:1-60",
+        "packages/kilo-gateway/src/api/modes.ts:1-80",
+        "packages/opencode/src/kilocode/modes-migrator.ts:9-130",
+        "packages/opencode/src/kilocode/config/config.ts:435-450",
+        "packages/opencode/src/kilocode/system-prompt.ts:29"
+      ]
+    },
+    {
+      "id": "kc-session-board",
+      "domain": "agents",
+      "name": "Tableau de sessions (messagerie inter-sessions)",
+      "what": "Un board persistant par session racine, ou plusieurs sessions echange des messages types (sender/recipient/type/body) avec reponses, revisions et pagination 'before/limit'.",
+      "how": "kilocode/board/store.ts:1-30 cree un schema SQL (Row{id, project_id, parent_id, directory, agent, title, time_created} et MessageRow{board_root_session_id, seq, sender_session_id, recipient, type, body, reply_to, source_message_id}) : le board est ancre sur une session racine et se comporte comme un journal ordonne ; board/{context.ts,enabled.ts,notice.ts} activent/gate la fonction ; cote extension, kilo-provider/session-board.ts:1-30 valide les messages webview (requestSessionBoard/resetSessionBoard avec revision entiere + pagination before/limit) et renvoie un SessionBoardLoadedMessage, avec la vue webview-ui/src/types/messages/board.",
+      "omega_capability": "session-board",
+      "omega_port": "BoardStore (append/read)",
+      "omega_adapter": "plugins/session-board",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/opencode/src/kilocode/board/store.ts:1-30",
+        "packages/opencode/src/kilocode/board/enabled.ts",
+        "packages/kilo-vscode/src/kilo-provider/session-board.ts:1-40",
+        "packages/kilo-vscode/src/webview-ui/src/types/messages/board.ts"
+      ]
+    },
+    {
+      "id": "kc-scheduled-wakeups",
+      "domain": "automatisation",
+      "name": "Sessions planifiees (wakeups) et drain de session",
+      "what": "Une session peut etre reveillee plus tard : on pose une echeance, la session passe en statut 'scheduled' avec scheduledAt, et l'evenement porte le nombre de reveils restants.",
+      "how": "packages/schema/src/kilocode/wakeup-event.ts:1-20 definit l'evenement type 'session.wakeup' {sessionID, pending: NonNegativeInt} avec PendingInfo partage entre l'evenement et la route pour eviter la derive de contrat ; RemoteProtocol.SessionInfo (kilo-sessions/remote-protocol.ts:5-20) porte status string + scheduledAt optionnel (uniquement pour status 'scheduled') en restant wire-compatible avec les anciens CLI ; la route wakeups vit dans server/httpapi/groups/kilocode.ts et le bootstrap/ingest utilise scheduledAt (kilocode/bootstrap.ts, kilo-sessions/ingest-queue.ts) ; session-drain.ts type la fin de drain (session.drained, session.drain.interrupted).",
+      "omega_capability": "scheduler-job",
+      "omega_port": "Scheduler (schedule/wake/cancel)",
+      "omega_adapter": "plugins/scheduler-wakeup",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/schema/src/kilocode/wakeup-event.ts:1-20",
+        "packages/schema/src/kilocode/session-drain.ts:1-14",
+        "packages/opencode/src/kilo-sessions/remote-protocol.ts:5-20",
+        "packages/opencode/src/kilocode/server/httpapi/groups/kilocode.ts"
+      ]
+    },
+    {
+      "id": "kc-session-revert",
+      "domain": "memoire",
+      "name": "Retour arriere de session par snapshots git + diff/restauration ciblee",
+      "what": "Possibilite de revenir a un message precis : capture content-addressee de l'arbre de fichiers, plan de fichiers a restaurer depuis les snapshots des messages suivants, diff et restauration par fichier, avec etats 'snapshots-disabled', 'not-a-git-repo'.",
+      "how": "packages/core/src/snapshot.ts:35-90 expose l'interface Snapshot (capture -> ID content-addresse, files/diff/preview/restore, best-effort avec undefined si desactive ou non supporte) ; packages/core/src/session/revert.ts:31-100 implemente plan() (parcourt les messages assistant posterieurs au message frontiere et collecte, par fichier, le premier snapshot 'start'), stage() (capture l'original si absent, restaure, calcule le diff, publie RevertEvent.Staged), clear()/commit() (restauration de l'original puis publication Cleared/Committed) ; packages/schema/src/revert.ts:19-27 type FileDiff{path,status,additions,deletions,patch} et State{messageID, partID?, snapshot?, diff?, files?, workspace: restored|snapshots-disabled|unavailable|not-a-git-repo}. L'extension expose checkpoints serialises par session (KiloProvider.ts:495-685) et des evenements de telemetrie dedies (Checkpoint Created/Restored/Diffed).",
+      "omega_capability": "snapshot-store",
+      "omega_port": "SnapshotStore (capture/restore/diff)",
+      "omega_adapter": "omega-app::FileEventStore (journal) + restauration fichiers (a etendre)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/core/src/snapshot.ts:35-90",
+        "packages/core/src/session/revert.ts:31-100",
+        "packages/schema/src/revert.ts:19-27",
+        "packages/kilo-vscode/src/KiloProvider.ts:495-685",
+        "packages/kilo-vscode/src/services/telemetry/types.ts:24-27"
+      ]
+    },
+    {
+      "id": "kc-cli-headless",
+      "domain": "execution",
+      "name": "CLI unique : run headless, serve, attach, remote, pr, github, import, plug",
+      "what": "Une CLI partageant le meme runtime que l'extension : run non interactif, serveur local, attachement a une session distante, gestion de PR, agent GitHub, import, installation de plugins et statistiques.",
+      "how": "packages/opencode/src/cli/cmd contient run.ts (+ run-stdin, run/stream.ts pour le transport), serve.ts, attach.ts, remote.ts, acp.ts, pr.ts (checkout/link/unlink/status sur un lien PR<->session), github.ts (install/run avec GitHub mock event + token), mcp.ts, plug.ts:1-40 (installPlugin/patchPluginConfig/readPluginManifest + resolvePluginTarget), agent.ts, session.ts, import.ts, export.ts, stats.ts, models.ts, providers.ts, upgrade.ts et tui.ts ; le script racine lance 'KILO_CLIENT=cli bun run --cwd packages/opencode src/index.ts' et les commandes sont declarees en yargs avec un helper effectCmd (cli/effect-cmd.ts) pour rester dans le runtime effect.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-app (CLI omega) + omega-server",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/opencode/src/cli/cmd/plug.ts:1-40",
+        "packages/opencode/src/cli/cmd/pr.ts:1-50",
+        "packages/opencode/src/cli/cmd/github.ts:1-40",
+        "packages/opencode/src/cli/cmd/serve.ts",
+        "packages/opencode/src/cli/cmd/remote.ts",
+        "package.json:8"
+      ]
+    },
+    {
+      "id": "kc-server-httpapi",
+      "domain": "execution",
+      "name": "Serveur HttpApi par groupes + SDK genere + surfaces multiples",
+      "what": "Un serveur HTTP dont l'API est generee depuis des schemas par groupes (config, session, permission, mcp, provider, event, pty, question, workspace, control-plane...), consommee par le CLI, le TUI, l'extension, la console et le plugin JetBrains.",
+      "how": "packages/opencode/src/server/routes/instance/httpapi/groups expose 21+ groupes (config.ts, control-plane.ts, control.ts, event.ts, experimental.ts, file.ts, global.ts, instance.ts, mcp.ts, metadata.ts, permission.ts, project-copy.ts, project.ts, provider.ts, pty.ts, query.ts, question.ts, session.ts, sync.ts, tui.ts, workspace.ts) ; les groupes kilocode ajoutent kilo-gateway.ts (dont OrganizationMode) et kilocode.ts ; le SDK est genere vers packages/sdk (+ sdk-next) et le codegen est un package dedie (packages/httpapi-codegen) avec capture/rejeu de requetes (packages/http-recorder). Les surfaces : TUI (@opentui), kilo-ui, kilo-web-ui, kilo-console (React/Vite), extension VS Code, plugin JetBrains (Kotlin).",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-server (cockpit + /api/health|plugins|run|trace)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "packages/opencode/src/server/routes/instance/httpapi/groups/session.ts",
+        "packages/opencode/src/kilocode/server/httpapi/groups/kilo-gateway.ts:100-125",
+        "packages/httpapi-codegen/",
+        "packages/kilo-console/src/App.tsx",
+        "packages/kilo-jetbrains/backend"
+      ]
+    },
+    {
+      "id": "kc-acp-editor",
+      "domain": "extension",
+      "name": "Agent Client Protocol (editeurs tiers : Zed, JetBrains)",
+      "what": "Kilo parle le protocole ACP d'un editeur : initialisation, nouvelles sessions, chargement/reprise/fork, prompts, annulation, choix du modele et du mode, permissions et usage, serveurs MCP.",
+      "how": "packages/opencode/src/acp/service.ts:1-40 importe les types ACP (InitializeRequest/Response, NewSession*, LoadSession*, ResumeSession*, ForkSession*, Prompt*, CancelNotification, SetSessionModel*, SetSessionMode*, SetSessionConfigOption*, ListSessions*, CloseSession*) et module le comportement par acp/{agent,config-option,content,directory,error,event,permission,profile,session,tool,usage}.ts ; le CLI expose une commande acp (cli/cmd/acp.ts) et des tests dedies (test/cli/acp/skills.test.ts), ce qui permet a un editeur non-VS Code d'utiliser le meme runtime.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-server (surface editeur, a evaluer)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/opencode/src/acp/service.ts:1-60",
+        "packages/opencode/src/acp/permission.ts",
+        "packages/opencode/src/acp/usage.ts",
+        "packages/opencode/src/cli/cmd/acp.ts"
+      ]
+    },
+    {
+      "id": "kc-marketplace",
+      "domain": "extension",
+      "name": "Marketplace : installation d'MCP, skills, agents et plugins",
+      "what": "Installation en un clic d'elements de catalogue (serveur MCP, skill, agent, plugin) avec detection deja-installe, installation de compagnons (skills associes a un MCP), substitution de parametres et validation d'ids.",
+      "how": "kilocode/marketplace/installer.ts:1-240 expose substituteParams(), normalizeMcpEntry(), buildMcpEntry() (patch de config.mcp[id]), installMcp() qui refuse un doublon ('MCP server already installed. Remove it first.'), installe les skills compagnons (Companions.install), puis installAgent()/installSkill() avec isSafeId() et staging d'archive (skill-archive.ts, findEscapedPaths pour bloquer l'evasion de chemin) ; plugin-config.ts/plugin-spec.ts valident la specification de plugin ; cote extension, services/marketplace/{actions,bundles,relevance,notifier}.ts gerent l'UX et la pertinence ; une marketplace MCP dediee existe aussi (MarketplacePanelProvider.ts).",
+      "omega_capability": "registry",
+      "omega_port": "Registre (install/remove)",
+      "omega_adapter": "plugins/marketplace",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "packages/opencode/src/kilocode/marketplace/installer.ts:1-240",
+        "packages/opencode/src/kilocode/marketplace/skill-archive.ts",
+        "packages/opencode/src/kilocode/marketplace/plugin-spec.ts",
+        "packages/kilo-vscode/src/services/marketplace/actions.ts",
+        "packages/kilo-vscode/src/MarketplacePanelProvider.ts"
+      ]
+    },
+    {
+      "id": "kc-plugin-system-v2",
+      "domain": "extension",
+      "name": "Systeme de plugins v2 (services ajoutes/retires, host par domaine)",
+      "what": "Les plugins v2 sont des services Effect ajoutes et retires par identifiant, patientables, avec un host qui n'expose que la capacite etroite du domaine et des contributions par registres rejouables (agents, catalog, commands, events, skills, tools...).",
+      "how": "packages/core/src/plugin.ts:1-60 definit PluginV2.Service {add(id, effect), remove(id), wait(id)} avec KeyedMutex sur l'ID, un Scope.Closeable par plugin actif, une map 'loading' et une map 'failures' (une installation en echec n'emporte pas les autres) ; packages/core/src/plugin/host.ts expose l'API etroite par domaine et packages/core/src/plugin/{agent,command,provider,skill,models-dev,internal,variant}.ts sont les contributions par domaine ; packages/plugin/src/v2 fournit le runtime auteur et packages/opencode/src/cli/cmd/plug.ts l'installation CLI ; l'evenement plugin.added est inventarie (packages/schema/src/plugin.ts).",
+      "omega_capability": "registry",
+      "omega_port": "Registre (Slot/Ensemble + quarantaine)",
+      "omega_adapter": "omega-registry (Slot/Ensemble + quarantaine)",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "packages/core/src/plugin.ts:1-60",
+        "packages/core/src/plugin/host.ts",
+        "packages/plugin/src/v2/",
+        "packages/schema/src/plugin.ts:1-15",
+        "packages/opencode/src/cli/cmd/plug.ts:1-40"
+      ]
+    },
+    {
+      "id": "kc-telemetry-events",
+      "domain": "observabilite",
+      "name": "Catalogue de telemetrie produit (avec opt-out)",
+      "what": "Un catalogue ferme d'evenements produit couvrant cycle de vie CLI, sessions, completions LLM, usage des outils/agents/commandes, indexation, MCP, connexions distantes, auth, partage, feedback et erreurs.",
+      "how": "kilo-telemetry/src/events.ts:1-51 enumere CLI_START/CLI_EXIT, SESSION_START/END/MESSAGE, LLM_COMPLETION, COMMAND_USED, TOOL_USED, AGENT_USED, PLAN_FOLLOWUP, SUGGESTION_SHOWN/ACCEPTED, INDEXING_STARTED/COMPLETED/FILE_COUNT/BATCH_RETRY/ERROR, SHARE_CREATED/DELETED, MCP_SERVER_CONNECTED/ERROR, REMOTE_CONNECTION_OPENED, AUTH_SUCCESS/LOGOUT, TELEMETRY_DISABLED, FEEDBACK_SUBMITTED, ERROR ; client.ts/identity.ts/conda.ts gerent l'envoi, l'identite et l'opt-out ; des evenements de checkpoints (Created/Restored/Diffed) vivent cote extension (services/telemetry/types.ts:24-27).",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "omega_adapter": "omega-otel::{Stdout,File}Sink",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "S",
+      "refs": [
+        "packages/kilo-telemetry/src/events.ts:1-51",
+        "packages/kilo-telemetry/src/client.ts",
+        "packages/kilo-telemetry/src/telemetry.ts",
+        "packages/kilo-vscode/src/services/telemetry/types.ts:24-27"
+      ]
+    },
+    {
+      "id": "kc-durable-events",
+      "domain": "observabilite",
+      "name": "Events durables vs ephemères + manifeste et projection",
+      "what": "Chaque evenement declare s'il est durable (versionne, rattache a un agregat, sequence, rejouable) ou ephemere ; un manifeste durable et une union typee permettent le rejeu et l'invalidation des surfaces.",
+      "how": "packages/schema/src/event.ts:1-60 definit ID (prefixe evt_), Definition{type, durable?: {version, aggregate}, data} et Payload{id, type, data, durable?{aggregateID, seq, version}, location?, metadata?} ; packages/schema/src/durable-event-manifest.ts:1-20 construit SessionDurable.definitions = Event.durable(...) et l'union SessionDurableEvent (Schema.oneOf) a partir de SessionEvent.DurableDefinitions + PromptPromoted (conserve pour la compatibilite des donnees deja releasees) ; packages/core/src/session/projector.ts:60-90 et message-updater.ts:385-400 appliquent les evenements a la base (et ignorent explicitement les evenements revert, qui ont leur propre cycle de vie).",
+      "omega_capability": "event-store",
+      "omega_port": "EventStore (+ TelemetrySink)",
+      "omega_adapter": "omega-app::FileEventStore",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "packages/schema/src/event.ts:1-60",
+        "packages/schema/src/durable-event-manifest.ts:1-20",
+        "packages/schema/src/event-manifest.ts",
+        "packages/core/src/session/projector.ts:60-90",
+        "packages/core/src/session/message-updater.ts:385-400"
+      ]
+    },
+    {
+      "id": "kc-cost-accounting",
+      "domain": "observabilite",
+      "name": "Comptabilite par run d'agent (tokens, cout, issue)",
+      "what": "Chaque run (messages assistant partageant un parent user et un meme agent) est agrege en tokens (input/output/reasoning/cache read+write), cout et issue (completed|cancelled|errored|running), paginable par (startedAt, id).",
+      "how": "opencode/src/kilocode/agent-usage/index.ts:1-45 definit Run (id = premier message assistant, stable et unique, avec parentID + agent), Tokens{input, output, reasoning, cache{read, write}}, Outcome=[completed, cancelled, errored, running] et interroge la base via drizzle ; provider-usage.ts:1-45 agrege des UsageSnapshot par fournisseur via des adaptateurs (cloud, codex, minimax) avec cache TTL (succes 60 s, erreur 10 s) et prune des entrees ; core/src/kilocode/cost/max-cost-nudge.ts:1-45 somme le cout par message assistant (car SessionTable.cost est ecrit en SQL direct et ne declenche pas session.updated) et alerte aux paliers de dollars.",
+      "omega_capability": "cost-accounting",
+      "omega_port": "CostLedger (record/aggregate)",
+      "omega_adapter": "omega-otel (sinks) + omega-router (scoring cout)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "packages/opencode/src/kilocode/agent-usage/index.ts:1-45",
+        "packages/core/src/kilocode/provider-usage.ts:1-45",
+        "packages/core/src/kilocode/provider-usage/cloud.ts",
+        "packages/core/src/kilocode/cost/max-cost-nudge.ts:1-45"
+      ]
+    },
+    {
+      "id": "kc-provider-catalog",
+      "domain": "routage",
+      "name": "Catalogue multi-fournisseurs rejouable (500+ modeles, couts, usage)",
+      "what": "Un catalogue mutable de providers et de modeles (prix, limites, capacites, variantes) construit par transforms rejouables, par-dessus lequel s'ajoute un provider d'entreprise (Kilo) et des fournisseurs personnalises.",
+      "how": "packages/core/src/catalog.ts:1-55 definit le service Catalog (provider.{get,all,update,remove}, model.{get,update,remove,default.{get,set}}) adosse a State.Transformable (donc rejouable) et une PolicyActions=[\"provider.use\"] pour la gouvernance ; packages/core/src/plugin/models-dev.ts, kilocode/models-refresh.ts et models-dev.ts alimentent les metadonnees (couts cache read/write, limites, capacites) ; les fournisseurs personnalises arrivent par la config (shared/custom-provider.ts, fetch-models.ts) ; l'usage reel est lu par provider-usage.ts et le CLI expose models/providers. Cote marque, le README annonce 500+ modeles et un changement de modele en cours de tache a prix fournisseur sans marge.",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider (providers/models)",
+      "omega_adapter": "omega-providers::OllamaProvider",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "packages/core/src/catalog.ts:1-55",
+        "packages/core/src/plugin/models-dev.ts",
+        "packages/opencode/src/kilocode/models-refresh.ts",
+        "packages/kilo-vscode/src/shared/custom-provider.ts",
+        "README.md:24"
+      ]
+    },
+    {
+      "id": "kc-kilo-gateway-cloud",
+      "domain": "routage",
+      "name": "Passerelle Kilo (compte, solde, modes d'organisation, sessions cloud)",
+      "what": "ECARTE : service operateur proprietaire (kilo.ai) qui fournit l'authentification par device, un provider OpenRouter re-emballe, le solde/profil, les modes d'organisation, l'import de sessions cloud et le lien PR.",
+      "how": "ECARTE parce que c'est un backend SaaS operateur : auth/device-auth.ts:30-98 (device code + polling + etats approved/denied/expired), provider.ts:1-78 (createKilo enveloppe createOpenRouter avec base URL Kilo et headers d'organisation), cloud-sessions.ts:1-60 (validation zod d'un export de session puis import local), api/{profile,models,kilo-pass,notifications}.ts, kilo-sessions/kilo-sessions.ts:1-50 (WebSocket remote + sync de statut + lien PR). Le principe d'Omega est self-hosted et sans dependance a un operateur unique ; en revanche les briques client (device-auth generique, import de session valide par schema, sync de statut) sont reutilisables derriere notre propre Provider/omni-gateway — c'est deja couvert par kc-provider-catalog et kc-session-revert/kc-durable-events.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": null,
+      "integration": "rejected",
+      "status": "rejected",
+      "rust_cost": "L",
+      "refs": [
+        "packages/kilo-gateway/src/auth/device-auth.ts:30-98",
+        "packages/kilo-gateway/src/provider.ts:1-78",
+        "packages/kilo-gateway/src/cloud-sessions.ts:1-60",
+        "packages/opencode/src/kilo-sessions/kilo-sessions.ts:1-50",
+        "packages/kilo-gateway/README.md:1-20"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,606 @@
+{
+  "schema_version": 1,
+  "id": "autogpt",
+  "name": "AutoGPT",
+  "editor": "Significant Gravitas",
+  "oss": true,
+  "language": "Python",
+  "license": "MIT AND PolyForm-Shield-1.0.0",
+  "repo": "https://github.com/Significant-Gravitas/AutoGPT",
+  "architecture": "Monorepo a deux etages : `classic/` (MIT) conserve l'agent autonome Forge — boucle d'agent dont les composants sont des plugins a protocoles (CommandProvider/MessageProvider/DirectiveProvider/AfterParse) et les strategies de raisonnement interchangeables (one_shot, ReWOO, plan_execute, reflexion, ToT, LATS, multi-agent debate) — tandis que `autogpt_platform/` (Polyform Shield) est une plateforme FastAPI multi-processus qui represente un agent comme un graphe oriente de blocs (Nodes + Links) execute nœud par nœud via RabbitMQ, doublee d'un copilote LLM (registre d'outils/capacites BM25, gate d'approbation par effet, sandbox E2B) et d'un frontend Next.js ; l'etat vit dans Postgres/Prisma et Redis.",
+  "entrypoints": [
+    "REST API FastAPI (backend/api/rest_api.py -> /api, tags v1/v2)",
+    "WebSocket API (backend/api/ws_api.py, canaux subscribe/unsubscribe + heartbeat)",
+    "Graph executor (backend/executor/manager.py, consomme RabbitMQ)",
+    "Scheduler cron (backend/executor/scheduler.py, APScheduler)",
+    "Database manager (backend/data/db_manager.py)",
+    "CoPilot chat bridge + executor (backend/copilot/bot/app.py, backend/copilot/executor/manager.py)",
+    "Batch executor (backend/executor/batch_executor.py, lots Anthropic)",
+    "Frontend Next.js (autogpt_platform/frontend/src/app)",
+    "Self-host docker compose (autogpt_platform/docker-compose.yml) + installer",
+    "Agent autonome historique (classic/original_autogpt/autogpt/__main__.py, agent_protocol_server.py)"
+  ],
+  "functionalities": [
+    {
+      "id": "ag-block-registry",
+      "domain": "extension",
+      "name": "Registre de blocs auto-decouvert (un bloc = plugin d'execution)",
+      "what": "Tous les blocs sont decouverts en scannant le paquet `backend.blocks` ; chaque sous-classe de `Block` devient une capacite executable adressable par UUID stable.",
+      "how": "`load_all_blocks()` est memoise (`@cached(ttl_seconds=3600)`), rglobbe les `.py` du paquet (excluant `__init__`, `conftest`, `*_test.py`, `examples/` si `Config().enable_example_blocks` est faux), importe chaque module apres validation du nom par regex `^[a-z0-9_.]+$`, puis collecte `_all_subclasses(Block)` en refusant tout nom de classe qui ne finit pas par `Block` (ou pas par `Base` pour les abstraites), en exigeant un `block.id` UUID de 36 caracteres et en refusant les collisions d'id.",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "omega_adapter": "omega-registry::Registry (Slot/Ensemble + quarantaine)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/blocks/__init__.py:13-90",
+        "autogpt_platform/backend/backend/blocks/_base.py:585-700",
+        "autogpt_platform/backend/backend/util/cache.py"
+      ]
+    },
+    {
+      "id": "ag-block-contract",
+      "domain": "outils",
+      "name": "Contrat de bloc schema-first (input/output pydantic + credentials)",
+      "what": "Chaque capacite declare son schema d'entree et de sortie typé, ses champs de credentials obligatoires, ses champs de webhook et son cout ; le JSON Schema expose au builder est derive du modele.",
+      "how": "`Block(ABC, Generic[Input, Output])` prend `input_schema`/`output_schema` derives de `BlockSchemaInput`/`BlockSchemaOutput` (pydantic) ; `BlockSchema.jsonschema()` resout les `$ref` en dictionnaires inline ; `__pydantic_init_subclass__` valide a l'import que tout champ annote `CredentialsMetaInput` l'est bien ; `get_credentials_fields()`, `get_missing_input()`, `get_input_defaults()` et `run_once()` completent le contrat ; `execute()` enchaine validation puis `run()`.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/blocks/_base.py:217-360",
+        "autogpt_platform/backend/backend/blocks/_base.py:585-830",
+        "autogpt_platform/backend/backend/sdk/__init__.py:1-60"
+      ]
+    },
+    {
+      "id": "ag-block-effect-cost",
+      "domain": "securite",
+      "name": "Effet et cout declares par bloc (BlockEffect, BlockType, BlockCost)",
+      "what": "Chaque bloc publie ce qu'il fait au monde (lecture/ecriture/irreversible), sa nature structurelle (entree/sortie) et son prix, ce qui permet de decider sans lire le code du bloc.",
+      "how": "`BlockEffect` (dont `NONE` et les valeurs irreversibles) et `BlockType` (`INPUT`/`OUTPUT`/...) etiquettent chaque bloc, et `BlockCostType` enumere six facons de facturer : `RUN` (credits par run), `BYTE`, `SECOND` (par `cost_divisor` secondes), `ITEMS`, `COST_USD` (par USD de `stats.provider_cost`) et `TOKENS` (table de taux par modele/fournisseur) ; les quatre derniers sont « dynamiques » (`is_dynamic`) : ils renvoient 0 avant execution et se reconcilient sur les stats (`charge_reconciled_usage`) ; `TokenRateDisplay` publie les tarifs USD/1M entree, sortie, cache read et cache write pour l'UI du builder ; `DEFAULT_BLOCK_EXECUTION_TIMEOUT_SECONDS = 30*60` borne un run (les blocs de coordination le desactivent avec `None`).",
+      "omega_capability": "exec-policy",
+      "omega_port": "ExecPolicy",
+      "omega_adapter": "omega-sandbox::RuleBasedExecPolicy",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/blocks/_base.py:68-95",
+        "autogpt_platform/backend/backend/blocks/_base.py:122-205",
+        "autogpt_platform/backend/backend/blocks/_base.py:580-590"
+      ]
+    },
+    {
+      "id": "ag-capability-index-bm25",
+      "domain": "outils",
+      "name": "Index de capacites BM25 + divulgation progressive (find/describe/run_capability)",
+      "what": "Un seul index lexical couvre outils, blocs et catalogue MCP ; le modele ne voit qu'un noyau « eager » d'outils et atteint tout le reste par recherche, description puis execution.",
+      "how": "`CapabilityIndex` indexe des `CapabilityEntry` avec `BM25Okapi` (rank_bm25) pondere : nom repete (`_NAME_WEIGHT = 2`), bonus exact `_EXACT_BONUS = 100.0`, tri par couverture -> connexion -> BM25 ; `DEFAULT_LIMIT = 8` et jusqu'a `DEFAULT_FALLBACK_LIMIT = 3` primitives quand la requete nomme un service ; `build_entries()` assemble `tool_entries` + `block_entries` + `mcp_catalog_entries` puis `_merge()` folde les doublons via `MERGED_IMPLEMENTATIONS` (`tool:bash_exec` -> `ExecuteCodeBlock`, contexte `both`) ; `EAGER_CORE` / `DEFERRED_TOOL_NAMES` / `RETIRED_TOOLS` decident de la surface visible.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "omega-context::ToolSurfaceIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "L",
+      "refs": [
+        "autogpt_platform/backend/backend/copilot/capabilities/index.py:1-135",
+        "autogpt_platform/backend/backend/copilot/capabilities/registry.py:35-110",
+        "autogpt_platform/backend/backend/copilot/capabilities/sources/static_tools.py:22-58",
+        "autogpt_platform/backend/backend/copilot/tools/__init__.py:240-260"
+      ]
+    },
+    {
+      "id": "ag-tool-registry-groups",
+      "domain": "outils",
+      "name": "Registre d'outils du copilote (groupes + disponibilite + evenement d'activite)",
+      "what": "Les outils de l'agent conversationnel sont un dictionnaire versionne, ranges en groupes, filtres par `is_available` selon l'environnement et capables de publier un evenement d'activite durable.",
+      "how": "`TOOL_REGISTRY: dict[str, BaseTool]` est construit par litteral (une entree par classe d'outil importee), `TOOL_GROUPS` range chaque nom dans un groupe ; `BaseTool` definit `name`/`description`/`parameters`/`model_parameters` (sans les hints de carte), `requires_auth`, `is_available` (exclut un outil dont les variables d'env ou binaires manquent au lieu de le proposer), `activity_event()` (draft d'audit persiste en best-effort) et `gate_subject()`/`gate_context()` pour l'approbation ; `configure_tools(TOOL_REGISTRY, TOOL_GROUPS)` alimente l'index de capacites.",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "omega_adapter": "omega-registry::Registry (Slot/Ensemble + quarantaine)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/copilot/tools/__init__.py:111-311",
+        "autogpt_platform/backend/backend/copilot/tools/base.py:319-430",
+        "autogpt_platform/backend/backend/copilot/capabilities/registry.py:45-56"
+      ]
+    },
+    {
+      "id": "ag-permissions-tools-blocks",
+      "domain": "securite",
+      "name": "Permissions allow/deny par outil et par bloc, restrictives par heritage",
+      "what": "Un appel d'agent porte un ensemble de listes blanches/noires sur les outils et les blocs ; un sous-agent ne peut etre que plus restrictif que son parent.",
+      "how": "`CopilotPermissions` accepte des identifiants d'outil par nom court (mappes vers `mcp__copilot__<nom>`) ou builtin SDK, et des blocs par UUID complet, prefixe d'UUID ou nom ; `tools_exclude=True` (defaut) = liste noire, `False` = liste blanche ; `_IMPLIED_DENIALS`/`_IMPLIED_GRANTS` propagent les portes de capacite retirees (`run_block`, `run_mcp_tool`) pour que les graphes sauvegardes gardent leur sens ; `merged_with_parent()` intersecte les deux jeux de permissions pour la recursion.",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/copilot/permissions.py:1-80",
+        "autogpt_platform/backend/backend/copilot/permissions.py:397-500"
+      ]
+    },
+    {
+      "id": "ag-gate-effect-approval",
+      "domain": "securite",
+      "name": "Gate d'approbation par effet declare (read/shell/platform/external)",
+      "what": "Avant d'agir, un appel est classe par effet ; les effets parkables sont mis en attente d'un accord humain, une carte resumant l'action et son cout etant presentee au proprietaire.",
+      "how": "`core`: `gate/policy.py` enumere `Effect` (READ, WORKSPACE, SHELL, PLATFORM, EXTERNAL, UNGATED) avec `PARKABLE = {SHELL, PLATFORM, EXTERNAL}` et `Verdict` (RUN/JUDGE/ASK) ; `gate/effects.py` `block_effect()` lit `block.effect` ou un resolveur par nom de type (un bloc non lisible retourne `None`, traite EXTERNAL) et `graph_effect()` remonte le pire effet sur le graphe et ses sous-graphes sans s'arreter (un nœud irreversible nomme tout le run) ; le classifieur LLM (`gate/classifier.py`, rubriques `action_rubric.txt`/`content_rubric.txt`) ne peut qu'ajouter une question, jamais retirer une decision ; les appels retenus (`gate/held.py`) produisent une carte (`gate/review.py` `review_payload`, `payload_headline`) et une couture MCP (`gate/mcp_seam.py`).",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "autogpt_platform/backend/backend/copilot/gate/policy.py:1-120",
+        "autogpt_platform/backend/backend/copilot/gate/effects.py:1-60",
+        "autogpt_platform/backend/backend/blocks/_base.py:68-95"
+      ]
+    },
+    {
+      "id": "ag-sandbox-exec-backend",
+      "domain": "securite",
+      "name": "Backend de sandbox interchangeable (E2B cloud, repli bubblewrap)",
+      "what": "Le shell et le systeme de fichiers de l'agent tournent dans un environnement isole : sandbox E2B persistante si configuree, sinon bubblewrap local sans reseau.",
+      "how": "`copilot/tools/e2b_sandbox.py` tient une sandbox E2B par proprietaire (`SandboxOwner` session|expert, `sandbox_id` en Redis, `get_or_create_sandbox()`, pause en fin de tour, volume durable monte sur `~/workspace` et `~/shared`) ; `bash_exec` execute via `sandbox.commands.run()` et les outils de fichiers routent vers `/home/user` par l'API HTTP E2B ; sans E2B configure, `bash_exec` retombe sur **bwrap** : systeme de fichiers en liste blanche, aucun reseau, limites de ressources, et echoue avec « bash_exec requires bubblewrap sandbox (Linux only) » hors Linux ; `util/e2b_network.py` et `util/e2b_template.py` derivent le reseau et l'image.",
+      "omega_capability": "sandbox-backend",
+      "omega_port": "SandboxBackend",
+      "omega_adapter": "omega-sandbox::LocalSandboxBackend",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "L",
+      "refs": [
+        "autogpt_platform/backend/backend/copilot/tools/e2b_sandbox.py:1-45",
+        "autogpt_platform/backend/backend/copilot/tools/bash_exec.py:1-30",
+        "autogpt_platform/backend/backend/copilot/tools/bash_exec.py:240-295",
+        "autogpt_platform/backend/backend/util/e2b_network.py"
+      ]
+    },
+    {
+      "id": "ag-hitl-review-queue",
+      "domain": "securite",
+      "name": "Human-in-the-loop : bloc d'attente + file de revues approuver/rejeter",
+      "what": "Un nœud de graphe peut suspendre un run en attendant une reponse humaine ; les revues en attente sont listables et resolus par lot, par execution ou par session.",
+      "how": "`HumanInTheLoopBlock` declare un schema d'entree/sortie et appelle `add_review` (via `user_id`/`graph_exec_id`/`node_exec_id`) en prenant `input_data.name` comme libelle de nœud ; l'API expose `GET /pending`, `GET /execution/{graph_exec_id}`, `GET /session/{chat_session_id}` (ordre stable le plus ancien d'abord) et `POST /action` qui traite un `ReviewRequest` d'approbations/rejets et verifie l'ownership ; cote copilote, les appels retenus par le gate produisent les memes cartes.",
+      "omega_capability": "permission-policy",
+      "omega_port": "PermissionPolicy",
+      "omega_adapter": "omega-sandbox::ApprovalQueue",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/blocks/human_in_the_loop.py:22-160",
+        "autogpt_platform/backend/backend/api/features/graph_executions/review/routes.py:76-200",
+        "autogpt_platform/backend/backend/api/features/graph_executions/review/model.py"
+      ]
+    },
+    {
+      "id": "ag-exec-dag-engine",
+      "domain": "execution",
+      "name": "Moteur d'execution par nœud sur graphe oriente",
+      "what": "Un graphe de blocs (Nodes + Links) est execute nœud par nœud ; chaque sortie de nœud remplit les entrees des nœuds suivants et les nœuds devenus complets sont mis en file.",
+      "how": "`execute_graph()`/`execute_node()` resolvent les entrees (valeurs litterales, entrees liees, sorties precedentes, champs dynamiques) et appellent `block.execute()` ; `_enqueue_next_nodes()` + `_register_next_executions(link)` calculent, pour chaque sortie publiee, les liens satisfaits et enfilent les executions suivantes ; `GraphExecution`/`NodeExecutionEntry`/`ExecutionStatus` persistent l'etat, `_on_graph_execution` gere l'annulation, le nettoyage, le timeout par bloc (`DEFAULT_BLOCK_EXECUTION_TIMEOUT_SECONDS = 30*60`, `None` pour les blocs de coordination) et la reprise ; les sous-graphes sont aplatis dans `Graph.sub_graphs`.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-app (orchestrateur de graphe, a extraire du noyau)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "autogpt_platform/backend/backend/executor/manager.py:223-560",
+        "autogpt_platform/backend/backend/executor/manager.py:724-1010",
+        "autogpt_platform/backend/backend/data/graph.py:99-160",
+        "autogpt_platform/backend/backend/data/execution.py"
+      ]
+    },
+    {
+      "id": "ag-distributed-queue",
+      "domain": "execution",
+      "name": "Execution distribuee (RabbitMQ + verrous Redis + ack/reject)",
+      "what": "Les executions de nœuds sont publiees sur des files RabbitMQ et consommees par des workers horizontally scalable, avec file d'annulation dediee et verrous de cluster.",
+      "how": "`utils.py` declare les constantes `GRAPH_EXECUTION_QUEUE_NAME`/`GRAPH_EXECUTION_EXCHANGE`/`GRAPH_EXECUTION_ROUTING_KEY` et `GRAPH_EXECUTION_CANCEL_EXCHANGE` ; `data/rabbitmq.py` fournit `SyncRabbitMQ` + `declare_broadcast_queue` + `start_shared_queue_reaper` ; `ExecutionManager` (AppProcess) lance un thread consommateur (`_consume_execution_run`, `_handle_run_message` avec `_ack_message(reject, requeue)` et republication en queue de file) et un thread d'annulation ; `cluster_lock.py` (`ClusterLock`, `AsyncRedisLock`, `cluster_lock_timeout`) serialise les operations sensibles ; `cost_tracking.drain_pending_cost_logs` et `billing_reconciliation` passent par le meme canal.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-app (file de travail + verrou distribue)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/executor/manager.py:1588-1870",
+        "autogpt_platform/backend/backend/data/rabbitmq.py",
+        "autogpt_platform/backend/backend/executor/cluster_lock.py:1-60",
+        "autogpt_platform/backend/backend/executor/utils.py"
+      ]
+    },
+    {
+      "id": "ag-multi-process-runtime",
+      "domain": "execution",
+      "name": "Runtime multi-processus : 11 services dans un seul binaire",
+      "what": "Un seul point d'entree demarre API REST, WebSocket, executor, scheduler, database manager, batch executor, notifications, copilote et son executor dans des processus distincts.",
+      "how": "`app.run_processes(*processes)` demarre tous les processus sauf le dernier en arriere-plan puis le dernier au premier plan, et arrete l'ensemble en ordre inverse dans un `finally` ; `main()` instancie `DatabaseManager`, `Scheduler`, `BatchExecutor`, `NotificationManager`, `PlatformLinkingManager`, `WebsocketServer`, `AgentServer`, `ExecutionManager`, `CoPilotChatBridge`, `CoPilotExecutor` ; chaque service herite de `AppProcess` (`set_service_name`, `set_log_level`).",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-server (processus unique : API + cockpit)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/app.py:14-67",
+        "autogpt_platform/backend/backend/util/process.py:1-60",
+        "autogpt_platform/backend/backend/ws.py:1-16"
+      ]
+    },
+    {
+      "id": "ag-scheduler-cron",
+      "domain": "automatisation",
+      "name": "Planification cron/date des agents (APScheduler + fuseaux)",
+      "what": "Un agent ou une routine peut s'executer a une date ou selon une expression cron, avec fuseau horaire, journal d'erreurs et rattrapage des executions manquees.",
+      "how": "`Scheduler` (AppProcess) utilise `BackgroundScheduler` + `MemoryJobStore` et les triggers `CronTrigger`/`DateTrigger` d'APScheduler, avec ecoute des evenements `EVENT_JOB_ERROR`, `EVENT_JOB_EXECUTED`, `EVENT_JOB_MAX_INSTANCES`, `EVENT_JOB_MISSED` ; l'API expose `/api/schedules` (creation, activation, visibilite) et le copilote des outils `list_schedules`/`manage_schedules` ; `executor/schedule_index.py` maintient un index interrogeable pour lister les planifications sans balayer les jobs.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-app (planificateur cron + index de jobs)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/executor/scheduler.py:1-45",
+        "autogpt_platform/backend/backend/executor/schedule_index.py:1-40",
+        "autogpt_platform/backend/backend/api/features/schedules/routes.py"
+      ]
+    },
+    {
+      "id": "ag-webhook-triggers",
+      "domain": "automatisation",
+      "name": "Declencheurs webhook par bloc (manuel ou auto-provisionne)",
+      "what": "Un bloc peut s'abonner a un evenement externe ; la plateforme cree le webhook chez le fournisseur quand son API le permet, sinon l'utilisateur le configure a la main, et le payload entre comme entree du nœud.",
+      "how": "`BlockManualWebhookConfig` (provider, `webhook_type`, `event_filter_input`, `event_format` avec template `\"{event}\"`) et `BlockWebhookConfig` (ajoute `resource_format` construit depuis les entrees du bloc) decrivent l'abonnement ; `GenericWebhookTriggerBlock` + `GenericWebhooksManager` implementent le cas generique ; `data.integrations.Webhook`/`update_webhook` et `backend/integrations/webhooks` pilotent l'enregistrement par fournisseur ; l'entree `payload` du bloc est alimentee par le webhook recu.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-server (ingress webhook) + omega-app (mapping payload -> nœud)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/blocks/_base.py:528-585",
+        "autogpt_platform/backend/backend/blocks/generic_webhook/triggers.py:23-80",
+        "autogpt_platform/backend/backend/blocks/generic_webhook/_webhook.py:14-60"
+      ]
+    },
+    {
+      "id": "ag-graphiti-memory",
+      "domain": "memoire",
+      "name": "Memoire temporelle en graphe (Graphiti + FalkorDB, bi-temporelle, forget)",
+      "what": "Le copilote retient des faits, procedures et regles dans un graphe de connaissance temporel par utilisateur/assistant ; une retractation expire un fait sans le supprimer, une purge d'ecope efface tout.",
+      "how": "`copilot/graphiti/client.py` derive une partition `derive_memory_group_id(user_id, expert_id)` et parle a FalkorDB via `AutoGPTFalkorDriver` ; `memory_model.py` type les enveloppes (`MemoryEnvelope`, `MemoryKind`, `RuleMemory`, `ProcedureMemory`/`ProcedureStep`, `MemoryStatus`, `SourceKind`) ; l'ingestion est asynchrone (`ingest.enqueue_episode`, `MAX_EPISODE_BODY_BYTES`, dedup), avec `reranker.py` et `communities.py` (reconstruction de communautes) ; outils `memory_store`/`memory_search`/`memory_forget` (retractation bi-temporelle posant seulement `expired_at`) ; l'API `/api/memory` lit et oublie par scope (compte, expert) sans chemin de cible arbitraire.",
+      "omega_capability": "context-engine",
+      "omega_port": "ContextEngine",
+      "omega_adapter": "omega-context::DefaultContextEngine",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "autogpt_platform/backend/backend/copilot/graphiti/client.py:83-120",
+        "autogpt_platform/backend/backend/copilot/graphiti/memory_model.py:1-60",
+        "autogpt_platform/backend/backend/copilot/graphiti/falkordb_driver.py:110-160",
+        "autogpt_platform/backend/backend/api/features/memory/routes.py:1-40",
+        "autogpt_platform/backend/backend/copilot/tools/graphiti_store.py:29-60"
+      ]
+    },
+    {
+      "id": "ag-dream-consolidation",
+      "domain": "memoire",
+      "name": "Consolidation nocturne (« dream pass ») par lots et ratification",
+      "what": "Pendant la nuit, les conversations et la memoire sont relues par un job batch (Anthropic) qui propose des consolidations, ratifiees avant application afin de ne pas degrader la memoire en silence.",
+      "how": "`copilot/dream/nightly_batch.py` (`run_nightly_batch_submit`, `NightlyBatchResult`) construit et soumet un lot, `batch_submit.py`/`batch_callbacks.py` gerent la soumission et la reprise des resultats, `ratification.py`/`ratification_hits.py` decident ce qui est applique et `apply.py` ecrit ; `scheduling.py` enregistre les marqueurs `NIGHTLY_BATCH_REGISTRATION_PREFIX` et `COMMUNITY_REBUILD_REGISTRATION_PREFIX` dans le scheduler ; `budget_signal.py`, `billing.py` et `model_pricing.py` bornent la depense ; un `BatchExecutor` dedie poll les lots pour ne pas affamer le tick cron.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-app (job de consolidation nocturne + ratification)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "autogpt_platform/backend/backend/copilot/dream/nightly_batch.py:54-120",
+        "autogpt_platform/backend/backend/copilot/dream/ratification.py:1-40",
+        "autogpt_platform/backend/backend/executor/batch_executor.py:1-40",
+        "autogpt_platform/backend/backend/app.py:46-53"
+      ]
+    },
+    {
+      "id": "ag-skills-registry",
+      "domain": "contexte",
+      "name": "Skills auto-distillees (SKILL.md + frontmatter, injection dans le prompt)",
+      "what": "L'agent ecrit et relit ses propres procedures sous forme de dossiers de skills ; seules les descriptions courtes entrent dans le prompt, le corps etant charge a la demande, et un paquet peut etre importe/exporte en zip.",
+      "how": "Un skill est un dossier `workspace://skills/{slug}/` avec un `SKILL.md` en frontmatter YAML (`name`, `description`, `triggers`, `version`) plus `references/`, `scripts/`, `assets/` ; `parse_skill_markdown()`/`render_skill_markdown()` font l'aller-retour canonique, `store_skill`/`read_skill` et la decouverte se font par `skill_entries` ; `service.inject_user_context` injecte le bloc `<available_skills>` dans le premier message utilisateur ; l'API `/api/skills` expose `list/upload/read/delete` et `skill_zip.package_from_zip`/`zip_from_package` (avec limite de taille et scan antivirus via `store.exceptions.VirusDetectedError`), `MAX_SKILLS_PER_EXPERT` et les origines `SKILL_ORIGIN_USER|MARKETPLACE|METADATA` tracent la provenance.",
+      "omega_capability": "skill-store",
+      "omega_port": "SkillStore",
+      "omega_adapter": "omega-context::SkillIndex",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/copilot/tools/skills.py:1-40",
+        "autogpt_platform/backend/backend/copilot/tools/skills.py:301-370",
+        "autogpt_platform/backend/backend/api/features/skills/routes.py:1-50",
+        "autogpt_platform/backend/backend/copilot/capabilities/sources/skills.py"
+      ]
+    },
+    {
+      "id": "ag-mcp-client",
+      "domain": "outils",
+      "name": "Client MCP bi-generation (Streamable HTTP + SSE + OAuth) et catalogue",
+      "what": "La plateforme consomme des serveurs MCP distants et fond leurs outils dans l'index de capacites, avec OAuth multi-schemas et detection de revision du protocole.",
+      "how": "`blocks/mcp/client.py` implemente le transport Streamable HTTP (JSON-RPC 2.0 sur POST) et accepte les reponses JSON comme `text/event-stream` ; le client est *dual-era* : il parle la revision stateless `2026-07-28` et retombe sur la poignee de main `initialize` (`2025-03-26`) pour les serveurs non migres, avec cache d'era par URL ; `blocks/mcp/oauth.py` + `mcp_auth_cases.json` couvrent les schemes d'authentification et `api/features/mcp/oauth_registration.py` l'enregistrement dynamique ; `integrations/mcp_catalog.py` valide les presets d'URL (refus des adresses privees via `ipaddress`) et `capabilities/sources/mcp_catalog.py` injecte les outils du catalogue dans l'index ; `tools/run_mcp_tool.py` execute l'appel.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "omega-mcp (client MCP, crate existant a etendre)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/blocks/mcp/client.py:1-35",
+        "autogpt_platform/backend/backend/blocks/mcp/oauth.py:1-40",
+        "autogpt_platform/backend/backend/integrations/mcp_catalog.py:1-40",
+        "autogpt_platform/backend/backend/copilot/capabilities/sources/mcp_catalog.py"
+      ]
+    },
+    {
+      "id": "ag-store-marketplace",
+      "domain": "extension",
+      "name": "Marketplace d'agents et de skills (recherche hybride, soumission, versions)",
+      "what": "Le store liste les agents publies avec profil, categories, medias et statistiques, les classe par recherche hybride BM25 + vecteurs + popularite, et accepte des soumissions d'agents comme de skills avec scan antivirus.",
+      "how": "`api/features/store/routes.py` expose profil, listings, soumissions et telechargements via un `APIRouter` monte sur `/api/store` (tags v2) ; `hybrid_search.py` enveloppe le moteur generique en ajoutant un signal `popularity` a un schema de poids et un `DEFAULT_STORE_AGENT_MIN_SCORE` ; `embeddings.py` produit `EMBEDDING_DIM` et `embed_query()` (vector literal SQL), `bm25_rerank` combine les deux ; `categories.py` + `category_classifier.py` rangent les listings ; `skill_catalog.py`/`skill_catalog_release.py` et `skill_db.py` publient le catalogue de skills avec le roster d'experts ; les medias de soumission sont generes ou valides (`image_gen.py`, `submission_media.py`, `local_media.py`).",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "omega_adapter": "omega-registry::Registry (Slot/Ensemble + quarantaine)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "autogpt_platform/backend/backend/api/features/store/routes.py:1-40",
+        "autogpt_platform/backend/backend/api/features/store/hybrid_search.py:1-40",
+        "autogpt_platform/backend/backend/api/features/store/skill_catalog.py",
+        "autogpt_platform/backend/backend/api/features/search/hybrid_search.py"
+      ]
+    },
+    {
+      "id": "ag-subagent-runners",
+      "domain": "agents",
+      "name": "Sous-agents : agent dans l'agent, garde de recursion, resumes",
+      "what": "Un graphe peut appeler un autre agent comme un bloc, et le copilote peut lancer des sessions filles, deleguer a une session existante ou interroger un pair sans perdre le contexte parent.",
+      "how": "`AgentExecutorBlock` (id `e189baac-8c20-45a1-94a7-55177ea42565`) prend `graph_id`/`graph_version`/`inputs`/`input_schema`/`output_schema`, cree une `GraphExecution` enfant, streame ses sorties et les remonte comme sorties du bloc ; `AutoPilotBlock` definit l'agent conversationnel dans un nœud et leve `SubAgentRecursionError` en cas de recursion ; cote copilote, `run_agent` detecte l'etat (bibliotheque, preset, graphe), `run_sub_session` ouvre une session fille, `message_session`/`get_sub_session_result` la pilotent, `delegate_to_expert`/`handoff_to_expert`/`consult_teammate` passent par l'appel d'un autre agent, et les permissions filles sont intersectees avec celles du parent.",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner",
+      "omega_adapter": "omega-app::SubagentRunner (a creer : spawn/resume + budget)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "autogpt_platform/backend/backend/blocks/agent.py:29-160",
+        "autogpt_platform/backend/backend/blocks/autopilot.py:57-120",
+        "autogpt_platform/backend/backend/copilot/tools/run_agent.py:1-45",
+        "autogpt_platform/backend/backend/copilot/permissions.py:460-500"
+      ]
+    },
+    {
+      "id": "ag-experts-roster",
+      "domain": "agents",
+      "name": "Experts embauchables (roster, routines, credentials bornes, computer persistant)",
+      "what": "L'utilisateur embauche des « experts » persistants : chacun a un roster de skills, ses routines planifiees, ses credentials accordes et sa propre machine sandbox, et peut etre delegue depuis une conversation.",
+      "how": "`api/features/experts/routes.py` expose creation, liste, pods, identites, setup, routines et suppression, appuyes sur `experts_db.py`, `roster.py` (lecture/validation du roster YAML publie avec le catalogue de skills) et `routine_jobs.py`/`scheduling.py` pour les routines ; `spend_approval.py` borne les depenses et `credentials.py`/`credential_counts.py` accordent ou revoquent les acces ; `copilot/tools/hire_expert.py`, `expert_resources.py` (grant/revoke, install/remove workflow) et `delegate_to_expert.py`/`handoff_to_expert.py` pilotent l'embauche et la delegation ; la sandbox d'un expert est un `SandboxOwner(expert=...)` persistant reconnecte a chaque tour.",
+      "omega_capability": "subagent-runner",
+      "omega_port": "SubagentRunner",
+      "omega_adapter": "omega-app::ExpertRoster (a creer : roster + routines + credentials)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "autogpt_platform/backend/backend/api/features/experts/routes.py:167-260",
+        "autogpt_platform/backend/backend/api/features/experts/roster.py:1-30",
+        "autogpt_platform/backend/backend/api/features/experts/spend_approval.py",
+        "autogpt_platform/backend/backend/copilot/tools/hire_expert.py:40-70",
+        "autogpt_platform/backend/backend/copilot/tools/e2b_sandbox.py:12-30"
+      ]
+    },
+    {
+      "id": "ag-llm-providers",
+      "domain": "routage",
+      "name": "Transports multi-fournisseurs (subscription, OpenRouter, Anthropic direct, Ollama local)",
+      "what": "Le copilote s'adresse a quatre transports interchangeables via une table de capacites, avec repli de cle API par variables d'environnement et compatibilite des slugs de modele.",
+      "how": "`copilot/config.py` definit `TransportName = Literal[\"subscription\", \"openrouter\", \"direct_anthropic\", \"local\"]` et une dataclass gelee `TransportProfile` (nom, `supports_sdk`, contrainte de vendeur pour le SDK, `api_key_fallback_envs` ordonnees, `inherit_fast_model_for_aux`, `cost_log_provider`, `dispatch_provider`) regroupee dans `_TRANSPORT_PROFILES`, lue via `ChatConfig.transport` ; `_host_matches()` parse l'URL (comparaison de hostname, pas de sous-chaine, corrigeant une alerte CodeQL) ; `ANTHROPIC_OPENAI_COMPAT_BASE_URL` permet au chemin baseline de garder le SDK OpenAI en parlant directement a api.anthropic.com ; `_apply_local_aux_models` reecrit les modeles auxiliaires laisses par defaut quand le transport est local (Ollama ne connait pas les slugs `anthropic/`) : `integrations/providers.py` + `util/llm/providers.py` (`ProviderLiteral`, `call_provider`) dispatch.",
+      "omega_capability": "llm-provider",
+      "omega_port": "Provider",
+      "omega_adapter": "omega-providers::OllamaProvider",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/copilot/config.py:35-70",
+        "autogpt_platform/backend/backend/copilot/config.py:50-200",
+        "autogpt_platform/backend/backend/integrations/providers.py",
+        "autogpt_platform/backend/backend/copilot/transport_routing.py"
+      ]
+    },
+    {
+      "id": "ag-model-router-tiers",
+      "domain": "routage",
+      "name": "Routage mode x tier avec chaine de repli et kill-switch registre",
+      "what": "Chaque cellule de la matrice (fast|thinking) x (standard|advanced) se resout par couches successives, un modele desactive dans le registre ne pouvant jamais servir.",
+      "how": "`model_router.resolve_model_route()` resout dans l'ordre : flag LaunchDarkly JSON `copilot-model-routing` (par utilisateur, retournant des slugs), cellule du catalogue (`catalog.py` section `routing`, surface `\"copilot\"`), puis defaut statique `ChatConfig` (env) ; sur le cloud, le registre sert de porte : un slug inconnu ou `is_enabled=False` est refuse bruyamment (log + Sentry) et la resolution retombe a la couche suivante ; les modeles `visibility=HIDDEN` servent bien quand routes (etat de test pre-lancement) ; aucun payload valide -> repli ; `provider_tiers.py` resout les libelles de plan (Balanced/Advanced) independamment des droits de l'utilisateur ; `resolve_use_sdk()` choisit le moteur SDK vs baseline (override abonnement, flag `COPILOT_SDK`, defaut config, desactivation quand le transport local ne parle pas le protocole Anthropic).",
+      "omega_capability": "router-policy",
+      "omega_port": "ScoringPolicy/Selector/FallbackPolicy",
+      "omega_adapter": "omega-router::CompositeScoringPolicy + TierFallbackPolicy",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/copilot/model_router.py:1-60",
+        "autogpt_platform/backend/backend/copilot/provider_tiers.py:1-40",
+        "autogpt_platform/backend/backend/copilot/engine.py:1-40",
+        "autogpt_platform/backend/backend/data/llm_registry"
+      ]
+    },
+    {
+      "id": "ag-observability-traces",
+      "domain": "observabilite",
+      "name": "Traces et metriques multi-canaux (Sentry par nœud, Prometheus, Langfuse, PostHog)",
+      "what": "Chaque execution de nœud est une transaction nommee dans une trace commune partagee avec les sous-graphes, en plus de compteurs Prometheus, de l'attribution LLM Langfuse et de l'analytique produit.",
+      "how": "`executor/node_tracing.py` cree une transaction Sentry `executor.node` nommee d'apres le bloc, une transaction `executor.node.output` par routage de sortie, et fait partager a toute une execution (sous-graphes inclus) une trace dont l'id est l'id racine sans tirets, un nœud execute dans un autre (outil d'orchestrateur) etant son enfant ; `monitoring/instrumentation.py` enregistre des metriques Prometheus a cardinalite controlee (`autogpt_graph_executions_total` sans graph_id/user_id) via `prometheus_fastapi_instrumentator` ; `copilot/service.py` pousse les generations vers `langfuse` (`get_client`, `_is_langfuse_configured`, cle publique/secret en settings) avec calcul de cout (`sdk/openrouter_cost.py`) ; `util/product_analytics.py` et `backend.api.features.analytics` couvrent PostHog ; `monitoring/block_error_monitor.py` et `late_execution_monitor.py` alertent.",
+      "omega_capability": "telemetry-sink",
+      "omega_port": "TelemetrySink",
+      "omega_adapter": "omega-otel::{File,Stdout}Sink + omega-otel::Provenance",
+      "integration": "plugin",
+      "status": "adopted",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/executor/node_tracing.py:1-30",
+        "autogpt_platform/backend/backend/monitoring/instrumentation.py:1-40",
+        "autogpt_platform/backend/backend/copilot/service.py:18-20",
+        "autogpt_platform/backend/backend/copilot/service.py:151-160",
+        "autogpt_platform/backend/backend/monitoring/block_error_monitor.py"
+      ]
+    },
+    {
+      "id": "ag-cost-tracking-billing",
+      "domain": "observabilite",
+      "name": "Cout declare par bloc, metrage post-vol et facturation en credits",
+      "what": "Chaque bloc declare un cout (par run, octet, seconde, item, USD fournisseur ou table de tokens) ; le cout reel est reconcilie apres execution et facture en credits a l'utilisateur ou a l'organisation.",
+      "how": "`BlockCost` porte `cost_amount`, `cost_filter`, `cost_type` (`BlockCostType.RUN|BYTE|SECOND|ITEMS|COST_USD|TOKENS`, les quatre derniers etant « dynamiques » : 0 avant vol, regles sur les stats apres), `cost_divisor` et une carte de taux `TokenRateDisplay` (USD/1M entree, sortie, cache read/write) ; l'executor appelle `charge_node_usage()` et `_record_execution_failure` distingue erreur courante et `failure_reason` collant (`InsufficientBalanceError`, `UserPaywalledError`) ; `executor/cost_tracking.py` draine les logs de cout en attente et facture les credentials systeme, `billing.py` gere solde et reconciliation, `copilot/tree.py::charge_credits` debite le copilote ; l'API `/api/credits` et les routes d'admin expose les soldes.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-otel::Provenance + ledger de credits omega-app",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "autogpt_platform/backend/backend/blocks/_base.py:122-205",
+        "autogpt_platform/backend/backend/executor/manager.py:1151-1200",
+        "autogpt_platform/backend/backend/executor/cost_tracking.py:1-80",
+        "autogpt_platform/backend/backend/executor/billing.py:1-60",
+        "autogpt_platform/backend/backend/copilot/tree.py:664-700"
+      ]
+    },
+    {
+      "id": "ag-frontend-ui",
+      "domain": "ui",
+      "name": "Frontend Next.js : builder de graphes, copilote, store, file d'approbation",
+      "what": "L'UI est une application Next.js qui consomme l'API par un client genere, avec editeur de graphe, conversation copilote, marketplace et cartes d'approbation.",
+      "how": "`frontend/src/app` separe les routes `(platform)` et `(no-navbar)`, avec `providers/`, `services/`, `hooks/` et `middleware.ts` ; le client OpenAPI est genere par `orval.config.ts` depuis le schema du backend (`backend/api/rest_api.py` ajoute les reponses d'auth au document OpenAPI via `add_auth_responses_to_openapi`) ; les fixtures de cartes d'approbation sont generees cote backend dans `frontend/src/app/(platform)/copilot/components/ApprovalQueue/__tests__/realCards.json` par `gate/card_fixture_test.py` pour qu'elles ne derivent pas ; Sentry est branche via `sentry.server.config.ts`/`instrumentation-client.ts`.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-server (cockpit React/TS servi sur la meme origine)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "autogpt_platform/frontend/orval.config.ts",
+        "autogpt_platform/frontend/src/app",
+        "autogpt_platform/backend/backend/copilot/gate/card_fixture_test.py:20-35",
+        "autogpt_platform/backend/backend/api/rest_api.py:1-30"
+      ]
+    },
+    {
+      "id": "ag-streaming-ws",
+      "domain": "observabilite",
+      "name": "Diffusion temps reel : WebSocket par abonnement + registre de flux du copilote",
+      "what": "Les executions et les tours de copilote se suivent en direct : le client s'abonne a des canaux identifiables et recoit les evenements, avec heartbeat et reprise.",
+      "how": "`api/ws_api.py` implemente un `WebsocketServer` (AppProcess) authentifiant la connexion (`authenticate_websocket`), puis `handle_subscribe`/`handle_unsubscribe`/`handle_heartbeat` par message, un protocole `WSMessageHandler` et une route `/health` ; `send_execution_update`/`async_update_node_execution_status` publient l'etat des executions ; cote copilote, `stream_registry.py` tient les flux d'un tour (checkpoints, reprise apres deconnexion via `stream_registry_resume_test`, heartbeat `stream_heartbeat.py`) et `turn_queue.py` serialise les tours concurrents d'une session.",
+      "omega_capability": null,
+      "omega_port": null,
+      "omega_adapter": "omega-server (flux SSE/WS du cockpit + rejeu de trace)",
+      "integration": "service",
+      "status": "planned",
+      "rust_cost": "M",
+      "refs": [
+        "autogpt_platform/backend/backend/api/ws_api.py:99-260",
+        "autogpt_platform/backend/backend/executor/manager.py:2160-2250",
+        "autogpt_platform/backend/backend/copilot/stream_registry.py:1-60",
+        "autogpt_platform/backend/backend/copilot/turn_queue.py:1-40"
+      ]
+    },
+    {
+      "id": "ag-forge-components",
+      "domain": "extension",
+      "name": "Forge (classic, MIT) : composants d'agent comme plugins a protocoles",
+      "what": "Dans l'agent autonome historique, toute capacite (commandes, messages, directives, hooks de post-traitement) est un composant branche sur des protocoles, l'agent n'etant qu'un pipeline d'endpoints.",
+      "how": "`forge/agent/protocols.py` declare les contrats `CommandProvider.get_commands()`, `MessageProvider.get_messages()`, `DirectiveProvider.get_constraints/resources/best_practices()`, `AfterParse.after_parse()`, `AfterExecute` et le composant `ExecutionFailure` ; `forge/agent/base.py` assemble les composants (`AgentComponent`, `ConfigurableComponent`, `ComponentEndpointError`, `EndpointPipelineError`) et expose un pipeline d'endpoints plutot qu'un heritage ; les composants fournis couvrent action_history, code_executor, file_manager, git_operations, http_client, web (playwright/search), clipboard, todo, user_interaction, watchdog, skills, platform_blocks, image_gen, system.",
+      "omega_capability": "registry",
+      "omega_port": "Registre",
+      "omega_adapter": "omega-registry::Registry (Slot/Ensemble + quarantaine)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "classic/forge/forge/agent/protocols.py:12-40",
+        "classic/forge/forge/agent/base.py:1-60",
+        "classic/forge/forge/components",
+        "classic/forge/forge/permissions.py"
+      ]
+    },
+    {
+      "id": "ag-prompt-strategies",
+      "domain": "agents",
+      "name": "Strategies de raisonnement interchangeables (one-shot, ReWOO, plan-execute, reflexion, ToT, LATS, debat)",
+      "what": "La boucle de l'agent historique n'est pas figee : sept strategies de prompting sont selectionnables, certaines orchestrant des sous-agents.",
+      "how": "`agents/prompt_strategies/base.py` definit `PromptStrategyType` (`one_shot`, `rewoo`, `plan_execute`, `reflexion`, `tree_of_thoughts`, `lats`, `multi_agent_debate`), les modeles partages (`PlannedStep`, etc.) et l'infrastructure commune ; chaque strategie est un fichier autonome (328 a 928 lignes) branche sur `forge.agent.execution_context` (`ExecutionContext`, `SubAgentHandle`, `SubAgentStatus`, `generate_sub_agent_id`) : ReWOO et plan-execute planifient puis executent, reflexion ajoute une critique, ToT/LATS explorent un arbre (LATS et le debat etant fondes sur des sous-agents) ; `agents/agent.py` injecte la strategie dans `BaseAgent` avec les composants et le `CommandPermissionManager`.",
+      "omega_capability": "agent-store",
+      "omega_port": "AgentStore (discover/load)",
+      "omega_adapter": "plugins/reasoning-strategies (a creer)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "classic/original_autogpt/autogpt/agents/prompt_strategies/base.py:44-70",
+        "classic/original_autogpt/autogpt/agents/prompt_strategies/lats.py:1-60",
+        "classic/original_autogpt/autogpt/agents/prompt_strategies/rewoo.py:1-60",
+        "classic/original_autogpt/autogpt/agents/agent.py:1-60"
+      ]
+    },
+    {
+      "id": "ag-orchestrator-block",
+      "domain": "outils",
+      "name": "Bloc orchestrateur : un LLM avec outils a l'interieur d'un nœud",
+      "what": "Un nœud peut etre un agent LLM qui choisit des outils — y compris d'autres blocs de la plateforme — et boucle jusqu'a reponse, ce qui permet d'imbriquer un comportement agentique dans un graphe deterministe.",
+      "how": "`OrchestratorBlock` declare `ExecutionMode`, `ToolInfo` et `ExecutionParams`, accepte une liste d'outils exposes (`tool_call_id`/`tool_name`) et une reponse structuree ; l'execution peut cibler un nœud « sink » du graphe hote (il resout `target_node.block_id`, cree une `NodeExecutionEntry` et streame `NodeExecutionResult`), ce qui donne au modele des outils qui sont des blocs ; les erreurs `InsufficientBalanceError` sont propagees volontairement (documente dans la docstring de classe) ; `blocks/ai_condition.py`, `code_executor.py`, `maths.py` et `data_manipulation.py` fournissent les outils deterministes utilises dans ces boucles.",
+      "omega_capability": "tool-surface",
+      "omega_port": "ToolSurface",
+      "omega_adapter": "omega-context::ToolSurfaceIndex + boucle d'outils du noyau",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "L",
+      "refs": [
+        "autogpt_platform/backend/backend/blocks/orchestrator.py:58-100",
+        "autogpt_platform/backend/backend/blocks/orchestrator.py:426-600",
+        "autogpt_platform/backend/backend/blocks/orchestrator.py:1100-1210"
+      ]
+    },
+    {
+      "id": "ag-config-layers",
+      "domain": "configuration",
+      "name": "Configuration par couches (pydantic-settings + env + flags)",
+      "what": "Le comportement de la plateforme et du copilote est pilote par des modeles de configuration typés lisibles depuis l'environnement, surchargeables par des flags d'experimentation par utilisateur.",
+      "how": "`backend/util/settings.py` centralise `Config`/`Settings` avec les secrets (Langfuse, etc.) et `enable_example_blocks` ; `copilot/config.py` definit `ChatConfig(BaseSettings)` (noms de modeles, transport, cles, modeles auxiliaires) ; `util/feature_flag` (`is_feature_enabled`, enum `Flag`) introduit une couche de flags par utilisateur (LaunchDarkly) au-dessus des valeurs par defaut ; `data/llm_registry` porte le catalogue de modeles versionne (kill-switch `is_enabled`, `visibility`).",
+      "omega_capability": "config-source",
+      "omega_port": "ConfigSource",
+      "omega_adapter": "omega-config (couches + precedence)",
+      "integration": "plugin",
+      "status": "planned",
+      "rust_cost": "S",
+      "refs": [
+        "autogpt_platform/backend/backend/util/settings.py:1-60",
+        "autogpt_platform/backend/backend/copilot/config.py:191-230",
+        "autogpt_platform/backend/backend/util/feature_flag/__init__.py",
+        "autogpt_platform/backend/backend/data/llm_registry/llm_models.py"
+      ]
+    }
+  ]
+}
