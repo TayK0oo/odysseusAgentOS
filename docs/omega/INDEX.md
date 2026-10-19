@@ -1,7 +1,11 @@
 # INDEX — Espace Omega (carte complète)
 
-> **Généré automatiquement** — `docs/omega/INDEX.md`  
-> Source de vérité : `docs/omega/MEMORY.md` + `docs/omega/rules/RULES-OMEGA.md` + `docs/omega/00-VISION-OMEGA.md`
+> **État (P0-3c) : carte périmée.** Elle s'annonce « générée automatiquement » alors
+> qu'aucun script ne la produit. Régénération prévue en **P0-3d**
+> (`omega/scripts/generate_index.py`) ; d'ici là, ne pas l'éditer à la main et ne pas
+> citer ses chiffres.
+>
+> Sources : `docs/omega/MEMORY.md` + `docs/omega/rules/RULES-OMEGA.md` + `docs/omega/00-VISION-OMEGA.md`
 
 ---
 

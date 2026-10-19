@@ -1,5 +1,10 @@
 # MEMORY.md — Omega (auto-généré)
 
+> **État (P0-3c) : périmé.** Régénéré par `omega/scripts/generate_memory.py`, mais la
+> dernière génération précède la session en cours (elle annonce encore le commit
+> `fb033a0a`, et « working tree dirty »). Régénération avec `INDEX.md` en **P0-3d** ;
+> c'est le générateur qui devra écrire cette bannière, pas la main.
+
 **Généré le:** 2026-10-19 02:37  
 **Source:** `omega/scripts/generate_memory.py` — provenance: [observed]
 
