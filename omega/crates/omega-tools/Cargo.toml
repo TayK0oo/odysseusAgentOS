@@ -9,7 +9,6 @@ description = "Omega — portage Rust de src/agent_tools/filesystem_tools.py."
 [dependencies]
 omega-types = { workspace = true }
 omega-ports = { workspace = true }
-omega-policy = { workspace = true }
 async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
