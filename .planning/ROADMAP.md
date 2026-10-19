@@ -65,6 +65,8 @@ Phases 1–5 : squelette effets réversibles · coutures MemoryStore/Hook/Subage
 
 ## Milestone: v0.4 — PLUGIN CONVERGENCE
 
+**Status:** ✅ Shipped (2026-10-19) — archive : `.planning/milestones/v0.4-phases/`, détails `.planning/MILESTONES.md`
+
 **Status:** In Progress
 **Objectif :** Adapter l'architecture complète au modèle "everything is a plugin" en intégrant les capacités extraites du corpus (51 harnais + 148 vidéos TikTok) + travail existant odysseusAgentOS.
 

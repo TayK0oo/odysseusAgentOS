@@ -2,18 +2,18 @@
 gsd_state_version: "1.0"
 milestone: v0.4
 milestone_name: PLUGIN CONVERGENCE
-current_phase: 14
-status: completed
-last_updated: "2026-10-18T23:54:37.893Z"
+status: Awaiting next milestone
+last_updated: "2026-10-19T00:03:10.694Z"
 last_activity: 2026-10-19
-last_activity_desc: Phase 14 complete
-state_head: 1722de8d036c4c67df98eeacda837ba3be1fccc2
+last_activity_desc: Milestone v0.4 completed and archived
+state_head: f254e273b7e88eb150f79aeb901dbca867dc5cbf
 progress:
   total_phases: 4
   completed_phases: 4
   total_plans: 0
   completed_plans: 0
   percent: 100
+current_phase: 14
 ---
 
 # STATE — Omega
@@ -58,11 +58,11 @@ Voir `docs/omega/rules/MODEL-POLICY.md` + `model_policy.py --check`.
 
 ## Current Position
 
-Phase: 14
-Plan: Not started
-Status: All phases complete
-Last activity: 2026-10-19 — Phase 14 complete
+Phase: Milestone v0.4 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-10-19 — Milestone v0.4 completed and archived
 
 ## Operator Next Steps
 
-- /gsd-discuss-phase 6 puis /gsd-plan-phase 6
+- Start the next milestone with /gsd-new-milestone
