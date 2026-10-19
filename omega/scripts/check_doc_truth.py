@@ -14,6 +14,9 @@ un objet `{"valeur": ..., "methode": ...}` — la forme des mesures de
 `measure.py` — c'est `valeur` qui est comparee : `methode` decrit, elle ne
 chiffre pas.
 
+Un tag situe dans du code (bloc delimite ou span inline) est de la
+documentation : il est compte comme ignore, jamais valide (ADR-0007 §6).
+
 Modes :
   (defaut)   tolerant : une cle absente de `STATUS.json` est un WARNING.
              P0-3c n'a pas encore marque les documents ; un validateur bloquant
@@ -40,6 +43,42 @@ STATUS_PATH = ROOT / "docs" / "omega" / "plan" / "STATUS.json"
 DEFAULT_PATHS = ("docs/**/*.md", "*.md")
 
 TAG = re.compile(r"<!--\s*m:([\w.]+)(?:=([^>]*?))?\s*-->")
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)")
+
+
+def _regions_code(text: str) -> list[tuple[int, int]]:
+    """Intervalles [debut, fin) qui sont du code : blocs entiers, spans inline.
+
+    En Markdown le code n'est pas du contenu actif : un tag qui y figure montre
+    la syntaxe, il ne mesure rien. Le masquage evite d'inventer une exception
+    pour les documents qui documentent la convention (ADR-0007 §6).
+
+    Un bloc non ferme court jusqu'a la fin du document (CommonMark). Les spans
+    sont cherches ligne par ligne : un span multi-ligne est traite comme du
+    texte — masquer un tag par une paire de backticks lointaine serait pire.
+    """
+    regions: list[tuple[int, int]] = []
+    pos = 0
+    ouverture: str | None = None
+    debut = 0
+    for ligne in text.splitlines(keepends=True):
+        m = FENCE.match(ligne)
+        if ouverture is None:
+            if m:
+                ouverture, debut = m.group(1), pos
+            else:
+                for span in CODE_SPAN.finditer(ligne):
+                    regions.append((pos + span.start(), pos + span.end()))
+        elif (m and m.group(1)[0] == ouverture[0]
+              and len(m.group(1)) >= len(ouverture) and not m.group(2).strip()):
+            regions.append((debut, pos + len(ligne)))
+            ouverture = None
+        pos += len(ligne)
+    if ouverture is not None:
+        regions.append((debut, len(text)))
+    return regions
+
 
 
 def _expand(motif: str) -> list[Path]:
@@ -87,14 +126,21 @@ def _normalize(v: Any) -> str:
     return str(v).strip().replace("\u202f", "").replace("\u00a0", "").replace(" ", "").replace(",", "")
 
 
-def _scanne(status: Any, fichiers: list[Path], strict: bool) -> tuple[list[str], list[str]]:
+def _scanne(
+    status: Any, fichiers: list[Path], strict: bool
+) -> tuple[list[str], list[str], list[str]]:
     erreurs: list[str] = []
     avertissements: list[str] = []
+    ignores: list[str] = []
     for f in fichiers:
         text = f.read_text(encoding="utf-8", errors="replace")
+        code = _regions_code(text)
         for m in TAG.finditer(text):
-            cle, attendu = m.group(1), m.group(2)
             ligne = text.count("\n", 0, m.start()) + 1
+            if any(debut <= m.start() < fin for debut, fin in code):
+                ignores.append(f"{_rel(f)}:{ligne} {m.group(1)}")
+                continue
+            cle, attendu = m.group(1), m.group(2)
             present, reel = _resolve(status, cle)
             if not present:
                 msg = f"{_rel(f)}:{ligne} cle absente de STATUS.json: {cle}"
@@ -110,7 +156,7 @@ def _scanne(status: Any, fichiers: list[Path], strict: bool) -> tuple[list[str],
                 erreurs.append(
                     f"{_rel(f)}:{ligne} {cle}: doc={attendu!r} status={reel!r}"
                 )
-    return erreurs, avertissements
+    return erreurs, avertissements, ignores
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -132,12 +178,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     fichiers = sorted({f for motif in args.paths for f in _expand(motif)})
-    erreurs, avertissements = _scanne(status, fichiers, args.strict)
+    erreurs, avertissements, ignores = _scanne(status, fichiers, args.strict)
     rapport = {
         "files_scanned": len(fichiers),
         "strict": args.strict,
         "errors": erreurs,
         "warnings": avertissements,
+        "ignored_in_code": ignores,
         "verdict": "VERT" if not erreurs else f"ROUGE({len(erreurs)})",
     }
     if args.json:
@@ -147,6 +194,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"WARN  {a}")
         for e in erreurs:
             print(f"ERROR {e}")
+        if ignores:
+            print(f"INFO  {len(ignores)} tag(s) dans du code : documentation, non valides")
         print(rapport["verdict"])
     return 1 if erreurs else 0
 

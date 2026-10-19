@@ -97,3 +97,27 @@ def test_verify_tolere_doc_truth_mais_pas_une_vraie_panne():
     mixte = {"etapes": {"doc_truth": {"ok": False, "bloquant": False},
                         "ruff": {"ok": False}}}
     assert verify.blocking_failures(mixte) == ["ruff"]
+
+
+def test_un_tag_dans_du_code_est_de_la_documentation(tmp_path):
+    """Bloc delimite et span inline : documentation, pas marqueur (ADR-0007 §6).
+
+    Controle dans les deux sens : le meme tag hors code doit echouer, sinon un
+    masquage trop large rendrait le test complaisant.
+    """
+    cle = "inexistant.cle"
+
+    dans_code = tmp_path / "exemple.md"
+    dans_code.write_text(
+        f"Exemple inline : `<!--m:{cle}=5-->`\n"
+        f"\n```md\n<!--m:{cle}=5-->\n```\n"
+        f"\n~~~\n<!--m:{cle}=5-->\n~~~\n",
+        encoding="utf-8",
+    )
+    r = _run("--strict", "--paths", str(dans_code))
+    assert r.returncode == 0, f"code = documentation : attendu 0\n{r.stdout}{r.stderr}"
+
+    hors_code = tmp_path / "actif.md"
+    hors_code.write_text(f"Bidon : <!--m:{cle}=5-->\n", encoding="utf-8")
+    r = _run("--strict", "--paths", str(hors_code))
+    assert r.returncode == 1, f"hors code = divergence : attendu 1\n{r.stdout}{r.stderr}"
