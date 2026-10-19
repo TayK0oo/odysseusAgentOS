@@ -11,12 +11,9 @@ Sur un worktree jetable (ou clone vierge), exécute dans l'ordre :
   7. cargo test --workspace --no-fail-fast
   8. check_dep_graph.py
   9. model_policy.py --check
- 10. check_doc_truth.py — **toléré** jusqu'à la fin de P0-3c (voir plus bas)
+ 10. check_doc_truth.py — chiffre marqué == STATUS.json (ADR-0007)
 
-Exit 0 seulement si toutes les étapes bloquantes passent. Sortie JSON : rapport
-saveable. Une étape `"bloquant": false` est affichée mais ne fait pas échouer le
-run : l'étape 10 est déclarée telle, le temps que P0-3c marque les documents —
-une porte bloquante avant le marquage rendrait le marquage impossible.
+Exit 0 seulement si toutes les étapes passent. Sortie JSON : rapport saveable.
 
 Note : `cargo test` sur un worktree neuf recompile tout (~5 à 15 min, première
 fois). `--skip-tests` existe pour le pré-commit rapide.
@@ -64,18 +61,6 @@ def python_version_tuple(version_out: str):
         return tuple(int(x) for x in parts)
     except (IndexError, ValueError):
         return None
-
-
-def blocking_failures(report: dict) -> list[str]:
-    """Etapes en echec qui font echouer le run.
-
-    Une etape `"bloquant": false` est affichee dans le resume mais ne bloque
-    pas : c'est le cas de `doc_truth` tant que P0-3c n'a pas marque les
-    documents. Le defaut est bloquant — une etape ne devient tolerante que si
-    elle le declare, jamais par oubli.
-    """
-    return [k for k, v in report["etapes"].items()
-            if v.get("ok") is False and v.get("bloquant", True)]
 
 
 def main():
@@ -194,14 +179,13 @@ def main():
                   cwd=work)
     report["etapes"]["model_policy"] = {"ok": ok, "out": out}
 
-    # 10. Doc-truth (P0-3b, ADR-0007). Tolere jusqu'a la fin de P0-3c : les six
-    #     commits de marquage vivraient sinon dans un arbre rouge pour ce seul
-    #     motif. Le verdict brut reste dans le rapport ET dans le resume —
-    #     un garde-fou que personne ne voit redevient decoratif (L2).
+    # 10. Doc-truth (P0-3b/P0-3c, ADR-0007). Bloquant depuis que tous les
+    #     documents vivants sont marques : le mode tolerant a servi au marquage,
+    #     il n'a plus lieu d'etre ici.
     ok, out = run([sys.executable, str(om / "scripts" / "check_doc_truth.py")], cwd=work)
-    report["etapes"]["doc_truth"] = {"ok": ok, "bloquant": False, "out": out}
+    report["etapes"]["doc_truth"] = {"ok": ok, "out": out}
 
-    failures = blocking_failures(report)
+    failures = [k for k, v in report["etapes"].items() if v.get("ok") is False]
     return finish("VERT" if not failures else f"ECHEC({','.join(failures)})")
 
 

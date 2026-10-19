@@ -57,46 +57,17 @@ def test_doc_truth_accepte_la_valeur_mesuree(tmp_path):
     assert r.returncode == 0, f"attendu 0, obtenu {r.returncode}\n{r.stdout}{r.stderr}"
 
 
-def test_doc_truth_cle_absente_tolere_puis_stricte(tmp_path):
-    """P0-3b est tolerant (warning) ; P0-3c finira en --strict (erreur)."""
+def test_doc_truth_cle_absente_erreur_par_defaut_option_tolerante(tmp_path):
+    """Strict par defaut depuis P0-3c ; `--tolerant` reste l'option de secours."""
     doc = tmp_path / "inconnu.md"
     doc.write_text("Bidon : 5. <!--m:inexistant.cle=5-->\n", encoding="utf-8")
 
-    tolere = _run("--paths", str(doc))
+    tolere = _run("--tolerant", "--paths", str(doc))
     assert tolere.returncode == 0, f"tolerant: attendu 0\n{tolere.stdout}{tolere.stderr}"
     assert "inexistant.cle" in tolere.stdout, "la cle doit figurer au rapport"
 
-    strict = _run("--strict", "--paths", str(doc))
-    assert strict.returncode == 1, f"strict: attendu 1\n{strict.stdout}{strict.stderr}"
-
-
-def _verify_module():
-    """Charge `omega/scripts/verify.py` sans executer son main()."""
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location(
-        "omega_verify", ROOT / "omega" / "scripts" / "verify.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_verify_tolere_doc_truth_mais_pas_une_vraie_panne():
-    """L'etape 10 est non bloquante ; toute autre etape le reste par defaut.
-
-    Controle dans les deux sens : tolerer doc_truth ne doit pas tolerer ruff.
-    """
-    verify = _verify_module()
-
-    tolere = {"etapes": {"doc_truth": {"ok": False, "bloquant": False}}}
-    assert verify.blocking_failures(tolere) == []
-
-    panne = {"etapes": {"ruff": {"ok": False}}}
-    assert verify.blocking_failures(panne) == ["ruff"]
-
-    mixte = {"etapes": {"doc_truth": {"ok": False, "bloquant": False},
-                        "ruff": {"ok": False}}}
-    assert verify.blocking_failures(mixte) == ["ruff"]
+    strict = _run("--paths", str(doc))
+    assert strict.returncode == 1, f"strict (defaut): attendu 1\n{strict.stdout}{strict.stderr}"
 
 
 def test_un_tag_dans_du_code_est_de_la_documentation(tmp_path):
@@ -114,10 +85,10 @@ def test_un_tag_dans_du_code_est_de_la_documentation(tmp_path):
         f"\n~~~\n<!--m:{cle}=5-->\n~~~\n",
         encoding="utf-8",
     )
-    r = _run("--strict", "--paths", str(dans_code))
+    r = _run("--paths", str(dans_code))
     assert r.returncode == 0, f"code = documentation : attendu 0\n{r.stdout}{r.stderr}"
 
     hors_code = tmp_path / "actif.md"
     hors_code.write_text(f"Bidon : <!--m:{cle}=5-->\n", encoding="utf-8")
-    r = _run("--strict", "--paths", str(hors_code))
+    r = _run("--paths", str(hors_code))
     assert r.returncode == 1, f"hors code = divergence : attendu 1\n{r.stdout}{r.stderr}"

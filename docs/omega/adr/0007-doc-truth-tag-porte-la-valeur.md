@@ -67,3 +67,18 @@ Celui de **C** exige de tester le rendu.
   tag. Le texte reste éditorial, le tag est contractuel.
 - `verify` exécute l'étape en mode toléré (`"bloquant": false`) jusqu'à P0-3c ;
   le verdict brut reste affiché pour qu'un humain le voie.
+
+## Amendement P0-3c
+
+1. **`--strict` devient le défaut**, `--tolerant` reste l'option de secours
+   (marquage en cours — jamais le défaut). Le mode toléré a servi exactement le
+   temps du marquage.
+2. La tolérance correspondante dans `verify` est **supprimée** : l'étape 10 est
+   bloquante comme les autres, et le mécanisme `"bloquant": false` disparaît
+   faute d'utilisateur. Une tolérance qui reste est une porte qui s'ouvre toute
+   seule.
+3. **Limite structurelle, énoncée une fois** : ce validateur prouve que les
+   chiffres *marqués* sont vrais. Il ne prouve pas qu'un document n'a pas de
+   chiffre vivant **non marqué** — ça se voit en revue, pas en porte. D'où la
+   règle éditoriale : tout chiffre que `STATUS.json` mesure porte un tag, et un
+   chiffre qui n'est pas mesuré ne se présente pas comme une mesure.

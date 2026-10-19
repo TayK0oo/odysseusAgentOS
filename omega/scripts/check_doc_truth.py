@@ -18,10 +18,10 @@ Un tag situe dans du code (bloc delimite ou span inline) est de la
 documentation : il est compte comme ignore, jamais valide (ADR-0007 §6).
 
 Modes :
-  (defaut)   tolerant : une cle absente de `STATUS.json` est un WARNING.
-             P0-3c n'a pas encore marque les documents ; un validateur bloquant
-             avant le marquage rendrait le marquage impossible.
-  --strict   une cle absente est une ERREUR (etat final de P0-3c).
+  (defaut)   strict : une cle absente de `STATUS.json` est une ERREUR — etat
+             final de P0-3c, tous les documents marques (G0.b).
+  --tolerant une cle absente est un WARNING. Reserve au marquage en cours ;
+             ce mode a servi a P0-3b, il ne doit pas redevenir le defaut.
   --json     rapport machine.
   --paths    fichiers ou motifs a scanner (defaut : `docs/**/*.md`, `*.md`).
 
@@ -161,12 +161,13 @@ def _scanne(
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="P0-3b — doc-truth (ADR-0007).")
-    ap.add_argument("--strict", action="store_true",
-                    help="une cle absente de STATUS.json est une erreur (fin de P0-3c)")
+    ap.add_argument("--tolerant", action="store_true",
+                    help="cle absente = warning (marquage en cours ; pas le defaut)")
     ap.add_argument("--json", action="store_true", help="rapport machine")
     ap.add_argument("--paths", nargs="+", default=list(DEFAULT_PATHS),
                     help="fichiers ou motifs a scanner")
     args = ap.parse_args(argv)
+    strict = not args.tolerant
 
     try:
         status = json.loads(STATUS_PATH.read_text(encoding="utf-8"))
@@ -178,10 +179,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     fichiers = sorted({f for motif in args.paths for f in _expand(motif)})
-    erreurs, avertissements, ignores = _scanne(status, fichiers, args.strict)
+    erreurs, avertissements, ignores = _scanne(status, fichiers, strict)
     rapport = {
         "files_scanned": len(fichiers),
-        "strict": args.strict,
+        "strict": strict,
         "errors": erreurs,
         "warnings": avertissements,
         "ignored_in_code": ignores,
