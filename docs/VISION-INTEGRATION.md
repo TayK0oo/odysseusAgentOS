@@ -1,5 +1,13 @@
 # AgentOS — VISION INTÉGRÉE (document unifié)
 
+> ## ⚠️ HISTORIQUE — snapshot du 2026-09-25
+>
+> Ce document décrit la vision **antérieure** au chantier Omega (branche
+> `feat/inventaire-global-v1`). Il n'est plus maintenu : ses chiffres ne sont pas
+> vérifiés et ne doivent pas être cités comme l'état courant.
+> **Vision : `docs/omega/00-VISION-OMEGA.md` · plan : `docs/omega/PLAN-MAITRE.md` ·
+> statut mesuré : `docs/omega/plan/STATUS.md`.**
+
 > **Objet :** rassembler *l'entièreté des apports* (veille + écarts projet + modularité) et les **intégrer à la vision complète** du projet, en un plan unique et séquencé.
 > **Entrées fusionnées :** `docs/master-ref/01-SFD-v3.1.md` · `04-OBJECTIFS-COUVERTURE.md` · `09-PLAN-ACTIONS-RESTANTES.md` · `docs/traceability/*` (00→04 + TRACEABILITY) · `docs/veille/VEILLE-EXTRACTION.md` · `VEILLE-FEATURES.md` · `VEILLE-COMPLEMENTAIRE.md`.
 > **Date :** 2026-09-25 · **Branche :** `feat/inventaire-global-v1`.
