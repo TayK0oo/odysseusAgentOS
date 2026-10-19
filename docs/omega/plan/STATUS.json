@@ -1,6 +1,6 @@
 {
-  "git_sha": "ba37a51d",
-  "mesure_le": "2026-10-19T02:53:18+00:00",
+  "git_sha": "405f44d9",
+  "mesure_le": "2026-10-19T03:42:44+00:00",
   "moteur_reference": "INDETERMINE (ADR D0, P0-9)",
   "socles": {
     "rust": {
@@ -61,6 +61,11 @@
       "tests": {
         "valeur": 4415,
         "methode": "ast"
+      },
+      "ruff_legacy_erreurs": {
+        "valeur": 3720,
+        "methode": "ruff_json@0.17.1",
+        "note": "dette P1, non bloquante (ADR-0005)"
       }
     }
   },
@@ -70,8 +75,8 @@
       "extrait": "modeles live: 83 (11 gratuits)\nreferences par la politique: 22\n\nmodeles interdits surveilles (ne doivent jamais apparaitre dans une regle) : 8\n\nOK : politique coherente avec la liste live"
     },
     "dep_graph": {
-      "verdict": "ECHEC(1)",
-      "extrait": "er) -> omega-ports (ports)\n  - arete interdite : omega-python-bridge (other) -> omega-types (types)\n  - arete interdite : omega-search (other) -> omega-ports (ports)\n  - arete interdite : omega-search (other) -> omega-types (types)\n  - arete interdite : omega-tools (adapters) -> omega-policy (other)"
+      "verdict": "OK",
+      "extrait": "Graphe de dependances valide (22 crates, 0 cycle, 0 arete interdite)."
     }
   },
   "registre": {
@@ -141,5 +146,5 @@
     "G6": "ROUGE",
     "G7": "ROUGE"
   },
-  "prochaine_action": "P0-1 : commande verify sur clone vierge (worktree jetable, porte G0.a)"
+  "prochaine_action": "P0-4 : banc d'acceptation (runner boite noire, ScriptedProvider, S0 vert / S1 xfail nomme)"
 }
