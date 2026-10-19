@@ -4,8 +4,8 @@
 //! pour la sous-famille filesystem.
 
 use super::{edit_file, list_dir, read_file, workspace, write_file, ToolCtx, ToolOutput};
-use omega_types::ToolSpec;
 use omega_types::OmegaResult;
+use omega_types::ToolSpec;
 
 /// Nom des outils exposés (identiques à `TOOL_TAGS` d'odysseus).
 pub const TOOL_NAMES: [&str; 7] = [
@@ -21,13 +21,48 @@ pub const TOOL_NAMES: [&str; 7] = [
 /// Schémas JSON des outils filesystem.
 pub fn schemas() -> Vec<serde_json::Value> {
     vec![
-        schema("read_file", "Lit un fichier texte du workspace.", vec!["path"], vec!["path"]),
-        schema("write_file", "Écrit (ou crée) un fichier texte.", vec!["path", "content"], vec!["path", "content"]),
-        schema("edit_file", "Remplace une chaîne exacte dans un fichier.", vec!["path", "old_string", "new_string"], vec!["path", "old_string", "new_string"]),
-        schema("ls", "Liste le contenu d'un répertoire.", vec!["path"], vec!["path"]),
-        schema("glob", "Trouve des fichiers par motif glob.", vec!["pattern"], vec!["pattern"]),
-        schema("grep", "Recherche une expression régulière dans le workspace.", vec!["pattern"], vec!["pattern"]),
-        schema("get_workspace", "Décrit le workspace (fichiers, lignes, langages).", vec![], vec![]),
+        schema(
+            "read_file",
+            "Lit un fichier texte du workspace.",
+            vec!["path"],
+            vec!["path"],
+        ),
+        schema(
+            "write_file",
+            "Écrit (ou crée) un fichier texte.",
+            vec!["path", "content"],
+            vec!["path", "content"],
+        ),
+        schema(
+            "edit_file",
+            "Remplace une chaîne exacte dans un fichier.",
+            vec!["path", "old_string", "new_string"],
+            vec!["path", "old_string", "new_string"],
+        ),
+        schema(
+            "ls",
+            "Liste le contenu d'un répertoire.",
+            vec!["path"],
+            vec!["path"],
+        ),
+        schema(
+            "glob",
+            "Trouve des fichiers par motif glob.",
+            vec!["pattern"],
+            vec!["pattern"],
+        ),
+        schema(
+            "grep",
+            "Recherche une expression régulière dans le workspace.",
+            vec!["pattern"],
+            vec!["pattern"],
+        ),
+        schema(
+            "get_workspace",
+            "Décrit le workspace (fichiers, lignes, langages).",
+            vec![],
+            vec![],
+        ),
     ]
 }
 
@@ -67,7 +102,10 @@ pub fn dispatch(ctx: &ToolCtx, tool: &str, args: &serde_json::Value) -> ToolOutp
         "glob" => super::glob::glob(ctx, s("pattern")),
         "grep" => {
             let g = args.get("glob").and_then(|v| v.as_str());
-            let max = args.get("max_results").and_then(|v| v.as_u64()).unwrap_or(100) as usize;
+            let max = args
+                .get("max_results")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(100) as usize;
             super::grep::grep(ctx, s("pattern"), g, max)
         }
         "get_workspace" => workspace::describe(ctx),
@@ -82,7 +120,10 @@ pub fn spec(tool: &str) -> OmegaResult<ToolSpec> {
         .find(|s| s["function"]["name"] == tool)
         .map(|s| ToolSpec {
             name: tool.to_string(),
-            description: s["function"]["description"].as_str().unwrap_or("").to_string(),
+            description: s["function"]["description"]
+                .as_str()
+                .unwrap_or("")
+                .to_string(),
             schema: s["function"]["parameters"].clone(),
         })
         .ok_or_else(|| omega_types::OmegaError::Io(format!("outil inconnu : {}", tool)))
@@ -108,7 +149,11 @@ mod tests {
     #[test]
     fn dispatch_write_read_cycle() {
         let c = ctx("cycle");
-        let w = dispatch(&c, "write_file", &serde_json::json!({"path":"a.txt","content":"x"}));
+        let w = dispatch(
+            &c,
+            "write_file",
+            &serde_json::json!({"path":"a.txt","content":"x"}),
+        );
         assert!(w.is_ok());
         let r = dispatch(&c, "read_file", &serde_json::json!({"path":"a.txt"}));
         match r {
@@ -135,8 +180,16 @@ mod tests {
     #[test]
     fn edit_through_dispatch_produces_diff() {
         let c = ctx("editdiff");
-        dispatch(&c, "write_file", &serde_json::json!({"path":"f","content":"a\nb"}));
-        let r = dispatch(&c, "edit_file", &serde_json::json!({"path":"f","old_string":"b","new_string":"c"}));
+        dispatch(
+            &c,
+            "write_file",
+            &serde_json::json!({"path":"f","content":"a\nb"}),
+        );
+        let r = dispatch(
+            &c,
+            "edit_file",
+            &serde_json::json!({"path":"f","old_string":"b","new_string":"c"}),
+        );
         match r {
             ToolOutput::Ok { content } => {
                 assert_eq!(content["diff"]["added"], 1);

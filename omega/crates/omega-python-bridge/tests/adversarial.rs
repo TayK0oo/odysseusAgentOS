@@ -4,7 +4,10 @@
 //! le plus sensible du projet : chaque test ci-dessous attaque un mode d'échappement.
 //! Un test qui échoue = menace réelle.
 
-use omega_python_bridge::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, PythonAgentBridge, PythonBridge, PythonToolBridge};
+use omega_python_bridge::{
+    JsonRpcError, JsonRpcRequest, JsonRpcResponse, PythonAgentBridge, PythonBridge,
+    PythonToolBridge,
+};
 use serde_json::json;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -39,21 +42,26 @@ fn runtime() -> (&'static str, bool) {
 #[tokio::test]
 async fn atk_timeout_kills_child_process() {
     let (py, ok) = runtime();
-    if !ok { return; }
+    if !ok {
+        return;
+    }
     let pidfile = std::env::temp_dir().join("omega-bridge-timeout.pid");
     let _ = std::fs::remove_file(&pidfile);
 
     // Le script écrit son PID puis dort 30 s. La question n'est PAS "a-t-il
     // tourné" (il a forcément tourné) mais "survit-il au timeout ?" — on vérifie
     // donc que le PID n'est plus vivant après le retour du bridge.
-    let s = script("sleeper", &format!(
-        "import sys, os, time\n\
+    let s = script(
+        "sleeper",
+        &format!(
+            "import sys, os, time\n\
          sys.stdin.readline()\n\
          open({:?}, 'w').write(str(os.getpid()))\n\
          sys.stdout.flush()\n\
          time.sleep(30)\n",
-        pidfile.to_string_lossy()
-    ));
+            pidfile.to_string_lossy()
+        ),
+    );
 
     let bridge = PythonBridge::new(py, &s.to_string_lossy(), 800);
     let t0 = Instant::now();
@@ -87,15 +95,14 @@ async fn atk_timeout_kills_child_process() {
                 .map(|l| l.split_whitespace().nth(1).unwrap_or("").to_string())
         });
     let truly_alive = match state.as_deref() {
-        None => false,              // gone du tout -> mort
-        Some("Z") => false,         // zombie -> terminated
-        Some(_) => true,            // R / S / D / T -> vivant
+        None => false,      // gone du tout -> mort
+        Some("Z") => false, // zombie -> terminated
+        Some(_) => true,    // R / S / D / T -> vivant
     };
     assert!(
         !truly_alive,
         "THREAT OPEN: le processus Python (pid {}) a survécu au timeout (état {:?})",
-        pid,
-        state
+        pid, state
     );
 }
 
@@ -106,9 +113,14 @@ async fn atk_timeout_kills_child_process() {
 #[tokio::test]
 async fn atk_unbounded_stdout_does_not_exhaust_memory() {
     let (py, ok) = runtime();
-    if !ok { return; }
+    if !ok {
+        return;
+    }
     // 200 Mo sur une seule "ligne" (sans \n) -> read_line accumule tout en RAM.
-    let s = script("flood", "import sys\nsys.stdin.readline()\nsys.stdout.write('A' * (200*1024*1024))\n");
+    let s = script(
+        "flood",
+        "import sys\nsys.stdin.readline()\nsys.stdout.write('A' * (200*1024*1024))\n",
+    );
     let bridge = PythonBridge::new(py, &s.to_string_lossy(), 3_000);
     let _ = bridge.call("noop", json!({})).await; // ne doit pas paniquer ni OOM
 }
@@ -120,7 +132,9 @@ async fn atk_unbounded_stdout_does_not_exhaust_memory() {
 #[tokio::test]
 async fn atk_non_json_stdout_fails_cleanly() {
     let (py, ok) = runtime();
-    if !ok { return; }
+    if !ok {
+        return;
+    }
     // Python écrit une trace/warning avant le JSON -> la 1re ligne n'est pas du JSON.
     let s = script(
         "noisy",
@@ -148,7 +162,9 @@ async fn atk_non_json_stdout_fails_cleanly() {
 #[tokio::test]
 async fn atk_silent_process_times_out_not_hangs() {
     let (py, ok) = runtime();
-    if !ok { return; }
+    if !ok {
+        return;
+    }
     let s = script("silent", "import time\ntime.sleep(60)\n");
     let bridge = PythonBridge::new(py, &s.to_string_lossy(), 700);
     let t0 = Instant::now();
@@ -164,7 +180,9 @@ async fn atk_silent_process_times_out_not_hangs() {
 #[tokio::test]
 async fn atk_huge_params_are_rejected_or_bounded() {
     let (py, ok) = runtime();
-    if !ok { return; }
+    if !ok {
+        return;
+    }
     let s = script("echo", "import sys, json\nsys.stdin.readline()\nprint(json.dumps({'jsonrpc':'2.0','result':'ok','error':None,'id':1}))\n");
     let bridge = PythonBridge::new(py, &s.to_string_lossy(), 5_000);
     let huge = "A".repeat(50 * 1024 * 1024); // 50 Mo
@@ -204,7 +222,11 @@ fn atk_malformed_response_is_rejected() {
         "{\"result\":\"sans id\"}",
     ] {
         let r: Result<JsonRpcResponse, _> = serde_json::from_str(body);
-        assert!(r.is_err(), "une réponse malformée doit être refusée : {:?}", body);
+        assert!(
+            r.is_err(),
+            "une réponse malformée doit être refusée : {:?}",
+            body
+        );
     }
 }
 
@@ -233,7 +255,9 @@ fn atk_request_id_is_incrementable() {
 #[tokio::test]
 async fn atk_specialised_bridges_use_fixed_methods() {
     let (py, ok) = runtime();
-    if !ok { return; }
+    if !ok {
+        return;
+    }
     let s = script(
         "spy",
         "import sys, json\n\
@@ -243,7 +267,10 @@ async fn atk_specialised_bridges_use_fixed_methods() {
     );
     let _ = std::fs::remove_file("/tmp/omega-bridge-method.log");
 
-    PythonAgentBridge::new(py, &s.to_string_lossy()).run("goal").await.ok();
+    PythonAgentBridge::new(py, &s.to_string_lossy())
+        .run("goal")
+        .await
+        .ok();
     PythonToolBridge::new(py, &s.to_string_lossy())
         .execute("read_file", json!({}))
         .await

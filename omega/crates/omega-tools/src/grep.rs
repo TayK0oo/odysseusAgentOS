@@ -13,7 +13,9 @@ pub fn search(dir: &Path, re: &Regex, max_results: usize) -> Vec<serde_json::Val
         if out.len() >= max_results {
             break;
         }
-        let Ok(content) = std::fs::read_to_string(&f) else { continue };
+        let Ok(content) = std::fs::read_to_string(&f) else {
+            continue;
+        };
         for (i, line) in content.lines().enumerate() {
             if out.len() >= max_results {
                 break;
@@ -33,7 +35,12 @@ pub fn search(dir: &Path, re: &Regex, max_results: usize) -> Vec<serde_json::Val
 }
 
 /// Port de `GrepTool.execute`.
-pub fn grep(ctx: &ToolCtx, pattern: &str, glob_filter: Option<&str>, max_results: usize) -> ToolOutput {
+pub fn grep(
+    ctx: &ToolCtx,
+    pattern: &str,
+    glob_filter: Option<&str>,
+    max_results: usize,
+) -> ToolOutput {
     let re = match Regex::new(pattern) {
         Ok(r) => r,
         Err(e) => return ToolOutput::err(format!("regex invalide : {}", e)),

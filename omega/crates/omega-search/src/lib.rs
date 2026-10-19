@@ -50,13 +50,25 @@ pub fn extract_entities(query: &str) -> Entities {
         if ch.is_alphabetic() {
             cur.push(ch);
         } else {
-            if cur.len() > 1 && cur.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+            if cur.len() > 1
+                && cur
+                    .chars()
+                    .next()
+                    .map(|c| c.is_uppercase())
+                    .unwrap_or(false)
+            {
                 e.names.push(cur.clone());
             }
             cur.clear();
         }
     }
-    if cur.len() > 1 && cur.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+    if cur.len() > 1
+        && cur
+            .chars()
+            .next()
+            .map(|c| c.is_uppercase())
+            .unwrap_or(false)
+    {
         e.names.push(cur);
     }
 
@@ -65,7 +77,9 @@ pub fn extract_entities(query: &str) -> Entities {
     let mut i = 0;
     while i + 3 < chars.len() {
         let four: String = chars[i..i + 4].iter().collect();
-        if (four.starts_with("19") || four.starts_with("20")) && four.chars().all(|c| c.is_ascii_digit()) {
+        if (four.starts_with("19") || four.starts_with("20"))
+            && four.chars().all(|c| c.is_ascii_digit())
+        {
             e.dates.push(four);
             i += 4;
             continue;
@@ -97,7 +111,9 @@ pub fn split_multi_part(query: &str) -> Vec<String> {
             }
             cur.clear();
         } else {
-            if !cur.is_empty() { cur.push(' '); }
+            if !cur.is_empty() {
+                cur.push(' ');
+            }
             cur.push_str(words[i]);
         }
         i += 1;
@@ -151,7 +167,11 @@ pub fn enhance_query(original: &str) -> EnhancedQuery {
 
     let multi = split_multi_part(&q);
     let multi_part = multi.len() > 1;
-    let base = if multi_part { multi[0].clone() } else { q.clone() };
+    let base = if multi_part {
+        multi[0].clone()
+    } else {
+        q.clone()
+    };
 
     let entities = extract_entities(&base);
     let mut boosted = base.clone();
@@ -162,7 +182,11 @@ pub fn enhance_query(original: &str) -> EnhancedQuery {
         }
     }
 
-    EnhancedQuery { query: boosted, site, multi_part }
+    EnhancedQuery {
+        query: boosted,
+        site,
+        multi_part,
+    }
 }
 
 /// Port de `query.py::_is_news_query`.
@@ -176,7 +200,11 @@ pub fn is_news_query(query: &str) -> bool {
 
 /// Port de `query.py::_cache_duration_for_query` : news = 30 min, sinon 24 h.
 pub fn cache_duration_secs(query: &str) -> u64 {
-    if is_news_query(query) { 30 * 60 } else { 24 * 3600 }
+    if is_news_query(query) {
+        30 * 60
+    } else {
+        24 * 3600
+    }
 }
 
 /// Un résultat de recherche (forme minimale).
@@ -235,11 +263,13 @@ pub fn domain(url: &str) -> Option<String> {
 pub fn news_quality(hit: &SearchHit) -> f64 {
     let title_words = hit.title.split_whitespace().count() as f64;
     let snippet_words = hit.snippet.split_whitespace().count() as f64;
-    let title_score = if title_words >= 5.0 && title_words <= 20.0 { 1.0 } else { 0.6 };
+    let title_score = if title_words >= 5.0 && title_words <= 20.0 {
+        1.0
+    } else {
+        0.6
+    };
     let snippet_score = if snippet_words >= 20.0 { 1.0 } else { 0.7 };
-    let domain_score = domain(&hit.url)
-        .map(|_| 1.0)
-        .unwrap_or(0.5);
+    let domain_score = domain(&hit.url).map(|_| 1.0).unwrap_or(0.5);
     (title_score + snippet_score + domain_score) / 3.0
 }
 
@@ -252,10 +282,18 @@ pub fn rank_results(query: &str, mut hits: Vec<SearchHit>) -> Vec<SearchHit> {
     let mut scored: Vec<(f64, SearchHit)> = hits
         .drain(..)
         .map(|mut h| {
-            let title_hits = terms.iter().filter(|t| h.title.to_lowercase().contains(*t)).count() as f64;
-            let snip_hits = terms.iter().filter(|t| h.snippet.to_lowercase().contains(*t)).count() as f64;
+            let title_hits = terms
+                .iter()
+                .filter(|t| h.title.to_lowercase().contains(*t))
+                .count() as f64;
+            let snip_hits = terms
+                .iter()
+                .filter(|t| h.snippet.to_lowercase().contains(*t))
+                .count() as f64;
             let n_terms = terms.len().max(1) as f64;
-            let mut score = 0.6 * (title_hits / n_terms) + 0.25 * (snip_hits / n_terms) + 0.15 * recency_score(h.age.as_deref());
+            let mut score = 0.6 * (title_hits / n_terms)
+                + 0.25 * (snip_hits / n_terms)
+                + 0.15 * recency_score(h.age.as_deref());
             if news {
                 score = score * 0.8 + 0.2 * news_quality(&h);
             }
@@ -321,15 +359,28 @@ mod tests {
 
     #[test]
     fn domain_extraction() {
-        assert_eq!(domain("https://docs.rust-lang.org/book").as_deref(), Some("rust-lang.org"));
+        assert_eq!(
+            domain("https://docs.rust-lang.org/book").as_deref(),
+            Some("rust-lang.org")
+        );
         assert!(domain("not a url").is_none());
     }
 
     #[test]
     fn rank_puts_matching_first() {
         let hits = vec![
-            SearchHit { title: "Unrelated cooking recipe".into(), url: "https://foo.com/a".into(), snippet: "pasta".into(), age: Some("2 days ago".into()) },
-            SearchHit { title: "Rust ownership rules explained".into(), url: "https://doc.rust-lang.org/1".into(), snippet: "rust ownership borrow checker rules".into(), age: Some("1 hour ago".into()) },
+            SearchHit {
+                title: "Unrelated cooking recipe".into(),
+                url: "https://foo.com/a".into(),
+                snippet: "pasta".into(),
+                age: Some("2 days ago".into()),
+            },
+            SearchHit {
+                title: "Rust ownership rules explained".into(),
+                url: "https://doc.rust-lang.org/1".into(),
+                snippet: "rust ownership borrow checker rules".into(),
+                age: Some("1 hour ago".into()),
+            },
         ];
         let ranked = rank_results("rust ownership", hits);
         assert_eq!(ranked[0].title, "Rust ownership rules explained");

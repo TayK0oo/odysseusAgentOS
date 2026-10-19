@@ -30,7 +30,9 @@ pub trait ContextEngine: Send + Sync {
     async fn assemble(&self, messages: Vec<Message>) -> OmegaResult<Vec<Message>>;
     /// Plafond de tokens du moteur (pour compaction LLM double couche).
     /// Impl par defaut : 4000.
-    fn max_tokens(&self) -> usize { 4000 }
+    fn max_tokens(&self) -> usize {
+        4000
+    }
 }
 
 /// Memoire persistante. Regime : *slot exclusif*.
@@ -364,13 +366,21 @@ mod tests {
     fn permission_policy_intersection_is_monotone() {
         struct AllowAll;
         impl PermissionPolicy for AllowAll {
-            fn name(&self) -> &str { "allow" }
-            fn evaluate(&self, _: &str, _: &str) -> PermissionEffect { PermissionEffect::Allow }
+            fn name(&self) -> &str {
+                "allow"
+            }
+            fn evaluate(&self, _: &str, _: &str) -> PermissionEffect {
+                PermissionEffect::Allow
+            }
         }
         struct AskSome;
         impl PermissionPolicy for AskSome {
-            fn name(&self) -> &str { "ask" }
-            fn evaluate(&self, _: &str, _: &str) -> PermissionEffect { PermissionEffect::Ask }
+            fn name(&self) -> &str {
+                "ask"
+            }
+            fn evaluate(&self, _: &str, _: &str) -> PermissionEffect {
+                PermissionEffect::Ask
+            }
         }
         let mut p = IntersectionPermissionPolicy::new(vec![Box::new(AllowAll), Box::new(AskSome)]);
         // composition = intersection : la plus restrictive gagne, jamais l'union

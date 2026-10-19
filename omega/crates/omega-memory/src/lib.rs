@@ -66,7 +66,11 @@ pub fn jaccard(a: &HashSet<String>, b: &HashSet<String>) -> f64 {
     }
     let inter = a.intersection(b).count();
     let union = a.union(b).count();
-    if union == 0 { 0.0 } else { inter as f64 / union as f64 }
+    if union == 0 {
+        0.0
+    } else {
+        inter as f64 / union as f64
+    }
 }
 
 /// Store mémoire JSONL — adaptateur du port `MemoryStore`.
@@ -98,13 +102,17 @@ impl JsonlMemoryStore {
         }
         let mut out = String::new();
         for r in records {
-            out.push_str(&serde_json::to_string(r).map_err(|e| omega_types::OmegaError::Io(e.to_string()))?);
+            out.push_str(
+                &serde_json::to_string(r)
+                    .map_err(|e| omega_types::OmegaError::Io(e.to_string()))?,
+            );
             out.push('\n');
         }
         // Écriture atomique : write to temp then rename (pattern `core/atomic_io.py`).
         let tmp = self.path.with_extension("jsonl.tmp");
         std::fs::write(&tmp, out).map_err(|e| omega_types::OmegaError::Io(e.to_string()))?;
-        std::fs::rename(&tmp, &self.path).map_err(|e| omega_types::OmegaError::Io(e.to_string()))?;
+        std::fs::rename(&tmp, &self.path)
+            .map_err(|e| omega_types::OmegaError::Io(e.to_string()))?;
         Ok(())
     }
 
@@ -125,7 +133,11 @@ impl JsonlMemoryStore {
             })
             .filter(|s| s.score > 0.0)
             .collect();
-        hits.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        hits.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         hits.truncate(top_k);
         hits
     }
@@ -157,10 +169,13 @@ impl MemoryStore for JsonlMemoryStore {
 
     async fn remember(&self, fact: &str) -> OmegaResult<()> {
         let mut all = self.load_all();
-        let id = format!("m{:x}", std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0));
+        let id = format!(
+            "m{:x}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        );
         all.push(MemoryRecord::new(id, fact));
         self.save_all(&all)
     }
@@ -217,8 +232,14 @@ mod tests {
     async fn search_ranks_by_score() {
         let dir = tmpdir("search");
         let store = JsonlMemoryStore::new(&dir);
-        store.remember("prospection commerciale avec IA").await.unwrap();
-        store.remember("recette de cuisine italienne").await.unwrap();
+        store
+            .remember("prospection commerciale avec IA")
+            .await
+            .unwrap();
+        store
+            .remember("recette de cuisine italienne")
+            .await
+            .unwrap();
 
         let hits = store.search("prospection IA", 2);
         assert_eq!(hits.len(), 1);

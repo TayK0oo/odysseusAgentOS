@@ -46,11 +46,12 @@ impl Contributor for ProviderContributor {
     }
 
     fn contribute(&self, builder: &mut RegistryBuilder, _ctx: &InstallContext) -> OmegaResult<()> {
-        builder.register_dyn(
-            Manifest::new("ollama", Capability::LlmProvider, "1"),
-            self.provider.clone(),
-        )
-        .map(|_| ())
+        builder
+            .register_dyn(
+                Manifest::new("ollama", Capability::LlmProvider, "1"),
+                self.provider.clone(),
+            )
+            .map(|_| ())
     }
 }
 
@@ -65,11 +66,12 @@ impl Contributor for StoreContributor {
     }
 
     fn contribute(&self, builder: &mut RegistryBuilder, _ctx: &InstallContext) -> OmegaResult<()> {
-        builder.register_dyn(
-            Manifest::new("file", Capability::EventStore, "1"),
-            self.store.clone(),
-        )
-        .map(|_| ())
+        builder
+            .register_dyn(
+                Manifest::new("file", Capability::EventStore, "1"),
+                self.store.clone(),
+            )
+            .map(|_| ())
     }
 }
 

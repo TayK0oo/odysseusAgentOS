@@ -52,13 +52,18 @@ fn futures_lite_block_on<F: std::future::Future>(f: F) -> F::Output {
 fn atk_no_temp_file_left_behind() {
     let d = dir("tmpclean");
     let store = JsonlMemoryStore::new(&d);
-    futures_lite_block_on(async { store.remember("x").await.unwrap(); });
+    futures_lite_block_on(async {
+        store.remember("x").await.unwrap();
+    });
     let leftovers: Vec<_> = std::fs::read_dir(&d)
         .unwrap()
         .flatten()
         .filter(|e| e.file_name().to_string_lossy().contains("tmp"))
         .collect();
-    assert!(leftovers.is_empty(), "un fichier .tmp a été laissé derrière");
+    assert!(
+        leftovers.is_empty(),
+        "un fichier .tmp a été laissé derrière"
+    );
     let _ = std::fs::remove_dir_all(&d);
 }
 
@@ -86,7 +91,9 @@ fn atk_corrupted_lines_are_skipped_not_fatal() {
 fn atk_recall_ignores_garbage_query() {
     let d = dir("garbageq");
     let store = JsonlMemoryStore::new(&d);
-    futures_lite_block_on(async { store.remember("prospection commerciale").await.unwrap(); });
+    futures_lite_block_on(async {
+        store.remember("prospection commerciale").await.unwrap();
+    });
     for q in ["", "   ", "\n\t", "!!!", "🎉🎉🎉", "a"] {
         let r = futures_lite_block_on(store.recall(q, 5));
         assert!(r.is_ok(), "la requête {:?} ne doit pas paniquer", q);
@@ -98,8 +105,13 @@ fn atk_recall_ignores_garbage_query() {
 fn atk_delete_wrong_id_is_noop() {
     let d = dir("delnoop");
     let store = JsonlMemoryStore::new(&d);
-    futures_lite_block_on(async { store.remember("garder").await.unwrap(); });
-    assert!(!store.delete("id-inexistant"), "suppression inexistante doit être no-op");
+    futures_lite_block_on(async {
+        store.remember("garder").await.unwrap();
+    });
+    assert!(
+        !store.delete("id-inexistant"),
+        "suppression inexistante doit être no-op"
+    );
     assert_eq!(store.all(10).len(), 1, "la mémoire a été perdue");
     let _ = std::fs::remove_dir_all(&d);
 }
@@ -145,10 +157,20 @@ fn atk_skill_name_traversal_is_rejected() {
     // Un nom de skill containing "../" ne doit pas écrire hors du store.
     let d = dir("skillesc");
     let store = FileSkillStore::new(&d);
-    let evil = Skill { name: "../../escape".into(), category: "cat".into(), ..Default::default() };
+    let evil = Skill {
+        name: "../../escape".into(),
+        category: "cat".into(),
+        ..Default::default()
+    };
     let _ = store.save(&evil);
-    let written = d.join("escape").exists() || d.parent().map(|p| p.join("escape").exists()).unwrap_or(false);
-    assert!(!written, "THREAT OPEN: le nom de skill a escapes du répertoire du store");
+    let written = d.join("escape").exists()
+        || d.parent()
+            .map(|p| p.join("escape").exists())
+            .unwrap_or(false);
+    assert!(
+        !written,
+        "THREAT OPEN: le nom de skill a escapes du répertoire du store"
+    );
     let _ = std::fs::remove_dir_all(&d);
 }
 

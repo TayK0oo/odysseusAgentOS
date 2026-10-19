@@ -202,5 +202,4 @@ mod tests {
         // (MemoryStore, Hook, SubagentRunner) s'ajoutent au builder.
         let _reg = b.build();
     }
-
 }

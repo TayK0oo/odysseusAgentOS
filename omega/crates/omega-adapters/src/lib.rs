@@ -10,103 +10,213 @@ use omega_ports::*;
 use omega_types::OmegaResult;
 
 /// Adaptateur par defaut du registre de plugins.
-pub struct DefaultRegistry { name: String }
+pub struct DefaultRegistry {
+    name: String,
+}
 impl DefaultRegistry {
-    pub fn new() -> Self { Self { name: "default-registry".into() } }
+    pub fn new() -> Self {
+        Self {
+            name: "default-registry".into(),
+        }
+    }
 }
 impl Registry for DefaultRegistry {
-    fn name(&self) -> &str { &self.name }
-    fn register(&self, _manifest: &str) -> OmegaResult<()> { Ok(()) }
-    fn activate(&self, _id: &str) -> OmegaResult<()> { Ok(()) }
-    fn deactivate(&self, _id: &str) -> OmegaResult<()> { Ok(()) }
-    fn list(&self) -> Vec<String> { vec![] }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn register(&self, _manifest: &str) -> OmegaResult<()> {
+        Ok(())
+    }
+    fn activate(&self, _id: &str) -> OmegaResult<()> {
+        Ok(())
+    }
+    fn deactivate(&self, _id: &str) -> OmegaResult<()> {
+        Ok(())
+    }
+    fn list(&self) -> Vec<String> {
+        vec![]
+    }
 }
 
 /// Adaptateur par defaut de la surface UI.
-pub struct DefaultUiSurface { name: String, slot: String }
+pub struct DefaultUiSurface {
+    name: String,
+    slot: String,
+}
 impl DefaultUiSurface {
-    pub fn new(slot: &str) -> Self { Self { name: format!("default-ui-{}", slot), slot: slot.into() } }
+    pub fn new(slot: &str) -> Self {
+        Self {
+            name: format!("default-ui-{}", slot),
+            slot: slot.into(),
+        }
+    }
 }
 impl UiSurface for DefaultUiSurface {
-    fn name(&self) -> &str { &self.name }
-    fn slot(&self) -> &str { &self.slot }
-    fn render(&self) -> OmegaResult<String> { Ok(String::new()) }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn slot(&self) -> &str {
+        &self.slot
+    }
+    fn render(&self) -> OmegaResult<String> {
+        Ok(String::new())
+    }
 }
 
 /// Adaptateur par defaut de la source de configuration.
-pub struct DefaultConfigSource { name: String }
+pub struct DefaultConfigSource {
+    name: String,
+}
 impl DefaultConfigSource {
-    pub fn new() -> Self { Self { name: "default-config".into() } }
+    pub fn new() -> Self {
+        Self {
+            name: "default-config".into(),
+        }
+    }
 }
 #[async_trait]
 impl ConfigSource for DefaultConfigSource {
-    fn name(&self) -> &str { &self.name }
-    async fn load(&self, _layer: &str) -> OmegaResult<serde_json::Value> { Ok(serde_json::json!({})) }
-    async fn save(&self, _layer: &str, _value: serde_json::Value) -> OmegaResult<()> { Ok(()) }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    async fn load(&self, _layer: &str) -> OmegaResult<serde_json::Value> {
+        Ok(serde_json::json!({}))
+    }
+    async fn save(&self, _layer: &str, _value: serde_json::Value) -> OmegaResult<()> {
+        Ok(())
+    }
 }
 
 /// Adaptateur par defaut du magasin de skills.
-pub struct DefaultSkillStore { name: String }
+pub struct DefaultSkillStore {
+    name: String,
+}
 impl DefaultSkillStore {
-    pub fn new() -> Self { Self { name: "default-skill-store".into() } }
+    pub fn new() -> Self {
+        Self {
+            name: "default-skill-store".into(),
+        }
+    }
 }
 #[async_trait]
 impl SkillStore for DefaultSkillStore {
-    fn name(&self) -> &str { &self.name }
-    async fn discover(&self) -> OmegaResult<Vec<String>> { Ok(vec![]) }
-    async fn load(&self, _id: &str) -> OmegaResult<String> { Ok(String::new()) }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    async fn discover(&self) -> OmegaResult<Vec<String>> {
+        Ok(vec![])
+    }
+    async fn load(&self, _id: &str) -> OmegaResult<String> {
+        Ok(String::new())
+    }
 }
 
 /// Adaptateur par defaut de la boucle d'agent.
-pub struct DefaultAgentLoop { name: String }
+pub struct DefaultAgentLoop {
+    name: String,
+}
 impl DefaultAgentLoop {
-    pub fn new() -> Self { Self { name: "default-agent-loop".into() } }
+    pub fn new() -> Self {
+        Self {
+            name: "default-agent-loop".into(),
+        }
+    }
 }
 #[async_trait]
 impl AgentLoop for DefaultAgentLoop {
-    fn name(&self) -> &str { &self.name }
-    async fn run(&self, _goal: &str) -> OmegaResult<String> { Ok(String::new()) }
-    async fn step(&self) -> OmegaResult<String> { Ok(String::new()) }
-    async fn recover(&self, _error: &str) -> OmegaResult<String> { Ok(String::new()) }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    async fn run(&self, _goal: &str) -> OmegaResult<String> {
+        Ok(String::new())
+    }
+    async fn step(&self) -> OmegaResult<String> {
+        Ok(String::new())
+    }
+    async fn recover(&self, _error: &str) -> OmegaResult<String> {
+        Ok(String::new())
+    }
 }
 
 /// Adaptateur par defaut du magasin d'agents.
-pub struct DefaultAgentStore { name: String }
+pub struct DefaultAgentStore {
+    name: String,
+}
 impl DefaultAgentStore {
-    pub fn new() -> Self { Self { name: "default-agent-store".into() } }
+    pub fn new() -> Self {
+        Self {
+            name: "default-agent-store".into(),
+        }
+    }
 }
 #[async_trait]
 impl AgentStore for DefaultAgentStore {
-    fn name(&self) -> &str { &self.name }
-    async fn discover(&self) -> OmegaResult<Vec<String>> { Ok(vec![]) }
-    async fn load(&self, _id: &str) -> OmegaResult<String> { Ok(String::new()) }
-    async fn save(&self, _id: &str, _spec: &str) -> OmegaResult<()> { Ok(()) }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    async fn discover(&self) -> OmegaResult<Vec<String>> {
+        Ok(vec![])
+    }
+    async fn load(&self, _id: &str) -> OmegaResult<String> {
+        Ok(String::new())
+    }
+    async fn save(&self, _id: &str, _spec: &str) -> OmegaResult<()> {
+        Ok(())
+    }
 }
 
 /// Adaptateur par defaut du moteur de workflow.
-pub struct DefaultWorkflowEngine { name: String }
+pub struct DefaultWorkflowEngine {
+    name: String,
+}
 impl DefaultWorkflowEngine {
-    pub fn new() -> Self { Self { name: "default-workflow-engine".into() } }
+    pub fn new() -> Self {
+        Self {
+            name: "default-workflow-engine".into(),
+        }
+    }
 }
 #[async_trait]
 impl WorkflowEngine for DefaultWorkflowEngine {
-    fn name(&self) -> &str { &self.name }
-    async fn build(&self, _spec: &str) -> OmegaResult<String> { Ok(String::new()) }
-    async fn compile(&self, _id: &str) -> OmegaResult<String> { Ok(String::new()) }
-    async fn run(&self, _id: &str) -> OmegaResult<String> { Ok(String::new()) }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    async fn build(&self, _spec: &str) -> OmegaResult<String> {
+        Ok(String::new())
+    }
+    async fn compile(&self, _id: &str) -> OmegaResult<String> {
+        Ok(String::new())
+    }
+    async fn run(&self, _id: &str) -> OmegaResult<String> {
+        Ok(String::new())
+    }
 }
 
 /// Adaptateur par defaut du backend sandbox v2.
-pub struct DefaultSandboxBackendV2 { name: String }
+pub struct DefaultSandboxBackendV2 {
+    name: String,
+}
 impl DefaultSandboxBackendV2 {
-    pub fn new() -> Self { Self { name: "default-sandbox-v2".into() } }
+    pub fn new() -> Self {
+        Self {
+            name: "default-sandbox-v2".into(),
+        }
+    }
 }
 #[async_trait]
 impl SandboxBackendV2 for DefaultSandboxBackendV2 {
-    fn name(&self) -> &str { &self.name }
-    async fn isolate(&self, _command: &str) -> OmegaResult<String> { Ok(String::new()) }
-    async fn merge(&self, _id: &str) -> OmegaResult<()> { Ok(()) }
-    async fn cleanup(&self, _id: &str) -> OmegaResult<()> { Ok(()) }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    async fn isolate(&self, _command: &str) -> OmegaResult<String> {
+        Ok(String::new())
+    }
+    async fn merge(&self, _id: &str) -> OmegaResult<()> {
+        Ok(())
+    }
+    async fn cleanup(&self, _id: &str) -> OmegaResult<()> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]

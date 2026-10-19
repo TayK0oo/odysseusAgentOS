@@ -24,14 +24,20 @@ pub fn slugify(text: &str) -> String {
     let mut prev_dash = false;
     for c in s.chars() {
         if c == '-' {
-            if !prev_dash { out.push(c); }
+            if !prev_dash {
+                out.push(c);
+            }
             prev_dash = true;
         } else {
             out.push(c);
             prev_dash = false;
         }
     }
-    if out.is_empty() { "skill".into() } else { out }
+    if out.is_empty() {
+        "skill".into()
+    } else {
+        out
+    }
 }
 
 /// Une compétence (SKILL.md).
@@ -84,11 +90,21 @@ pub struct Skill {
     pub path: Option<String>,
 }
 
-fn default_version() -> String { "1.0.0".into() }
-fn default_category() -> String { "general".into() }
-fn default_status() -> String { "draft".into() }
-fn default_confidence() -> f64 { 0.8 }
-fn default_source() -> String { "learned".into() }
+fn default_version() -> String {
+    "1.0.0".into()
+}
+fn default_category() -> String {
+    "general".into()
+}
+fn default_status() -> String {
+    "draft".into()
+}
+fn default_confidence() -> f64 {
+    0.8
+}
+fn default_source() -> String {
+    "learned".into()
+}
 
 impl Default for Skill {
     fn default() -> Self {
@@ -174,7 +190,14 @@ pub fn parse_body(body: &str) -> (String, Vec<String>, Vec<String>, Vec<String>,
         if let Some(rest) = line.strip_prefix("##") {
             let heading = rest.trim().to_lowercase();
             // flush section précédente
-            flush(&current, &buf, &mut when_to_use, &mut procedure, &mut pitfalls, &mut verification);
+            flush(
+                &current,
+                &buf,
+                &mut when_to_use,
+                &mut procedure,
+                &mut pitfalls,
+                &mut verification,
+            );
             buf.clear();
             current = Some(match heading.as_str() {
                 "when to use" => "when_to_use".into(),
@@ -190,10 +213,19 @@ pub fn parse_body(body: &str) -> (String, Vec<String>, Vec<String>, Vec<String>,
             _ => buf.push(line.to_string()),
         }
     }
-    flush(&current, &buf, &mut when_to_use, &mut procedure, &mut pitfalls, &mut verification);
+    flush(
+        &current,
+        &buf,
+        &mut when_to_use,
+        &mut procedure,
+        &mut pitfalls,
+        &mut verification,
+    );
 
     let ex = extras.join("\n").trim().to_string();
-    if !ex.is_empty() { extra = ex; }
+    if !ex.is_empty() {
+        extra = ex;
+    }
 
     (when_to_use, procedure, pitfalls, verification, extra)
 }
@@ -221,7 +253,9 @@ pub fn parse_list_lines(text: &str) -> Vec<String> {
     let mut out = Vec::new();
     for line in text.lines() {
         let t = line.trim();
-        if t.is_empty() { continue; }
+        if t.is_empty() {
+            continue;
+        }
         let stripped = t
             .trim_start_matches(|c| "-*•".contains(c))
             .trim_start_matches(|c: char| c.is_ascii_digit())
@@ -407,8 +441,12 @@ impl FileSkillStore {
             return out;
         };
         for cat in cats.flatten() {
-            if !cat.path().is_dir() { continue; }
-            let Ok(skills) = std::fs::read_dir(cat.path()) else { continue; };
+            if !cat.path().is_dir() {
+                continue;
+            }
+            let Ok(skills) = std::fs::read_dir(cat.path()) else {
+                continue;
+            };
             for sk in skills.flatten() {
                 let md = sk.path().join("SKILL.md");
                 if md.exists() {
@@ -444,8 +482,7 @@ impl FileSkillStore {
                 skill.category, skill.name
             )));
         }
-        std::fs::create_dir_all(&dir)
-            .map_err(|e| omega_types::OmegaError::Io(e.to_string()))?;
+        std::fs::create_dir_all(&dir).map_err(|e| omega_types::OmegaError::Io(e.to_string()))?;
         let path = dir.join("SKILL.md");
         std::fs::write(&path, skill.to_markdown())
             .map_err(|e| omega_types::OmegaError::Io(e.to_string()))?;
@@ -478,7 +515,10 @@ mod tests {
 
     #[test]
     fn slugify_normalizes() {
-        assert_eq!(slugify("Prospection Commerciale"), "prospection-commerciale");
+        assert_eq!(
+            slugify("Prospection Commerciale"),
+            "prospection-commerciale"
+        );
         assert_eq!(slugify("  Hello   World!! "), "hello-world");
         assert_eq!(slugify(""), "skill");
         assert_eq!(slugify("a/b\\c"), "a-b-c");

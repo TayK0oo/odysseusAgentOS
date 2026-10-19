@@ -5,8 +5,8 @@
 //! communique via JSON-RPC. Timeout + retry + circuit breaker inclus.
 
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 use serde_json::Value;
+use std::path::Path;
 use std::process::Stdio;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
@@ -78,7 +78,10 @@ impl PythonBridge {
         let mut stdin = child.stdin.take().ok_or("No stdin")?;
         let stdout = child.stdout.take().ok_or("No stdout")?;
 
-        stdin.write_all(req_json.as_bytes()).await.map_err(|e| e.to_string())?;
+        stdin
+            .write_all(req_json.as_bytes())
+            .await
+            .map_err(|e| e.to_string())?;
         stdin.write_all(b"\n").await.map_err(|e| e.to_string())?;
         stdin.flush().await.map_err(|e| e.to_string())?;
         drop(stdin);
@@ -127,10 +130,8 @@ impl PythonBridge {
         match response {
             Some(resp) => {
                 // On laisse le temps au processus de finir, puis on le recycle.
-                let _ = tokio::time::timeout(
-                    tokio::time::Duration::from_millis(200),
-                    child.wait(),
-                ).await;
+                let _ = tokio::time::timeout(tokio::time::Duration::from_millis(200), child.wait())
+                    .await;
                 match resp.error {
                     Some(e) => Err(format!("Python error {}: {}", e.code, e.message)),
                     None => Ok(resp.result.unwrap_or(Value::Null)),
@@ -168,7 +169,10 @@ impl PythonAgentBridge {
     }
 
     pub async fn run(&self, goal: &str) -> Result<String, String> {
-        let result = self.bridge.call("agent_loop.run", serde_json::json!({"goal": goal})).await?;
+        let result = self
+            .bridge
+            .call("agent_loop.run", serde_json::json!({"goal": goal}))
+            .await?;
         Ok(result.to_string())
     }
 }
@@ -186,7 +190,12 @@ impl PythonToolBridge {
     }
 
     pub async fn execute(&self, tool: &str, args: Value) -> Result<Value, String> {
-        self.bridge.call("tool.execute", serde_json::json!({"tool": tool, "args": args})).await
+        self.bridge
+            .call(
+                "tool.execute",
+                serde_json::json!({"tool": tool, "args": args}),
+            )
+            .await
     }
 }
 
@@ -203,7 +212,12 @@ impl PythonMiddlewareBridge {
     }
 
     pub async fn hook(&self, event: &str, data: Value) -> Result<Value, String> {
-        self.bridge.call("middleware.hook", serde_json::json!({"event": event, "data": data})).await
+        self.bridge
+            .call(
+                "middleware.hook",
+                serde_json::json!({"event": event, "data": data}),
+            )
+            .await
     }
 }
 

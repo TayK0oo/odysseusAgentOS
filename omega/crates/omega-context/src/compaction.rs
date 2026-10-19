@@ -35,7 +35,6 @@ pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
     // Reserve la place du marqueur (borne superieure = pire cas : omitted = tail.len()).
     let marker_reserve = estimator.estimate(&compaction_marker(tail.len()));
 
-
     // Budget trop etroit pour le systeme + marqueur : pas de marqueur mensonger, on
     // preserve le systeme tel quel (primaute du systeme, W6 §4.6). Le depassement est
     // assume et documente (le systeme est intouchable).
@@ -57,7 +56,6 @@ pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
     }
     kept.reverse();
     let omitted = tail.len() - kept.len();
-
 
     let mut result: Vec<Message> = system.to_vec();
     if omitted > 0 {
@@ -194,36 +192,39 @@ impl ContextEngine for LlmCompactionEngine {
         let max_tokens = self.inner.max_tokens();
         let estimator = TokenEstimator::new();
 
-
         // 1. Tentative avec truncation simple (couche 1)
         let truncated = truncate_compact(&messages, max_tokens);
         let dropped = {
             // Compter les messages non-systeme originaux vs resultats
             let orig_non_system = messages.iter().filter(|m| m.role != Role::System).count();
-            let result_non_system = truncated.iter().filter(|m| m.role != Role::System && !m.content.starts_with("…[compacted")).count();
+            let result_non_system = truncated
+                .iter()
+                .filter(|m| m.role != Role::System && !m.content.starts_with("…[compacted"))
+                .count();
             orig_non_system.saturating_sub(result_non_system)
         };
-
 
         // Si pas de messages omis, retour direct
         if dropped == 0 {
             return Ok(truncated);
         }
 
-
         // 2. Construire le resume LLM des messages omis
-        let system_count = messages.iter().take_while(|m| m.role == Role::System).count();
+        let system_count = messages
+            .iter()
+            .take_while(|m| m.role == Role::System)
+            .count();
         let non_system = &messages[system_count..];
-        
+
         // Les messages non-systeme conserves (sans le marqueur)
-        let kept_non_system = truncated.iter()
+        let kept_non_system = truncated
+            .iter()
             .filter(|m| m.role != Role::System && !m.content.starts_with("…[compacted"))
             .count();
         let omitted_count = non_system.len().saturating_sub(kept_non_system);
         let omitted_messages = &non_system[..omitted_count.min(non_system.len())];
 
         let summary = self.summarize_omitted(omitted_messages).await;
-
 
         // 3. Inserer le resume dans la liste tronquee
         let mut result = truncated;
@@ -265,12 +266,8 @@ impl LlmCompactionEngine {
         };
 
         match self.provider.complete(req).await {
-            Ok(resp) => {
-                Some(resp.message.content)
-            }
-            Err(_e) => {
-                None
-            }
+            Ok(resp) => Some(resp.message.content),
+            Err(_e) => None,
         }
     }
 }
@@ -284,9 +281,18 @@ mod llm_compaction_tests {
     struct EchoProvider;
     #[async_trait]
     impl Provider for EchoProvider {
-        fn id(&self) -> &str { "echo" }
-        async fn complete(&self, req: omega_types::ChatRequest) -> OmegaResult<omega_types::ChatResponse> {
-            let last = req.messages.last().map(|m| m.content.clone()).unwrap_or_default();
+        fn id(&self) -> &str {
+            "echo"
+        }
+        async fn complete(
+            &self,
+            req: omega_types::ChatRequest,
+        ) -> OmegaResult<omega_types::ChatResponse> {
+            let last = req
+                .messages
+                .last()
+                .map(|m| m.content.clone())
+                .unwrap_or_default();
             Ok(omega_types::ChatResponse {
                 message: Message::new(Role::Assistant, format!("SUMMARY: {}", last)),
                 usage: Default::default(),
@@ -297,9 +303,16 @@ mod llm_compaction_tests {
     struct FailProvider;
     #[async_trait]
     impl Provider for FailProvider {
-        fn id(&self) -> &str { "fail" }
-        async fn complete(&self, _: omega_types::ChatRequest) -> OmegaResult<omega_types::ChatResponse> {
-            Err(omega_types::OmegaError::NoImplementation(omega_types::Capability::LlmProvider))
+        fn id(&self) -> &str {
+            "fail"
+        }
+        async fn complete(
+            &self,
+            _: omega_types::ChatRequest,
+        ) -> OmegaResult<omega_types::ChatResponse> {
+            Err(omega_types::OmegaError::NoImplementation(
+                omega_types::Capability::LlmProvider,
+            ))
         }
     }
 
@@ -332,6 +345,8 @@ mod llm_compaction_tests {
         ];
         let out = engine.assemble(msgs).await.unwrap();
         // Doit contenir le resume LLM
-        assert!(out.iter().any(|m| m.content.starts_with("Summary: SUMMARY:")));
+        assert!(out
+            .iter()
+            .any(|m| m.content.starts_with("Summary: SUMMARY:")));
     }
 }

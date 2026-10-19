@@ -34,10 +34,7 @@ pub fn unified_diff(old: &str, new: &str, path: &str) -> Option<UnifiedDiff> {
     }
 
     let label = if path.is_empty() { "file" } else { path };
-    let mut out: Vec<String> = vec![
-        format!("--- a/{}", label),
-        format!("+++ b/{}", label),
-    ];
+    let mut out: Vec<String> = vec![format!("--- a/{}", label), format!("+++ b/{}", label)];
     let mut added = 0usize;
     let mut removed = 0usize;
 
@@ -74,7 +71,10 @@ pub fn unified_diff(old: &str, new: &str, path: &str) -> Option<UnifiedDiff> {
     }
     let mut text = out.join("\n");
     if truncated {
-        text.push_str(&format!("\n… diff truncated at {} lines", crate::MAX_DIFF_LINES));
+        text.push_str(&format!(
+            "\n… diff truncated at {} lines",
+            crate::MAX_DIFF_LINES
+        ));
     }
 
     Some(UnifiedDiff {

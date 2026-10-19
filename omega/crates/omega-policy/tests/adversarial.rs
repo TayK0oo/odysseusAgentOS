@@ -2,13 +2,20 @@
 //!
 //! On tente de contourner le plafond de budget et les interdictions de commande.
 
-use omega_policy::{BudgetEnforcer, CommandPrefixExecPolicy, PathRulePermissionPolicy, ProjectBudget};
+use omega_policy::{
+    BudgetEnforcer, CommandPrefixExecPolicy, PathRulePermissionPolicy, ProjectBudget,
+};
 use omega_ports::{ExecPolicy, PermissionPolicy};
 use omega_types::{ExecDecision, PermissionEffect};
 use std::sync::Arc;
 
 fn budget() -> ProjectBudget {
-    ProjectBudget { max_tokens: 100, max_cost_usd: 1.0, max_iterations: 3, max_tool_calls: 3 }
+    ProjectBudget {
+        max_tokens: 100,
+        max_cost_usd: 1.0,
+        max_iterations: 3,
+        max_tool_calls: 3,
+    }
 }
 
 #[test]
@@ -41,7 +48,12 @@ fn atk_budget_float_bypass() {
     // Un coût fractionnaire répété ne doit pas contourner le plafond de 1.0 USD.
     // Axes isolés : plafond de tokens très haut pour que seul le COUT puisse déclencher.
     let b = BudgetEnforcer::new(
-        ProjectBudget { max_tokens: 1_000_000, max_cost_usd: 1.0, max_iterations: 1_000_000, max_tool_calls: 1_000_000 },
+        ProjectBudget {
+            max_tokens: 1_000_000,
+            max_cost_usd: 1.0,
+            max_iterations: 1_000_000,
+            max_tool_calls: 1_000_000,
+        },
         "run",
     );
     let mut last_ok = true;
@@ -49,9 +61,15 @@ fn atk_budget_float_bypass() {
     // franchir réellement le seuil (> 1000 appels).
     for _ in 0..1001 {
         let v = b.consume_tokens(1, 0.001);
-        if !v.ok { last_ok = false; break; }
+        if !v.ok {
+            last_ok = false;
+            break;
+        }
     }
-    assert!(!last_ok, "THREAT OPEN: le plafond de coût n'a jamais déclenché");
+    assert!(
+        !last_ok,
+        "THREAT OPEN: le plafond de coût n'a jamais déclenché"
+    );
     assert!(b.usage().cost_usd > 1.0);
 }
 
@@ -60,7 +78,12 @@ fn atk_budget_zero_limit_not_infinite() {
     // max_tokens = 0 doit signifier « illimité » (convention du port Python) —
     // on vérifie qu'aucune division par zéro ne panic.
     let b = BudgetEnforcer::new(
-        ProjectBudget { max_tokens: 0, max_cost_usd: 0.0, max_iterations: 0, max_tool_calls: 0 },
+        ProjectBudget {
+            max_tokens: 0,
+            max_cost_usd: 0.0,
+            max_iterations: 0,
+            max_tool_calls: 0,
+        },
         "run",
     );
     let v = b.is_budget_ok();
@@ -150,5 +173,8 @@ fn atk_permission_intersection_cannot_widen() {
     let allow_all = PathRulePermissionPolicy::new(&[], &[]);
     // L'intersection doit rester stricte : Deny + Allow => Deny.
     let comp = IntersectionPermissionPolicy::new(vec![Box::new(deny_all), Box::new(allow_all)]);
-    assert_eq!(comp.evaluate("read", "anything.txt"), PermissionEffect::Deny);
+    assert_eq!(
+        comp.evaluate("read", "anything.txt"),
+        PermissionEffect::Deny
+    );
 }

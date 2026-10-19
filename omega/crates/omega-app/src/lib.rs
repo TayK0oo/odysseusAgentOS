@@ -33,7 +33,9 @@ use omega_types::{
 };
 use tokio::process::Command as TokioCommand;
 
-pub use runtime_ports::{FileMemoryStore, LocalSubagentRunner, RuntimePortsContributor, SimpleHookRegistry};
+pub use runtime_ports::{
+    FileMemoryStore, LocalSubagentRunner, RuntimePortsContributor, SimpleHookRegistry,
+};
 mod runtime_ports;
 mod store;
 
@@ -570,7 +572,9 @@ mod tests {
             builder: &mut RegistryBuilder,
             _ctx: &InstallContext,
         ) -> OmegaResult<()> {
-            builder.register_dyn(self.manifest.clone(), self.provider.clone()).map(|_| ())
+            builder
+                .register_dyn(self.manifest.clone(), self.provider.clone())
+                .map(|_| ())
         }
     }
 
@@ -589,7 +593,9 @@ mod tests {
             builder: &mut RegistryBuilder,
             _ctx: &InstallContext,
         ) -> OmegaResult<()> {
-            builder.register_dyn(self.manifest.clone(), self.engine.clone()).map(|_| ())
+            builder
+                .register_dyn(self.manifest.clone(), self.engine.clone())
+                .map(|_| ())
         }
     }
 
@@ -607,11 +613,12 @@ mod tests {
             builder: &mut RegistryBuilder,
             _ctx: &InstallContext,
         ) -> OmegaResult<()> {
-            builder.register_dyn(
-                Manifest::new("store", Capability::EventStore, "1"),
-                self.store.clone(),
-            )
-            .map(|_| ())
+            builder
+                .register_dyn(
+                    Manifest::new("store", Capability::EventStore, "1"),
+                    self.store.clone(),
+                )
+                .map(|_| ())
         }
     }
 
@@ -1336,7 +1343,10 @@ impl ExternalSubagentRunner {
                 command: self.config.command.clone(),
                 timeout_ms: self.config.timeout.as_millis() as u64,
             }),
-            Ok(Err(e)) => Err(OmegaError::Io(format!("wait {}: {}", self.config.command, e))),
+            Ok(Err(e)) => Err(OmegaError::Io(format!(
+                "wait {}: {}",
+                self.config.command, e
+            ))),
             Ok(Ok(out)) => {
                 if !out.status.success() {
                     let stderr = String::from_utf8_lossy(&out.stderr);
@@ -1360,7 +1370,7 @@ impl SubagentRunner for ExternalSubagentRunner {
     async fn spawn(&self, spec: &str) -> OmegaResult<String> {
         // Vérification fail-closed au premier spawn
         self.check_available()?;
-        
+
         // Construire le prompt selon le format attendu par le provider
         // Pour Claude Code: le spec est passé directement
         // Pour Codex: format JSON
@@ -1368,7 +1378,8 @@ impl SubagentRunner for ExternalSubagentRunner {
             serde_json::json!({
                 "prompt": spec,
                 "mode": "subagent"
-            }).to_string()
+            })
+            .to_string()
         } else {
             spec.to_string()
         };

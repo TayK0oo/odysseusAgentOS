@@ -33,7 +33,9 @@ impl ToolOutput {
         ToolOutput::Ok { content: v }
     }
     pub fn err(msg: impl Into<String>) -> Self {
-        ToolOutput::Error { message: msg.into() }
+        ToolOutput::Error {
+            message: msg.into(),
+        }
     }
     pub fn is_ok(&self) -> bool {
         matches!(self, ToolOutput::Ok { .. })
@@ -81,7 +83,11 @@ impl ToolCtx {
     /// plutôt qu'un moteur de résolution complet ; suffisant pour un garde-fou.)
     pub fn resolve(&self, rel: &str) -> Result<PathBuf, String> {
         let raw = Path::new(rel);
-        let abs = if raw.is_absolute() { raw.to_path_buf() } else { self.root.join(raw) };
+        let abs = if raw.is_absolute() {
+            raw.to_path_buf()
+        } else {
+            self.root.join(raw)
+        };
         let lex = normalize(&abs);
 
         // Remonte jusqu'au premier composant existant, canonise, ré-ancre le reste.
@@ -91,8 +97,8 @@ impl ToolCtx {
                 break;
             }
         }
-        let canon_anchor = std::fs::canonicalize(&anchor)
-            .map_err(|e| format!("chemin introuvable : {}", e))?;
+        let canon_anchor =
+            std::fs::canonicalize(&anchor).map_err(|e| format!("chemin introuvable : {}", e))?;
         // `join("")` ajouterait un slash final (-> "Not a directory") : on
         // garde le chemin canonique tel quel quand il ne reste rien à ré-ancrer.
         let canon = match lex.strip_prefix(&anchor) {
@@ -100,7 +106,8 @@ impl ToolCtx {
             _ => canon_anchor.clone(),
         };
 
-        let root_canon = std::fs::canonicalize(&self.root).unwrap_or_else(|_| normalize(&self.root));
+        let root_canon =
+            std::fs::canonicalize(&self.root).unwrap_or_else(|_| normalize(&self.root));
         if !canon.starts_with(&root_canon) {
             return Err(format!("chemin hors workspace : {}", rel));
         }
@@ -113,7 +120,9 @@ impl ToolCtx {
             } else {
                 s == *d
                     || s.ends_with(&format!("/{}", d))
-                    || canon.components().any(|seg| seg.as_os_str() == std::ffi::OsStr::new(d))
+                    || canon
+                        .components()
+                        .any(|seg| seg.as_os_str() == std::ffi::OsStr::new(d))
             };
             if hit {
                 return Err(format!("chemin protégé : {}", rel));
@@ -249,7 +258,10 @@ pub fn list_dir(ctx: &ToolCtx, rel: &str) -> ToolOutput {
         let tb = b["type"].as_str().unwrap_or("");
         // "dir" < "file" lexicographiquement : les répertoires remontent en tête
         ta.cmp(tb).then_with(|| {
-            a["name"].as_str().unwrap_or("").cmp(b["name"].as_str().unwrap_or(""))
+            a["name"]
+                .as_str()
+                .unwrap_or("")
+                .cmp(b["name"].as_str().unwrap_or(""))
         })
     });
     ToolOutput::ok(serde_json::json!({ "path": rel, "entries": items, "count": items.len() }))
@@ -301,7 +313,10 @@ mod tests {
             }
             _ => panic!("édition échouée"),
         }
-        assert_eq!(std::fs::read_to_string(c.root.join("f.txt")).unwrap(), "alpha\nBETA\ngamma");
+        assert_eq!(
+            std::fs::read_to_string(c.root.join("f.txt")).unwrap(),
+            "alpha\nBETA\ngamma"
+        );
         let _ = std::fs::remove_dir_all(&c.root);
     }
 

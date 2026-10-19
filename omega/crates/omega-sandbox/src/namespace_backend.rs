@@ -6,9 +6,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use nix::sched::{unshare, CloneFlags};
-use nix::unistd::{Gid, Uid, setgid, setuid};
 use nix::mount::{mount, MsFlags};
+use nix::sched::{unshare, CloneFlags};
+use nix::unistd::{setgid, setuid, Gid, Uid};
 use omega_ports::{ExecPolicy, SandboxBackend};
 use omega_types::{CommandOutput, ExecDecision, OmegaError, OmegaResult};
 
@@ -41,7 +41,14 @@ impl Default for NamespaceConfig {
             uid_map: Some((0, 1000, 1)),
             gid_map: Some((0, 1000, 1)),
             root_dir: root,
-            readonly_binds: vec!["/usr".into(), "/lib".into(), "/lib64".into(), "/bin".into(), "/sbin".into(), "/etc".into()],
+            readonly_binds: vec![
+                "/usr".into(),
+                "/lib".into(),
+                "/lib64".into(),
+                "/bin".into(),
+                "/sbin".into(),
+                "/etc".into(),
+            ],
             readwrite_binds: vec!["/tmp".into()],
             env: vec![
                 ("PATH".into(), "/usr/bin:/bin".into()),
@@ -66,14 +73,13 @@ pub struct NamespaceSandboxBackend {
 impl NamespaceSandboxBackend {
     /// Tente de construire le backend namespace. Retourne `Err` si l'environnement
     /// ne supporte pas les namespaces non-privilégiés — fail-closed.
-    pub fn try_new(
-        policy: Arc<dyn ExecPolicy>,
-        config: NamespaceConfig,
-    ) -> OmegaResult<Self> {
+    pub fn try_new(policy: Arc<dyn ExecPolicy>, config: NamespaceConfig) -> OmegaResult<Self> {
         if !Self::user_ns_supported() {
             return Err(OmegaError::ForbiddenCommand {
                 command: "namespace".into(),
-                reason: "user namespace non supporté (kernel.unprivileged_userns_clone=0 ou pas root)".into(),
+                reason:
+                    "user namespace non supporté (kernel.unprivileged_userns_clone=0 ou pas root)"
+                        .into(),
             });
         }
         std::fs::create_dir_all(&config.root_dir)
@@ -138,7 +144,8 @@ impl NamespaceSandboxBackend {
                     Some("proc"),
                     MsFlags::MS_NOSUID | MsFlags::MS_NODEV | MsFlags::MS_NOEXEC,
                     None::<&str>,
-                ).map_err(|e| std::io::Error::other(format!("mount proc: {e}")))?;
+                )
+                .map_err(|e| std::io::Error::other(format!("mount proc: {e}")))?;
 
                 // 4. Bind mounts read-only
                 for src in &config.readonly_binds {
@@ -151,14 +158,18 @@ impl NamespaceSandboxBackend {
                             None::<&str>,
                             MsFlags::MS_BIND | MsFlags::MS_RDONLY | MsFlags::MS_REC,
                             None::<&str>,
-                        ).map_err(|e| std::io::Error::other(format!("bind ro {:?}: {}", src, e)))?;
+                        )
+                        .map_err(|e| std::io::Error::other(format!("bind ro {:?}: {}", src, e)))?;
                         mount(
                             None::<&str>,
                             &dst,
                             None::<&str>,
                             MsFlags::MS_BIND | MsFlags::MS_RDONLY | MsFlags::MS_REMOUNT,
                             None::<&str>,
-                        ).map_err(|e| std::io::Error::other(format!("remount ro {:?}: {}", src, e)))?;
+                        )
+                        .map_err(|e| {
+                            std::io::Error::other(format!("remount ro {:?}: {}", src, e))
+                        })?;
                     }
                 }
 
@@ -173,7 +184,8 @@ impl NamespaceSandboxBackend {
                             None::<&str>,
                             MsFlags::MS_BIND | MsFlags::MS_REC,
                             None::<&str>,
-                        ).map_err(|e| std::io::Error::other(format!("bind rw {:?}: {}", src, e)))?;
+                        )
+                        .map_err(|e| std::io::Error::other(format!("bind rw {:?}: {}", src, e)))?;
                     }
                 }
 
@@ -184,8 +196,10 @@ impl NamespaceSandboxBackend {
                     .map_err(|e| std::io::Error::other(format!("chdir: {e}")))?;
 
                 // 7. Drop privileges
-                setgid(Gid::from_raw(0)).map_err(|e| std::io::Error::other(format!("setgid: {e}")))?;
-                setuid(Uid::from_raw(0)).map_err(|e| std::io::Error::other(format!("setuid: {e}")))?;
+                setgid(Gid::from_raw(0))
+                    .map_err(|e| std::io::Error::other(format!("setgid: {e}")))?;
+                setuid(Uid::from_raw(0))
+                    .map_err(|e| std::io::Error::other(format!("setuid: {e}")))?;
 
                 // 8. Env minimal
                 for (k, _) in std::env::vars() {

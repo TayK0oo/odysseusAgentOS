@@ -107,7 +107,12 @@ impl LayeredConfig {
 
     /// Valeur effective + sa couche d'origine (provenance).
     pub fn get_with_provenance(&self, key: &str) -> Option<(Value, ConfigLayerSource)> {
-        self.get(key).map(|v| (v, self.source_of(key).unwrap_or(ConfigLayerSource::Defaults)))
+        self.get(key).map(|v| {
+            (
+                v,
+                self.source_of(key).unwrap_or(ConfigLayerSource::Defaults),
+            )
+        })
     }
 }
 
@@ -175,7 +180,6 @@ mod tests {
     }
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 // Port ConfigSource — adaptateur omega-config
 // ═══════════════════════════════════════════════════════════════════════════
@@ -214,7 +218,9 @@ impl LayeredConfigSource {
 
 #[async_trait]
 impl ConfigSourcePort for LayeredConfigSource {
-    fn name(&self) -> &str { &self.name }
+    fn name(&self) -> &str {
+        &self.name
+    }
     async fn load(&self, layer: &str) -> omega_types::OmegaResult<Value> {
         let layers = self.layers.read().unwrap();
         for l in layers.iter().rev() {

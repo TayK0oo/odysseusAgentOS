@@ -45,16 +45,15 @@ impl CompositionRegistry {
     }
 
     /// Enregistre un adaptateur. `exclusive = true` → régime slot (un seul actif).
-    pub fn register(
-        &self,
-        id: &str,
-        capability: &'static str,
-        exclusive: bool,
-        factory: Factory,
-    ) {
+    pub fn register(&self, id: &str, capability: &'static str, exclusive: bool, factory: Factory) {
         self.entries.write().unwrap().insert(
             id.to_string(),
-            Entry { capability, exclusive, factory, active: false },
+            Entry {
+                capability,
+                exclusive,
+                factory,
+                active: false,
+            },
         );
     }
 
@@ -62,7 +61,10 @@ impl CompositionRegistry {
     pub fn activate(&self, id: &str) -> Result<(), String> {
         let entry = {
             let entries = self.entries.read().unwrap();
-            entries.get(id).cloned().ok_or_else(|| format!("adaptateur inconnu : {}", id))?
+            entries
+                .get(id)
+                .cloned()
+                .ok_or_else(|| format!("adaptateur inconnu : {}", id))?
         };
 
         if entry.exclusive {
@@ -81,7 +83,10 @@ impl CompositionRegistry {
         }
 
         let instance = (entry.factory)();
-        self.instances.write().unwrap().insert(id.to_string(), instance);
+        self.instances
+            .write()
+            .unwrap()
+            .insert(id.to_string(), instance);
         if let Some(e) = self.entries.write().unwrap().get_mut(id) {
             e.active = true;
         }
@@ -188,19 +193,25 @@ pub fn compose_ported_crates() -> CompositionRegistry {
         "ui/main",
         "ui-surface",
         false,
-        Arc::new(|| Arc::new(DefaultUiSurface::new("main")) as Arc<dyn std::any::Any + Send + Sync>),
+        Arc::new(|| {
+            Arc::new(DefaultUiSurface::new("main")) as Arc<dyn std::any::Any + Send + Sync>
+        }),
     );
     r.register(
         "ui/sidebar",
         "ui-surface",
         false,
-        Arc::new(|| Arc::new(DefaultUiSurface::new("sidebar")) as Arc<dyn std::any::Any + Send + Sync>),
+        Arc::new(|| {
+            Arc::new(DefaultUiSurface::new("sidebar")) as Arc<dyn std::any::Any + Send + Sync>
+        }),
     );
     r.register(
         "sandbox/default",
         "sandbox-backend",
         false,
-        Arc::new(|| Arc::new(DefaultSandboxBackendV2::new()) as Arc<dyn std::any::Any + Send + Sync>),
+        Arc::new(|| {
+            Arc::new(DefaultSandboxBackendV2::new()) as Arc<dyn std::any::Any + Send + Sync>
+        }),
     );
     r.register(
         "skills/default",
@@ -224,13 +235,20 @@ mod tests {
             "cfg",
             "config-source",
             true,
-            Arc::new(|| Arc::new(DefaultConfigSource::new()) as Arc<dyn std::any::Any + Send + Sync>),
+            Arc::new(|| {
+                Arc::new(DefaultConfigSource::new()) as Arc<dyn std::any::Any + Send + Sync>
+            }),
         );
         r.activate("cfg").unwrap();
-        let cfg = r.resolve::<DefaultConfigSource>("cfg").expect("résolution échouée");
+        let cfg = r
+            .resolve::<DefaultConfigSource>("cfg")
+            .expect("résolution échouée");
         assert_eq!(cfg.name(), "default-config");
         r.deactivate("cfg").unwrap();
-        assert!(r.resolve::<DefaultConfigSource>("cfg").is_none(), "désactivation inopérante");
+        assert!(
+            r.resolve::<DefaultConfigSource>("cfg").is_none(),
+            "désactivation inopérante"
+        );
     }
 
     #[test]
@@ -246,18 +264,26 @@ mod tests {
             "a",
             "config-source",
             true,
-            Arc::new(|| Arc::new(DefaultConfigSource::new()) as Arc<dyn std::any::Any + Send + Sync>),
+            Arc::new(|| {
+                Arc::new(DefaultConfigSource::new()) as Arc<dyn std::any::Any + Send + Sync>
+            }),
         );
         r.register(
             "b",
             "config-source",
             true,
-            Arc::new(|| Arc::new(DefaultConfigSource::new()) as Arc<dyn std::any::Any + Send + Sync>),
+            Arc::new(|| {
+                Arc::new(DefaultConfigSource::new()) as Arc<dyn std::any::Any + Send + Sync>
+            }),
         );
         r.activate("a").unwrap();
         r.activate("b").unwrap();
         let active = r.active_for("config-source");
-        assert_eq!(active, vec!["b".to_string()], "un slot ne peut porter 2 adaptateurs");
+        assert_eq!(
+            active,
+            vec!["b".to_string()],
+            "un slot ne peut porter 2 adaptateurs"
+        );
     }
 
     #[test]
@@ -267,17 +293,25 @@ mod tests {
             "x",
             "ui-surface",
             false,
-            Arc::new(|| Arc::new(DefaultUiSurface::new("main")) as Arc<dyn std::any::Any + Send + Sync>),
+            Arc::new(|| {
+                Arc::new(DefaultUiSurface::new("main")) as Arc<dyn std::any::Any + Send + Sync>
+            }),
         );
         r.register(
             "y",
             "ui-surface",
             false,
-            Arc::new(|| Arc::new(DefaultUiSurface::new("sidebar")) as Arc<dyn std::any::Any + Send + Sync>),
+            Arc::new(|| {
+                Arc::new(DefaultUiSurface::new("sidebar")) as Arc<dyn std::any::Any + Send + Sync>
+            }),
         );
         r.activate("x").unwrap();
         r.activate("y").unwrap();
-        assert_eq!(r.active_for("ui-surface").len(), 2, "un ensemble garde tous ses adaptateurs");
+        assert_eq!(
+            r.active_for("ui-surface").len(),
+            2,
+            "un ensemble garde tous ses adaptateurs"
+        );
     }
 
     #[test]
@@ -294,7 +328,11 @@ mod tests {
             "ui/sidebar",
             "workflow/default",
         ] {
-            assert!(ids.contains(&expected.to_string()), "adaptateur manquant : {}", expected);
+            assert!(
+                ids.contains(&expected.to_string()),
+                "adaptateur manquant : {}",
+                expected
+            );
         }
         assert_eq!(ids.len(), 8);
     }

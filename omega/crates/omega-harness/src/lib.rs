@@ -360,15 +360,16 @@ impl omega_plugin_api::Contributor for HarnessCatalogContributor {
         builder: &mut omega_registry::RegistryBuilder,
         _ctx: &omega_plugin_api::InstallContext,
     ) -> omega_types::OmegaResult<()> {
-        builder.register_dyn(
-            omega_registry::Manifest::new(
-                self.id.clone(),
-                omega_types::Capability::HarnessCatalog,
-                "1",
-            ),
-            std::sync::Arc::new(self.catalog),
-        )
-        .map(|_| ())
+        builder
+            .register_dyn(
+                omega_registry::Manifest::new(
+                    self.id.clone(),
+                    omega_types::Capability::HarnessCatalog,
+                    "1",
+                ),
+                std::sync::Arc::new(self.catalog),
+            )
+            .map(|_| ())
     }
 }
 

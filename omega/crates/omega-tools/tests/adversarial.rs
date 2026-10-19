@@ -4,9 +4,9 @@
 //! ils *attaquent* les garde-fous. Un test qui passe = la menace est couverte.
 //! Un test qui échoue = menace OUVERTE, à corriger avant ship.
 
-use omega_tools::{edit_file, list_dir, read_file, ToolCtx, ToolOutput};
 use omega_tools::glob::glob;
 use omega_tools::grep::grep;
+use omega_tools::{edit_file, list_dir, read_file, ToolCtx, ToolOutput};
 
 fn ctx(name: &str) -> ToolCtx {
     let p = std::env::temp_dir().join(format!("omega-adv-{}", name));
@@ -37,7 +37,10 @@ fn write_outside(c: &ToolCtx, abs: &str) -> ToolOutput {
 fn atk_dotdot_escape() {
     let c = ctx("dotdot");
     let out = omega_tools::write_file(&c, "../../escape-pwned.txt", "x");
-    assert!(!out.is_ok(), "THREAT OPEN: ../ a permis une écriture hors workspace");
+    assert!(
+        !out.is_ok(),
+        "THREAT OPEN: ../ a permis une écriture hors workspace"
+    );
     assert!(
         !std::path::Path::new("/tmp/escape-pwned.txt").exists(),
         "THREAT OPEN: le fichier a été créé hors workspace"
@@ -113,7 +116,9 @@ fn atk_glob_follows_symlink_loop() {
 #[test]
 fn atk_grep_respects_max_results() {
     let c = ctx("grepbound");
-    let big = (0..5_000).map(|i| format!("needle line {}\n", i)).collect::<String>();
+    let big = (0..5_000)
+        .map(|i| format!("needle line {}\n", i))
+        .collect::<String>();
     std::fs::write(c.root.join("big.txt"), big).unwrap();
 
     match grep(&c, "needle", None, 10) {
@@ -153,9 +158,15 @@ fn atk_edit_cannot_write_outside() {
     let c = ctx("editesc");
     std::fs::write("/tmp/omega-adv-edit-target.txt", "alpha\nbeta").ok();
     let out = edit_file(&c, "/tmp/omega-adv-edit-target.txt", "beta", "BETA");
-    assert!(!out.is_ok(), "THREAT OPEN: edit_file a modifié un fichier hors workspace");
+    assert!(
+        !out.is_ok(),
+        "THREAT OPEN: edit_file a modifié un fichier hors workspace"
+    );
     let content = std::fs::read_to_string("/tmp/omega-adv-edit-target.txt").unwrap_or_default();
-    assert!(content.contains("beta") && !content.contains("BETA"), "le fichier cible a été modifié");
+    assert!(
+        content.contains("beta") && !content.contains("BETA"),
+        "le fichier cible a été modifié"
+    );
     std::fs::remove_file("/tmp/omega-adv-edit-target.txt").ok();
 }
 
@@ -164,6 +175,9 @@ fn atk_list_dir_cannot_escape() {
     let c = ctx("lsscope");
     std::fs::write("/tmp/omega-adv-ls-secret.txt", "x").ok();
     let out = list_dir(&c, "/tmp");
-    assert!(!out.is_ok(), "THREAT OPEN: ls a listé un répertoire hors workspace");
+    assert!(
+        !out.is_ok(),
+        "THREAT OPEN: ls a listé un répertoire hors workspace"
+    );
     std::fs::remove_file("/tmp/omega-adv-ls-secret.txt").ok();
 }

@@ -40,14 +40,16 @@ pub fn describe(ctx: &ToolCtx) -> ToolOutput {
     largest.sort_by(|a, b| b.1.cmp(&a.1));
     largest.truncate(10);
 
-    ToolOutput::ok(serde_json::to_value(WorkspaceInfo {
-        root: root.to_string_lossy().to_string(),
-        file_count: files.len(),
-        total_lines,
-        by_extension: by_ext,
-        largest_files: largest,
-    })
-    .unwrap_or(serde_json::Value::Null))
+    ToolOutput::ok(
+        serde_json::to_value(WorkspaceInfo {
+            root: root.to_string_lossy().to_string(),
+            file_count: files.len(),
+            total_lines,
+            by_extension: by_ext,
+            largest_files: largest,
+        })
+        .unwrap_or(serde_json::Value::Null),
+    )
 }
 
 #[cfg(test)]
