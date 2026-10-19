@@ -1,12 +1,12 @@
 {
   "contract": "1.0.0",
   "flavor": "core",
-  "milestone": "v0.6 — ADAPTATEURS & INTEGRATION",
+  "milestone": "v0.7 — PORT RUST COMPLET",
   "phases": [],
   "next": {
-    "command": "/gsd-progress",
-    "label": "Show progress",
-    "reason": "Unsure of state — showing progress"
+    "command": "/gsd-new-milestone",
+    "label": "Start a new milestone",
+    "reason": "All phases complete — start a new milestone"
   },
-  "updated_at": "2026-10-19T00:26:20.498Z"
+  "updated_at": "2026-10-19T00:37:18.314Z"
 }

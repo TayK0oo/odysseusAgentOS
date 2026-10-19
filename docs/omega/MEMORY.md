@@ -1,6 +1,6 @@
 # MEMORY.md — Omega (auto-généré)
 
-**Généré le:** 2026-10-18 21:57  
+**Généré le:** 2026-10-19 02:37  
 **Source:** `omega/scripts/generate_memory.py` — provenance: [observed]
 
 ---
@@ -8,16 +8,16 @@
 ## État Git
 
 - **Branche:** feat/agentos-omega
-- **Dernier commit:** 1722de8d feat(omega): phases 7-8 completes - corpus 50 harnais/899 fct, mentat ecart documente, gates passes (2026-10-18 21:51:53 +0200)
-- **Total commits:** 2192
+- **Dernier commit:** fb033a0a feat(omega): milestone v0.6 ADAPTATEURS & INTEGRATION — 4 phases, omega-adapters (8 adaptateurs), omega-python-bridge (JSON-RPC), python handler, docs d'intégration, tests verts (2026-10-19 02:26:21 +0200)
+- **Total commits:** 2196
 - **Working tree dirty:** oui
 
 ---
 
 ## Espace Rust (omega/)
 
-- **Crates:** 16
-- **Liste:** omega-types, omega-ports, omega-config, omega-registry, omega-plugin-api, omega-core, omega-protocol, omega-router, omega-providers, omega-app, omega-context, omega-otel, omega-sandbox, omega-server, omega-harness, omega-mcp
+- **Crates:** 22
+- **Liste:** omega-types, omega-ports, omega-config, omega-registry, omega-plugin-api, omega-core, omega-protocol, omega-router, omega-providers, omega-app, omega-context, omega-otel, omega-sandbox, omega-server, omega-harness, omega-mcp, omega-adapters, omega-python-bridge, omega-memory, omega-search, omega-policy, omega-tools
 
 ---
 
@@ -36,6 +36,13 @@
 | 06-intake-vague-1 | ❌ | ❌ | ✅ | ✅ |
 | 07-intake-vague-2 | ❌ | ❌ | ❌ | ✅ |
 | 08-intake-vague-3 | ❌ | ❌ | ❌ | ✅ |
+| 09-consolidation | ❌ | ❌ | ❌ | ✅ |
+| 10-organisation | ❌ | ❌ | ❌ | ✅ |
+| 23-audit-cartographie | ❌ | ❌ | ❌ | ✅ |
+| 24-services-core | ❌ | ❌ | ❌ | ✅ |
+| 25-outils-agent | ❌ | ❌ | ❌ | ✅ |
+| 26-routes-api | ❌ | ❌ | ❌ | ✅ |
+| 27-validation-deploiement | ❌ | ❌ | ❌ | ✅ |
 
 
 ---

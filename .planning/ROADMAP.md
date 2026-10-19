@@ -207,3 +207,61 @@ Phases 1–5 : squelette effets réversibles · coutures MemoryStore/Hook/Subage
 2. Validation sandbox complète
 3. Documentation finale mise à jour
 4. Déploiement via validate.sh → run.sh → deploy.sh
+
+## Milestone: v0.7 — PORT RUST COMPLET
+
+**Status:** ✅ Shipped (2026-10-19) — archive : `.planning/milestones/v0.7-phases/`, détails `.planning/MILESTONES.md`
+
+**Status:** In Progress
+**Objectif :** Portage complet de odysseusAgentOS (Python) vers Rust (omega), intégrant les capacités pertinentes dans l'architecture "everything is a plugin".
+
+### Phase 23: Audit et cartographie odysseusAgentOS
+
+**Goal:** Auditer le codebase odysseusAgentOS (13k+ fichiers Python) et identifier les composants pertinents à porter en Rust. Créer une cartographie complète.
+**Depends on:** Phase 22
+**Requirements:** PORT-01, PORT-02, PORT-03
+**Success criteria:**
+1. Audit complet du codebase odysseusAgentOS (services, routes, core, tools)
+2. Cartographie des composants pertinents → ports Omega
+3. Priorisation par impact et complexité
+
+### Phase 24: Portage des services core
+
+**Goal:** Porter les services core (memory, search, security, observability) en Rust avec adaptateurs plugin.
+**Depends on:** Phase 23
+**Requirements:** PORT-04, PORT-05, PORT-06
+**Success criteria:**
+1. Services core portés en Rust
+2. Adaptateurs plugin créés
+3. Tests passent
+
+### Phase 25: Portage des outils d'agent
+
+**Goal:** Porter les 100+ outils d'agent (agent_tools/) en Rust avec adaptateurs plugin.
+**Depends on:** Phase 24
+**Requirements:** PORT-07, PORT-08, PORT-09
+**Success criteria:**
+1. Outils d'agent portés en Rust
+2. Adaptateurs plugin créés
+3. Tests passent
+
+### Phase 26: Portage des routes et API
+
+**Goal:** Porter les routes API en Rust (omega-server) avec intégration des services portés.
+**Depends on:** Phase 25
+**Requirements:** PORT-10, PORT-11, PORT-12
+**Success criteria:**
+1. Routes API portées en Rust
+2. Intégration avec les services portés
+3. Tests passent
+
+### Phase 27: Validation et déploiement
+
+**Goal:** Validation complète du portage. Tests end-to-end. Documentation finale. Déploiement.
+**Depends on:** Phase 26
+**Requirements:** PORT-13, PORT-14, PORT-15
+**Success criteria:**
+1. Tests d'intégration complets
+2. Validation sandbox
+3. Documentation finale
+4. Déploiement

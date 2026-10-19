@@ -1,0 +1,18 @@
+[package]
+name = "omega-memory"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Omega — portage Rust des services memory/skills d'odysseusAgentOS."
+
+[dependencies]
+omega-types = { workspace = true }
+omega-ports = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
