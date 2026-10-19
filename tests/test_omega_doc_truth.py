@@ -68,3 +68,32 @@ def test_doc_truth_cle_absente_tolere_puis_stricte(tmp_path):
 
     strict = _run("--strict", "--paths", str(doc))
     assert strict.returncode == 1, f"strict: attendu 1\n{strict.stdout}{strict.stderr}"
+
+
+def _verify_module():
+    """Charge `omega/scripts/verify.py` sans executer son main()."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "omega_verify", ROOT / "omega" / "scripts" / "verify.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_verify_tolere_doc_truth_mais_pas_une_vraie_panne():
+    """L'etape 10 est non bloquante ; toute autre etape le reste par defaut.
+
+    Controle dans les deux sens : tolerer doc_truth ne doit pas tolerer ruff.
+    """
+    verify = _verify_module()
+
+    tolere = {"etapes": {"doc_truth": {"ok": False, "bloquant": False}}}
+    assert verify.blocking_failures(tolere) == []
+
+    panne = {"etapes": {"ruff": {"ok": False}}}
+    assert verify.blocking_failures(panne) == ["ruff"]
+
+    mixte = {"etapes": {"doc_truth": {"ok": False, "bloquant": False},
+                        "ruff": {"ok": False}}}
+    assert verify.blocking_failures(mixte) == ["ruff"]
