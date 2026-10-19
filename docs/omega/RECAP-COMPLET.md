@@ -1,5 +1,12 @@
 # RÉCAP COMPLET — AgentOS Omega (session du 15→17 octobre 2026)
 
+> ## ⚠️ HISTORIQUE — snapshot des 15→17 octobre 2026
+>
+> Récit de session, non maintenu. **C'est ici que vivent les chiffres historiques**
+> (comptes de tests, de routes et d'endpoints d'alors) : ils ne sont pas vérifiés par
+> `STATUS.json` et ne doivent pas être cités comme l'état courant.
+> **État mesuré : `docs/omega/plan/STATUS.md` · plan : `docs/omega/PLAN-MAITRE.md`.**
+
 > **Branche** : `feat/agentos-omega` · **Worktree** : `/home/tayk0oo/Projets/odysseusAgentOS-omega`
 > **Dernier commit** : `3f10f5bb` · **Fichiers versionnés** : 1 962 (hors `target/`, `node_modules/`, `.git/`)
 > **Doctrine** : *everything is a plugin* — Rust au cœur, React/TS au bord, zéro couplage caché, tout traçable.
