@@ -1,0 +1,145 @@
+{
+  "git_sha": "ba37a51d",
+  "mesure_le": "2026-10-19T02:53:18+00:00",
+  "moteur_reference": "INDETERMINE (ADR D0, P0-9)",
+  "socles": {
+    "rust": {
+      "crates": 22,
+      "liste": [
+        "omega-adapters",
+        "omega-app",
+        "omega-config",
+        "omega-context",
+        "omega-core",
+        "omega-harness",
+        "omega-mcp",
+        "omega-memory",
+        "omega-otel",
+        "omega-plugin-api",
+        "omega-policy",
+        "omega-ports",
+        "omega-protocol",
+        "omega-providers",
+        "omega-python-bridge",
+        "omega-registry",
+        "omega-router",
+        "omega-sandbox",
+        "omega-search",
+        "omega-server",
+        "omega-tools",
+        "omega-types"
+      ],
+      "tests": {
+        "valeur": 370,
+        "methode": "scan_attributs",
+        "detail_par_crate": [
+          "omega-adapters:15",
+          "omega-app:19",
+          "omega-config:10",
+          "omega-context:46",
+          "omega-core:10",
+          "omega-harness:8",
+          "omega-mcp:8",
+          "omega-memory:12",
+          "omega-otel:16",
+          "omega-plugin-api:5",
+          "omega-policy:10",
+          "omega-ports:8",
+          "omega-protocol:5",
+          "omega-providers:17",
+          "omega-python-bridge:3",
+          "omega-registry:15",
+          "omega-router:62",
+          "omega-sandbox:26",
+          "omega-search:9",
+          "omega-server:39",
+          "omega-tools:27"
+        ]
+      }
+    },
+    "python": {
+      "tests": {
+        "valeur": 4415,
+        "methode": "ast"
+      }
+    }
+  },
+  "portes_federees": {
+    "model_policy": {
+      "verdict": "OK",
+      "extrait": "modeles live: 83 (11 gratuits)\nreferences par la politique: 22\n\nmodeles interdits surveilles (ne doivent jamais apparaitre dans une regle) : 8\n\nOK : politique coherente avec la liste live"
+    },
+    "dep_graph": {
+      "verdict": "ECHEC(1)",
+      "extrait": "er) -> omega-ports (ports)\n  - arete interdite : omega-python-bridge (other) -> omega-types (types)\n  - arete interdite : omega-search (other) -> omega-ports (ports)\n  - arete interdite : omega-search (other) -> omega-types (types)\n  - arete interdite : omega-tools (adapters) -> omega-policy (other)"
+    }
+  },
+  "registre": {
+    "plugins_attendus": null,
+    "plugins_enregistres": null,
+    "orphelins": null,
+    "note": "mesuré en P0-6 (détecteurs)"
+  },
+  "scenarios": {
+    "S0": {
+      "scripte": "NON_EXECUTE",
+      "reel": "NON_EXECUTE"
+    },
+    "S1": {
+      "scripte": "NON_EXECUTE",
+      "reel": "NON_EXECUTE"
+    },
+    "S2": {
+      "scripte": "NON_EXECUTE",
+      "reel": "NON_EXECUTE"
+    },
+    "S3": {
+      "scripte": "NON_EXECUTE",
+      "reel": "NON_EXECUTE"
+    },
+    "S4": {
+      "scripte": "NON_EXECUTE",
+      "reel": "NON_EXECUTE"
+    },
+    "S5": {
+      "scripte": "NON_EXECUTE",
+      "reel": "NON_EXECUTE"
+    },
+    "S6": {
+      "scripte": "NON_EXECUTE",
+      "reel": "NON_EXECUTE"
+    },
+    "S7": {
+      "scripte": "NON_EXECUTE",
+      "reel": "NON_EXECUTE"
+    },
+    "S8": {
+      "scripte": "NON_EXECUTE",
+      "reel": "NON_EXECUTE"
+    },
+    "S9": {
+      "scripte": "NON_EXECUTE",
+      "reel": "NON_EXECUTE"
+    },
+    "S10": {
+      "scripte": "NON_EXECUTE",
+      "reel": "NON_EXECUTE"
+    },
+    "S11": {
+      "scripte": "NON_EXECUTE",
+      "reel": "NON_EXECUTE"
+    }
+  },
+  "couverture_ponderee": 0.0,
+  "portes": {
+    "G0": "ROUGE",
+    "G1": "ROUGE",
+    "G2": "ROUGE",
+    "G3": "ROUGE",
+    "G4": "ROUGE",
+    "G5": "ROUGE",
+    "G6": "ROUGE",
+    "G7": "ROUGE"
+  },
+  "prochaine_action": "P0-1 : commande verify sur clone vierge (worktree jetable, porte G0.a)"
+}
