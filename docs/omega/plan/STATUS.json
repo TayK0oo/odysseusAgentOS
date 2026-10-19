@@ -1,6 +1,6 @@
 {
-  "git_sha": "405f44d9",
-  "mesure_le": "2026-10-19T03:42:44+00:00",
+  "git_sha": "a1ab4762",
+  "mesure_le": "2026-10-19T03:47:53+00:00",
   "moteur_reference": "INDETERMINE (ADR D0, P0-9)",
   "socles": {
     "rust": {
@@ -87,52 +87,52 @@
   },
   "scenarios": {
     "S0": {
-      "scripte": "NON_EXECUTE",
+      "scripte": "PASS",
       "reel": "NON_EXECUTE"
     },
     "S1": {
-      "scripte": "NON_EXECUTE",
+      "scripte": "XFAIL",
       "reel": "NON_EXECUTE"
     },
     "S2": {
-      "scripte": "NON_EXECUTE",
-      "reel": "NON_EXECUTE"
+      "scripte": "NON_EXECUTE_ABSENT",
+      "reel": "NON_EXECUTE_ABSENT"
     },
     "S3": {
-      "scripte": "NON_EXECUTE",
-      "reel": "NON_EXECUTE"
+      "scripte": "NON_EXECUTE_ABSENT",
+      "reel": "NON_EXECUTE_ABSENT"
     },
     "S4": {
-      "scripte": "NON_EXECUTE",
-      "reel": "NON_EXECUTE"
+      "scripte": "NON_EXECUTE_ABSENT",
+      "reel": "NON_EXECUTE_ABSENT"
     },
     "S5": {
-      "scripte": "NON_EXECUTE",
-      "reel": "NON_EXECUTE"
+      "scripte": "NON_EXECUTE_ABSENT",
+      "reel": "NON_EXECUTE_ABSENT"
     },
     "S6": {
-      "scripte": "NON_EXECUTE",
-      "reel": "NON_EXECUTE"
+      "scripte": "NON_EXECUTE_ABSENT",
+      "reel": "NON_EXECUTE_ABSENT"
     },
     "S7": {
-      "scripte": "NON_EXECUTE",
-      "reel": "NON_EXECUTE"
+      "scripte": "NON_EXECUTE_ABSENT",
+      "reel": "NON_EXECUTE_ABSENT"
     },
     "S8": {
-      "scripte": "NON_EXECUTE",
-      "reel": "NON_EXECUTE"
+      "scripte": "NON_EXECUTE_ABSENT",
+      "reel": "NON_EXECUTE_ABSENT"
     },
     "S9": {
-      "scripte": "NON_EXECUTE",
-      "reel": "NON_EXECUTE"
+      "scripte": "NON_EXECUTE_ABSENT",
+      "reel": "NON_EXECUTE_ABSENT"
     },
     "S10": {
-      "scripte": "NON_EXECUTE",
-      "reel": "NON_EXECUTE"
+      "scripte": "NON_EXECUTE_ABSENT",
+      "reel": "NON_EXECUTE_ABSENT"
     },
     "S11": {
-      "scripte": "NON_EXECUTE",
-      "reel": "NON_EXECUTE"
+      "scripte": "NON_EXECUTE_ABSENT",
+      "reel": "NON_EXECUTE_ABSENT"
     }
   },
   "couverture_ponderee": 0.0,
@@ -146,5 +146,5 @@
     "G6": "ROUGE",
     "G7": "ROUGE"
   },
-  "prochaine_action": "P0-4 : banc d'acceptation (runner boite noire, ScriptedProvider, S0 vert / S1 xfail nomme)"
+  "prochaine_action": "P0-3 : reconciliation doc-truth (STATUS.json = chiffres des docs, marqueurs historiques)"
 }

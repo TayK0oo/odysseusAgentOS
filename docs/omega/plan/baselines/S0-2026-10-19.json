@@ -1,0 +1,28 @@
+{
+  "id": "S0",
+  "nom": "demarrage_propre",
+  "mode": "scripte",
+  "engine": "rust",
+  "verdict": "PASS",
+  "etapes": {
+    "start": "OK",
+    "GET /api/health": {
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "schema_version": 1
+      }
+    }
+  },
+  "attendus": {
+    "health_ok": true
+  },
+  "controle_negatif": {
+    "raison": "RuntimeError: omega-server mort: omega-server: ecoute sur 127.0.0.1:47569 impossible : Address already in use (os error 98)\n",
+    "ok": true
+  },
+  "workdir": "/tmp/acc-S0-nqzijsmz",
+  "llm_url": "http://127.0.0.1:42671",
+  "url": "http://127.0.0.1:34625",
+  "mesure_le": "2026-10-19T03:46:39+00:00"
+}

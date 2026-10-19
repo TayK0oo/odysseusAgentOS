@@ -83,9 +83,9 @@ def count_ruff_legacy() -> "tuple[int | None, str]":
     if shutil.which("ruff") is None:
         return None, "ruff_absent"
     try:
-        v = subprocess.run(["ruff", "--version"], capture_output=True,
+        v = subprocess.run(["ruff", "--version"], check=False, capture_output=True,
                            text=True, timeout=30).stdout.strip().split()[-1]
-        r = subprocess.run(["ruff", "check", ".", "--output-format=json"],
+        r = subprocess.run(["ruff", "check", ".", "--output-format=json"], check=False,
                            cwd=ROOT, capture_output=True, text=True, timeout=300)
         erreurs = json.loads(r.stdout)
         legacy = [e for e in erreurs
@@ -93,6 +93,39 @@ def count_ruff_legacy() -> "tuple[int | None, str]":
         return len(legacy), f"ruff_json@{v}"
     except Exception as e:
         return None, f"ruff_erreur:{type(e).__name__}"
+
+
+
+def run_scenarios() -> dict:
+    """P0-4 : exécute le banc d'acceptance (mode scripté), verdicts partout.
+
+    Échec d'infra = ERREUR, jamais un statut inventé (leçon L3).
+    """
+    import subprocess
+    sys.path.insert(0, str(ROOT / "omega" / "acceptance"))
+    scen_dir = ROOT / "omega" / "acceptance" / "scenarios"
+    out = {}
+    if not scen_dir.is_dir():
+        return out
+    for path in sorted(scen_dir.glob("S*.yaml")):
+        try:
+            r = subprocess.run(
+                [sys.executable, str(ROOT / "omega" / "acceptance" / "runner.py"),
+                 "--scenario", path.stem], check=False,
+                cwd=str(ROOT), capture_output=True, text=True, timeout=300)
+            out[path.stem] = {"scripte": (r.stdout[-1] != "\n" and "") or last_verdict(r.stdout),
+                              "reel": "NON_EXECUTE"}
+        except subprocess.TimeoutExpired:
+            out[path.stem] = {"scripte": "TIMEOUT", "reel": "NON_EXECUTE"}
+        except Exception as e:
+            out[path.stem] = {"scripte": f"ERREUR:{type(e).__name__}", "reel": "NON_EXECUTE"}
+    return out
+
+
+def last_verdict(stdout: str) -> str:
+    import re as _re
+    m = _re.search(r'"verdict":\s*"(\w+)"', stdout)
+    return m.group(1) if m else "VERDICT_ABSENT"
 
 
 def main() -> int:
@@ -108,6 +141,7 @@ def main() -> int:
     python_tests, methode_python = count_python_tests()
 
     ruff_legacy, methode_ruff = count_ruff_legacy()
+    scenarios_mesures = run_scenarios()
 
     status = {
         "git_sha": git_sha(),
@@ -131,11 +165,12 @@ def main() -> int:
         },
         "registre": {"plugins_attendus": None, "plugins_enregistres": None,
                      "orphelins": None, "note": "mesuré en P0-6 (détecteurs)"},
-        "scenarios": {f"S{i}": {"scripte": "NON_EXECUTE", "reel": "NON_EXECUTE"}
-                      for i in range(12)},
+        "scenarios": {**{f"S{i}": {"scripte": "NON_EXECUTE_ABSENT",
+                                   "reel": "NON_EXECUTE_ABSENT"}
+                          for i in range(12)}, **scenarios_mesures},
         "couverture_ponderee": 0.0,
         "portes": {f"G{i}": "ROUGE" for i in range(8)},
-        "prochaine_action": "P0-4 : banc d'acceptation (runner boite noire, ScriptedProvider, S0 vert / S1 xfail nomme)",
+        "prochaine_action": "P0-3 : reconciliation doc-truth (STATUS.json = chiffres des docs, marqueurs historiques)",
     }
 
     STATUS_DIR.mkdir(parents=True, exist_ok=True)

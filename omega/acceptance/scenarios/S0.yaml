@@ -1,0 +1,16 @@
+id: S0
+nom: demarrage_propre
+phase: P0
+modes: [scripte]
+prerequis: [cargo, python_3_12]
+mise_en_situation:
+  workdir: tmpdir
+actions:
+  - {demarrer_moteur: rust}
+  - {get: /api/health, attendre_status: 200}
+attendu:
+  health_ok: true
+controle_negatif:
+  injecter: {port_deja_pris: true}
+  attendu: echec_au_demarrage
+verdict_attendu: PASS

@@ -1,0 +1,25 @@
+id: S1
+nom: outil_reel_canary
+phase: P1
+modes: [scripte]
+prerequis: [cargo, python_3_12]
+mise_en_situation:
+  workdir: tmpdir
+  fichiers: {nombre: 7, noms: hex8, contenu: hex32}
+actions:
+  - {demarrer_moteur: rust, llm: scripte}
+  - {post: /api/run, body: {messages: [{role: user, content: "Liste les fichiers du repertoire"}]}}
+attendu:
+  reponse_contient_les_canaries: true
+  evenement_appele_outil: true
+controle_negatif:
+  # le modele scripte n'a aucun moyen de connaitre les noms (aléatoires) :
+  # sans surface d'outils leur absence est la norme — contrôle du contrôle.
+  desactiver: [tool_surface]
+  attendu: canaries_absentes
+verdict_attendu: FAIL
+xfail_raison: >-
+  Deux raisons empilées, nommées et mesurées : (1) le wire du provider
+  (WireMessage {role, content}, ollama.rs:22) ne transporte pas de tool_calls ;
+  (2) la boucle d'outils de l'agent n'existe pas (P1-1). L'agent répond
+  sans appeler fs.list, les canaries restent absentes de la réponse.
