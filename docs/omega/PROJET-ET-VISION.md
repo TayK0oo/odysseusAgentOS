@@ -26,7 +26,7 @@ auto-hébergé, sceptique, outillé, et qui s'améliore tout seul.
 
 | Socle | Langage | Rôle | État |
 |---|---|---|---|
-| **odysseusAgentOS** | Python | le système qui **tourne** : 5 068 tests, 5 portes vertes | ✅ opérationnel |
+| **odysseusAgentOS** | Python | le système qui **tourne** : 4 415 <!--m:socles.python.tests=4415--> fonctions de test recensées, 5 portes vertes | ✅ opérationnel |
 | **omega** | Rust + React | le noyau **nouveau** : routeur, ports, sandbox | ⚠️ châssis réel, moteur absent |
 
 > **Point crucial, détaillé en Partie 4** : ces deux socles se sont malencontreusement
@@ -116,10 +116,10 @@ faite — pas un statut, pas un rapport.
 
 | Fichier | Ce que c'est | Rôle |
 |---|---|---|
-| `docs/omega/reverse-eng/dissections/*.json` | **51 fichiers** — dissectés de 51 harnais du marché | **Source de vérité** de ce que le marché sait faire. 910 fonctionnalités |
+| `docs/omega/reverse-eng/dissections/*.json` | **51 fichiers** <!--m:avancee.dissections=51--> — dissectés de 51 harnais du marché | **Source de vérité** de ce que le marché sait faire. 910 <!--m:avancee.fonctionnalites_total=910--> fonctionnalités |
 | `docs/omega/reverse-eng/dissections/*.md` | Fiches lisibles générées des JSON | Pour les humains |
-| `docs/omega/reverse-eng/OMEGA-COMPLET.md` | Le corpus fusionné | 109 capacités, consensus pondéré par popularité |
-| `docs/omega/reverse-eng/HARNESS-CENSUS.md` | 67 harnais recensés | Quels sont disséqués, lesquels sont écartés |
+| `docs/omega/reverse-eng/OMEGA-COMPLET.md` | Le corpus fusionné | 102 <!--m:avancee.capacites_omega=102--> capacités (`omega_capability` fait foi), consensus pondéré par popularité |
+| `docs/omega/reverse-eng/HARNESS-CENSUS.md` | 67 <!--m:avancee.census_recenses=67--> harnais recensés | Quels sont disséqués, lesquels sont écartés |
 | `docs/omega/reverse-eng/CONVERGENCE-TOUT.md` | Mapping capacité → port | **Le pont entre RE et architecture** |
 | `docs/omega/reverse-eng/PORTING-SCOPE.md` | Ce qui est porté / non porté | Empêche de se mentir sur le périmètre |
 | `docs/omega/research/rea/` | Preuves d'analyse automatique | Traçabilité des dissections |
@@ -139,7 +139,7 @@ faite — pas un statut, pas un rapport.
 
 ### 3.6 Le workspace Rust (`omega/`)
 
-**22 crates** :
+**22 crates** <!--m:socles.rust.crates=22--> :
 
 | Crate | Rôle | Utilisé par |
 |---|---|---|
@@ -160,12 +160,15 @@ faite — pas un statut, pas un rapport.
 
 **Portés depuis Python** (v0.7) :
 
-| Crate | Port de quoi | Tests |
-|---|---|---|
-| `omega-memory` | `services/memory/` — mémoire + skills | 22 |
-| `omega-search` | `services/search/` — requête + ranking | 16 |
-| `omega-policy` | `budget_enforcer` + garde OPA — plafonds, permissions | 18 |
-| `omega-tools` | `agent_tools/filesystem_tools.py` — 7 outils fichiers | 38 |
+| Crate | Port de quoi |
+|---|---|
+| `omega-memory` | `services/memory/` — mémoire + skills |
+| `omega-search` | `services/search/` — requête + ranking |
+| `omega-policy` | `budget_enforcer` + garde OPA — plafonds, permissions |
+| `omega-tools` | `agent_tools/filesystem_tools.py` — 7 outils fichiers |
+
+> Le détail des tests par crate n'est pas recopié ici : une copie dérive. Source
+> unique : `STATUS.json` → `socles.rust.tests.detail_par_crate`.
 
 **Ajouts récents** :
 
@@ -199,7 +202,7 @@ faite — pas un statut, pas un rapport.
 
 ### 3.9 Le projet Python (`/home/tayk0oo/Projets/odysseusAgentOS/`)
 
-**321 modules, 729 fichiers de test, 5 068 tests verts.**
+**321 modules, 729 fichiers de test, 4 415 <!--m:socles.python.tests=4415--> fonctions de test recensées.**
 
 | Zone | Ce qu'elle contient |
 |---|---|
@@ -248,9 +251,9 @@ POST /api/run {"messages":[{"role":"user","content":"Liste les fichiers"}]}
 | Boucle d'exécution | 2 steps, 8 événements, résumé `completed` |
 | Journal durable + trace | `/api/trace/run-1` rejouable |
 | API HTTP + UI | 15 routes, cockpit React servi |
-| Corpus RE | 51 dissections, 910 fonctions, toutes les refs `fichier:ligne` résolues |
+| Corpus RE | 51 dissections <!--m:avancee.dissections=51-->, 910 <!--m:avancee.fonctionnalites_total=910--> fonctions, toutes les refs `fichier:ligne` résolues |
 | Sécurité (Rust) | 46 tests adversariaux, 8 vulnérabilités trouvées et corrigées |
-| Python odysseusAgentOS | **5 068 tests**, 5 portes vertes |
+| Python odysseusAgentOS | **4 415** <!--m:socles.python.tests=4415--> fonctions de test, 5 portes vertes |
 
 ### 4.2 Ce qui est vide — le constat qu'il faut assumer
 
@@ -261,8 +264,8 @@ POST /api/run {"messages":[{"role":"user","content":"Liste les fichiers"}]}
 | **La mémoire ne persiste pas** | Priorité n°1 de la vision : absente. |
 | **Les skills ne s'auto-génèrent pas** | `omega-memory` sait *lire* un `SKILL.md`, mais rien ne l'écrit. |
 | **148 vidéos TikTok → 0 code** | Cataloguées, jamais absorbées. |
-| **910 fonctions RE → ~4 crates** | 223 k lignes Python → ~4 k traduites. |
-| **Rust vs Python** | Python : 5 068 tests. Rust : 424. **Nous avons réécrit en plus faible ce qui marchait.** |
+| **910 fonctions RE → ~4 crates** | 910 <!--m:avancee.fonctionnalites_total=910--> fonctions recensées ; 223 k lignes Python → ~4 k traduites. |
+| **Rust vs Python** | Python : 4 415 <!--m:socles.python.tests=4415--> fonctions de test. Rust : 370 <!--m:socles.rust.tests=370-->. **Nous avons réécrit en plus faible ce qui marchait.** |
 | **Le handler Python est un stub** | `{"status": "executed"}` — n'exécute aucun outil. |
 
 ### 4.3 Pourquoi nous en sommes là
@@ -287,7 +290,7 @@ Critère de fin = une commande qu'on lance et une sortie qu'on observe. Pas un s
 | # | Étape | Démonstration de fin | Pourquoi d'abord |
 |---|---|---|---|
 | **1** | Brancher les outils dans la boucle LLM | `POST /api/run` → l'agent appelle `ls` → il liste les vrais fichiers | Sans ça, tout le reste est décoratif |
-| **2** | Enregistrer les adaptateurs dans le registre | `/api/plugins` retourne 13 entrées au lieu de 5 | Le code existe déjà, il n'est juste pas branché |
+| **2** | Enregistrer les adaptateurs dans le registre | `/api/plugins` expose les adaptateurs branchés, pas seulement ceux d'aujourd'hui | Le code existe déjà, il n'est juste pas branché |
 | **3** | Mémoire persistante | « Quel était mon projet ? » après redémarrage → il répond | Priorité n°1 de la vision |
 | **4** | Skill auto-généré | 3 échecs → il écrit `SKILL.md` → 4ᵉ réussite | La preuve « agent qui s'améliore » |
 | **5** | Sous-agents parallels | Trace d'arbre visible | Extension naturelle du routeur |
@@ -296,15 +299,13 @@ Critère de fin = une commande qu'on lance et une sortie qu'on observe. Pas un s
 
 ### 5.3 Le critère de mesure qui remplace tous les autres
 
-**Taux de couverture** : sur les 51 harnais disséqués (910 fonctions), combien sont
-réellement implémentées et *exécutables* ?
+**Couverture pondérée** — définition au §9 du `PLAN-MAITRE.md` : Σ poids des capacités
+dont le scénario est vert ÷ Σ poids, sur les 51 <!--m:avancee.dissections=51--> harnais
+disséqués (910 <!--m:avancee.fonctionnalites_total=910--> fonctionnalités).
 
-```
-aujourd'hui :  ~4 / 910  = 0,4 %
-```
-
-C'est le seul chiffre qui dit la vérité sur l'avancement réel. Il monte à chaque
-capacité branchée et démontrée.
+Aujourd'hui : **0** <!--m:couverture_ponderee=0-->. Ce zéro ne dit pas « presque rien »,
+il dit « aucun scénario exécuté » : il mesure l'absence de preuve, pas l'absence de
+code. Il monte quand un scénario passe, pas quand une ligne est écrite.
 
 ---
 
@@ -312,7 +313,7 @@ capacité branchée et démontrée.
 
 | Erreur | Pourquoi elle a coûté cher |
 |---|---|
-| Réécrire en Rust ce qui marche en Python | 5 068 tests Python abandonnés au profit de 424 Rust |
+| Réécrire en Rust ce qui marche en Python | 4 415 <!--m:socles.python.tests=4415--> fonctions de test Python abandonnées au profit de 370 <!--m:socles.rust.tests=370--> tests Rust |
 | Optimiser les gates plutôt que la capacité | 27 phases de cérémonies, 0 agent capable |
 | Produire des docs au lieu de démontrations | Le corpus RE est splendide et inexploité |
 | Ne pas lire les rapports de la session précédente | 12 rapports + 6 veilles ignorés |
@@ -347,5 +348,7 @@ capacité branchée et démontrée.
 Il doit être mis à jour **à chaque démonstration réussie**, pas à chaque rapport.
 Une ligne qui décrit une capacité non démontrée est une ligne à supprimer.
 
-*Dernière vérification des chiffres : 2026-10-19 — `cargo test` 424 verts ·
-odysseusAgentOS 5 068 verts · `/api/plugins` 5 entrées · couverture RE 0,4 %.*
+*Les chiffres vivants de ce document portent un tag `&lt;!--m:CLE=VALEUR--&gt;`, vérifié
+contre `docs/omega/plan/STATUS.json` par `omega/scripts/check_doc_truth.py` (ADR-0007).
+Ne recopier ici aucun chiffre mesuré sans son tag ; les chiffres historiques vivent
+dans `RECAP-COMPLET.md`.*
