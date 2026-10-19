@@ -30,7 +30,9 @@ ARCH_RULES = {
     # Categorie -> set de categories cibles autorisees (y compris soi-meme si pertinent).
     "types": set(),
     "ports": {"types"},
-    "config": {"types"},
+    "config": {"types", "ports"},  # cf. ADR-0004 : omega-config implémente le
+    # port ConfigSource (lib.rs:184) — une crate de câblage peut référencer des
+    # traits de port ; interdit de dépendre de core/adapters.
     "protocol": {"types"},
     "core": {"types", "ports"},
     "registry": {"types", "ports", "config"},
@@ -81,7 +83,13 @@ def categorize(name: str, path: Path) -> str:
         return "app-edge"
     if name.startswith(("omega-context", "omega-memory", "omega-tools",
                         "omega-providers", "omega-sandbox", "omega-otel",
-                        "omega-harness", "omega-mcp")):
+                        "omega-harness", "omega-mcp",
+                        # Recatégorisés sous ADR-0004 : toutes implémentent des
+                        # ports (policy : ExecPolicy/PermissionPolicy ; search :
+                        # moteurs de recherche ; memory : MemoryStore/SkillStore
+                        # ; bridge : pont JSON-RPC Python ; adapters : Default*).
+                        "omega-policy", "omega-search", "omega-memory",
+                        "omega-python-bridge", "omega-adapters")):
         return "adapters"
     if name.startswith(("harness-", "plugin-")):
         return "plugins"
