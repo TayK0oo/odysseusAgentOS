@@ -1,0 +1,18 @@
+[package]
+name = "omega-python-bridge"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Omega — pont Python <-> Rust via JSON-RPC over stdin/stdout."
+
+[dependencies]
+omega-types = { workspace = true }
+omega-ports = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "process", "io-util", "time"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "process", "io-util", "time"] }

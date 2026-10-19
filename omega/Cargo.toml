@@ -12,6 +12,8 @@ rust-version = "1.75"
 # crates internes
 omega-types = { path = "crates/omega-types" }
 omega-ports = { path = "crates/omega-ports" }
+omega-adapters = { path = "crates/omega-adapters" }
+omega-python-bridge = { path = "crates/omega-python-bridge" }
 omega-config = { path = "crates/omega-config" }
 omega-registry = { path = "crates/omega-registry" }
 omega-plugin-api = { path = "crates/omega-plugin-api" }

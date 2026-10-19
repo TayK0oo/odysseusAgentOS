@@ -111,3 +111,51 @@ Phases 1–5 : squelette effets réversibles · coutures MemoryStore/Hook/Subage
 2. Tests de plugin (install/uninstall/reload)
 3. Validation sandbox complète
 4. Documentation complète mise à jour
+
+## Milestone: v0.5 — IMPLEMENTATION
+
+**Status:** ✅ Shipped (2026-10-19) — archive : `.planning/milestones/v0.5-phases/`, détails `.planning/MILESTONES.md`
+
+**Status:** In Progress
+**Objectif :** Implémenter les adaptateurs pour les 8 nouveaux ports, le PythonBridge (JSON-RPC), les tests d'intégration, et intégrer le travail existant odysseusAgentOS.
+
+### Phase 15: Adaptateurs pour les 8 nouveaux ports
+
+**Goal:** Implémenter au moins un adaptateur pour chaque nouveau port (Registry, UiSurface, ConfigSource, SkillStore, AgentLoop, AgentStore, WorkflowEngine, SandboxBackendV2).
+**Depends on:** Phase 14
+**Requirements:** IMPL-01, IMPL-02, IMPL-03
+**Success criteria:**
+1. Chaque port a au moins un adaptateur implémenté et testé
+2. Le registre de plugins gère l'installation/activation/désactivation
+3. Tests unitaires object-safety pour chaque port
+
+### Phase 16: PythonBridge (JSON-RPC)
+
+**Goal:** Implémenter le pont Python ↔ Rust via JSON-RPC over stdin/stdout avec timeout + retry + circuit breaker.
+**Depends on:** Phase 15
+**Requirements:** IMPL-04, IMPL-05, IMPL-06
+**Success criteria:**
+1. PythonBridge fonctionnel (subprocess Python + JSON-RPC)
+2. Ponts haute priorité implémentés (PythonAgentBridge, PythonToolBridge, PythonMiddlewareBridge)
+3. Tests d'interopérabilité Rust ↔ Python
+
+### Phase 17: Intégration odysseusAgentOS
+
+**Goal:** Importer les adaptateurs pertinents du repo principal. Fusionner les architectures (Python + Rust).
+**Depends on:** Phase 16
+**Requirements:** IMPL-07, IMPL-08, IMPL-09
+**Success criteria:**
+1. Adaptateurs Python importés et wrappés en plugins Rust
+2. Ponts créés pour l'interopérabilité
+3. Documentation de l'intégration mise à jour
+
+### Phase 18: Validation end-to-end
+
+**Goal:** Tests d'intégration complets. Validation sandbox. Documentation finale.
+**Depends on:** Phase 17
+**Requirements:** IMPL-10, IMPL-11, IMPL-12
+**Success criteria:**
+1. Tests d'intégration pour chaque port (16 existants + 8 nouveaux)
+2. Tests de plugin (install/uninstall/reload)
+3. Validation sandbox complète
+4. Documentation complète mise à jour
