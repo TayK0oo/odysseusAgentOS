@@ -19,7 +19,9 @@ controle_negatif:
   attendu: canaries_absentes
 verdict_attendu: FAIL
 xfail_raison: >-
-  Deux raisons empilées, nommées et mesurées : (1) le wire du provider
-  (WireMessage {role, content}, ollama.rs:22) ne transporte pas de tool_calls ;
-  (2) la boucle d'outils de l'agent n'existe pas (P1-1). L'agent répond
-  sans appeler fs.list, les canaries restent absentes de la réponse.
+  Trois causes empilées, nommées et mesurées : (1) le wire du provider
+  (WireMessage {role, content}, ollama.rs:22) ne transporte pas de tool_calls —
+  ADR-0006 décide l'extension du schéma ; (2) la boucle d'outils de l'agent
+  n'existe pas (P1-1 rescopé par ADR-0006) ; (3) le ScriptedProvider doit
+  scripter les deux formes (natif + ReAct) avant que S1 puisse passer.
+  L'agent répond sans appeler fs.list, les canaries restent absentes.
