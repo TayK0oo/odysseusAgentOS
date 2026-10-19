@@ -1,7 +1,7 @@
 ---
 status: passed
 verified: 2026-10-19
-covered_digest: v3:sha256:bb4be85e6def239939d66046a69146ca99be641b19b1b7371360d7e3e0e0fce3
+covered_digest: v3:sha256:157ddac938e941d20ccb2a724c465f0f0a857e7a820381fb179e6cfd4b18fea5
 covered_files:
   - omega/crates/omega-memory/src/lib.rs
   - omega/crates/omega-search/src/lib.rs
