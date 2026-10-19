@@ -385,6 +385,21 @@ impl FileSkillStore {
         );
     }
 
+    /// Valide + slugifie un segment de chemin (category ou name).
+    fn safe_segment(&self, raw: &str, field: &str) -> OmegaResult<String> {
+        if raw.is_empty() {
+            return Err(omega_types::OmegaError::Io(format!("{} vide", field)));
+        }
+        let slug = slugify(raw);
+        if slug.is_empty() || slug.contains("..") || slug.contains('/') || slug == "." {
+            return Err(omega_types::OmegaError::Io(format!(
+                "{} refuse : {:?} se normalise en {:?}",
+                field, raw, slug
+            )));
+        }
+        Ok(slug)
+    }
+
     /// Tous les skills sur disque.
     pub fn all(&self) -> Vec<Skill> {
         let mut out = Vec::new();
@@ -414,8 +429,21 @@ impl FileSkillStore {
     }
 
     /// Écrit un skill sur disque (`<category>/<name>/SKILL.md`).
+    ///
+    /// **Traversée** : `name` et `category` viennent de métadonnées lues sur
+    /// disque — un SKILL.md contenant `name: ../../escape` écrivait hors du store
+    /// (trouvé par le test adversarial). On slugifie donc les deux segments et
+    /// on refuse tout segment qui s'échappe après normalisation.
     pub fn save(&self, skill: &Skill) -> OmegaResult<()> {
-        let dir = self.root.join(&skill.category).join(&skill.name);
+        let name = self.safe_segment(&skill.name, "name")?;
+        let category = self.safe_segment(&skill.category, "category")?;
+        let dir = self.root.join(category).join(name);
+        if !dir.starts_with(&self.root) {
+            return Err(omega_types::OmegaError::Io(format!(
+                "segment non sûr : {} / {}",
+                skill.category, skill.name
+            )));
+        }
         std::fs::create_dir_all(&dir)
             .map_err(|e| omega_types::OmegaError::Io(e.to_string()))?;
         let path = dir.join("SKILL.md");

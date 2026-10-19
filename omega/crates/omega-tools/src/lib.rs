@@ -55,30 +55,65 @@ impl ToolCtx {
                 ".env".into(),
                 ".ssh".into(),
                 ".aws/credentials".into(),
+                ".docker/config.json".into(),
+                ".gnupg".into(),
+                ".netrc".into(),
+                "credentials".into(),
+                "id_rsa".into(),
+                "id_dsa".into(),
+                "id_ecdsa".into(),
+                "id_ed25519".into(),
                 "*.pem".into(),
                 "*.key".into(),
+                "*.p12".into(),
+                "*.pfx".into(),
+                "*.keystore".into(),
             ],
         }
     }
 
     /// Résout un chemin relatif et refuse la sortie du workspace + la deny-list.
+    ///
+    /// **Symlinks** : la normalisation lexicale seule est contournable (un lien
+    /// dans le workspace vers `/tmp` passait). On canonise donc le parent
+    /// existant du chemin cible, puis on ré-ancre le nom de fichier final.
+    /// (`ponytail:` on garde une seule résolution — `canonicalize` du parent —
+    /// plutôt qu'un moteur de résolution complet ; suffisant pour un garde-fou.)
     pub fn resolve(&self, rel: &str) -> Result<PathBuf, String> {
-        let p = Path::new(rel);
-        let abs = if p.is_absolute() {
-            p.to_path_buf()
-        } else {
-            self.root.join(p)
+        let raw = Path::new(rel);
+        let abs = if raw.is_absolute() { raw.to_path_buf() } else { self.root.join(raw) };
+        let lex = normalize(&abs);
+
+        // Remonte jusqu'au premier composant existant, canonise, ré-ancre le reste.
+        let mut anchor = lex.clone();
+        while !anchor.exists() {
+            if !anchor.pop() {
+                break;
+            }
+        }
+        let canon_anchor = std::fs::canonicalize(&anchor)
+            .map_err(|e| format!("chemin introuvable : {}", e))?;
+        // `join("")` ajouterait un slash final (-> "Not a directory") : on
+        // garde le chemin canonique tel quel quand il ne reste rien à ré-ancrer.
+        let canon = match lex.strip_prefix(&anchor) {
+            Ok(rest) if !rest.as_os_str().is_empty() => canon_anchor.join(rest),
+            _ => canon_anchor.clone(),
         };
-        let canon = normalize(&abs);
-        if !canon.starts_with(&normalize(&self.root)) {
+
+        let root_canon = std::fs::canonicalize(&self.root).unwrap_or_else(|_| normalize(&self.root));
+        if !canon.starts_with(&root_canon) {
             return Err(format!("chemin hors workspace : {}", rel));
         }
         let s = canon.to_string_lossy().to_string();
         for d in &self.deny_paths {
-            let hit = if d.contains('*') {
-                s.ends_with(&d.replace('*', ""))
-            } else {
+            let hit = if let Some(suffix) = d.strip_prefix('*') {
+                s.ends_with(suffix)
+            } else if d.ends_with('/') {
                 s.contains(d.as_str())
+            } else {
+                s == *d
+                    || s.ends_with(&format!("/{}", d))
+                    || canon.components().any(|seg| seg.as_os_str() == std::ffi::OsStr::new(d))
             };
             if hit {
                 return Err(format!("chemin protégé : {}", rel));
@@ -241,7 +276,8 @@ mod tests {
                 assert_eq!(content["content"], "hello\nworld");
                 assert_eq!(content["lines"], 2);
             }
-            _ => panic!("lecture échouée"),
+            ToolOutput::Error { message } => panic!("lecture échouée : {}", message),
+            _ => panic!("?"),
         }
         let _ = std::fs::remove_dir_all(&c.root);
     }

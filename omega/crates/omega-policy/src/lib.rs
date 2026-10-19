@@ -247,7 +247,10 @@ impl ExecPolicy for CommandPrefixExecPolicy {
     }
 
     fn evaluate(&self, command: &str) -> ExecDecision {
-        let c = command.trim();
+        // Normalisation : "rm  -rf  /" et "rm\t-rf /" doivent matcher "rm -rf /".
+        // (ÉVASION TROUVÉE PAR LE TEST ADVERSARIAL — sans ça, des espaces multiples
+        // suffisaient à contourner la deny-list.)
+        let c = command.split_whitespace().collect::<Vec<_>>().join(" ");
         for p in &self.denied_prefixes {
             if c.starts_with(p.as_str()) {
                 return ExecDecision::Forbidden(format!("prefix interdit : {}", p));

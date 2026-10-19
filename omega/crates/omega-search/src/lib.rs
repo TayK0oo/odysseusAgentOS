@@ -124,20 +124,29 @@ pub fn enhance_query(original: &str) -> EnhancedQuery {
     let mut q = original.trim().to_string();
     let mut site: Option<String> = None;
 
-    // filtre site:
-    if let Some(pos) = q.to_lowercase().find("site:") {
-        let rest = q[pos + 5..].to_string();
-        let token: String = rest
-            .chars()
-            .take_while(|c| !c.is_whitespace())
-            .collect();
-        if !token.is_empty() {
-            site = Some(token.clone());
-            let head = q[..pos].trim().to_string();
-            let tail = q[pos + 5 + token.len()..].trim().to_string();
-            q = if tail.is_empty() { head } else { format!("{} {}", head, tail) };
-            q = q.trim().to_string();
+    // Filtre site: — on retire TOUS les tokens `site:`, pas seulement le premier.
+    // (Évasion trouvée par le test adversarial : "site:a.com site:b.com" laissait
+    // passer le second filtre dans la requête.)
+    {
+        let mut kept: Vec<String> = Vec::new();
+        let mut toks = q.split_whitespace().peekable();
+        while let Some(tok) = toks.next() {
+            let lower = tok.to_lowercase();
+            if let Some(rest) = lower.strip_prefix("site:") {
+                let domain = if rest.is_empty() {
+                    // "site:" nu : le token suivant est le domaine.
+                    toks.next().map(|s| s.to_string()).unwrap_or_default()
+                } else {
+                    tok[5..].to_string()
+                };
+                if !domain.is_empty() && site.is_none() {
+                    site = Some(domain);
+                }
+                continue;
+            }
+            kept.push(tok.to_string());
         }
+        q = kept.join(" ");
     }
 
     let multi = split_multi_part(&q);
@@ -206,8 +215,20 @@ pub fn recency_score(age: Option<&str>) -> f64 {
 /// Domaine d'une URL (port de `ranking.py::_domain`).
 pub fn domain(url: &str) -> Option<String> {
     let rest = url.split("://").nth(1)?;
-    let host = rest.split('/').next()?;
-    host.split('.').rev().take(2).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join(".").into()
+    let host = rest.split('/').next()?.trim();
+    if host.is_empty() {
+        // "file:///etc/passwd" n'a pas d'hôte — pas de domaine exploitable.
+        return None;
+    }
+    if !host.contains('.') {
+        return None;
+    }
+    let segs: Vec<&str> = host.split('.').collect();
+    let parts: Vec<&str> = segs[segs.len() - 2..].to_vec();
+    if parts.len() < 2 || parts.iter().any(|p| p.is_empty()) {
+        return None;
+    }
+    Some(parts.join("."))
 }
 
 /// Score de qualité news : titre + snippet + domaine (port de `news_quality_adjustment`).
