@@ -5,7 +5,7 @@
 
 use omega_memory::skill::{parse_body, parse_frontmatter, slugify, FileSkillStore, Skill};
 use omega_memory::{tokenize, JsonlMemoryStore};
-use omega_ports::{MemoryStore};
+use omega_ports::MemoryStore;
 use std::sync::Arc;
 
 fn dir(name: &str) -> std::path::PathBuf {

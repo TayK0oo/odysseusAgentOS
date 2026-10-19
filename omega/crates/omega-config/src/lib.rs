@@ -130,7 +130,6 @@ fn has_nested(map: &serde_json::Map<String, Value>, key: &str) -> bool {
     true
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 // Port ConfigSource — adaptateur omega-config
 // ═══════════════════════════════════════════════════════════════════════════

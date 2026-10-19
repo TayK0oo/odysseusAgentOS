@@ -1277,4 +1277,3 @@ mod external_subagent_tests {
         assert!(matches!(err, OmegaError::ForbiddenCommand { .. }));
     }
 }
-

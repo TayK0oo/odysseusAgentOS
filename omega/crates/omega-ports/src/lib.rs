@@ -217,7 +217,6 @@ pub trait SubagentRunner: Send + Sync {
     async fn spawn(&self, spec: &str) -> OmegaResult<String>;
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 // Nouveaux ports — Architecture "Everything is a Plugin" (ADR 0010)
 // ═══════════════════════════════════════════════════════════════════════════
