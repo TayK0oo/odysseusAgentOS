@@ -68,8 +68,6 @@ Services inclus dans le stack Docker. Voir [`docs/traceability/00-CODE-INVENTORY
 
 ## Demo
 
-A full hover-to-play tour lives on the landing page: [`docs/assets/index.html`](docs/assets/index.html).
-
 ## Contributing
 
 Help is welcome. The best entry points are fresh-install testing, provider setup bugs, mobile/editor polish, docs, and small focused refactors. See [CONTRIBUTING.md](CONTRIBUTING.md) and [ROADMAP.md](ROADMAP.md).
