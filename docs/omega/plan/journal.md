@@ -33,3 +33,8 @@
 - Ticket `measure.py` v3 : un seul ruff (épinglé) pour `measure` et `verify` ; `registre` canonique peuplé depuis `avancee` en fin de run (Annexe C), `avancee` reste l'atelier — plus deux endroits pour la même information.
 - Fait consigné : sous 0.17.1 le scope de `verify` (`omega/scripts` + `omega/acceptance`) a **4** erreurs (C420, PLC0415 ×2, PLC0207) [observed] ; sous 0.6.9 le journal le donne vert [inferred] — le pin décide donc du verdict de G0.a.
 - Deux exemples littéraux de tag restent en WARNING (`PLAN-MAITRE.md:140`, `REPRISE.md:27`) : P0-3c les réécrit, aucune exception codée dans l'outil (ADR-0007 §6). Prochaine action : P0-3c (marquage), puis `--strict` pour G0.b.
+
+## 2026-10-19quater — P0-3b-bis + P0-3c : `--strict` VERT(0)
+- Fence/span-awareness (ADR-0007 §6 amendé) : les deux exemples littéraux bloquants étaient des **spans inline**, pas des fences — la règle couvre les deux formes de code, par sémantique Markdown et non par exception. 4 tests, dont le contrôle dans les deux sens.
+- P0-3c : `PROJET-ET-VISION` marqué (18 tags ; 109→102 capacités, 424→370 tests Rust, 5 068 « tests verts »→4 415 fonctions recensées, « 13 entrées » et « 0,4 % » retirés car non mesurés), bannières sur `VISION-INTEGRATION`/`RECAP-COMPLET`/`INDEX`/`MEMORY`, `02-WORKSTREAMS` daté, `RULES`/`MODEL-POLICY`/`00-VISION` audités sans tag (aucun chiffre mesuré par STATUS).
+- `--strict` par défaut, `verify` bloquant, mécanisme de tolérance supprimé. Limite écrite : le validateur prouve les tags, pas l'absence de chiffres non marqués. Reste ouvert : `measure.py` v3 (`*_count` pour les listes, un seul ruff épinglé). Prochaine action : G0.a (verify complet ×2).
