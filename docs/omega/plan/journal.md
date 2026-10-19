@@ -20,3 +20,9 @@
 - ADR-0004/0005 fusionnées ; dép. morte omega-tools→omega-policy supprimée ; **clippy -D warnings : 0 erreur**, 424 tests verts ; 182 lignes de duplicates de stubs supprimées.
 - **P0-4** : omega/acceptance/ (runner, ScriptedLLM **openai-compatible** — le contrat réel est `{base}/v1/chat/completions`, pas /api/chat ; wire SANS tool_calls documenté, ollama.rs:22).
 - **G0.c partiellement vert : S0=PASS, S1=XFAIL nommé** (wire sans outils + boucle absente, P1-1) — dans STATUS.json, calculé par measure.py. Prochaine action : P0-3 réconciliation doc-truth.
+
+## 2026-10-19bis — ADR-0006 + P0-3a
+- Découverte structurante S1 : le wire ne transporte pas de tool_calls (`WireMessage {role, content}`). ADR-0006 : décision A+C (schéma étendu optionnel + repli ReAct, une seule décision) ; P1-1 rescopé L → XL (règle 11 déclenchée).
+- `STATUS.json` v2 : 10 chiffres contestés mesurés avec méthodes déclarées — dissections 51, fonctionnalités 910 (parse JSON, pas grep), census 67, panneaux UI 16 (union `type Panel`), agents 20, clones 62, socle Python `present;cmd=app.py`, plugins_enregistres **5** (instance jetable HTTP), plugins_attendus INCONNU(gates_yaml P0-5). Le faux `capacites=0` (champ absent) remplacé par la clé réelle `omega_capability` = 102 uniques.
+- Erreur capitalisée : un `git checkout --` a effacé la v1 de mesure avancée (non commitée) — v2 réécrite en module séparé `measures_advanced.py`, testable isolément. `git commit` intermédiaires désormais systématiques.
+- Prochaine action : P0-3b `check_doc_truth.py` (tolérant d'abord, contrôle négatif obligatoire), puis P0-3c marquage.
