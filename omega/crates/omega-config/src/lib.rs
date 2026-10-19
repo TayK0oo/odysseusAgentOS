@@ -130,6 +130,68 @@ fn has_nested(map: &serde_json::Map<String, Value>, key: &str) -> bool {
     true
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Port ConfigSource — adaptateur omega-config
+// ═══════════════════════════════════════════════════════════════════════════
+
+use async_trait::async_trait;
+use omega_ports::ConfigSource as ConfigSourcePort;
+
+impl std::fmt::Display for ConfigLayerSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Defaults => write!(f, "defaults"),
+            Self::User => write!(f, "user"),
+            Self::Project => write!(f, "project"),
+            Self::Session => write!(f, "session"),
+        }
+    }
+}
+
+pub struct LayeredConfigSource {
+    name: String,
+    layers: std::sync::RwLock<Vec<ConfigLayer>>,
+}
+
+impl Default for LayeredConfigSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LayeredConfigSource {
+    pub fn new() -> Self {
+        Self {
+            name: "layered-config".into(),
+            layers: std::sync::RwLock::new(vec![]),
+        }
+    }
+
+    pub fn add_layer(&self, layer: ConfigLayer) {
+        self.layers.write().unwrap().push(layer);
+    }
+}
+
+#[async_trait]
+impl ConfigSourcePort for LayeredConfigSource {
+    fn name(&self) -> &str {
+        &self.name
+    }
+    async fn load(&self, layer: &str) -> omega_types::OmegaResult<Value> {
+        let layers = self.layers.read().unwrap();
+        for l in layers.iter().rev() {
+            if l.source.to_string() == layer || layer == "all" {
+                return Ok(Value::Object(l.values.clone()));
+            }
+        }
+        Ok(Value::Object(serde_json::Map::new()))
+    }
+    async fn save(&self, _layer: &str, _value: Value) -> omega_types::OmegaResult<()> {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -177,60 +239,5 @@ mod tests {
         let (v, src) = cfg.get_with_provenance("model").unwrap();
         assert_eq!(v, json!("standard"));
         assert_eq!(src, ConfigLayerSource::Project);
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Port ConfigSource — adaptateur omega-config
-// ═══════════════════════════════════════════════════════════════════════════
-
-use async_trait::async_trait;
-use omega_ports::ConfigSource as ConfigSourcePort;
-
-impl std::fmt::Display for ConfigLayerSource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Defaults => write!(f, "defaults"),
-            Self::User => write!(f, "user"),
-            Self::Project => write!(f, "project"),
-            Self::Session => write!(f, "session"),
-        }
-    }
-}
-
-pub struct LayeredConfigSource {
-    name: String,
-    layers: std::sync::RwLock<Vec<ConfigLayer>>,
-}
-
-impl LayeredConfigSource {
-    pub fn new() -> Self {
-        Self {
-            name: "layered-config".into(),
-            layers: std::sync::RwLock::new(vec![]),
-        }
-    }
-
-    pub fn add_layer(&self, layer: ConfigLayer) {
-        self.layers.write().unwrap().push(layer);
-    }
-}
-
-#[async_trait]
-impl ConfigSourcePort for LayeredConfigSource {
-    fn name(&self) -> &str {
-        &self.name
-    }
-    async fn load(&self, layer: &str) -> omega_types::OmegaResult<Value> {
-        let layers = self.layers.read().unwrap();
-        for l in layers.iter().rev() {
-            if l.source.to_string() == layer || layer == "all" {
-                return Ok(Value::Object(l.values.clone()));
-            }
-        }
-        Ok(Value::Object(serde_json::Map::new()))
-    }
-    async fn save(&self, _layer: &str, _value: Value) -> omega_types::OmegaResult<()> {
-        Ok(())
     }
 }

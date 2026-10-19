@@ -78,7 +78,7 @@ impl CompositionRegistry {
                     .collect()
             };
             for o in others {
-                self.deactivate(&o);
+                let _ = self.deactivate(&o);
             }
         }
 
@@ -226,7 +226,7 @@ pub fn compose_ported_crates() -> CompositionRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use omega_ports::{AgentLoop, ConfigSource, SkillStore, UiSurface};
+    use omega_ports::ConfigSource;
 
     #[test]
     fn register_then_activate_then_resolve() {

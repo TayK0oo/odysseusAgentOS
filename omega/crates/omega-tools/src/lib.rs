@@ -289,7 +289,6 @@ mod tests {
                 assert_eq!(content["lines"], 2);
             }
             ToolOutput::Error { message } => panic!("lecture échouée : {}", message),
-            _ => panic!("?"),
         }
         let _ = std::fs::remove_dir_all(&c.root);
     }

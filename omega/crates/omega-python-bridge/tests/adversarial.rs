@@ -9,9 +9,8 @@ use omega_python_bridge::{
     PythonToolBridge,
 };
 use serde_json::json;
-use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::time::{Duration, Instant};
 
 /// Crée un script Python temporaire.

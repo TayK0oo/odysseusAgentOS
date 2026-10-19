@@ -253,7 +253,7 @@ mod tests {
         let dir = tmpdir("delete");
         let store = JsonlMemoryStore::new(&dir);
         let rec = MemoryRecord::new("id1", "hello world test");
-        store.save_all(&[rec.clone()]).unwrap();
+        store.save_all(&[rec]).unwrap();
         assert!(store.delete("id1"));
         assert!(!store.delete("id1")); // déjà supprimé
         assert!(store.all(10).is_empty());

@@ -1,3 +1,8 @@
+// ponytail: FileMemoryStore/SimpleHookRegistry/LocalSubagentRunner et leurs
+// Contributor ne sont construits nulle part hors de ce module (adaptateurs « Phase B »
+// jamais branchés dans omega-server) — suppression ou branchement en P1, cf. ADR-0004.
+#![allow(dead_code)]
+
 //! Adaptateurs runtime des ports orphelins (NOYAU Phase B, top-level).
 //!
 //! Opt-in via `AppBuilder::with_runtime_ports` : un adaptateur par defaut

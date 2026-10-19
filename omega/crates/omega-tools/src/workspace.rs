@@ -37,7 +37,7 @@ pub fn describe(ctx: &ToolCtx) -> ToolOutput {
             }
         }
     }
-    largest.sort_by(|a, b| b.1.cmp(&a.1));
+    largest.sort_by_key(|p| std::cmp::Reverse(p.1));
     largest.truncate(10);
 
     ToolOutput::ok(

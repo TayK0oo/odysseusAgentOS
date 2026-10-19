@@ -13,6 +13,12 @@ use omega_types::OmegaResult;
 pub struct DefaultRegistry {
     name: String,
 }
+impl Default for DefaultRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DefaultRegistry {
     pub fn new() -> Self {
         Self {
@@ -67,6 +73,12 @@ impl UiSurface for DefaultUiSurface {
 pub struct DefaultConfigSource {
     name: String,
 }
+impl Default for DefaultConfigSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DefaultConfigSource {
     pub fn new() -> Self {
         Self {
@@ -91,6 +103,12 @@ impl ConfigSource for DefaultConfigSource {
 pub struct DefaultSkillStore {
     name: String,
 }
+impl Default for DefaultSkillStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DefaultSkillStore {
     pub fn new() -> Self {
         Self {
@@ -115,6 +133,12 @@ impl SkillStore for DefaultSkillStore {
 pub struct DefaultAgentLoop {
     name: String,
 }
+impl Default for DefaultAgentLoop {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DefaultAgentLoop {
     pub fn new() -> Self {
         Self {
@@ -142,6 +166,12 @@ impl AgentLoop for DefaultAgentLoop {
 pub struct DefaultAgentStore {
     name: String,
 }
+impl Default for DefaultAgentStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DefaultAgentStore {
     pub fn new() -> Self {
         Self {
@@ -169,6 +199,12 @@ impl AgentStore for DefaultAgentStore {
 pub struct DefaultWorkflowEngine {
     name: String,
 }
+impl Default for DefaultWorkflowEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DefaultWorkflowEngine {
     pub fn new() -> Self {
         Self {
@@ -196,6 +232,12 @@ impl WorkflowEngine for DefaultWorkflowEngine {
 pub struct DefaultSandboxBackendV2 {
     name: String,
 }
+impl Default for DefaultSandboxBackendV2 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DefaultSandboxBackendV2 {
     pub fn new() -> Self {
         Self {

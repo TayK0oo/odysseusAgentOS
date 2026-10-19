@@ -4,8 +4,8 @@
 //! collisions, et le parseur de frontmatter des skills.
 
 use omega_memory::skill::{parse_body, parse_frontmatter, slugify, FileSkillStore, Skill};
-use omega_memory::{tokenize, JsonlMemoryStore, MemoryRecord};
-use omega_ports::{MemoryStore, SkillStore};
+use omega_memory::{tokenize, JsonlMemoryStore};
+use omega_ports::{MemoryStore};
 use std::sync::Arc;
 
 fn dir(name: &str) -> std::path::PathBuf {
@@ -30,7 +30,7 @@ fn atk_partial_write_leaves_no_garbage() {
 
     // On rend le répertoire parent non inscriptible en le remplissant d'un fichier
     // du même nom : l'écriture doit échouer SANS corrompre l'existant.
-    let store2 = JsonlMemoryStore::new(&std::path::Path::new("/proc/nonexistent-dir"));
+    let store2 = JsonlMemoryStore::new(std::path::Path::new("/proc/nonexistent-dir"));
     let res = futures_lite_block_on(store2.remember("x"));
     assert!(res.is_err(), "écriture hors FS doit échouer");
 

@@ -263,7 +263,7 @@ pub fn domain(url: &str) -> Option<String> {
 pub fn news_quality(hit: &SearchHit) -> f64 {
     let title_words = hit.title.split_whitespace().count() as f64;
     let snippet_words = hit.snippet.split_whitespace().count() as f64;
-    let title_score = if title_words >= 5.0 && title_words <= 20.0 {
+    let title_score = if (5.0..=20.0).contains(&title_words) {
         1.0
     } else {
         0.6

@@ -282,7 +282,6 @@ impl SandboxBackend for NamespaceSandboxBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::policy::RuleBasedExecPolicy;
 
     #[test]
     fn user_ns_detection_works() {
