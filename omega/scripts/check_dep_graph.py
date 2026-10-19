@@ -23,8 +23,6 @@ import sys
 import tempfile
 import tomllib
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
-
 
 ARCH_RULES = {
     # Categorie -> set de categories cibles autorisees (y compris soi-meme si pertinent).
@@ -125,13 +123,13 @@ def read_package_name(cargo_path: Path) -> str:
     return data["package"]["name"]
 
 
-def discover_crates(root: Path) -> Dict[str, Path]:
+def discover_crates(root: Path) -> dict[str, Path]:
     """Decouvre les crates membres du workspace a partir de `[workspace] members`."""
     workspace_toml = root / "Cargo.toml"
     with workspace_toml.open("rb") as f:
         data = tomllib.load(f)
 
-    crates: Dict[str, Path] = {}
+    crates: dict[str, Path] = {}
     members = data.get("workspace", {}).get("members", [])
     for pattern in members:
         # Support simple : pattern termine par `/*` (ex. "crates/*").
@@ -151,7 +149,7 @@ def discover_crates(root: Path) -> Dict[str, Path]:
     return crates
 
 
-def read_workspace_dependencies(root: Path) -> Dict[str, object]:
+def read_workspace_dependencies(root: Path) -> dict[str, object]:
     """Retourne la table `[workspace.dependencies]` si elle existe."""
     workspace_toml = root / "Cargo.toml"
     with workspace_toml.open("rb") as f:
@@ -169,11 +167,11 @@ def _is_under_root(path: Path, root: Path) -> bool:
 def _resolve_dep_name(
     key: str,
     spec: object,
-    workspace_deps: Dict[str, object],
-    member_crates: Dict[str, Path],
+    workspace_deps: dict[str, object],
+    member_crates: dict[str, Path],
     root: Path,
     cargo_dir: Path,
-) -> Tuple[str | None, Path | None]:
+) -> tuple[str | None, Path | None]:
     """Determine le nom reel d'une dependance et son Cargo.toml si elle est interne.
 
     Une dependance est interne si :
@@ -233,11 +231,11 @@ def _resolve_dep_name(
 
 def parse_internal_deps(
     cargo_path: Path,
-    workspace_deps: Dict[str, object],
-    member_crates: Dict[str, Path],
+    workspace_deps: dict[str, object],
+    member_crates: dict[str, Path],
     root: Path,
-    crate_paths: Dict[str, Path],
-) -> Set[str]:
+    crate_paths: dict[str, Path],
+) -> set[str]:
     """Extrait les dependances internes depuis un Cargo.toml.
 
     Parcourt `[dependencies]`, `[dev-dependencies]`, `[build-dependencies]` ainsi
@@ -248,9 +246,9 @@ def parse_internal_deps(
         data = tomllib.load(f)
 
     cargo_dir = cargo_path.parent
-    deps: Set[str] = set()
+    deps: set[str] = set()
 
-    sections: List[Tuple[str, Dict[str, object]]] = []
+    sections: list[tuple[str, dict[str, object]]] = []
     for section in ("dependencies", "dev-dependencies", "build-dependencies"):
         table = data.get(section, {})
         if table:
@@ -275,12 +273,12 @@ def parse_internal_deps(
     return deps
 
 
-def detect_cycles(graph: Dict[str, Set[str]]) -> List[List[str]]:
+def detect_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
     """Detecte les cycles par coloration DFS."""
     WHITE, GRAY, BLACK = 0, 1, 2
-    color: Dict[str, int] = {node: WHITE for node in graph}
-    cycles: List[List[str]] = []
-    stack: List[str] = []
+    color: dict[str, int] = {node: WHITE for node in graph}
+    cycles: list[list[str]] = []
+    stack: list[str] = []
 
     def dfs(node: str) -> None:
         color[node] = GRAY
@@ -302,7 +300,7 @@ def detect_cycles(graph: Dict[str, Set[str]]) -> List[List[str]]:
     return cycles
 
 
-def check_workspace(root: Path) -> Tuple[int, List[str]]:
+def check_workspace(root: Path) -> tuple[int, list[str]]:
     """Verifie un workspace. Retourne (nombre de crates connus, liste d'erreurs)."""
     member_crates = discover_crates(root)
     if not member_crates:
@@ -311,11 +309,11 @@ def check_workspace(root: Path) -> Tuple[int, List[str]]:
     workspace_deps = read_workspace_dependencies(root)
 
     # Graphe complet : membres + crates atteints par dependances `path` hors members.
-    crate_paths: Dict[str, Path] = dict(member_crates)
-    graph: Dict[str, Set[str]] = {}
+    crate_paths: dict[str, Path] = dict(member_crates)
+    graph: dict[str, set[str]] = {}
 
     to_process = list(crate_paths.items())
-    processed: Set[str] = set()
+    processed: set[str] = set()
 
     while to_process:
         name, cargo_path = to_process.pop()
@@ -333,7 +331,7 @@ def check_workspace(root: Path) -> Tuple[int, List[str]]:
             if dep_cargo is not None and dep_name not in processed:
                 to_process.append((dep_name, dep_cargo))
 
-    errors: List[str] = []
+    errors: list[str] = []
 
     # 1. Cycles
     cycles = detect_cycles(graph)
@@ -354,15 +352,15 @@ def check_workspace(root: Path) -> Tuple[int, List[str]]:
     return len(crate_paths), errors
 
 
-CrateFixture = Tuple[Dict[str, str], Dict[str, str], Dict[str, Dict[str, str]]]
+CrateFixture = tuple[dict[str, str], dict[str, str], dict[str, dict[str, str]]]
 
 
 def write_cargo_fixture(
     root: Path,
     crate_name: str,
-    deps: Dict[str, str] | None = None,
-    dev_deps: Dict[str, str] | None = None,
-    target_deps: Dict[str, Dict[str, str]] | None = None,
+    deps: dict[str, str] | None = None,
+    dev_deps: dict[str, str] | None = None,
+    target_deps: dict[str, dict[str, str]] | None = None,
     prefix: str = "crates",
 ) -> None:
     """Ecrit un Cargo.toml minimal de crate interne pour les fixtures.
@@ -380,7 +378,7 @@ def write_cargo_fixture(
         "",
     ]
 
-    def add_section(name: str, table: Dict[str, str]) -> None:
+    def add_section(name: str, table: dict[str, str]) -> None:
         lines.append(f"[{name}]")
         for dep_name, spec in table.items():
             lines.append(f'{dep_name} = {spec}')
@@ -406,7 +404,7 @@ def self_test() -> int:
         print("SELF-TEST ERREUR : python3 non disponible", file=sys.stderr)
         return 1
 
-    base_members: Dict[str, CrateFixture] = {
+    base_members: dict[str, CrateFixture] = {
         "omega-types": ({}, {}, {}),
         "omega-ports": ({"omega-types": '{ workspace = true }'}, {}, {}),
         "omega-core": (
@@ -416,11 +414,11 @@ def self_test() -> int:
         ),
     }
     # Crates presents dans le depot mais absents de `[workspace] members`.
-    base_hidden: Dict[str, CrateFixture] = {
+    base_hidden: dict[str, CrateFixture] = {
         "omega-registry": ({"omega-types": '{ workspace = true }'}, {}, {}),
     }
 
-    cases: List[Tuple[str, Dict[str, CrateFixture], Dict[str, CrateFixture]]] = [
+    cases: list[tuple[str, dict[str, CrateFixture], dict[str, CrateFixture]]] = [
         (
             "dev-dependency interdite (core -> registry)",
             {"omega-core": ({}, {"omega-registry": '{ workspace = true }'}, {})},

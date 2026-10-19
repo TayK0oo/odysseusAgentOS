@@ -10,9 +10,10 @@ Limites connues :
 
 import ast
 import json
+import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]  # racine du dépôt omega
@@ -56,7 +57,7 @@ def count_python_tests() -> tuple[int, str]:
         except SyntaxError:
             continue  # fichier cassé : sera signalé par la porte verify (P0-1)
         n += sum(1 for node in ast.walk(tree)
-                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                 if isinstance(node, (ast.FunctionDef | ast.AsyncFunctionDef))
                  and node.name.startswith("test_"))
     return n, "ast"
 
@@ -65,12 +66,33 @@ def run_script(script: str, *args: str) -> dict:
     p = ROOT / "omega" / "scripts" / script
     try:
         r = subprocess.run([sys.executable, str(p), *args], cwd=ROOT,
-                           capture_output=True, text=True, timeout=60)
+                           capture_output=True, text=True, timeout=60, check=False)
         extrait = (r.stdout or r.stderr).strip()[-300:]
         return {"verdict": "OK" if r.returncode == 0 else f"ECHEC({r.returncode})",
                 "extrait": extrait}
     except Exception as e:
         return {"verdict": f"SKIPPED({e})", "extrait": ""}
+
+
+
+def count_ruff_legacy() -> "tuple[int | None, str]":
+    """Compte les erreurs ruff hors omega/ (socle legacy, dette P1 — ADR-0005).
+
+    R Opportun : None si ruff absent (jamais une valeur inventee).
+    """
+    if shutil.which("ruff") is None:
+        return None, "ruff_absent"
+    try:
+        v = subprocess.run(["ruff", "--version"], capture_output=True,
+                           text=True, timeout=30).stdout.strip().split()[-1]
+        r = subprocess.run(["ruff", "check", ".", "--output-format=json"],
+                           cwd=ROOT, capture_output=True, text=True, timeout=300)
+        erreurs = json.loads(r.stdout)
+        legacy = [e for e in erreurs
+                  if not e["filename"].split("/odysseusAgentOS-omega/")[-1].startswith("omega/")]
+        return len(legacy), f"ruff_json@{v}"
+    except Exception as e:
+        return None, f"ruff_erreur:{type(e).__name__}"
 
 
 def main() -> int:
@@ -79,15 +101,17 @@ def main() -> int:
         r = subprocess.run(
             ["cargo", "metadata", "--no-deps", "--format-version", "1",
              "--manifest-path", str(CARGO)],
-            capture_output=True, text=True)
+            capture_output=True, text=True, check=False)
         if r.returncode == 0:
             crates = sorted(p.get("name") for p in json.loads(r.stdout)["packages"])
     rust_tests, detail_rust = count_rust_tests()
     python_tests, methode_python = count_python_tests()
 
+    ruff_legacy, methode_ruff = count_ruff_legacy()
+
     status = {
         "git_sha": git_sha(),
-        "mesure_le": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "mesure_le": datetime.now(UTC).isoformat(timespec="seconds"),
         "moteur_reference": "INDETERMINE (ADR D0, P0-9)",
         "socles": {
             "rust": {
@@ -97,6 +121,8 @@ def main() -> int:
             },
             "python": {
                 "tests": {"valeur": python_tests, "methode": methode_python},
+                "ruff_legacy_erreurs": {"valeur": ruff_legacy, "methode": methode_ruff,
+                                        "note": "dette P1, non bloquante (ADR-0005)"},
             },
         },
         "portes_federees": {
@@ -109,7 +135,7 @@ def main() -> int:
                       for i in range(12)},
         "couverture_ponderee": 0.0,
         "portes": {f"G{i}": "ROUGE" for i in range(8)},
-        "prochaine_action": "P0-1 : commande verify sur clone vierge (worktree jetable, porte G0.a)",
+        "prochaine_action": "P0-4 : banc d'acceptation (runner boite noire, ScriptedProvider, S0 vert / S1 xfail nomme)",
     }
 
     STATUS_DIR.mkdir(parents=True, exist_ok=True)

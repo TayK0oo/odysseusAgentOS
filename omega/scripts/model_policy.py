@@ -55,7 +55,7 @@ def fetch(url: str) -> list[dict]:
     cmd = ["curl", "-sS", "--max-time", "30", url]
     if key:
         cmd += ["-H", f"Authorization: Bearer {key}"]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    r = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if r.returncode != 0:
         return []
     try:
@@ -166,16 +166,12 @@ def main() -> int:
     if args.check:
         refs = policy_models(policy)
         missing = [r for r in refs if r not in live]
-        not_free = [r for r in refs if live.get(r) is False and not r.startswith("opencode-go/")]
         forbidden = set(policy.get("forbidden", []))
         problems = []
         # (a) une regle ne doit JAMAIS citer un modele interdit
         for m in refs:
             if m in forbidden:
                 problems.append(f"regle citant un modele INTERDIT : {m}")
-        # (b) un payant hors Go ne doit apparaitre que dans 'forbidden'
-        not_free = [r for r in refs if live.get(r) is False and not r.startswith("opencode-go/")
-                    and not r.startswith("opencode/")]
         print(f"modeles live: {len(live)} ({sum(1 for v in live.values() if v)} gratuits)")
         print(f"references par la politique: {len(refs)}")
         if missing:

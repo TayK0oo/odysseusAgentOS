@@ -3,9 +3,8 @@
 Génère MEMORY.md automatiquement depuis l'état du codebase.
 Remplace la maintenance manuelle.
 """
-import subprocess
 import json
-import os
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -13,7 +12,7 @@ ROOT = Path(__file__).parent.parent.parent
 
 def run(cmd, cwd=None):
     try:
-        return subprocess.run(cmd, shell=True, cwd=cwd or ROOT, capture_output=True, text=True).stdout.strip()
+        return subprocess.run(cmd, shell=True, cwd=cwd or ROOT, capture_output=True, text=True, check=False).stdout.strip()
     except Exception:
         return ""
 
@@ -112,7 +111,7 @@ def main():
     for p in phases:
         md += f"| {p['name']} | {'✅' if p['context'] else '❌'} | {'✅' if p['plan'] else '❌'} | {'✅' if p['summary'] else '❌'} | {'✅' if p['verification'] else '❌'} |\n"
     
-    md += f"""
+    md += """
 
 ---
 

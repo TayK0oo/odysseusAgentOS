@@ -22,7 +22,6 @@ import argparse
 import json
 import os
 import re
-import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -146,7 +145,7 @@ def main() -> int:
                     unresolved += 1
                     (errors if args.strict else warnings).append(f"{app}/{fid}: {why}")
 
-    print(f"fichiers: {len([f for f in files])} | fonctionnalites: {total_fct} | refs: {total_refs}")
+    print(f"fichiers: {len(files)} | fonctionnalites: {total_fct} | refs: {total_refs}")
     print(f"refs non resolues: {unresolved}")
     for w in warnings[:20]:
         print(f"  ⚠ {w}")

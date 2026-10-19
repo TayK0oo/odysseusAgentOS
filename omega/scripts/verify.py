@@ -30,7 +30,7 @@ import subprocess
 import sys
 import tempfile
 import venv
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -39,9 +39,9 @@ PINNED_PY_DEPS = ["ruff==0.6.9", "pytest==8.3.3"]
 
 def run(cmd, cwd=None, timeout=900):
     try:
-        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
+        r = subprocess.run(cmd, check=False, cwd=cwd, capture_output=True, text=True,
                            timeout=timeout)
-        return r.returncode == 0, ((r.stdout or "") + (r.stderr or "")).strip()[-4000:]
+        return r.returncode == 0, ((r.stdout or "") + (r.stderr or "")).strip()
     except FileNotFoundError as e:
         return False, f"introuvable: {cmd[0]} ({e})"
     except subprocess.TimeoutExpired:
@@ -72,7 +72,7 @@ def main():
 
     base = Path(tempfile.mkdtemp(prefix="verify-"))
     report = {
-        "mesure_le": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "mesure_le": datetime.now(UTC).isoformat(timespec="seconds"),
         "sha": git_sha(),
         "mode": args.mode,
         "workdir": str(base),
@@ -82,9 +82,18 @@ def main():
 
     def finish(code):
         report["verdict"] = code
+        report["skipped_par_odus"] = 0
+        report.pop("skipped_par_odus")
+        rep_path = Path(tempfile.gettempdir()) / f"verify-{report['sha']}-{datetime.now().strftime('%H%M%S')}.json"
+        rep_path.write_text(json.dumps(report, indent=2, ensure_ascii=False),
+                            encoding="utf-8")
         if not args.keep:
             shutil.rmtree(base, ignore_errors=True)
-        print(json.dumps(report, indent=2, ensure_ascii=False))
+        # resume stdout : un etat par etape, sortie integrale dans rep_path
+        print(f"verdict: {code}")
+        for k, v in report["etapes"].items():
+            print(f"  {k:12} ok={v.get('ok')}")
+        print(f"rapport integral: {rep_path}")
         return 0 if code == "VERT" else 1
 
     # 1. Prérequis
@@ -128,8 +137,13 @@ def main():
     ruff = str(vdir / "bin" / "ruff")
     pytestb = str(vdir / "bin" / "pytest")
 
-    # 4. Ruff
-    ok, out = run([ruff, "check", "."], cwd=work)
+    om = work / "omega"
+
+    # 4. Ruff — scope P0 (ADR-0005) : Python nouveau uniquement. Le socle
+    #    legacy (src/, services/, tests/, core/, routes/) est une dette P1
+    #    chiffree par measure.py, non bloquante pour G0.a.
+    ok, out = run([ruff, "check", str(om / "scripts"), str(om / "acceptance")],
+                  cwd=work)
     report["etapes"]["ruff"] = {"ok": ok, "out": out}
 
     # 5. Pytest
@@ -142,7 +156,6 @@ def main():
         report["etapes"]["pytest"] = {"ok": None, "out": "tests/ absent"}
 
     # 6 à 8. Rust
-    om = work / "omega"
     ok, out = run(["cargo", "fmt", "--check"], cwd=om)
     report["etapes"]["cargo_fmt"] = {"ok": ok, "out": out}
 

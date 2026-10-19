@@ -103,7 +103,7 @@ def main() -> int:
     quick = sorted([r for r in rows if r[2] == "S"], key=lambda r: -r[1])[:15]
     if not quick:
         lines.append("_aucun_")
-    for (_score, n, _c, cap, aps, examples) in quick:
+    for (_score, n, _c, cap, _aps, examples) in quick:
         ex = ", ".join(f"{a}" for (a, _nm, _ad, _c2) in examples[:4])
         lines.append(f"- `{cap}` — {n} harnais ({ex})")
     lines.append("")

@@ -99,7 +99,7 @@ def clone(repo: str, dest: Path) -> tuple[bool, str]:
         ["git", "clone", "--depth", "1", f"https://github.com/{repo}.git", str(dest)],
         capture_output=True,
         text=True,
-        timeout=1800,
+        timeout=1800, check=False,
     )
     if r.returncode != 0:
         return False, (r.stderr or r.stdout).strip()[-200:]
@@ -119,7 +119,7 @@ def run_rea(args: list[str]) -> tuple[int, dict]:
         capture_output=True,
         text=True,
         env=rea_env(),
-        timeout=TIMEOUT,
+        timeout=TIMEOUT, check=False,
     )
     obj = extract_json(proc.stdout)
     if obj is None:

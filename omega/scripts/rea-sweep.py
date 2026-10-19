@@ -59,7 +59,7 @@ def run_rea(args: list[str]) -> tuple[int, dict]:
         capture_output=True,
         text=True,
         env=rea_env(),
-        timeout=TIMEOUT,
+        timeout=TIMEOUT, check=False,
     )
     obj = extract_json(proc.stdout)
     if obj is None:
@@ -317,7 +317,7 @@ def main() -> int:
     selected = harness_targets() if args.harnesses else targets()
     report = OUT_DIR / ("HARNESS-SWEEP.md" if args.harnesses else "SWEEP.md")
     if args.harnesses and not selected:
-        print(f"aucun harnais JS/TS trouve dans le dossier de clones", file=sys.stderr)
+        print("aucun harnais JS/TS trouve dans le dossier de clones", file=sys.stderr)
         return 1
 
     results = []
