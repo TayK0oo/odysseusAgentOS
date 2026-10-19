@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
-milestone: v0.5
-milestone_name: IMPLEMENTATION
+milestone: v0.6
+milestone_name: ADAPTATEURS & INTEGRATION
 status: Awaiting next milestone
-last_updated: "2026-10-19T00:16:45.801Z"
+last_updated: "2026-10-19T00:26:20.493Z"
 last_activity: 2026-10-19
-last_activity_desc: Milestone v0.5 completed and archived
-state_head: f4385216c07207649305d4018e42f468f8578921
+last_activity_desc: Milestone v0.6 completed and archived
+state_head: 10f6fb544b4819cffc580a0a9a3cc4c174c06925
 progress:
   total_phases: 4
   completed_phases: 4
   total_plans: 0
   completed_plans: 0
   percent: 100
-current_phase: 18
+current_phase: 22
 ---
 
 # STATE — Omega
@@ -58,10 +58,10 @@ Voir `docs/omega/rules/MODEL-POLICY.md` + `model_policy.py --check`.
 
 ## Current Position
 
-Phase: Milestone v0.5 complete
+Phase: Milestone v0.6 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-10-19 — Milestone v0.5 completed and archived
+Last activity: 2026-10-19 — Milestone v0.6 completed and archived
 
 ## Operator Next Steps
 

@@ -1,12 +1,12 @@
 {
   "contract": "1.0.0",
   "flavor": "core",
-  "milestone": "v0.5 — IMPLEMENTATION",
+  "milestone": "v0.6 — ADAPTATEURS & INTEGRATION",
   "phases": [],
   "next": {
     "command": "/gsd-progress",
     "label": "Show progress",
     "reason": "Unsure of state — showing progress"
   },
-  "updated_at": "2026-10-19T00:16:45.806Z"
+  "updated_at": "2026-10-19T00:26:20.498Z"
 }

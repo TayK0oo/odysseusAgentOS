@@ -159,3 +159,51 @@ Phases 1–5 : squelette effets réversibles · coutures MemoryStore/Hook/Subage
 2. Tests de plugin (install/uninstall/reload)
 3. Validation sandbox complète
 4. Documentation complète mise à jour
+
+## Milestone: v0.6 — ADAPTATEURS & INTEGRATION
+
+**Status:** ✅ Shipped (2026-10-19) — archive : `.planning/milestones/v0.6-phases/`, détails `.planning/MILESTONES.md`
+
+**Status:** In Progress
+**Objectif :** Implémenter les adaptateurs spécifiques pour chaque port, le PythonBridge handler, les tests d'intégration end-to-end, et intégrer le travail existant odysseusAgentOS.
+
+### Phase 19: Adaptateurs spécifiques pour les ports
+
+**Goal:** Implémenter au moins un adaptateur spécifique (pas juste les defaults) pour chaque port existant (16) et nouveau (8). Remplacer les defaults par des implémentations fonctionnelles.
+**Depends on:** Phase 18
+**Requirements:** ADAPT-01, ADAPT-02, ADAPT-03
+**Success criteria:**
+1. Chaque port a au moins un adaptateur spécifique implémenté
+2. Les adaptateurs sont testés (unit + integration)
+3. Le registre de plugins gère l'installation/activation/désactivation
+
+### Phase 20: PythonBridge handler + tests E2E
+
+**Goal:** Implémenter le script Python handler pour le bridge, tester l'interopérabilité Rust ↔ Python end-to-end.
+**Depends on:** Phase 19
+**Requirements:** BRIDGE-01, BRIDGE-02, BRIDGE-03
+**Success criteria:**
+1. Script Python handler fonctionnel (JSON-RPC dispatcher)
+2. Tests E2E Rust ↔ Python passent
+3. Timeout + retry + circuit breaker validés
+
+### Phase 21: Intégration odysseusAgentOS effective
+
+**Goal:** Importer les adaptateurs pertinents du repo principal. Fusionner les architectures (Python + Rust). Créer les ponts nécessaires.
+**Depends on:** Phase 20
+**Requirements:** INTEG-04, INTEG-05, INTEG-06
+**Success criteria:**
+1. Adaptateurs Python importés et wrappés en plugins Rust
+2. Ponts créés et testés
+3. Documentation mise à jour
+
+### Phase 22: Validation sandbox + déploiement
+
+**Goal:** Validation sandbox complète. Tests de plugin (install/uninstall/reload). Documentation finale. Déploiement.
+**Depends on:** Phase 21
+**Requirements:** VALID-04, VALID-05, VALID-06
+**Success criteria:**
+1. Tests de plugin (install/uninstall/reload)
+2. Validation sandbox complète
+3. Documentation finale mise à jour
+4. Déploiement via validate.sh → run.sh → deploy.sh
