@@ -4,6 +4,11 @@
 > ordonnés par dépendances, avec estimation et critère de sortie.
 > **Statut :** vivant · **Date :** 2026-10-15 · **Branche :** `feat/agentos-omega`.
 > **Provenance :** `[observed]` (fait) · `[inferred]` (estimation) · `[todo]`.
+>
+> **État des chantiers :** la colonne *Statut* et les chiffres par chantier sont ceux
+> du **2026-10-15** (`[observed]` à cette date) ; rien ne les revérifie. Plusieurs
+> chantiers marqués « à venir » ont depuis des crates. Ne pas les lire comme l'état
+> courant : l'état mesuré est `docs/omega/plan/STATUS.md`.
 
 ---
 
