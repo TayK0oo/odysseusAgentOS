@@ -1,0 +1,36 @@
+# gitleaks — configuration du dépôt
+#
+# Les 4 findings du scan d'origine ont été investigués un par un (2026-10-19) :
+# **aucun n'est un secret réel.** Allowlist étroite, limitée à la documentation
+# et à un placeholder — aucun fichier de configuration applicative, de source
+# ou d'infrastructure réel n'y figure.
+
+title = "gitleaks — odysseusAgentOS"
+
+[extend]
+useDefault = true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. docs/omega/reverse-eng/dissections/*.md
+#    Faux positif : tableau markdown « | Pool hebdo + tiers au prix API,
+#    Cost/Balance/Intelligence | router-policy -> ScoringPolicy | ».
+#    La règle generic-api-key matche « Cost/Balance/Intelligence ».
+#    Vérifié : `git log -S "eyJ"` ne retourne AUCUN commit → aucun secret
+#    n'a jamais été commité dans ces fichiers.
+#
+# 2. docs/architecture/*.md
+#    Faux positif : extrait de code documentaire contenant
+#    `version_token="..."` (exemple d'API Graph dans une doc d'architecture).
+#
+# 3. docker-compose*.yml
+#    Faux positif : la valeur était le PLACEHOLDER littéral
+#    `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` (39 caractères, points
+#    littéraux inclus) — le seul en-tête JWT, sans signature.
+#    Remplacé le 2026-10-19 par `${SUPABASE_ANON_KEY:?...}`.
+#    Allowlist conservée : l'historique git contient encore la version en dur
+#    et gitleaks scanne l'historique.
+paths = [
+  '''^docs/omega/reverse-eng/dissections/.*\.md$''',
+  '''^docs/architecture/.*\.md$''',
+  '''^docker-compose.*\.yml$''',
+]

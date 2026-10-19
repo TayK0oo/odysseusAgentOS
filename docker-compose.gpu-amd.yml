@@ -753,7 +753,7 @@ services:
     - 127.0.0.1:54321:54321
     environment:
     - SUPABASE_URL=http://localhost:54321
-    - SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:?definez SUPABASE_ANON_KEY dans .env}
     volumes:
     - supabase-data:/var/lib/postgresql/data
     security_opt:

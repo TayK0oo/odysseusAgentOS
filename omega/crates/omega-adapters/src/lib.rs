@@ -3,6 +3,8 @@
 //! Chaque adaptateur est un plugin minimal qui implemente le port correspondant.
 //! Ils servent de "legacy" fallback et de base pour les implementations specifiques.
 
+pub mod composition;
+
 use async_trait::async_trait;
 use omega_ports::*;
 use omega_types::OmegaResult;
