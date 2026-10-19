@@ -9,7 +9,8 @@
 
 | Fichier | Rôle | Lecture recommandée |
 |---------|------|---------------------|
-| `AGENTS.md` | Première lecture de tout agent | **TOUJOURS en premier** |
+| **`docs/omega/PROJET-ET-VISION.md`** | **Document unique : projet, inventaire des fichiers, état réel, plan** | **1er —Start here** |
+| `AGENTS.md` | Première lecture de tout agent | 2ème |
 | `docs/omega/rules/RULES-OMEGA.md` | Règles directrices (autorité) | 2ème |
 | `docs/omega/MEMORY.md` | Mémoire persistante (état, décisions, credentials) | 3ème |
 | `docs/omega/00-VISION-OMEGA.md` | Vision cible (6 piliers) | 4ème |
