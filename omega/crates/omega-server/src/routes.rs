@@ -240,6 +240,61 @@ mod tests {
         assert!(entries.iter().all(|e| e.active));
     }
 
+    // (P1-2) Snapshot nominal : les 8 adaptateurs portes doivent etre visibles
+    // via GET /api/plugins, avec leur capacite exacte (liste, pas un compte).
+    // Compare a la liste lue depuis `omega-adapters::composition` lui-meme.
+    const ADAPTERS_PORTES: &[(&str, &str)] = &[
+        ("agentstore/default", "agent-store"),
+        ("config/default", "config-source"),
+        ("loop/default", "agent-loop"),
+        ("sandbox/default", "sandbox-backend"),
+        ("skills/default", "skill-store"),
+        ("ui/main", "ui-surface"),
+        ("ui/sidebar", "ui-surface"),
+        ("workflow/default", "workflow-engine"),
+    ];
+
+    #[tokio::test]
+    async fn plugins_handler_lists_all_registered_adapters() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        let (state, _) = test_state("routes-plugins-p12");
+        let app = create_router(state);
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/plugins")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let entries: Vec<PluginEntry> =
+            serde_json::from_slice(&body).expect("reponse /api/plugins parseable en JSON");
+        for (id, capability) in ADAPTERS_PORTES {
+            let entry = entries
+                .iter()
+                .find(|e| e.id == *id)
+                .unwrap_or_else(|| panic!("adaptateur manquant de /api/plugins : {id}"));
+            assert_eq!(
+                entry.capability, *capability,
+                "capacite de l'adaptateur {id}"
+            );
+        }
+        // Doublon interdit : la liste nominative est exacte.
+        let mut ids: Vec<&str> = entries.iter().map(|e| e.id.as_str()).collect();
+        ids.sort_unstable();
+        let n = ids.len();
+        ids.dedup();
+        assert_eq!(ids.len(), n, "ids dupliques dans /api/plugins");
+    }
+
     #[tokio::test]
     async fn run_handler_returns_decision_and_summary_without_network() {
         let (state, _) = test_state("routes-run");
