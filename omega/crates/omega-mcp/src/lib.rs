@@ -101,8 +101,15 @@ impl McpServerSpec {
     /// lignes vides sont ignorés. `REA_PWNTOOLS_PYTHON` deja present dans
     /// l'environnement n'est jamais ecrase par le fichier.
     pub fn rea() -> Self {
+        Self::rea_with_toolchain_env(load_toolchain_env())
+    }
+
+    /// Variante **testable** : la spec est construite à partir d'un env
+    /// explicite, sans muter l'environnement du processus (les tests Rust sont
+    /// parallèles : `OMEGA_REA_ENV` est global au processus, donc partagé).
+    pub fn rea_with_toolchain_env(toolchain: Vec<(String, String)>) -> Self {
         let mut spec = Self::new("npx", ["-y", "rea-agents@latest", "--mcp"]);
-        for (key, value) in load_toolchain_env() {
+        for (key, value) in toolchain {
             if key == "REA_PWNTOOLS_PYTHON" && std::env::var(&key).is_ok() {
                 continue;
             }
@@ -398,7 +405,16 @@ pub fn load_toolchain_env() -> Vec<(String, String)> {
     let Some(path) = toolchain_env_path() else {
         return Vec::new();
     };
-    let Ok(text) = std::fs::read_to_string(&path) else {
+    load_toolchain_env_from(path.as_path())
+}
+
+/// Variante **pure** : lit un chemin donné, sans toucher à l'environnement du
+/// processus. Les tests Rust tournent en parallèle dans un même processus :
+/// muter `OMEGA_REA_ENV` depuis deux tests les fait interférer (test
+/// instable observé le 2026-10-20 : `toolchain_env_parses_export_lines` a lu
+/// le fichier de l'autre test).
+pub fn load_toolchain_env_from(path: &std::path::Path) -> Vec<(String, String)> {
+    let Ok(text) = std::fs::read_to_string(path) else {
         return Vec::new();
     };
     let mut out: Vec<(String, String)> = Vec::new();
@@ -676,10 +692,10 @@ mod tests {
             "# commentaire\nexport GHIDRA_INSTALL_DIR=/opt/ghidra\nREA_TSHARK_COMMAND=\"/usr/bin/tshark\"\n\nPATH=/should/be/ignored\nVIDE=\n",
         )
         .unwrap();
-        // `OMEGA_REA_ENV` pilote la resolution : on isole le test du systeme.
-        std::env::set_var("OMEGA_REA_ENV", &f);
-        let env = load_toolchain_env();
-        std::env::remove_var("OMEGA_REA_ENV");
+        // Isolation par le chemin, pas par l'environnement du processus : les
+        // tests Rust sont parallèles et `OMEGA_REA_ENV` est global au
+        // processus — muter ici faisait interferer les deux tests.
+        let env = load_toolchain_env_from(&f);
         assert_eq!(
             env,
             vec![
@@ -698,9 +714,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let f = dir.join("rea-tools.env");
         std::fs::write(&f, "export GHIDRA_INSTALL_DIR=/opt/ghidra\n").unwrap();
-        std::env::set_var("OMEGA_REA_ENV", &f);
-        let spec = McpServerSpec::rea();
-        std::env::remove_var("OMEGA_REA_ENV");
+        let spec = McpServerSpec::rea_with_toolchain_env(load_toolchain_env_from(&f));
         assert_eq!(
             spec.env.get("GHIDRA_INSTALL_DIR").map(String::as_str),
             Some("/opt/ghidra")
