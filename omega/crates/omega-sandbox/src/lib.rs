@@ -1,6 +1,7 @@
 //! `omega-sandbox` — **sandbox** : politique d'exécution typée + backend local.
 
 mod approvals;
+pub mod bwrap_backend;
 mod backend;
 mod contributor;
 mod namespace_backend;
