@@ -1,0 +1,58 @@
+name: Omega gates
+
+# Porte G0.e : « la CI exécute `gate.py --phase 0` ».
+# Une porte que la CI n'exécute pas est décorative (PLAN-MAITRE, risque R22) :
+# cette job est le seul endroit où les portes Omega sont réellement jouées.
+#
+# Elle appelle `omega/scripts/gate.py`, qui enchaîne les critères de la phase 0
+# (definitions : omega/gates.toml) : verify complet, doc-truth, scénarios S0/S1,
+# ADR D0. Le job est rouge tant qu'un critère bloquant est rouge — c'est voulu.
+
+on:
+  push:
+    branches: [feat/agentos-omega]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: omega-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate-phase-0:
+    name: Omega G0 — gate.py --phase 0
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.12"
+
+      # Rust est préinstallé sur l'image ubuntu-latest ; on l'affiche pour que
+      # le journal dise quelle toolchain a réellement servi (rust-version = 1.75
+      # dans omega/Cargo.toml).
+      - name: Toolchain
+        run: |
+          python3 --version
+          rustc --version
+          cargo --version
+
+      - name: G0 — portes de la phase 0
+        run: python3 omega/scripts/gate.py --phase 0
+
+      - name: Rapport de portes
+        if: always()
+        run: |
+          ls -la docs/omega/plan/gates/ 2>/dev/null || echo "aucun rapport"
+          for f in docs/omega/plan/gates/*.json; do
+            [ -e "$f" ] || continue
+            echo "::group::$f"
+            cat "$f"
+            echo "::endgroup::"
+          done
