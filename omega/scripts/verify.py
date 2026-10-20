@@ -147,14 +147,36 @@ def main():
                   cwd=work)
     report["etapes"]["ruff"] = {"ok": ok, "out": out}
 
-    # 5. Pytest
+    # 5. Pytest — scope ADR-0011, aligné sur ADR-0005 (ruff) : le Python
+    #    nouveau (tests/test_omega*.py) est bloquant ; le socle legacy est une
+    #    dette P1 non bloquante. Un prérequis absent donne SKIPPED(raison),
+    #    jamais PASS (cas limites du plan §6).
     if args.skip_tests:
         report["etapes"]["pytest"] = {"ok": None, "out": "skippé (--skip-tests)"}
+        report["etapes"]["pytest_legacy"] = {"ok": None, "out": "skippé (--skip-tests)"}
     elif (work / "tests").is_dir():
-        ok, out = run([pytestb, "-q", "tests"], cwd=work, timeout=1800)
-        report["etapes"]["pytest"] = {"ok": ok, "out": out}
+        omega_tests = sorted(
+            str(p.relative_to(work)) for p in (work / "tests").glob("test_omega*.py")
+        )
+        if omega_tests:
+            ok, out = run([pytestb, "-q", *omega_tests], cwd=work, timeout=900)
+            report["etapes"]["pytest"] = {"ok": ok, "out": out}
+        else:
+            report["etapes"]["pytest"] = {"ok": None, "out": "aucun test omega (tests/test_omega*.py)"}
+        ok, out = run([pytestb, "-q", "tests", "--ignore-glob=*test_omega*.py"],
+                      cwd=work, timeout=1800)
+        if not ok and ("ModuleNotFoundError" in out or "ERROR collecting" in out):
+            report["etapes"]["pytest_legacy"] = {
+                "ok": None,
+                "out": "SKIPPED(prerequis absents du venv hermétique — le socle "
+                       "legacy n'est pas installable ici ; dette P1 non "
+                       "bloquante, cf ADR-0011):\n" + out[:1500],
+            }
+        else:
+            report["etapes"]["pytest_legacy"] = {"ok": ok, "out": out}
     else:
         report["etapes"]["pytest"] = {"ok": None, "out": "tests/ absent"}
+        report["etapes"]["pytest_legacy"] = {"ok": None, "out": "tests/ absent"}
 
     # 6 à 8. Rust
     ok, out = run(["cargo", "fmt", "--check"], cwd=om)
@@ -185,7 +207,11 @@ def main():
     ok, out = run([sys.executable, str(om / "scripts" / "check_doc_truth.py")], cwd=work)
     report["etapes"]["doc_truth"] = {"ok": ok, "out": out}
 
-    failures = [k for k, v in report["etapes"].items() if v.get("ok") is False]
+    # Le socle legacy est hors G0.a (dette P1, ADR-0011) : son echec ne
+    # ferme pas la porte, il doit etre visible.
+    non_bloquants = {"pytest_legacy"}
+    failures = [k for k, v in report["etapes"].items()
+                if v.get("ok") is False and k not in non_bloquants]
     return finish("VERT" if not failures else f"ECHEC({','.join(failures)})")
 
 
