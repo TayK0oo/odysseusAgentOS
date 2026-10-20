@@ -1,0 +1,158 @@
+# omega/gates.toml — definition des portes du projet.
+#
+# Source : docs/omega/PLAN-MAITRE.md §6 (fichier stable, non modifie par ce gate).
+# Execute par : omega/scripts/gate.py
+#
+# Format TOML et non YAML : parse par tomllib (stdlib Python >= 3.12), donc
+# aucune dependance a installer — le venv de verify.py ne contient que
+# ruff et pytest, et RULES-OMEGA interdit d'ajouter une dependance pour cela.
+#
+# Regle porte/code : une porte n'est pas modifiee dans le meme commit que le
+# code qu'elle juge. Verifie par `gate.py --regle-porte-code`.
+#
+# Statuts d'un critere : VERT | ECHEC | TIMEOUT | DELEGUE_CI | VIOLATION_PORTE_CODE
+# kind : command | file | ci
+
+[meta]
+source = "docs/omega/PLAN-MAITRE.md §6"
+format = "toml/tomllib"
+
+[phase0]
+nom = "Verite et banc d'acceptation"
+
+[[phase0.criteres]]
+id = "G0.a"
+description = "verify exit 0 sur clone vierge (execution complete, tests inclus)"
+kind = "command"
+argv = ["python3", "omega/scripts/verify.py", "--mode", "worktree"]
+expect_exit = 0
+timeout = 3600
+bloquant = true
+
+[[phase0.criteres]]
+id = "G0.a.ci"
+description = "verify exit 0 deux executions consecutives, en CI"
+kind = "ci"
+note = "delegue a la CI (job doc-gates) : deux runs sur clone vierge"
+bloquant = false
+
+[[phase0.criteres]]
+id = "G0.b"
+description = "STATUS.json produit par measure.py"
+kind = "command"
+argv = ["python3", "omega/scripts/measure.py"]
+expect_exit = 0
+timeout = 900
+bloquant = true
+
+[[phase0.criteres]]
+id = "G0.b.doc-truth"
+description = "doc-truth a 0 divergence (check_doc_truth strict par defaut)"
+kind = "command"
+argv = ["python3", "omega/scripts/check_doc_truth.py"]
+expect_exit = 0
+timeout = 300
+bloquant = true
+
+[[phase0.criteres]]
+id = "G0.c.s0"
+description = "S0 vert (demarrage propre)"
+kind = "command"
+argv = ["python3", "omega/acceptance/runner.py", "--scenario", "S0", "--mode", "scripte"]
+expect_exit = 0
+timeout = 600
+bloquant = true
+
+[[phase0.criteres]]
+id = "G0.c.s1"
+description = "S1 rouge sur l'etat actuel (XFAIL nomme = exit 0 ; XPASS ou FAIL = exit 1)"
+kind = "command"
+argv = ["python3", "omega/acceptance/runner.py", "--scenario", "S1", "--mode", "scripte"]
+expect_exit = 0
+timeout = 600
+bloquant = true
+
+[[phase0.criteres]]
+id = "G0.d"
+description = "ADR D0 fusionne (moteur de reference : Rust ou Python)"
+kind = "file"
+path = "docs/omega/adr/0009-*.md"
+must_contain = "Accept"
+bloquant = true
+
+[[phase0.criteres]]
+id = "G0.e"
+description = "la CI execute gate.py --phase 0"
+kind = "ci"
+note = "delegue a la CI : presence du job qui appelle omega/scripts/gate.py --phase 0"
+bloquant = false
+
+[phase1]
+nom = "L'agent qui agit, dans une boite"
+
+[[phase1.criteres]]
+id = "G1"
+description = "P1 : l'agent appelle un outil reel dans la boucle (porte non outillee)"
+kind = "ci"
+note = "a outiller en P1 — aucune commande existante ne la verifie"
+bloquant = false
+
+[phase2]
+nom = "Se souvenir : durabilite, memoire, contexte"
+
+[[phase2.criteres]]
+id = "G2"
+description = "P2 : la memoire survit au redemarrage (porte non outillee)"
+kind = "ci"
+note = "a outiller en P2"
+bloquant = false
+
+[phase3]
+nom = "Apprendre : skills auto-generes et surete de l'apprentissage"
+
+[[phase3.criteres]]
+id = "G3"
+description = "P3 : un skill est auto-genere et rejoue (porte non outillee)"
+kind = "ci"
+note = "a outiller en P3"
+bloquant = false
+
+[phase4]
+nom = "Ne pas deriver, deleguer"
+
+[[phase4.criteres]]
+id = "G4"
+description = "P4 : sous-agents en parallele avec trace d'arbre (porte non outillee)"
+kind = "ci"
+note = "a outiller en P4"
+bloquant = false
+
+[phase5]
+nom = "Partout : MCP, canaux, cockpit"
+
+[[phase5.criteres]]
+id = "G5"
+description = "P5 : le meme cerveau pilote depuis deux canaux (porte non outillee)"
+kind = "ci"
+note = "a outiller en P5"
+bloquant = false
+
+[phase6]
+nom = "S'adapter : routage apprenant"
+
+[[phase6.criteres]]
+id = "G6"
+description = "P6 : le routeur change de modele sur feedback (porte non outillee)"
+kind = "ci"
+note = "a outiller en P6"
+bloquant = false
+
+[phase7]
+nom = "Durcir et consolider"
+
+[[phase7.criteres]]
+id = "G7"
+description = "P7 : durcissement continu (porte non outillee)"
+kind = "ci"
+note = "a outiller en P7"
+bloquant = false
