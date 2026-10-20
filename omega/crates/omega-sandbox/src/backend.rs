@@ -6,12 +6,16 @@
 //!   la commande exacte, elle est **consommée (usage unique)** puis la commande
 //!   s'exécute normalement.
 //! - `Forbidden` → refusé **sans exécuter** (jamais de fork, jamais de file).
+//!
+//! Canon unique : la décision vit dans `crate::policy::gate`, le
+//! spawn/timeout/kill dans `crate::timeout` (les correctifs de concurrence
+//! sont partagés par tous les backends).
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use omega_ports::{ExecPolicy, SandboxBackend};
-use omega_types::{CommandOutput, ExecDecision, OmegaError, OmegaResult};
+use omega_types::{CommandOutput, OmegaResult};
 
 use crate::approvals::ApprovalQueue;
 
@@ -48,102 +52,21 @@ impl SandboxBackend for LocalSandboxBackend {
     fn name(&self) -> &str {
         "local"
     }
+    #[allow(unused)]
+    async _ = 0;
+}
 
-    async fn run(&self, command: &str) -> OmegaResult<CommandOutput> {
-        // Garde anti-composition (REVIEW-W8-W9 B1) : une règle `Allow` par préfixe
-        // (`echo`) ne doit pas autoriser silencieusement une commande composée
-        // (`echo hi; rm -rf /`). Les métacaractères hors quotes escaladent en `Prompt`.
-        let decision = match self.policy.evaluate(command) {
-            ExecDecision::Allow if crate::has_unquoted_metachars(command) => {
-                ExecDecision::Prompt("commande composée : approbation requise".to_string())
-            }
-            other => other,
-        };
-        match decision {
-            ExecDecision::Forbidden(reason) => {
-                return Err(OmegaError::ForbiddenCommand {
-                    command: command.to_string(),
-                    reason,
-                })
-            }
-            ExecDecision::Prompt(reason) => {
-                // File d'approbations (inc2) : une approbation `Approved` pour la
-                // commande exacte est consommée (usage unique) et l'exécution
-                // continue ; sinon refus sans fork.
-                if let Some(queue) = &self.approvals {
-                    if queue.consume_for(command) {
-                        // Approbation consommée : on continue vers l'exécution.
-                    } else {
-                        return Err(OmegaError::ApprovalRequired {
-                            command: command.to_string(),
-                            reason,
-                        });
-                    }
-                } else {
-                    return Err(OmegaError::ApprovalRequired {
-                        command: command.to_string(),
-                        reason,
-                    });
-                }
-            }
-            ExecDecision::Allow => {}
-        }
+/// Descendants : déplacé dans `crate::timeout` (canon partagé par les backends).
+        // Canon de refus : évaluation + garde anti-composition (REVIEW-W8-W9
+        // B1) + approbations — partagé par tous les backends sandbox.
+        crate::policy::gate(self.policy.as_ref(), command, self.approvals.as_ref())?;
 
         let mut cmd = tokio::process::Command::new("sh");
         cmd.arg("-c").arg(command);
-        // Groupe de processus dédié (leader = `sh`) : au timeout, on tue le groupe
-        // entier (`kill -9 -pgid`), pas le seul `sh` — sinon les petits-enfants
-        // (`sleep` en arrière-plan) survivent (REVIEW-W8-W9 B2). Linux-only, Phase 1.
-        cmd.process_group(0);
-        let child = cmd
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .map_err(|e| OmegaError::Io(format!("spawn local : {e}")))?;
-
-        let pid = child.id();
-        let output = tokio::time::timeout(self.timeout, child.wait_with_output()).await;
-        match output {
-            Err(_) => {
-                // La descendance est capturée AVANT les kills : le kill de
-                // groupe suppose que `setpgid` a été appliqué (au child). Sur
-                // certaines toolchains il ne l'est pas — le child reste alors
-                // dans le groupe du parent, le kill de groupe ne touche que le
-                // leader, et le petit-fils survit (constaté en CI le
-                // 2026-10-20 : `sleep 57` vivait encore). On capture donc la
-                // descendance et on la tue explicitement.
-                let descendants = pid.map(descendants).unwrap_or_default();
-                if let Some(pid) = pid {
-                    // 1. le groupe du leader (sans effet si le groupe n'existe pas)
-                    let _ = std::process::Command::new("kill")
-                        .arg("-9")
-                        .arg(format!("-{pid}"))
-                        .output();
-                    // 2. le leader lui-même
-                    let _ = std::process::Command::new("kill")
-                        .arg("-9")
-                        .arg(pid.to_string())
-                        .output();
-                }
-                // 3. les petits-enfants capturés
-                for d in descendants {
-                    let _ = std::process::Command::new("kill")
-                        .arg("-9")
-                        .arg(d.to_string())
-                        .output();
-                }
-                Err(OmegaError::CommandTimeout {
-                    command: command.to_string(),
-                    timeout_ms: self.timeout.as_millis() as u64,
-                })
-            }
-            Ok(Err(e)) => Err(OmegaError::Io(format!("attente locale : {e}"))),
-            Ok(Ok(out)) => Ok(CommandOutput {
-                stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
-                stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
-                exit_code: out.status.code().unwrap_or(-1),
-            }),
-        }
+        // Groupe de processus dédié + kill descendance au timeout : canon dans
+        // `crate::timeout` (correctifs REVIEW-W8-W9 B2 partagés).
+        crate::timeout::spawn_and_wait(cmd, self.timeout, command, "spawn local", "attente locale")
+            .await
     }
 }
 

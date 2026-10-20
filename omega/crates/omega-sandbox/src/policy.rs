@@ -18,8 +18,10 @@
 //! préfixe et c'est le backend qui escalade les métacaractères hors quotes en
 //! `Prompt` (voir `has_unquoted_metachars`).
 
-use omega_types::ExecDecision;
+use omega_types::{ExecDecision, OmegaError, OmegaResult};
 use serde::{Deserialize, Serialize};
+
+use crate::approvals::ApprovalQueue;
 
 /// Une règle : préfixe → décision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -196,6 +198,43 @@ impl omega_ports::ExecPolicy for RuleBasedExecPolicy {
 
     fn evaluate(&self, command: &str) -> ExecDecision {
         self.decide(command)
+    }
+}
+
+/// Canon de refus unique de tous les backends sandbox (`local`, `namespace`,
+/// `bwrap`) : une seule écriture de la décision.
+///
+/// - `Allow` **avec métacaractères hors quotes** → `Prompt` (REVIEW-W8-W9 B1 :
+///   une règle `Allow echo` ne doit pas autoriser `echo hi; rm -rf /`) ;
+/// - `Forbidden` → erreur, **sans fork ni file** ;
+/// - `Prompt` → `ApprovalRequired` sans fork, sauf approbation exacte
+///   consommée (usage unique) dans la file passée en argument.
+pub(crate) fn gate(
+    policy: &dyn omega_ports::ExecPolicy,
+    command: &str,
+    approvals: Option<&std::sync::Arc<ApprovalQueue>>,
+) -> OmegaResult<()> {
+    let decision = match policy.evaluate(command) {
+        ExecDecision::Allow if has_unquoted_metachars(command) => {
+            ExecDecision::Prompt("commande composée : approbation requise".to_string())
+        }
+        other => other,
+    };
+    match decision {
+        ExecDecision::Forbidden(reason) => Err(OmegaError::ForbiddenCommand {
+            command: command.to_string(),
+            reason,
+        }),
+        ExecDecision::Prompt(reason) => {
+            if approvals.map(|q| q.consume_for(command)) != Some(true) {
+                return Err(OmegaError::ApprovalRequired {
+                    command: command.to_string(),
+                    reason,
+                });
+            }
+            Ok(())
+        }
+        ExecDecision::Allow => Ok(()),
     }
 }
 
