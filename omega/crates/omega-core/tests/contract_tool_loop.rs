@@ -10,7 +10,9 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use omega_core::tool_loop::{ToolCall, ToolLoopOperation, ToolObservation, ToolSurface};
-use omega_core::{cancellation_pair, Event, InMemoryBus, Operation, RunContext, RunState, RunStatus};
+use omega_core::{
+    cancellation_pair, Event, EventBus, InMemoryBus, Operation, RunContext, RunState,
+};
 use omega_ports::Provider;
 use omega_types::{ChatRequest, ChatResponse, Message, ModelId, OmegaError, OmegaResult, Role};
 
@@ -92,7 +94,7 @@ fn op(provider: Arc<dyn Provider>, surface: Arc<dyn ToolSurface>, budget: usize)
     }
 }
 
-async fn drive(op: &mut ToolLoopOperation) -> (Vec<Event>, RunStatus, RunState) {
+async fn drive(op: &mut ToolLoopOperation) -> (Vec<Event>, OmegaResult<()>, RunState) {
     let bus = InMemoryBus::new();
     let (token, _handle) = cancellation_pair();
     let mut state = RunState::default();
@@ -117,7 +119,7 @@ async fn tool_call_execute_observation_et_multitours() {
     ]));
     let mut op = op(provider.clone(), surface.clone(), 8);
     let (events, status, _state) = drive(&mut op).await;
-    assert_eq!(status, RunStatus::Ok);
+    assert!(status.is_ok());
     assert_eq!(surface.history.lock().unwrap().len(), 2);
     assert_eq!(
         *surface.history.lock().unwrap(),
@@ -155,7 +157,7 @@ async fn tool_inconnu_est_erreur_structuree_sans_boycott() {
     ]));
     let mut op = op(provider, surface.clone(), 8);
     let (events, status, _state) = drive(&mut op).await;
-    assert_eq!(status, RunStatus::Ok);
+    assert!(status.is_ok());
     assert_eq!(surface.history.lock().unwrap().len(), 1);
     let completed: Vec<&Event> = events.iter().filter(|e| e.name == "tool.call.completed").collect();
     assert_eq!(completed.len(), 1);
@@ -176,7 +178,7 @@ async fn budget_1_ne_laisse_qu_une_execution() {
     ]));
     let mut op = op(provider, surface.clone(), 1);
     let (events, status, state) = drive(&mut op).await;
-    assert_eq!(status, RunStatus::Ok);
+    assert!(status.is_ok());
     assert_eq!(surface.history.lock().unwrap().len(), 1);
     assert_eq!(state.0["tool_executions"], 1);
     assert_eq!(state.0["status"], "budget-exhausted");
@@ -194,7 +196,7 @@ async fn input_illisible_ne_panique_pas() {
     ]));
     let mut op = op(provider, surface.clone(), 8);
     let (_events, status, state) = drive(&mut op).await;
-    assert_eq!(status, RunStatus::Ok);
+    assert!(status.is_ok());
     assert_eq!(surface.history.lock().unwrap().len(), 0);
     assert_eq!(state.0["status"], "done");
 }
