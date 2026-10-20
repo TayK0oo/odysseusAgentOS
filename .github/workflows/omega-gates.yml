@@ -56,3 +56,16 @@ jobs:
             cat "$f"
             echo "::endgroup::"
           done
+
+      # Le rapport integral de `verify.py` porte la sortie complete de chaque
+      # etape (cargo test, pytest...). Sans lui, un echec CI n'affiche que
+      # « ECHEC(cargo_test) » — sans la cause.
+      - name: Rapport verify
+        if: always()
+        run: |
+          for f in /tmp/verify-*.json; do
+            [ -e "$f" ] || continue
+            echo "::group::$f"
+            cat "$f"
+            echo "::endgroup::"
+          done

@@ -58,19 +58,6 @@ def _exec(cmd: list[str], cwd: Path, timeout: int) -> tuple[int | None, str]:
     return p.returncode, ((p.stdout or "") + (p.stderr or ""))[:4000]
 
 
-def _dernier_commit(root: Path, chemins: list[str]) -> str | None:
-    if not chemins:
-        return None
-    try:
-        p = subprocess.run(
-            ["git", "log", "-1", "--format=%H", "--"] + chemins,
-            cwd=root, capture_output=True, text=True, timeout=60, check=False,
-        )
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return None
-    return p.stdout.strip() or None
-
-
 def _fichiers_juges(root: Path, critere: dict) -> list[str]:
     """Chemins du depot qu'un critere juge (pour la regle porte/code)."""
     if critere.get("kind") == "file":
@@ -86,16 +73,32 @@ def _fichiers_juges(root: Path, critere: dict) -> list[str]:
 
 
 def _regle_porte_code(root: Path, critere: dict) -> str | None:
-    """Une porte ne doit pas etre modifiee dans le meme commit que le code juge."""
+    """Une porte ne doit pas etre modifiee dans le meme commit que le code juge.
+
+    On regarde le commit en cours (HEAD) : c'est celui qu'on est en train de
+    faire. Ce choix marche aussi en clone superficiel (la CI clone en
+    profondeur 1) — `git log -1 -- <fichier>` y renvoie HEAD pour TOUT
+    fichier, ce qui transformait chaque porte en faux positif.
+    """
     if critere.get("kind") == "ci":
         return None
     juges = _fichiers_juges(root, critere)
     if not juges:
         return None
-    c_porte = _dernier_commit(root, ["omega/gates.toml"])
-    c_code = _dernier_commit(root, juges)
-    if c_porte and c_code and c_porte == c_code:
-        return f"gates.toml et {', '.join(juges)} modifies dans le commit {c_porte[:12]}"
+    try:
+        p = subprocess.run(
+            ["git", "show", "--name-only", "--format=", "HEAD"],
+            cwd=root, capture_output=True, text=True, timeout=60, check=False,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+    if p.returncode != 0:
+        return None
+    touches = {line.strip() for line in p.stdout.splitlines() if line.strip()}
+    commun = touches & set(juges)
+    if "omega/gates.toml" in touches and commun:
+        return (f"gates.toml et {', '.join(sorted(commun))} modifies dans "
+                f"le meme commit (HEAD)")
     return None
 
 
