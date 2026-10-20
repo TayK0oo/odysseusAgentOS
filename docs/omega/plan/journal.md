@@ -56,3 +56,9 @@
 - `generate_memory.py` réécrit : chiffres RE/avancée depuis `STATUS.json` (102/67/51/910, plus aucun « 109/66 » en dur), `cargo test` interne supprimé (370/4425 lus du STATUS), bannière auto à HEAD, `shell=True` remplacé par argv.
 - Contrôles : doc-truth VERT, 4/4 tests du validateur verts. F541 (f-string sans placeholder) introduit puis corrigé à la racine — pris par ruff 0.6.9 épinglé ET système, contrôle négatif vérifié.
 - Reste en P0 : rien de bloquant ; P0 fermable, prochaine porte G1 (`gate.py --phase 1`).
+
+## 2026-10-21 — Lot A (P1) : gel de session, A6 mergé, faux vert démoli
+- **Faux vert découvert** : `gate.py --phase 1` renvoyait VERT/DELEGUE_CI sur un critère placeholder — l'outillage était la vraie prochaine action, pas G2. ADR-0013 (A1, worktree) : G1 devient exécutable, S1 = outil réel canary, S2 = limites/budgets.
+- **Diagnostic CI (A6, faits)** : les runs omega-gates **ont tourné** sur chaque push (8ca3626c, 68cc7423) et sont rouges *by design* — `G0.c.s0/s1 ECHEC` : S0/S1 rouges. La prémisse P0-7 (« OAuth workflow ») est obsolète ; réflexe : toujours `gh -R TayK0oo/odysseusAgentOS` (sinon résolution vers l'upstream du fork → 404 trompeurs).
+- **A6 mergé** (`831a4145`) : ruff épinglé 0.6.9 via venv cache, jamais le PATH — legacy 3720 → **1040** (l'échelle verify, comparable désormais) ; STATUS regénéré au HEAD, doc-truth VERT.
+- **A1–A5 gelés** en branches `feat/p1-A1-portes`…`feat/p1-A5-sandbox` (WIP commités cc821144, ab8fcdef, 78de85c1, 05026efe, 18f1dcaf — les_rouges d'abord sont en POST) ; intégration prévue A1 → A3 → A4 → A2 → A5, verify après chaque fusion. Détails et reprise : `docs/omega/plan/PAUSE.md`.
