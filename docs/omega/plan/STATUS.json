@@ -1,6 +1,6 @@
 {
-  "git_sha": "1565e4e2",
-  "mesure_le": "2026-10-20T20:20:14+00:00",
+  "git_sha": "983a4379",
+  "mesure_le": "2026-10-20T20:27:07+00:00",
   "moteur_reference": "INDETERMINE (ADR D0, P0-9)",
   "socles": {
     "rust": {
@@ -352,7 +352,7 @@
   },
   "couverture_ponderee": 0.0,
   "portes": {
-    "G0": "NON_EXECUTE",
+    "G0": "ROUGE",
     "G1": "NON_EXECUTE",
     "G2": "NON_EXECUTE",
     "G3": "NON_EXECUTE",
@@ -361,5 +361,5 @@
     "G6": "NON_EXECUTE",
     "G7": "NON_EXECUTE"
   },
-  "prochaine_action": "G0 : porte non executee — lancer omega/scripts/gate.py --phase 0"
+  "prochaine_action": "G0.d : ADR D0 fusionne (moteur de reference : Rust ou Python) — corriger puis relancer omega/scripts/gate.py --phase 0"
 }
