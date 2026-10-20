@@ -5,6 +5,9 @@
 //! - [`CommandPrefixExecPolicy`] : politique d'exécution par préfixes de commande
 #![allow(clippy::new_without_default)]
 
+pub mod budget;
+pub mod tiers;
+
 use omega_ports::{ExecPolicy, PermissionPolicy};
 use omega_types::{ExecDecision, PermissionEffect};
 
