@@ -56,7 +56,7 @@ skippé ne ferme pas la porte, mais il se voit.
   omega), qui est vert sur ses neuf étapes.
 - **La suite legacy reste non mesurée.** Le chiffre « 5 068 tests verts » des
   sprints précédents, repris dans les documents, **n'est pas reproduit** sur
-  cette machine : `STATUS.json` ne mesure que `4 415` *fonctions* `test_*`
+  cette machine : `STATUS.json` ne mesure que les *fonctions* `test_*`
   par AST (une méthode d'inventaire, pas une exécution). Mesurer la suite
   legacy exige un venv dédié avec `requirements.txt` (Chroma, Mem0, Docker,
   clés API) — c'est **P1-0**, hors G0.
