@@ -45,3 +45,8 @@
 - G0.a : première exécution **complète** de `verify` = `ECHEC(pytest)` — le venv hermétique n'installe que ruff+pytest, le socle legacy n'est pas collectable → ADR-0011 (pytest omega bloquant, legacy = dette P1 non bloquante, `SKIPPED(raison)` jamais `PASS`).
 - Bug réel trouvé par la porte : `omega-mcp` test instable (course sur la variable globale `OMEGA_REA_ENV` entre tests Rust parallèles) → correctif à la racine (`load_toolchain_env_from` / `rea_with_toolchain_env` purs, plus aucune variable mutée par un test).
 - G0 : **VERTE** (G0.a, G0.b, G0.c, G0.d). ADR-0008 (P0 dépasse sa boîte de temps : P0-6 → P1-6, P0-8 → P7), ADR-0009 (**D0 = moteur Rust**, O2, ADR-0001 confirmé). Reste G0.e : la CI doit jouer `gate.py --phase 0` (job `omega-gates` poussé).
+
+## 2026-10-20 — session reprise (contexte recréé depuis journal + STATUS)
+- STATUS régénéré au HEAD `8ca3626c` — le regen de 22:53 (G0 VERT) n'avait jamais été commité, et son SHA embarqué précédait les 4 derniers commits (ADR-0012 inclus).
+- `measure.py` : `moteur_reference` n'est plus une chaîne figée — dérivé du titre d'ADR-0009 (principe 7, même famille que le bug `prochaine_action`) → `Rust (ADR-0009)`.
+- Prochaine action : P0-3d (`generate_index.py`, non bloquant, resté en P0 par ADR-0008), puis fermeture de P0 → G1 (`gate.py --phase 1`).

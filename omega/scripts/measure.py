@@ -10,6 +10,7 @@ Limites connues :
 
 import ast
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -181,6 +182,16 @@ def lire_portes() -> tuple[dict, str]:
     return portes, prochaine
 
 
+def moteur_reference() -> str:
+    """D0 lu depuis l'ADR-0009 (principe 7 : généré, jamais saisi)."""
+    adr_dir = ROOT / "docs" / "omega" / "adr"
+    for adr in sorted(adr_dir.glob("0009-d0-*.md")):
+        titre = adr.read_text(encoding="utf-8").split("\n", 1)[0]
+        if m := re.search(r"le moteur de référence est (\w+)", titre):
+            return f"{m.group(1)} (ADR-0009)"
+    return "INDETERMINE (D0, ADR-0009 introuvable)"
+
+
 def main() -> int:
     crates = []
     if CARGO.exists():
@@ -201,7 +212,7 @@ def main() -> int:
     status = {
         "git_sha": git_sha(),
         "mesure_le": datetime.now(UTC).isoformat(timespec="seconds"),
-        "moteur_reference": "INDETERMINE (ADR D0, P0-9)",
+        "moteur_reference": moteur_reference(),
         "socles": {
             "rust": {
                 "crates": len(crates), "liste": crates,
