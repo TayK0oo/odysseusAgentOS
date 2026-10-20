@@ -263,20 +263,45 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, OmegaError::CommandTimeout { .. }));
         // Boucle courte : le SIGKILL de groupe est quasi-synchrone, on tolère 2 s.
-        let mut survived = true;
+        // Un **zombie** est un processus mort (il ne fait plus rien, il attend
+        // seulement d'être reapé) : il ne compte pas comme survivant. Sinon la
+        // porte est flaky — la CI l'a vue rouge le 2026-10-20 alors que le
+        // petit-fils était tué.
+        let mut survived: Vec<String> = Vec::new();
         for _ in 0..20 {
             let out = std::process::Command::new("pgrep")
                 .arg("-f")
                 .arg("sleep 57")
                 .output()
                 .expect("pgrep indisponible");
-            if out.stdout.is_empty() {
-                survived = false;
+            let vivants: Vec<String> = String::from_utf8_lossy(&out.stdout)
+                .lines()
+                .map(str::trim)
+                .filter(|pid| !pid.is_empty() && !est_zombie(pid))
+                .map(str::to_string)
+                .collect();
+            if vivants.is_empty() {
                 break;
             }
+            survived = vivants;
             std::thread::sleep(Duration::from_millis(100));
         }
         let _ = std::fs::remove_dir_all(&dir);
-        assert!(!survived, "un petit-fils `sleep 57` a survécu au timeout !");
+        assert!(
+            survived.is_empty(),
+            "un petit-fils `sleep 57` a survécu au timeout ! (pids {survived:?})"
+        );
+    }
+
+    /// `/proc/<pid>/stat` : l'état du processus. `Z` = zombie (mort, non reapé).
+    fn est_zombie(pid: &str) -> bool {
+        let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else {
+            return false;
+        };
+        // Le champ `comm` peut contenir des espaces et des parenthèses : on
+        // reprend après la dernière ')' — l'état est le champ suivant.
+        stat.rsplit_once(')')
+            .and_then(|(_, reste)| reste.split_whitespace().next())
+            == Some("Z")
     }
 }
