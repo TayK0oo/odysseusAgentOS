@@ -115,10 +115,31 @@ def mesures_avancees() -> dict:
         out["python_socle"] = m("absent", "fs_probe")
 
     # 8. plugins attendus : gates.yaml est P0-5 → INCONNU authentique
-    out["plugins_attendus"] = unk("gates_yaml_pas_encore_genere(P0-5)",
-                                  "gates_yaml")
+    out["plugins_attendus"] = _adaptateurs_attendus()
 
     return out
+
+
+def _adaptateurs_attendus() -> dict:
+    """Les adaptateurs que le code sait construire (source : composition.rs).
+
+    Parse deterministe des appels `register("<id>", "<capability>"` de
+    `omega-adapters` — c'est l'ensemble *attendu* dans le registre. Compare
+    ensuite aux plugins reellement enregistres (`plugins_enregistres`, mesure
+    HTTP) : l'ecart entre les deux est le creux "adaptateurs non branches".
+    """
+    src = ROOT / "omega" / "crates" / "omega-adapters" / "src" / "composition.rs"
+    if not src.is_file():
+        return unk("composition_rs_absent", "parse_ids_composition_rs")
+    try:
+        txt = src.read_text(encoding="utf-8")
+    except OSError as e:
+        return unk(f"lecture_impossible({type(e).__name__})", "parse_ids_composition_rs")
+    paires = re.findall(r'register\(\s*"([^"]+)"\s*,\s*"([^"]+)"', txt, re.S)
+    if not paires:
+        return unk("aucun_registre_trouve", "parse_ids_composition_rs")
+    return m([{"id": i, "capability": c} for i, c in paires],
+             "parse_ids_composition_rs")
 
 
 def plugins_enregistres():

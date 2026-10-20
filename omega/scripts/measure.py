@@ -13,6 +13,7 @@ import json
 import shutil
 import subprocess
 import sys
+import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -131,6 +132,55 @@ def last_verdict(stdout: str) -> str:
     return m.group(1) if m else "VERDICT_ABSENT"
 
 
+def lire_portes() -> tuple[dict, str]:
+    """P0-5/ADR-0008 : l'etat des portes est CALCULE, jamais declare.
+
+    Source : `omega/gates.toml` (definitions) + les derniers rapports produits
+    par `omega/scripts/gate.py` (`docs/omega/plan/gates/phase-*.json`).
+    Une porte sans rapport n'est pas `ROUGE` : elle est `NON_EXECUTE` — on ne
+    declare jamais un etat qu'on n'a pas observe.
+    """
+    portes: dict[str, str] = {}
+    try:
+        with (ROOT / "omega" / "gates.toml").open("rb") as f:
+            gates = tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError) as e:
+        return {}, f"INCONNU(gates.toml illisible: {type(e).__name__})"
+
+    rapports: dict[str, dict] = {}
+    for p in sorted((ROOT / "docs" / "omega" / "plan" / "gates").glob("phase-*.json")):
+        try:
+            r = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if r.get("phase"):
+            rapports[r["phase"]] = r  # noms horodates : le dernier lu gagne
+
+    prochaine = ""
+    for cle in sorted(gates):
+        if not cle.startswith("phase"):
+            continue
+        num = cle.replace("phase", "")
+        r = rapports.get(cle)
+        if r is None:
+            portes[f"G{num}"] = "NON_EXECUTE"
+            if not prochaine:
+                prochaine = (f"G{num} : porte non executee — lancer "
+                             f"omega/scripts/gate.py --phase {num}")
+            continue
+        verdict = r.get("verdict", "INCONNU")
+        portes[f"G{num}"] = verdict
+        if verdict != "VERT" and not prochaine:
+            for c in r.get("criteres", []):
+                if c.get("bloquant", True) and c.get("status") not in ("VERT", "DELEGUE_CI"):
+                    prochaine = (f"{c.get('id')} : {c.get('description', '')} — "
+                                 f"corriger puis relancer omega/scripts/gate.py --phase {num}")
+                    break
+    if not prochaine:
+        prochaine = "aucune porte bloquante rouge — G0 est verte (voir docs/omega/plan/STATUS.json)"
+    return portes, prochaine
+
+
 def main() -> int:
     crates = []
     if CARGO.exists():
@@ -145,6 +195,8 @@ def main() -> int:
 
     ruff_legacy, methode_ruff = count_ruff_legacy()
     scenarios_mesures = run_scenarios()
+    avancee = {**mesures_avancees(), "plugins_enregistres": plugins_enregistres()}
+    portes, prochaine_action = lire_portes()
 
     status = {
         "git_sha": git_sha(),
@@ -159,22 +211,27 @@ def main() -> int:
             "python": {
                 "tests": {"valeur": python_tests, "methode": methode_python},
                 "ruff_legacy_erreurs": {"valeur": ruff_legacy, "methode": methode_ruff,
-                                        "note": "dette P1, non bloquante (ADR-0005)"},
+                                        "note": "dette P1, non bloquante (ADR-0005) ; le "
+                                                "nombre depend de la version de ruff locale, "
+                                                "non comparable au ruff epingle de verify"},
             },
         },
         "portes_federees": {
             "model_policy": run_script("model_policy.py", "--check"),
             "dep_graph": run_script("check_dep_graph.py"),
         },
-        "avancee": {**mesures_avancees(), "plugins_enregistres": plugins_enregistres()},
-        "registre": {"plugins_attendus": None, "plugins_enregistres": None,
-                     "orphelins": None, "note": "mesuré en P0-6 (détecteurs)"},
+        "avancee": avancee,
+        "registre": {
+            "plugins_attendus": avancee["plugins_attendus"],
+            "plugins_enregistres": avancee["plugins_enregistres"],
+            "orphelins": "INCONNU(detecteur_absent — P0-6 reporte en P1-6, ADR-0008)",
+        },
         "scenarios": {**{f"S{i}": {"scripte": "NON_EXECUTE_ABSENT",
                                    "reel": "NON_EXECUTE_ABSENT"}
                           for i in range(12)}, **scenarios_mesures},
         "couverture_ponderee": 0.0,
-        "portes": {f"G{i}": "ROUGE" for i in range(8)},
-        "prochaine_action": "P0-3 : reconciliation doc-truth (STATUS.json = chiffres des docs, marqueurs historiques)",
+        "portes": portes,
+        "prochaine_action": prochaine_action,
     }
 
     STATUS_DIR.mkdir(parents=True, exist_ok=True)
@@ -196,7 +253,9 @@ def main() -> int:
         f"| dep_graph | {status['portes_federees']['dep_graph']['verdict']} | script |",
         "",
         "**Scénarios** : S0–S11 `NON_EXECUTE` (banc d'acceptation = P0-4).",
-        "**Portes** : G0–G7 `ROUGE` — seule la sortie de gate.py fait foi (leçon L6).",
+        "**Portes** : " + " · ".join(f"{k} {v}" for k, v in portes.items())
+        + " — l'etat vient des rapports gate.py (docs/omega/plan/gates/), "
+          "seule la sortie de gate.py fait foi (lecon L6).",
         f"**Prochaine action** : {status['prochaine_action']}",
     ]) + "\n"
     (STATUS_DIR / "STATUS.md").write_text(md)
