@@ -72,34 +72,51 @@ def _fichiers_juges(root: Path, critere: dict) -> list[str]:
     return chemins
 
 
-def _regle_porte_code(root: Path, critere: dict) -> str | None:
+def _parent_disponible(root: Path) -> bool:
+    """En clone superficiel (profondeur 1), `HEAD^` n'existe pas.
+
+    On ne peut alors pas dire ce qu'un commit a changé : la règle porte/code
+    est **non vérifiable**, pas violée. Dire le contraire ferait tomber la
+    porte sur un clone superficiel (la CI clone en profondeur 1).
+    """
+    try:
+        p = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", "HEAD^"],
+            cwd=root, capture_output=True, text=True, timeout=60, check=False,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+    return p.returncode == 0
+
+
+def _regle_porte_code(root: Path, critere: dict) -> tuple[str | None, str]:
     """Une porte ne doit pas etre modifiee dans le meme commit que le code juge.
 
     On regarde le commit en cours (HEAD) : c'est celui qu'on est en train de
-    faire. Ce choix marche aussi en clone superficiel (la CI clone en
-    profondeur 1) — `git log -1 -- <fichier>` y renvoie HEAD pour TOUT
-    fichier, ce qui transformait chaque porte en faux positif.
+    faire. -> (violation, note)
     """
     if critere.get("kind") == "ci":
-        return None
+        return None, ""
     juges = _fichiers_juges(root, critere)
     if not juges:
-        return None
+        return None, ""
+    if not _parent_disponible(root):
+        return None, "regle porte/code non verifiable (clone superficiel)"
     try:
         p = subprocess.run(
             ["git", "show", "--name-only", "--format=", "HEAD"],
             cwd=root, capture_output=True, text=True, timeout=60, check=False,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        return None
+        return None, ""
     if p.returncode != 0:
-        return None
+        return None, ""
     touches = {line.strip() for line in p.stdout.splitlines() if line.strip()}
     commun = touches & set(juges)
     if "omega/gates.toml" in touches and commun:
         return (f"gates.toml et {', '.join(sorted(commun))} modifies dans "
-                f"le meme commit (HEAD)")
-    return None
+                f"le meme commit (HEAD)"), ""
+    return None, ""
 
 
 def executer_critere(critere: dict, root: Path) -> dict:
@@ -149,7 +166,9 @@ def executer_critere(critere: dict, root: Path) -> dict:
             crit["sortie"] = f"code {code}, attendu {critere.get('expect_exit', 0)}\n{sortie}"
         else:
             crit["status"] = VERT
-        violation = _regle_porte_code(root, critere)
+        violation, note_regle = _regle_porte_code(root, critere)
+        if note_regle:
+            crit["note"] = (crit.get("note", "") + " | " + note_regle).strip(" |")
         if violation:
             crit["status"] = VIOLATION
             crit["sortie"] = violation + "\n" + sortie
