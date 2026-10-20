@@ -114,3 +114,6 @@ _scratch/
 !docs/omega/research/loucash/ocr.json
 !omega/crates/omega-mcp/data/
 !omega/crates/omega-mcp/data/**
+
+# Rapports de portes generes par omega/scripts/gate.py (regenables)
+docs/omega/plan/gates/
