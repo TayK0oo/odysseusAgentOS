@@ -49,7 +49,7 @@ def _exec(cmd: list[str], cwd: Path, timeout: int) -> tuple[int | None, str]:
     try:
         p = subprocess.run(
             cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout,
-            errors="replace",
+            errors="replace", check=False,
         )
     except subprocess.TimeoutExpired as e:
         return None, f"TIMEOUT apres {timeout}s\n{(e.stdout or '')[:4000]}"
@@ -64,7 +64,7 @@ def _dernier_commit(root: Path, chemins: list[str]) -> str | None:
     try:
         p = subprocess.run(
             ["git", "log", "-1", "--format=%H", "--"] + chemins,
-            cwd=root, capture_output=True, text=True, timeout=60,
+            cwd=root, capture_output=True, text=True, timeout=60, check=False,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return None
