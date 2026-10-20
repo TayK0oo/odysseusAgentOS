@@ -8,6 +8,7 @@
 
 use std::sync::Arc;
 
+use omega_adapters::composition::{CompositionRegistry, compose_ported_crates};
 use omega_app::{App, AppBuilder, FileEventStore};
 use omega_context::ContextContributor;
 use omega_plugin_api::{Contributor, InstallContext};
@@ -24,6 +25,9 @@ pub struct AppState {
     pub app: Arc<App>,
     /// Journal durable (meme instance que celle du registre).
     pub store: Arc<FileEventStore>,
+    /// Registre de composition (P1-2) : les 8 adaptateurs portes y sont
+    /// enregistres (enregistrement = autorisation, activation = A2).
+    pub composition: Arc<CompositionRegistry>,
     /// Configuration effective du serveur (port, Ollama, journal, budget, UI).
     pub config: ServerConfig,
 }
@@ -110,6 +114,7 @@ pub fn build_app_state_with(cfg: &ServerConfig) -> OmegaResult<AppState> {
     Ok(AppState {
         app: Arc::new(app),
         store,
+        composition: Arc::new(compose_ported_crates()),
         config: cfg.clone(),
     })
 }
