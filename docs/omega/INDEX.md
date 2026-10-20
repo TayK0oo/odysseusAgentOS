@@ -1,11 +1,8 @@
-# INDEX — Espace Omega (carte complète)
+# INDEX — Espace Omega (carte)
 
-> **État (P0-3c) : carte périmée.** Elle s'annonce « générée automatiquement » alors
-> qu'aucun script ne la produit. Régénération prévue en **P0-3d**
-> (`omega/scripts/generate_index.py`) ; d'ici là, ne pas l'éditer à la main et ne pas
-> citer ses chiffres.
->
-> Sources : `docs/omega/MEMORY.md` + `docs/omega/rules/RULES-OMEGA.md` + `docs/omega/00-VISION-OMEGA.md`
+> **Généré le** par `omega/scripts/generate_index.py` à HEAD `ccd80e70` [observed].
+> Les sections balisées `<!-- gen:... -->` sont régénérées à chaque run ; le reste
+> de la carte est maintenu à la main. Chiffres vivants : `docs/omega/plan/STATUS.json`.
 
 ---
 
@@ -27,9 +24,22 @@
 
 | ADR | Sujet | Statut |
 |-----|-------|--------|
-| 0001 | Moteur Rust (réécriture complète) | ✅ Accepté |
-| 0002 | UI React/TS séparée | ✅ Accepté |
-| 0003 | Architecture plugin/capacités | ✅ Accepté |
+<!-- gen:adr -->
+
+| 0001 | Réécriture complète du moteur en Rust | ✅ Accepté |
+| 0002 | UI : nouvelle application React/TS isolée | ✅ Accepté |
+| 0003 | Architecture « everything is a plugin » : capacités, ports, manifestes | ✅ Accepté |
+| 0004 | Catégorisation des 22 crates et statut de `Policy` | ✅ Accepté |
+| 0005 | Scope `ruff` de `verify` : Python nouveau d'abord, legacy dette P1 | ✅ Accepté |
+| 0006 | Transport des tool-calls dans le wire | ✅ Accepté |
+| 0007 | Doc-truth : le tag porte le chiffre | ✅ Accepté |
+| 0008 | P0 dépasse sa boîte de temps : périmètre réduit, chemin critique maintenu | ✅ Accepté |
+| 0009 | D0 : le moteur de référence est Rust | ✅ Accepté |
+| 0010 | Convergence Plugin : architecture "Everything is a Plugin" | ✅ Accepté |
+| 0011 | Scope `pytest` de `verify.py` : Python nouveau bloquant, socle legacy dette P1 | ✅ Accepté |
+| 0012 | Reproductibilité : le lockfile est commité, et le timeout tue toute la descendance | ✅ Accepté |
+
+<!-- /gen -->
 
 ---
 
@@ -82,13 +92,16 @@
 
 ## 5. Code — Workspace Rust `omega/`
 
-### 5.1 Crates (16) — Ordre de dépendances
+### 5.1 Crates — Ordre de dépendances
+
+<!-- gen:rust -->
+
+### Crates (22) — mesurés par `measure.py` [observed]
 ```
-omega-types → omega-ports → omega-config → omega-registry → omega-plugin-api
-    → omega-core → omega-protocol → omega-app
-    → omega-context → omega-otel → omega-sandbox → omega-harness
-    → omega-mcp → omega-router → omega-providers → omega-server
+omega-adapters, omega-app, omega-config, omega-context, omega-core, omega-harness, omega-mcp, omega-memory, omega-otel, omega-plugin-api, omega-policy, omega-ports, omega-protocol, omega-providers, omega-python-bridge, omega-registry, omega-router, omega-sandbox, omega-search, omega-server, omega-tools, omega-types
 ```
+
+<!-- /gen -->
 
 ### 5.2 Catégories (garde-fou)
 | Catégorie | Crates | Règle |
@@ -102,17 +115,28 @@ omega-types → omega-ports → omega-config → omega-registry → omega-plugin
 ### 5.3 Scripts — `omega/scripts/`
 | Script | Rôle |
 |--------|------|
-| `census.py` | Recensement harnais (API GitHub) |
-| `intake.py` | Intake + REA harnais |
-| `dissect.py` | Dissection → fiche + données |
-| `validate_dissections.py` | Validation structure + preuves |
-| `register_dissection.py` | Enregistrement dans omega-harness |
-| `plan_integration.py` | Plan d'intégration (consensus capacité × demandeurs) |
-| `complet.py` | Génération OMEGA-COMPLET.md |
-| `check_dep_graph.py` | **Graphe de dépendances** (0 cycle, 0 arête interdite) |
-| `model_policy.py` | Vérification politique modèles |
-| `generate_memory.py` | Génération MEMORY.md |
+<!-- gen:scripts -->
+
+| `check_dep_graph.py` | Garde-fou graphe de dependances du workspace Omega (deterministe, zero LLM). |
+| `check_doc_truth.py` | P0-3b — doc-truth : tout chiffre marque dans un .md doit egaler STATUS.json. |
+| `gate.py` | gate.py — execute les portes d'une phase (travail P0-5 du PLAN-MAITRE). |
+| `gen_dissection_md.py` | Genere les fiches markdown des dissections (deterministe). |
+| `generate_index.py` | P0-3d : régénère les sections machine de INDEX.md. |
+| `generate_memory.py` | Génère MEMORY.md depuis STATUS.json + git (provenance ADR-0007). |
+| `harness_census.py` | Recensement des harnais d'agents — popularite = preuve GitHub (deterministe). |
+| `harness_intake.py` | Intake des harnais recenses — clone + analyse REA, par popularite. |
+| `integration_plan.py` | Plan d'intégration consolidé — déterministe (zéro LLM). |
+| `measure.py` | P0-2 — mesure honnête par parseurs (leçon L3 : jamais de comptage de sous-chaînes sans étiquette de méthode). |
+| `measures_advanced.py` | P0-3a — mesures avancées : les chiffres contestés du PLAN-MAITRE §1.2. |
+| `model_policy.py` | Politique de modeles — verification live + selection par usage (deterministe). |
+| `omega_complet.py` | OMEGA-COMPLET — le combine unifie (deterministe, zero LLM). |
+| `rea-sweep.py` | Balayage REA — applique l'outil de reverse-engineering a NOS artefacts. |
+| `register_dissections.py` | Enregistre les dissections dans le corpus embarque (deterministe, idempotent). |
+| `validate_dissections.py` | Garde-fou des dissections — structure + **resolution des preuves** (deterministe). |
+| `verify.py` | P0-1 — verify : une commande qui installe et vérifie les deux socles. |
 | `run-local.sh` | Lance système complet (UI + API) |
+
+<!-- /gen -->
 
 ---
 
@@ -202,7 +226,7 @@ python3 omega/scripts/model_policy.py --check
 | Artefact | Provenance | Dernière MAJ |
 |----------|------------|--------------|
 | `MEMORY.md` | `generate_memory.py` [observed] | Auto à chaque run |
-| `INDEX.md` | Maintenu manuellement [stated] | 2026-10-17 |
+| `INDEX.md` | `generate_index.py` [observed] | régénéré à chaque run |
 | `RECAP-COMPLET.md` | Session 15-17 oct [observed] | 2026-10-17 |
 | `OMEGA-COMPLET.md` | `complet.py` + corpus [observed] | 2026-10-17 |
 | `NOYAU-ULTIME.md` | Synthèse corpus [inferred] | 2026-10-17 |

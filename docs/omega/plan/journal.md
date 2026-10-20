@@ -50,3 +50,9 @@
 - STATUS régénéré au HEAD `8ca3626c` — le regen de 22:53 (G0 VERT) n'avait jamais été commité, et son SHA embarqué précédait les 4 derniers commits (ADR-0012 inclus).
 - `measure.py` : `moteur_reference` n'est plus une chaîne figée — dérivé du titre d'ADR-0009 (principe 7, même famille que le bug `prochaine_action`) → `Rust (ADR-0009)`.
 - Prochaine action : P0-3d (`generate_index.py`, non bloquant, resté en P0 par ADR-0008), puis fermeture de P0 → G1 (`gate.py --phase 1`).
+
+## 2026-10-20bis — P0-3d livré (INDEX + MEMORY générés, sous-agents en parallèle)
+- `generate_index.py` créé : sections machine d'INDEX réécrites via balises `<!-- gen:adr|scripts|rust -->` (12 ADR, 18 scripts, crates mesurés), le reste de la carte reste écrit à la main ; bannière calculée (SHA, [observed]). Idempotence prouvée (2 runs, md5 identique).
+- `generate_memory.py` réécrit : chiffres RE/avancée depuis `STATUS.json` (102/67/51/910, plus aucun « 109/66 » en dur), `cargo test` interne supprimé (370/4425 lus du STATUS), bannière auto à HEAD, `shell=True` remplacé par argv.
+- Contrôles : doc-truth VERT, 4/4 tests du validateur verts. F541 (f-string sans placeholder) introduit puis corrigé à la racine — pris par ruff 0.6.9 épinglé ET système, contrôle négatif vérifié.
+- Reste en P0 : rien de bloquant ; P0 fermable, prochaine porte G1 (`gate.py --phase 1`).
