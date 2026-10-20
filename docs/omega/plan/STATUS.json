@@ -1,6 +1,6 @@
 {
-  "git_sha": "8ca3626c",
-  "mesure_le": "2026-10-20T21:30:16+00:00",
+  "git_sha": "68cc7423",
+  "mesure_le": "2026-10-20T22:26:43+00:00",
   "moteur_reference": "Rust (ADR-0009)",
   "socles": {
     "rust": {
@@ -63,9 +63,9 @@
         "methode": "ast"
       },
       "ruff_legacy_erreurs": {
-        "valeur": 3720,
-        "methode": "ruff_json@0.17.1",
-        "note": "dette P1, non bloquante (ADR-0005) ; le nombre depend de la version de ruff locale, non comparable au ruff epingle de verify"
+        "valeur": 1040,
+        "methode": "ruff_json@0.6.9",
+        "note": "dette P1, non bloquante (ADR-0005) ; mesuree avec le ruff epingle 0.6.9, desormais comparable a verify (ADR-0005/0011)"
       }
     }
   },
@@ -353,7 +353,7 @@
   "couverture_ponderee": 0.0,
   "portes": {
     "G0": "VERT",
-    "G1": "NON_EXECUTE",
+    "G1": "VERT",
     "G2": "NON_EXECUTE",
     "G3": "NON_EXECUTE",
     "G4": "NON_EXECUTE",
@@ -361,5 +361,5 @@
     "G6": "NON_EXECUTE",
     "G7": "NON_EXECUTE"
   },
-  "prochaine_action": "G1 : porte non executee — lancer omega/scripts/gate.py --phase 1"
+  "prochaine_action": "G2 : porte non executee — lancer omega/scripts/gate.py --phase 2"
 }

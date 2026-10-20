@@ -11,10 +11,10 @@ Limites connues :
 import ast
 import json
 import re
-import shutil
 import subprocess
 import sys
 import tomllib
+import venv
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -80,22 +80,51 @@ def run_script(script: str, *args: str) -> dict:
 
 
 
+RUFF_PIN = "0.6.9"  # même version que verify.py (ADR-0005/0011) — nombres comparables
+
+
+def ruff_epingle() -> str | None:
+    """Chemin d'un ruff == 0.6.9, installé dans un venv de cache si besoin.
+
+    Le ruff du PATH n'est JAMAIS utilisé : sa version dérive (0.6.9 épinglé
+    dans verify vs 0.17.1 système — les nombres n'ont pas la même échelle).
+    Retour None (venv non installable) = mesure Opportun, jamais inventée.
+    """
+    cache = Path.home() / ".cache" / "omega-measure" / "ruff-venv"
+    binaire = cache / "bin" / "ruff"
+    try:
+        v = subprocess.run([str(binaire), "--version"], capture_output=True,
+                           text=True, timeout=30, check=False)
+        if v.returncode == 0 and v.stdout.strip().split()[-1] == RUFF_PIN:
+            return str(binaire)
+    except Exception:
+        pass
+    try:
+        venv.create(cache, with_pip=True, clear=True)
+        subprocess.run([str(cache / "bin" / "pip"), "install", "--quiet",
+                        "--disable-pip-version-check", f"ruff=={RUFF_PIN}"],
+                       check=True, timeout=300)
+        return str(binaire) if binaire.exists() else None
+    except Exception:
+        return None
+
+
 def count_ruff_legacy() -> "tuple[int | None, str]":
     """Compte les erreurs ruff hors omega/ (socle legacy, dette P1 — ADR-0005).
 
-    R Opportun : None si ruff absent (jamais une valeur inventee).
+    Version EPINGLEE ruff_json@0.6.9 — le ruff du PATH jamais pris.
+    Opportun : None si le venv épinglé est indisponible (jamais une valeur inventée).
     """
-    if shutil.which("ruff") is None:
-        return None, "ruff_absent"
+    ruff = ruff_epingle()
+    if ruff is None:
+        return None, "ruff_epingle_indisponible"
     try:
-        v = subprocess.run(["ruff", "--version"], check=False, capture_output=True,
-                           text=True, timeout=30).stdout.strip().split()[-1]
-        r = subprocess.run(["ruff", "check", ".", "--output-format=json"], check=False,
+        r = subprocess.run([ruff, "check", ".", "--output-format=json"], check=False,
                            cwd=ROOT, capture_output=True, text=True, timeout=300)
         erreurs = json.loads(r.stdout)
         legacy = [e for e in erreurs
-                  if not e["filename"].split("/odysseusAgentOS-omega/")[-1].startswith("omega/")]
-        return len(legacy), f"ruff_json@{v}"
+                  if not e["filename"].startswith(str(ROOT / "omega"))]
+        return len(legacy), f"ruff_json@{RUFF_PIN}"
     except Exception as e:
         return None, f"ruff_erreur:{type(e).__name__}"
 
@@ -222,9 +251,9 @@ def main() -> int:
             "python": {
                 "tests": {"valeur": python_tests, "methode": methode_python},
                 "ruff_legacy_erreurs": {"valeur": ruff_legacy, "methode": methode_ruff,
-                                        "note": "dette P1, non bloquante (ADR-0005) ; le "
-                                                "nombre depend de la version de ruff locale, "
-                                                "non comparable au ruff epingle de verify"},
+                                        "note": "dette P1, non bloquante (ADR-0005) ; "
+                                                "mesuree avec le ruff epingle 0.6.9, "
+                                                "desormais comparable a verify (ADR-0005/0011)"},
             },
         },
         "portes_federees": {
