@@ -1,15 +1,15 @@
 # STATUS — AgentOS Omega (généré par measure.py — jamais édité à la main)
 
-SHA `b7c61bb7` · mesuré le 2026-10-19T03:56:38+00:00 · moteur INDETERMINE (ADR D0, P0-9)
+SHA `1565e4e2` · mesuré le 2026-10-20T20:20:14+00:00 · moteur INDETERMINE (ADR D0, P0-9)
 
 | Mesure | Valeur | Méthode |
 |---|---|---|
 | Crates Rust | 22 | cargo metadata |
 | Tests Rust (attributs test) | 370 | scan attributs |
-| Tests Python (test_*) | 4415 | ast |
+| Tests Python (test_*) | 4425 | ast |
 | model_policy --check | OK | script |
 | dep_graph | OK | script |
 
 **Scénarios** : S0–S11 `NON_EXECUTE` (banc d'acceptation = P0-4).
-**Portes** : G0–G7 `ROUGE` — seule la sortie de gate.py fait foi (leçon L6).
-**Prochaine action** : P0-3 : reconciliation doc-truth (STATUS.json = chiffres des docs, marqueurs historiques)
+**Portes** : G0 NON_EXECUTE · G1 NON_EXECUTE · G2 NON_EXECUTE · G3 NON_EXECUTE · G4 NON_EXECUTE · G5 NON_EXECUTE · G6 NON_EXECUTE · G7 NON_EXECUTE — l'etat vient des rapports gate.py (docs/omega/plan/gates/), seule la sortie de gate.py fait foi (lecon L6).
+**Prochaine action** : G0 : porte non executee — lancer omega/scripts/gate.py --phase 0

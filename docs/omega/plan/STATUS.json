@@ -1,6 +1,6 @@
 {
-  "git_sha": "b7c61bb7",
-  "mesure_le": "2026-10-19T03:56:38+00:00",
+  "git_sha": "1565e4e2",
+  "mesure_le": "2026-10-20T20:20:14+00:00",
   "moteur_reference": "INDETERMINE (ADR D0, P0-9)",
   "socles": {
     "rust": {
@@ -59,13 +59,13 @@
     },
     "python": {
       "tests": {
-        "valeur": 4415,
+        "valeur": 4425,
         "methode": "ast"
       },
       "ruff_legacy_erreurs": {
         "valeur": 3720,
         "methode": "ruff_json@0.17.1",
-        "note": "dette P1, non bloquante (ADR-0005)"
+        "note": "dette P1, non bloquante (ADR-0005) ; le nombre depend de la version de ruff locale, non comparable au ruff epingle de verify"
       }
     }
   },
@@ -113,8 +113,61 @@
       "methode": "fs_probe"
     },
     "plugins_attendus": {
-      "valeur": "INCONNU(gates_yaml_pas_encore_genere(P0-5))",
-      "methode": "gates_yaml"
+      "valeur": [
+        {
+          "id": "config/default",
+          "capability": "config-source"
+        },
+        {
+          "id": "loop/default",
+          "capability": "agent-loop"
+        },
+        {
+          "id": "workflow/default",
+          "capability": "workflow-engine"
+        },
+        {
+          "id": "agentstore/default",
+          "capability": "agent-store"
+        },
+        {
+          "id": "ui/main",
+          "capability": "ui-surface"
+        },
+        {
+          "id": "ui/sidebar",
+          "capability": "ui-surface"
+        },
+        {
+          "id": "sandbox/default",
+          "capability": "sandbox-backend"
+        },
+        {
+          "id": "skills/default",
+          "capability": "skill-store"
+        },
+        {
+          "id": "cfg",
+          "capability": "config-source"
+        },
+        {
+          "id": "a",
+          "capability": "config-source"
+        },
+        {
+          "id": "b",
+          "capability": "config-source"
+        },
+        {
+          "id": "x",
+          "capability": "ui-surface"
+        },
+        {
+          "id": "y",
+          "capability": "ui-surface"
+        }
+      ],
+      "methode": "parse_ids_composition_rs"
     },
     "plugins_enregistres": {
       "valeur": [
@@ -153,10 +206,99 @@
     }
   },
   "registre": {
-    "plugins_attendus": null,
-    "plugins_enregistres": null,
-    "orphelins": null,
-    "note": "mesuré en P0-6 (détecteurs)"
+    "plugins_attendus": {
+      "valeur": [
+        {
+          "id": "config/default",
+          "capability": "config-source"
+        },
+        {
+          "id": "loop/default",
+          "capability": "agent-loop"
+        },
+        {
+          "id": "workflow/default",
+          "capability": "workflow-engine"
+        },
+        {
+          "id": "agentstore/default",
+          "capability": "agent-store"
+        },
+        {
+          "id": "ui/main",
+          "capability": "ui-surface"
+        },
+        {
+          "id": "ui/sidebar",
+          "capability": "ui-surface"
+        },
+        {
+          "id": "sandbox/default",
+          "capability": "sandbox-backend"
+        },
+        {
+          "id": "skills/default",
+          "capability": "skill-store"
+        },
+        {
+          "id": "cfg",
+          "capability": "config-source"
+        },
+        {
+          "id": "a",
+          "capability": "config-source"
+        },
+        {
+          "id": "b",
+          "capability": "config-source"
+        },
+        {
+          "id": "x",
+          "capability": "ui-surface"
+        },
+        {
+          "id": "y",
+          "capability": "ui-surface"
+        }
+      ],
+      "methode": "parse_ids_composition_rs"
+    },
+    "plugins_enregistres": {
+      "valeur": [
+        {
+          "schema_version": 1,
+          "id": "ollama",
+          "capability": "llm-provider",
+          "active": true
+        },
+        {
+          "schema_version": 1,
+          "id": "default",
+          "capability": "context-engine",
+          "active": true
+        },
+        {
+          "schema_version": 1,
+          "id": "mcp:rea",
+          "capability": "tool-surface",
+          "active": true
+        },
+        {
+          "schema_version": 1,
+          "id": "file",
+          "capability": "event-store",
+          "active": true
+        },
+        {
+          "schema_version": 1,
+          "id": "embedded",
+          "capability": "harness-catalog",
+          "active": true
+        }
+      ],
+      "methode": "instance_jetable_http"
+    },
+    "orphelins": "INCONNU(detecteur_absent — P0-6 reporte en P1-6, ADR-0008)"
   },
   "scenarios": {
     "S0": {
@@ -210,14 +352,14 @@
   },
   "couverture_ponderee": 0.0,
   "portes": {
-    "G0": "ROUGE",
-    "G1": "ROUGE",
-    "G2": "ROUGE",
-    "G3": "ROUGE",
-    "G4": "ROUGE",
-    "G5": "ROUGE",
-    "G6": "ROUGE",
-    "G7": "ROUGE"
+    "G0": "NON_EXECUTE",
+    "G1": "NON_EXECUTE",
+    "G2": "NON_EXECUTE",
+    "G3": "NON_EXECUTE",
+    "G4": "NON_EXECUTE",
+    "G5": "NON_EXECUTE",
+    "G6": "NON_EXECUTE",
+    "G7": "NON_EXECUTE"
   },
-  "prochaine_action": "P0-3 : reconciliation doc-truth (STATUS.json = chiffres des docs, marqueurs historiques)"
+  "prochaine_action": "G0 : porte non executee — lancer omega/scripts/gate.py --phase 0"
 }
