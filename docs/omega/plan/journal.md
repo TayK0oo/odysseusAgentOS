@@ -38,3 +38,10 @@
 - Fence/span-awareness (ADR-0007 §6 amendé) : les deux exemples littéraux bloquants étaient des **spans inline**, pas des fences — la règle couvre les deux formes de code, par sémantique Markdown et non par exception. 4 tests, dont le contrôle dans les deux sens.
 - P0-3c : `PROJET-ET-VISION` marqué (18 tags ; 109→102 capacités, 424→370 tests Rust, 5 068 « tests verts »→4 415 fonctions recensées, « 13 entrées » et « 0,4 % » retirés car non mesurés), bannières sur `VISION-INTEGRATION`/`RECAP-COMPLET`/`INDEX`/`MEMORY`, `02-WORKSTREAMS` daté, `RULES`/`MODEL-POLICY`/`00-VISION` audités sans tag (aucun chiffre mesuré par STATUS).
 - `--strict` par défaut, `verify` bloquant, mécanisme de tolérance supprimé. Limite écrite : le validateur prouve les tags, pas l'absence de chiffres non marqués. Reste ouvert : `measure.py` v3 (`*_count` pour les listes, un seul ruff épinglé). Prochaine action : G0.a (verify complet ×2).
+
+## 2026-10-20 — P0-5 livré, G0 verte, D0 tranché
+- P0-5 : `omega/gates.toml` (TOML/tomllib, 0 dépendance) + `omega/scripts/gate.py` (command/file/ci, rapport JSON, règle porte/code) + `tests/test_omega_gate.py` (6 tests, contrôle négatif).
+- `measure.py` v3 : `prochaine_action` et `portes` ne sont plus écrits en dur — déduits des rapports gate.py ; `registre.plugins_attendus` devient mesuré (parse de `composition.rs`).
+- G0.a : première exécution **complète** de `verify` = `ECHEC(pytest)` — le venv hermétique n'installe que ruff+pytest, le socle legacy n'est pas collectable → ADR-0011 (pytest omega bloquant, legacy = dette P1 non bloquante, `SKIPPED(raison)` jamais `PASS`).
+- Bug réel trouvé par la porte : `omega-mcp` test instable (course sur la variable globale `OMEGA_REA_ENV` entre tests Rust parallèles) → correctif à la racine (`load_toolchain_env_from` / `rea_with_toolchain_env` purs, plus aucune variable mutée par un test).
+- G0 : **VERTE** (G0.a, G0.b, G0.c, G0.d). ADR-0008 (P0 dépasse sa boîte de temps : P0-6 → P1-6, P0-8 → P7), ADR-0009 (**D0 = moteur Rust**, O2, ADR-0001 confirmé). Reste G0.e : la CI doit jouer `gate.py --phase 0` (job `omega-gates` poussé).
