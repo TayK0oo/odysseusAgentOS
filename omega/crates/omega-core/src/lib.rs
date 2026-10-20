@@ -18,6 +18,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
 
+pub mod tool_loop;
 pub use omega_types::Event;
 
 /// Bus d'evenements interne au noyau.
