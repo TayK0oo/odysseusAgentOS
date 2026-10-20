@@ -114,3 +114,13 @@ def seq_echoreq_reply(prefix: str = ""):
         last = msgs[-1].get("content", "") if msgs else ""
         return _reply(f"{prefix}{last[-200:]}")
     return [one]
+
+
+def seq_react_toolcall(tool: str, tours: int = 12):
+    """Le modèle propose tours fois de suite un appel d'outil, en forme texte
+    ReAct canonique (ADR-0006 : `{"tool": "...", "arguments": {...}}`).
+    Base du scénario S2 : mesurer qu'un budget de steps/fini par arrêt.
+    Aucun marqueur de budget dans la prose — un arrêt doit venir du MOTEUR.
+    """
+    rep = _reply(json.dumps({"tool": tool, "arguments": {}}, sort_keys=True))
+    return [lambda req: rep for _ in range(tours)]
