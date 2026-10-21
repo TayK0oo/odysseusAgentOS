@@ -123,6 +123,22 @@ impl CompositionRegistry {
         v
     }
 
+    /// Toutes les entrées enregistrées : `(id, capacité, actif)`, triées par id.
+    ///
+    /// Source de vérité pour `/api/plugins` (P1-2) : la liste nominative
+    /// exposée vient d'ici, jamais d'une copie maintenue à la main.
+    pub fn entries(&self) -> Vec<(String, &'static str, bool)> {
+        let mut v: Vec<(String, &'static str, bool)> = self
+            .entries
+            .read()
+            .unwrap()
+            .iter()
+            .map(|(k, e)| (k.clone(), e.capability, e.active))
+            .collect();
+        v.sort_by(|a, b| a.0.cmp(&b.0));
+        v
+    }
+
     /// Résout un adaptateur typé (renvoie `None` si inactif ou absent).
     pub fn resolve<T: Send + Sync + 'static>(&self, id: &str) -> Option<Arc<T>> {
         let inst = self.instances.read().unwrap().get(id)?.clone();
@@ -347,6 +363,37 @@ mod tests {
         assert!(r.resolve::<DefaultSkillStore>("skills/default").is_some());
         assert!(r.resolve::<DefaultAgentLoop>("loop/default").is_some());
         assert!(r.resolve::<DefaultUiSurface>("ui/main").is_some());
+    }
+
+    #[test]
+    fn entries_lists_all_composed_adapters_sorted() {
+        let r = compose_ported_crates();
+        let entries = r.entries();
+        let ids: Vec<&str> = entries.iter().map(|(id, _, _)| id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec![
+                "agentstore/default",
+                "config/default",
+                "loop/default",
+                "sandbox/default",
+                "skills/default",
+                "ui/main",
+                "ui/sidebar",
+                "workflow/default",
+            ]
+        );
+        // Les capacites declarees coincident avec l'usage de chaque port.
+        let caps: Vec<&str> = entries.iter().map(|(_, c, _)| *c).collect();
+        assert!(caps.contains(&"config-source"));
+        assert!(caps.contains(&"agent-loop"));
+        assert!(caps.contains(&"workflow-engine"));
+        assert!(caps.contains(&"agent-store"));
+        assert!(caps.contains(&"ui-surface"));
+        assert!(caps.contains(&"sandbox-backend"));
+        assert!(caps.contains(&"skill-store"));
+        // Enregistre mais non active tant que la boucle (A2) n'a pas d'appelant.
+        assert!(entries.iter().all(|(_, _, active)| !*active));
     }
 
     #[test]

@@ -96,6 +96,17 @@ impl PluginEntry {
             active: true,
         }
     }
+
+    /// Entree du registre de composition (P1-2) : `active` reflète réellement
+    /// l'état de la composition (enregistré = listé, branché = actif).
+    pub fn registered(id: String, capability: &str, active: bool) -> Self {
+        Self {
+            schema_version: SCHEMA_VERSION,
+            id,
+            capability: capability.to_string(),
+            active,
+        }
+    }
 }
 
 /// Corps de `POST /api/run` (succes) : `summary` = `RunSummary` serialise,

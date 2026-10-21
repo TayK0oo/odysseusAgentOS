@@ -678,8 +678,10 @@ name = "omega-adapters"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "omega-otel",
  "omega-ports",
  "omega-types",
+ "serde",
  "serde_json",
  "tokio",
 ]
@@ -918,6 +920,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "axum",
+ "omega-adapters",
  "omega-app",
  "omega-context",
  "omega-core",
