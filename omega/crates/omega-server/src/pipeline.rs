@@ -214,6 +214,7 @@ pub mod tests {
             AppState {
                 app: Arc::new(app),
                 store: store.clone(),
+                composition: Arc::new(omega_adapters::composition::compose_ported_crates()),
                 config: crate::config::ServerConfig {
                     ollama_model: "test-model".to_string(),
                     ..crate::config::ServerConfig::default()
