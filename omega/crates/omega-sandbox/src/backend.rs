@@ -52,11 +52,8 @@ impl SandboxBackend for LocalSandboxBackend {
     fn name(&self) -> &str {
         "local"
     }
-    #[allow(unused)]
-    async _ = 0;
-}
 
-/// Descendants : déplacé dans `crate::timeout` (canon partagé par les backends).
+    async fn run(&self, command: &str) -> OmegaResult<CommandOutput> {
         // Canon de refus : évaluation + garde anti-composition (REVIEW-W8-W9
         // B1) + approbations — partagé par tous les backends sandbox.
         crate::policy::gate(self.policy.as_ref(), command, self.approvals.as_ref())?;
@@ -70,46 +67,11 @@ impl SandboxBackend for LocalSandboxBackend {
     }
 }
 
-/// Descendants (enfants, petits-enfants, …) d'un PID, lus dans `/proc`.
-///
-/// Le kill de groupe ne suffit pas : si `setpgid` n'a pas été appliqué, les
-/// petits-enfants restent dans le groupe du parent et survivent au timeout.
-/// On les capture donc avant de tuer quoi que ce soit.
-fn descendants(pid: u32) -> Vec<u32> {
-    let mut trouves = Vec::new();
-    let mut frontier = vec![pid];
-    while let Some(parent) = frontier.pop() {
-        for entry in std::fs::read_dir("/proc").into_iter().flatten().flatten() {
-            let Ok(nom) = entry.file_name().into_string() else {
-                continue;
-            };
-            let Ok(child) = nom.parse::<u32>() else {
-                continue;
-            };
-            let Ok(stat) = std::fs::read_to_string(format!("/proc/{child}/stat")) else {
-                continue;
-            };
-            // Après la dernière ')' : etat, ppid, pgrp, …
-            let Some((_, reste)) = stat.rsplit_once(')') else {
-                continue;
-            };
-            let champs: Vec<&str> = reste.split_whitespace().collect();
-            let Some(ppid) = champs.get(1).and_then(|v| v.parse::<u32>().ok()) else {
-                continue;
-            };
-            if ppid == parent {
-                trouves.push(child);
-                frontier.push(child);
-            }
-        }
-    }
-    trouves
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::policy::RuleBasedExecPolicy;
+    use omega_types::{ExecDecision, OmegaError};
 
     fn backend() -> LocalSandboxBackend {
         let policy: Arc<dyn ExecPolicy> = Arc::new(
