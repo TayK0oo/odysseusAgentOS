@@ -167,7 +167,7 @@ async fn plugins(State(state): State<Arc<AppState>>) -> Json<Vec<PluginEntry>> {
     // `composition.entries()` elle-meme, pas d'une copie maintenue a la main.
     // Source de verite unique : un id ne peut pas apparaitre deux fois (test).
     for (id, capability, active) in state.composition.entries() {
-        entries.push(PluginEntry::registered(id, &capability, active));
+        entries.push(PluginEntry::registered(id, capability, active));
     }
     Json(entries)
 }
@@ -285,6 +285,10 @@ mod tests {
         let body = axum::body::to_bytes(res.into_body(), usize::MAX)
             .await
             .unwrap();
+        // Sortie brute de l'endpoint, visible via `--nocapture` : c'est la
+        // liste nominative rendue par G1.d (verifier_plugins sur instance
+        // jetable HTTP reutilise cette liste).
+        println!("{}", String::from_utf8_lossy(&body));
         let entries: Vec<PluginEntry> =
             serde_json::from_slice(&body).expect("reponse /api/plugins parseable en JSON");
         for (id, capability) in ADAPTERS_PORTES {
