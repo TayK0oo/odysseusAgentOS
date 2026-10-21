@@ -90,12 +90,74 @@ bloquant = false
 [phase1]
 nom = "L'agent qui agit, dans une boite"
 
+# ADR-0013 : tous les criteres sont executables, mesurables et bloquants — le
+# placeholder kind="ci" (« porte non outillee », faux vert DELEGUE_CI) est mort.
+# Rien d'inverse ici : chaque critere attend un PASS sec (expect_exit = 0) et
+# le gate est ROUGE tant que la boucle / le registre n'est pas livre (ECHEC
+# nomme, pas de vert par inversion). Aujourd'hui : rouge sincere sur S1
+# (boucle absente, P1-1/ADR-0006), S2 (budgets absents, P1-3) et registre
+# (adaptateurs non branches, P1-2/A4).
+# NB : le xfail_raison des scenarios S1/S2 devra etre retire le jour ou le
+# moteur y arrive (sinon XPASS = exit 1) — cf. ADR-0013, tournant A2.
+
 [[phase1.criteres]]
-id = "G1"
-description = "P1 : l'agent appelle un outil reel dans la boucle (porte non outillee)"
-kind = "ci"
-note = "a outiller en P1 — aucune commande existante ne la verifie"
-bloquant = false
+id = "G1.a.s1"
+description = "S1 outil reel canary : 5 runs tous PASS (rouge tant que la boucle d'outils n'est pas livree — A2 fera basculer)"
+kind = "command"
+argv = ["python3", "omega/acceptance/runner.py", "--scenario", "S1", "--mode", "scripte", "--runs", "5", "--attendu", "PASS"]
+expect_exit = 0
+timeout = 1800
+bloquant = true
+
+[[phase1.criteres]]
+id = "G1.b.s2"
+description = "S2 limites/budgets : 5 runs tous PASS (rouge tant que les budgets ne sont pas appliques dans la boucle — P1-3 fera basculer)"
+kind = "command"
+argv = ["python3", "omega/acceptance/runner.py", "--scenario", "S2", "--mode", "scripte", "--runs", "5", "--attendu", "PASS"]
+expect_exit = 0
+timeout = 1800
+bloquant = true
+
+[[phase1.criteres]]
+id = "G1.c.sequence"
+description = "sequence bornee S0->S1->S2 : 5 tours, tous PASS (timeout = borne explicite du critere)"
+kind = "command"
+argv = ["python3", "omega/acceptance/runner.py", "--scenario", "S0,S1,S2", "--mode", "scripte", "--runs", "5", "--attendu", "PASS"]
+expect_exit = 0
+timeout = 3600
+bloquant = true
+
+[[phase1.criteres]]
+id = "G1.d.plugins"
+description = "registre vif == liste nominative (13 couples : 5 cables vifs + 8 adaptateurs de production, cf. ADR-0014) — A4 fera basculer"
+kind = "command"
+argv = ["python3", "omega/acceptance/verifier_plugins.py"]
+expect_exit = 0
+timeout = 1800
+bloquant = true
+plugins = { attendus = [
+  # cables vifs au HEAD (instance jetable, GET /api/plugins) — ADR-0014
+  { id = "ollama", capability = "llm-provider" },
+  { id = "default", capability = "context-engine" },
+  { id = "mcp:rea", capability = "tool-surface" },
+  { id = "file", capability = "event-store" },
+  { id = "embedded", capability = "harness-catalog" },
+  # adaptateurs de production de compose_ported_crates (sans le bruit
+  # #[cfg(test)] du parse brut de STATUS.json) — ADR-0014
+  { id = "config/default", capability = "config-source" },
+  { id = "loop/default", capability = "agent-loop" },
+  { id = "workflow/default", capability = "workflow-engine" },
+  { id = "agentstore/default", capability = "agent-store" },
+  { id = "ui/main", capability = "ui-surface" },
+  { id = "ui/sidebar", capability = "ui-surface" },
+  { id = "sandbox/default", capability = "sandbox-backend" },
+  { id = "skills/default", capability = "skill-store" },
+] }
+
+# Orphelins (P1-6, ADR-0014) : AUCUN critere — le detecteur n'est pas livre.
+# A la livraison : ajouter un critere kind="command" executant le vrai outil
+# (expect_exit = 0, comme les autres ; jamais de vert par inversion, le champ
+# verdict_attendu n'existe pas dans gate.py et ne sera pas invente).
 
 [phase2]
 nom = "Se souvenir : durabilite, memoire, contexte"
