@@ -13,8 +13,8 @@ use omega_core::tool_loop::{ToolCall, ToolLoopOperation, ToolObservation, ToolSu
 use omega_core::{
     cancellation_pair, Event, EventBus, InMemoryBus, Operation, RunContext, RunState,
 };
-use omega_ports::Provider;
-use omega_types::{ChatRequest, ChatResponse, Message, ModelId, OmegaError, OmegaResult, Role};
+use omega_ports::{EventStore, Provider};
+use omega_types::{ChatRequest, ChatResponse, DurableEvent, Message, ModelId, OmegaError, OmegaResult, Role};
 
 /// Provider scripté : défile un scénario de contenus assistant, puis échoue.
 /// (Même principe que `ScriptedProvider` du banc P0-4 ; voix locale de test.)
@@ -47,6 +47,26 @@ impl Provider for ScriptedProvider {
             }),
             None => Err(OmegaError::Config("script épuisé".to_string())),
         }
+    }
+}
+
+/// Store de trace réduit : la boucle doit append un DurableEvent par
+/// exécution (port `EventStore` ; l'adaptateur réel d'A4 est plus loin).
+struct TraceStore {
+    events: Mutex<std::collections::VecDeque<DurableEvent>>,
+}
+
+#[async_trait]
+impl EventStore for TraceStore {
+    fn name(&self) -> &str {
+        "trace-test"
+    }
+    fn append(&self, event: DurableEvent) -> OmegaResult<u64> {
+        self.events.lock().unwrap().push_back(event.clone());
+        Ok(event.seq)
+    }
+    fn read_run(&self, _run_id: &str) -> OmegaResult<Vec<DurableEvent>> {
+        Ok(self.events.lock().unwrap().iter().cloned().collect())
     }
 }
 
@@ -90,6 +110,7 @@ fn op(provider: Arc<dyn Provider>, surface: Arc<dyn ToolSurface>, budget: usize)
         surface,
         messages: vec![Message::new(Role::User, "travaille")],
         run_id: "run-contract".to_string(),
+        trace: None,
         budget,
     }
 }
@@ -183,6 +204,34 @@ async fn budget_1_ne_laisse_qu_une_execution() {
     assert_eq!(state.0["tool_executions"], 1);
     assert_eq!(state.0["status"], "budget-exhausted");
     assert!(events.iter().any(|e| e.name == "tool.budget.exhausted"));
+}
+
+#[tokio::test]
+async fn trace_durable_par_exécution_run_id_call_id_origine() {
+    // (P1-4, minimum via port EventStore) après un run avec 1 appel d'outil,
+    // le journal durable contient exactement 1 event `tool.call.completed`
+    // portant run_id, call_id et l'origine du contenu (ReAct ici) — la base
+    // du rejeu de traces d'or (A4).
+    let surface = EchoSurface::new();
+    let trace = std::sync::Arc::new(TraceStore {
+        events: Mutex::new(std::collections::VecDeque::new()),
+    });
+    let provider = Arc::new(ScriptedProvider::new(vec![
+        "{\"tool\":\"read_file\",\"arguments\":{}}".to_string(),
+        "Fait.".to_string(),
+    ]));
+    let mut op = op(provider, surface.clone(), 8);
+    op.trace = Some(trace.clone());
+    let (_events, status, _state) = drive(&mut op).await;
+    assert!(status.is_ok());
+    let journal = trace.read_run("run-contract").unwrap();
+    assert_eq!(journal.len(), 1);
+    let e = &journal[0];
+    assert_eq!(e.name, "tool.call.completed");
+    assert_eq!(e.run_id, "run-contract");
+    assert_eq!(e.payload["call_id"], "call-1");
+    assert_eq!(e.payload["origin"], "react");
+    assert_eq!(e.payload["ok"], true);
 }
 
 #[tokio::test]

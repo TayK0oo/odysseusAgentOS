@@ -18,81 +18,23 @@
 //! nombre d'exécutions d'outils, quelle que soit la suite des appels du
 //! modèle ; outil inconnu ou échec = observation structurée (`ok=false`),
 //! jamais de panic ni d'arrêt de la boucle.
+//!
+//! Frontière budgets : le budget de la BOUCLE (`ToolLoopOperation::budget`
+//! — tours/exécutions d'outils, posé par l'appelant) n'est PAS la politique
+//! A3 (`omega-policy` : paliers T0-T3, tokens, coût, approbations). La boucle
+//! consomme le budget qu'on lui donne ; elle n'invente, ne recale et ne
+//! plafonne aucune politique — c'est le travail du layer politique (A3),
+//! branché devant la boucle.
 
 use async_trait::async_trait;
-use omega_ports::Provider;
+use omega_ports::{EventStore, Provider};
 use omega_types::Message;
-use omega_types::{ChatRequest, OmegaResult, Role};
-use serde::{Deserialize, Serialize};
+use omega_types::{ChatRequest, DurableEvent, OmegaResult, Role};
 use serde_json::{json, Value};
 
 use crate::{Event, Operation, RunContext};
 
-/// Origine du contenu d'un tool-call détecté (traçabilité ADR-0006).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum ToolCallOrigin {
-    /// Champ `tool_calls` natif du wire.
-    Native,
-    /// Repli ReAct : JSON texte canonique dans le contenu assistant.
-    ReAct,
-}
-
-impl ToolCallOrigin {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            ToolCallOrigin::Native => "native",
-            ToolCallOrigin::ReAct => "react",
-        }
-    }
-}
-
-/// Appel d'outil détecté. `call_id` : identifiant fourni par le wire (forme
-/// native) ou attribué par la boucle (`call-N` par numéro de round, forme ReAct).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ToolCall {
-    pub call_id: String,
-    pub name: String,
-    pub arguments: Value,
-    pub origin: ToolCallOrigin,
-}
-
-/// Observation renvoyée au modèle. L'échec de l'outil est `ok=false` avec un
-/// contenu structuré `{"error": ...}` — l'exécution est tracée comme les autres.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ToolObservation {
-    pub call_id: String,
-    pub ok: bool,
-    pub content: Value,
-}
-
-impl ToolObservation {
-    pub fn ok(call_id: impl Into<String>, content: Value) -> Self {
-        Self {
-            call_id: call_id.into(),
-            ok: true,
-            content,
-        }
-    }
-
-    pub fn error(call_id: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            call_id: call_id.into(),
-            ok: false,
-            content: json!({ "error": message.into() }),
-        }
-    }
-}
-
-/// Port de la surface d'outils exécutable (P1-1). Les outils concrets
-/// (`omega-tools`, MCP...) s'implémentent derrière ce trait.
-///
-/// Contrat : `execute` renvoie **toujours** une observation structurée — un
-/// outil inconnu ou en échec donne `ok=false`, jamais de panic.
-#[async_trait]
-pub trait ToolSurface: Send + Sync {
-    async fn execute(&self, call: &ToolCall) -> OmegaResult<ToolObservation>;
-}
+pub use omega_ports::tool_surface::{ToolCall, ToolCallOrigin, ToolObservation, ToolSurface};
 
 /// Extrait le premier objet JSON plausible d'un contenu texte (trim, clôtures
 /// de code ```..., ou fenêtre du premier `{` au dernier `}`). `None` si rien
@@ -203,6 +145,11 @@ pub struct ToolLoopOperation {
     pub budget: usize,
     /// Identifiant du run, propagé dans chaque événement d'outil.
     pub run_id: String,
+    /// Journal durable optionnel (port `EventStore`) : chaque exécution d'outil
+    /// y écrit un event `tool.call.completed` (`run_id`, `call_id`, origine) —
+    /// rejouable par la couche trace (A4). Échec d'append = event bus dédié,
+    /// la boucle ne meurt jamais pour une écriture de trace.
+    pub trace: Option<std::sync::Arc<dyn EventStore>>,
 }
 
 #[async_trait]
@@ -290,6 +237,31 @@ impl Operation for ToolLoopOperation {
                     "content": observation.content,
                 }),
             ));
+
+            if let Some(store) = &self.trace {
+                let durable = DurableEvent::new(
+                    self.run_id.clone(),
+                    "tool.call.completed",
+                    json!({
+                        "run_id": self.run_id,
+                        "call_id": observation.call_id,
+                        "tool": call.name,
+                        "origin": call.origin.as_str(),
+                        "ok": observation.ok,
+                        "content": observation.content,
+                    }),
+                );
+                if let Err(e) = store.append(durable) {
+                    ctx.publish(Event::new(
+                        "tool.trace.append.failed",
+                        json!({
+                            "run_id": self.run_id,
+                            "call_id": observation.call_id,
+                            "error": e.to_string(),
+                        }),
+                    ));
+                }
+            }
 
             messages.push(Message::new(Role::Assistant, response.message.content));
             messages.push(Message::new(

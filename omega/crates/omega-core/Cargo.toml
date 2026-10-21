@@ -15,4 +15,5 @@ async-trait = { workspace = true }
 tokio = { version = "1", features = ["sync", "rt", "macros"] }
 
 [dev-dependencies]
+proptest = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "time"] }
