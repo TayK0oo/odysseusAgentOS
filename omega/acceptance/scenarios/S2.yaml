@@ -1,0 +1,27 @@
+id: S2
+nom: limites_budgets
+phase: P1
+modes: [scripte]
+prerequis: [cargo, python_3_12]
+llm_scripte: react
+mise_en_situation:
+  workdir: tmpdir
+actions:
+  - {demarrer_moteur: rust, llm: scripte}
+  - {post: /api/run, body: {messages: [{role: user, content: "Appelle l'outil echo en boucle"}]}}
+attendu:
+  # marqueurs observees, pas declares : le moteur seul peut emettre « budget »
+  # (les messages scriptes n'en contiennent aucun — cf. SCENARIOS-README).
+  arret_budget_reponse: true
+  arret_budget_trace: true
+controle_negatif:
+  # le modele scripte (seq_react_toolcall) propose l'outil sans fin et sans
+  # mot budget : sans mecanisme reel dans le moteur, aucun arret observable.
+  desactiver: [budgets]
+  attendu: aucunes_marqueurs_budget
+verdict_attendu: XFAIL
+xfail_raison: >-
+  P1-3 : aucun budget (steps / tokens / cout / temps) n'est applique dans la
+  boucle, et la boucle d'outils n'existe pas encore (P1-1 / ADR-0006). Le
+  moteur rend la reponse du modele sans jamais stopper : ni la reponse ni la
+  trace ne portent de marqueur d'arret sur budget.

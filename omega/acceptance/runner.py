@@ -6,14 +6,21 @@ faux LLM (mode scripté), exécute les actions HTTP, applique le contrôle
 négatif, évalue les attendus, écrit un JSON.
 
 Sémantique des verdicts (rouge d'abord, leçon L4) :
-  PASS  = tous les attendus observés吻合
+  PASS  = tous les attendus observés
   XFAIL = attendus NON observés + xfail_raison nommée (rouge attendu = succès de test)
   FAIL  = attendus non observés, sans raison nommée (sortie d'urgence : agir)
   XPASS = attendus observés MAIS xfail_raison présent → BUG du scénario (exit 1)
   ERREUR= crash d'infrastructure
 
+Sémantique de sortie (ADR-0013 decision 2) :
+  sans --attendu : l'accord P0 reste — PASS ou XFAIL → 0, FAIL/XPASS/ERREUR → 1
+  avec --attendu V : exit 0 ssi CHAQUE run a rendu exactement V. Le second
+  degré (XFAIL) n'est plus acceptable là où la porte (G1) exige un vert sec :
+  un rouge présent ne peut pas fermer un critere vert.
+
 Usage :
   python3 runner.py --scenario S0
+  python3 runner.py --scenario S0,S1,S2 --runs 5 --attendu PASS
   python3 runner.py --scenario S1 [--engine rust|python] [--mode scripte] [--keep]
 """
 from __future__ import annotations
@@ -43,6 +50,21 @@ SCEN = HERE / "scenarios"
 # racine du dépôt : les engines attendent <repo>/omega/target
 REPO_ROOT = HERE.parent.parent
 
+VERDICTS = ("PASS", "XFAIL", "FAIL", "XPASS", "ERREUR")
+
+
+def verdict_exit(verdicts: list[str], attendu: str | None) -> int:
+    """Verdicts run → exit code.
+
+    Sans --attendu : accord P0 (PASS/XFAIL → 0) — les criteres G0.g1 « S1
+    rouge = XFAIL nommé » n'y sont pas touches. Avec --attendu V : 0 ssi
+    chaque run a rendu exactement V ; XPASS reste un bug de scénario, et
+    aucun second degré n'ouvre un vert.
+    """
+    if attendu is None:
+        return 0 if verdicts and all(v in ("PASS", "XFAIL") for v in verdicts) else 1
+    return 0 if verdicts and all(v == attendu for v in verdicts) else 1
+
 
 def _mk_canary(workdir: Path, spec: dict) -> list[str]:
     n = spec.get("nombre", 5)
@@ -58,12 +80,6 @@ def _free_port() -> int:
     port = s.getsockname()[1]
     s.close()
     return port
-
-
-def _nettoie_serveur_port(origine: Path) -> list[str]:
-    """Astuce honnête : les canaries sont créées APRÈS le démarrage du
-    moteur, pour exclure tout fichier préexistant du répertoire serveur."""
-    return origine
 
 
 def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
@@ -108,7 +124,14 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
 
         # LLM scripté (mode scripté)
         if mode == "scripte":
-            provider = ScriptedProvider(seq_echoreq_reply())
+            if spec.get("llm_scripte") == "react":
+                # S2 : le modèle propose une boucle d'appels d'outil (forme
+                # texte canonique ADR-0006) ; aucun mot-marqueur de budget —
+                # un arrêt ne peut venir que du MOTEUR.
+                from scripted_provider import seq_react_toolcall
+                provider = ScriptedProvider(seq_react_toolcall("echo"))
+            else:
+                provider = ScriptedProvider(seq_echoreq_reply())
             provider.start()
             report["llm_url"] = provider.url
 
@@ -154,6 +177,24 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
                     report["attendus"]["evenement_appele_outil"] = False
                     report["attendus"]["trace_erreur"] = f"{type(e).__name__}: {e}"
 
+        # évaluation S2 : arrêt sur budget observable dans la réponse ET la
+        # trace. Heuristique assumée : marqueur « budget » seul (les mots
+        # marqueurs sont volontairement absents des messages scriptés —
+        # un arrêt ne peut venir que du MOTEUR, cf. SCENARIOS-README).
+        # champ dédié budget_exceeded possible dans le RunResponse quand
+        # P1-3 livrera la boucle + budgets.
+        if "arret_budget_reponse" in spec.get("attendu", {}):
+            contenu_reponse = json.dumps(reponse_run, ensure_ascii=False).lower()
+            report["attendus"]["arret_budget_reponse"] = "budget" in contenu_reponse
+            run_id = (reponse_run or {}).get("run_id")
+            try:
+                events = get_json(f"{url}/api/runs/{run_id}/events") if run_id else []
+                trace = json.dumps(events).lower()
+                report["attendus"]["arret_budget_trace"] = "budget" in trace
+            except Exception as e:
+                report["attendus"]["arret_budget_trace"] = False
+                report["trace_erreur"] = f"{type(e).__name__}: {e}"
+
         # verdict
         attendus = report["attendus"]
         ok_tous = bool(attendus) and all(v is True for v in attendus.values())
@@ -181,22 +222,41 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
     return report
 
 
-def main():
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--scenario", required=True, help="S0, S1, ...")
+    ap.add_argument("--scenario", required=True,
+                    help="un id (S1) ou une liste virgule (S0,S1,S2)")
     ap.add_argument("--engine", default="rust", choices=["rust", "python"])
     ap.add_argument("--mode", default="scripte", choices=["scripte", "reel"])
+    ap.add_argument("--attendu", choices=VERDICTS, default=None,
+                    help="exit 0 ssi chaque run rend exactement ce verdict "
+                         "(critères G1 : PASS sec ; XFAIL refuse = le rouge "
+                         "présent ne ferme pas un vert, cf. verdict_exit)")
+    ap.add_argument("--runs", type=int, default=1,
+                    help="répétitions de la liste de scénarios (G1 : 5)")
     ap.add_argument("--keep", action="store_true")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
+    if args.runs < 1:
+        ap.error("--runs doit être >= 1")
 
-    path = SCEN / f"{args.scenario}.yaml"
-    if not path.exists():
-        print(json.dumps({"erreur": f"scénario {args.scenario} absent"}))
-        sys.exit(2)
-    r = run_scenario(path, args.engine, args.mode, args.keep)
-    print(json.dumps(r, indent=2, ensure_ascii=False))
-    # PASS/XFAIL = 0 ; FAIL/XPASS/ERREUR = 1 (XPASS = bug du scénario)
-    sys.exit(0 if r["verdict"] in ("PASS", "XFAIL") else 1)
+    scenarios = [s.strip() for s in args.scenario.split(",") if s.strip()]
+    verdicts = []
+    for _ in range(args.runs):
+        for sid in scenarios:
+            path = SCEN / f"{sid}.yaml"
+            if not path.exists():
+                print(json.dumps({"erreur": f"scénario {sid} absent"}))
+                sys.exit(2)
+            r = run_scenario(path, args.engine, args.mode, args.keep)
+            print(json.dumps(r, indent=2, ensure_ascii=False))
+            verdicts.append(r["verdict"])
+    # verdict_exit : la sémantique complète (accord P0 vs vert sec) y est
+    # testée unitairement (tests/test_omega_gate_phase1.py).
+    sys.exit(verdict_exit(verdicts, args.attendu))
+
+
+def _main():
+    sys.exit(main())
 
 
 if __name__ == "__main__":
