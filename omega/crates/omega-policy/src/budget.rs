@@ -221,12 +221,17 @@ mod tests {
     #[test]
     fn refusal_debits_nothing_and_retry_fits() {
         let b = Budget::new(limits());
-        assert!(b.consume_call(demand(1, 100, 1.0, 10_000)).is_ok());
+        // Remplit steps exactement (3/3) — l'ancienne version de ce test
+        // (gel 78de85c1) supposait un refus après un seul step sur un plafond
+        // de 3 : scénario faux l'implémentation étant correcte.
+        assert!(b.consume_call(demand(1, 34, 0.0, 1_000)).is_ok());
+        assert!(b.consume_call(demand(1, 66, 0.5, 4_000)).is_ok());
+        assert!(b.consume_call(demand(1, 0, 0.5, 5_000)).is_ok());
         let e = b.consume_call(demand(1, 0, 0.0, 0)).unwrap_err();
         assert_eq!(e.axis, Some(BudgetAxis::Steps));
         // Le refus n'a rien débité : un appel qui tient passe toujours.
         assert!(b.consume_call(demand(0, 0, 0.0, 0)).is_ok());
-        assert_eq!(b.usage().steps, 1);
+        assert_eq!(b.usage().steps, 3);
     }
 
     #[test]
