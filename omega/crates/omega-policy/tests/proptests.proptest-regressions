@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 2576f10c2317760c90075474fd0efb07a41e7eda4ec97f35df688b1a661e49b0 # shrinks to limits = Limits { max_steps: 1, max_tokens: 10, max_cost_usd: 9.874061164649547, max_time_ms: 1 }, demand = Demand { steps: 0, tokens: 0, cost_usd: 0.0, time_ms: 0 }
