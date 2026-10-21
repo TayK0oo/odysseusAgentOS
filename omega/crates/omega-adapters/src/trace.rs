@@ -56,7 +56,6 @@ pub fn tool_call_event(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use omega_otel::TraceReplayer;
     use omega_ports::EventStore;
     use std::sync::{Arc, Mutex};
 
@@ -174,10 +173,23 @@ mod tests {
         assert_eq!(replayed_journal, journal);
 
         // Replay deterministe : deux passes, meme resume, appels ordonnes.
-        let s1 = TraceReplayer::summarize("gold-1", journal.clone());
-        let s2 = TraceReplayer::summarize("gold-1", replayed_journal);
+        // Mini-replay local (sortie tri par seq + compte) : le vrai
+        // TraceReplayer vit dans omega-otel (dependance interdite en
+        // adapters, cf. ADR-0004) et couvre cette semantique chez lui.
+        let resume = |j: Vec<DurableEvent>| {
+            let mut j = j;
+            j.sort_by_key(|e| e.seq);
+            let total = j.len();
+            let calls: Vec<String> = j
+                .iter()
+                .filter_map(|e| e.payload["call_id"].as_str().map(String::from))
+                .collect();
+            (total, calls)
+        };
+        let s1 = resume(journal.clone());
+        let s2 = resume(replayed_journal);
         assert_eq!(s1, s2);
-        assert_eq!(s1.total_events, 3);
+        assert_eq!(s1.0, 3);
         let calls: Vec<&str> = journal
             .iter()
             .filter_map(|e| e.payload["call_id"].as_str())
