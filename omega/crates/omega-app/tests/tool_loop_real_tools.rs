@@ -8,7 +8,9 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use omega_core::tool_loop::ToolLoopOperation;
-use omega_core::{cancellation_pair, Event, EventBus, InMemoryBus, Operation, RunContext, RunState};
+use omega_core::{
+    cancellation_pair, Event, EventBus, InMemoryBus, Operation, RunContext, RunState,
+};
 use omega_ports::Provider;
 use omega_tools::surface::FsSurface;
 use omega_tools::ToolCtx;
@@ -64,7 +66,11 @@ fn fs(tmp: &str) -> (std::path::PathBuf, Arc<FsSurface>) {
     (ctx.root.clone(), Arc::new(FsSurface::new(ctx)))
 }
 
-fn op(provider: Arc<dyn Provider>, surface: Arc<FsSurface>, messages: Vec<Message>) -> ToolLoopOperation {
+fn op(
+    provider: Arc<dyn Provider>,
+    surface: Arc<FsSurface>,
+    messages: Vec<Message>,
+) -> ToolLoopOperation {
     ToolLoopOperation {
         provider,
         model: ModelId::new("test-model"),

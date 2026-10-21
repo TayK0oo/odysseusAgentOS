@@ -36,8 +36,6 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-import yaml
-
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / "engines"))
@@ -83,6 +81,17 @@ def _free_port() -> int:
 
 
 def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
+    # Import paresseux : PyYAML n'est pas dans le venv hermétique de verify
+    # (ADR-0005 : ruff + pytest uniquement). Un scénario demandé sans PyYAML
+    # produit une erreur d'infrastructure NOMMÉE, jamais un crash sourd.
+    try:
+        import yaml
+    except ModuleNotFoundError:
+        return {"id": path.stem, "nom": path.name, "mode": mode,
+                "engine": engine_name, "verdict": "ERREUR",
+                "etapes": {}, "attendus": {}, "controle_negatif": {},
+                "erreur": "PyYAML absent du venv (ADR-0005 : hermétique) — "
+                          "installe-le dans l'environnement d'exécution de scénarios"}
     spec = yaml.safe_load(path.read_text(encoding="utf-8"))
     report = {"id": spec["id"], "nom": spec.get("nom"), "mode": mode,
               "engine": engine_name, "verdict": "ERREUR",

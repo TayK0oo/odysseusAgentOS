@@ -8,7 +8,6 @@ use crate::registry::dispatch;
 
 use crate::ToolCtx;
 
-
 /// Surface d'outils filesystem : racine du workspace + deny-list via [`ToolCtx`].
 pub struct FsSurface {
     pub ctx: ToolCtx,
@@ -110,7 +109,10 @@ mod tests {
     #[tokio::test]
     async fn unknown_tool_is_structured_error() {
         let s = surface("unknown");
-        let o = s.execute(&call("rm_rf", serde_json::json!({}))).await.unwrap();
+        let o = s
+            .execute(&call("rm_rf", serde_json::json!({})))
+            .await
+            .unwrap();
         assert!(!o.ok);
         assert_eq!(o.content["error"], "outil inconnu : rm_rf");
         let _ = std::fs::remove_dir_all(&s.ctx.root);

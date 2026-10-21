@@ -398,10 +398,7 @@ mod tests {
         // Et les deux formes ne sont JAMAIS resolues en un seul fichier commun :
         // si les deux passaient, un modele pourrait viser un fichier hors
         // attente par confusion NFC/NFD.
-        let forms = [nfd, nfc]
-            .iter()
-            .filter(|p| ctx_resolve(&c, p))
-            .count();
+        let forms = [nfd, nfc].iter().filter(|p| ctx_resolve(&c, p)).count();
         assert!(forms <= 1, "au moins une forme non canonique est passee");
         let _ = std::fs::remove_dir_all(&c.root);
     }

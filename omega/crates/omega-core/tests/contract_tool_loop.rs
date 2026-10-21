@@ -14,7 +14,9 @@ use omega_core::{
     cancellation_pair, Event, EventBus, InMemoryBus, Operation, RunContext, RunState,
 };
 use omega_ports::{EventStore, Provider};
-use omega_types::{ChatRequest, ChatResponse, DurableEvent, Message, ModelId, OmegaError, OmegaResult, Role};
+use omega_types::{
+    ChatRequest, ChatResponse, DurableEvent, Message, ModelId, OmegaError, OmegaResult, Role,
+};
 
 /// Provider scripté : défile un scénario de contenus assistant, puis échoue.
 /// (Même principe que `ScriptedProvider` du banc P0-4 ; voix locale de test.)
@@ -103,7 +105,11 @@ impl ToolSurface for EchoSurface {
     }
 }
 
-fn op(provider: Arc<dyn Provider>, surface: Arc<dyn ToolSurface>, budget: usize) -> ToolLoopOperation {
+fn op(
+    provider: Arc<dyn Provider>,
+    surface: Arc<dyn ToolSurface>,
+    budget: usize,
+) -> ToolLoopOperation {
     ToolLoopOperation {
         provider,
         model: ModelId::new("test-model"),
@@ -144,27 +150,41 @@ async fn tool_call_execute_observation_et_multitours() {
     assert_eq!(surface.history.lock().unwrap().len(), 2);
     assert_eq!(
         *surface.history.lock().unwrap(),
-        vec!["call-1|read_file".to_string(), "call-2|read_file".to_string()]
+        vec![
+            "call-1|read_file".to_string(),
+            "call-2|read_file".to_string()
+        ]
     );
 
     // Le modèle reçoit l'observation de chaque call (role Tool) au tour suivant.
     let requests = provider.requests.lock().unwrap();
     assert_eq!(requests.len(), 3);
-    let tool_msgs_round2: Vec<&Message> = requests[1].iter().filter(|m| m.role == Role::Tool).collect();
+    let tool_msgs_round2: Vec<&Message> = requests[1]
+        .iter()
+        .filter(|m| m.role == Role::Tool)
+        .collect();
     assert_eq!(tool_msgs_round2.len(), 1);
     assert!(tool_msgs_round2[0].content.contains("call-1"));
     assert!(tool_msgs_round2[0].content.contains("read_file"));
-    let obs_round3: Vec<&Message> = requests[2].iter().filter(|m| m.role == Role::Tool).collect();
+    let obs_round3: Vec<&Message> = requests[2]
+        .iter()
+        .filter(|m| m.role == Role::Tool)
+        .collect();
     assert!(obs_round3.len() == 2); // observations du call-1 puis du call-2
 
     // Trace : un event completed par call, avec run_id, call_id, origine du contenu.
-    let completed: Vec<&Event> = events.iter().filter(|e| e.name == "tool.call.completed").collect();
+    let completed: Vec<&Event> = events
+        .iter()
+        .filter(|e| e.name == "tool.call.completed")
+        .collect();
     assert_eq!(completed.len(), 2);
     assert_eq!(completed[0].payload["call_id"], "call-1");
     assert_eq!(completed[1].payload["call_id"], "call-2");
     assert_eq!(completed[0].payload["origin"], "react");
     assert_eq!(completed[1].payload["origin"], "react");
-    assert!(completed.iter().all(|e| e.payload["run_id"] == "run-contract"));
+    assert!(completed
+        .iter()
+        .all(|e| e.payload["run_id"] == "run-contract"));
 }
 
 #[tokio::test]
@@ -180,10 +200,16 @@ async fn tool_inconnu_est_erreur_structuree_sans_boycott() {
     let (events, status, _state) = drive(&mut op).await;
     assert!(status.is_ok());
     assert_eq!(surface.history.lock().unwrap().len(), 1);
-    let completed: Vec<&Event> = events.iter().filter(|e| e.name == "tool.call.completed").collect();
+    let completed: Vec<&Event> = events
+        .iter()
+        .filter(|e| e.name == "tool.call.completed")
+        .collect();
     assert_eq!(completed.len(), 1);
     assert_eq!(completed[0].payload["ok"], false);
-    assert_eq!(completed[0].payload["content"]["error"], "outil inconnu : boom");
+    assert_eq!(
+        completed[0].payload["content"]["error"],
+        "outil inconnu : boom"
+    );
 }
 
 #[tokio::test]

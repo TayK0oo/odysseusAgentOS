@@ -8,7 +8,7 @@
 
 use std::sync::Arc;
 
-use omega_adapters::composition::{CompositionRegistry, compose_ported_crates};
+use omega_adapters::composition::{compose_ported_crates, CompositionRegistry};
 use omega_app::{App, AppBuilder, FileEventStore};
 use omega_context::ContextContributor;
 use omega_plugin_api::{Contributor, InstallContext};

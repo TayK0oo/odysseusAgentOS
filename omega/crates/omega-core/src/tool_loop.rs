@@ -286,8 +286,11 @@ mod tests {
 
     #[test]
     fn react_detects_canonical_json() {
-        let call = detect_react_call("{\"tool\": \"read_file\", \"arguments\": {\"path\": \"a\"}}", 1)
-            .expect("forme canonique doit etre detectee");
+        let call = detect_react_call(
+            "{\"tool\": \"read_file\", \"arguments\": {\"path\": \"a\"}}",
+            1,
+        )
+        .expect("forme canonique doit etre detectee");
         assert_eq!(call.name, "read_file");
         assert_eq!(call.arguments["path"], "a");
         assert_eq!(call.origin, ToolCallOrigin::ReAct);

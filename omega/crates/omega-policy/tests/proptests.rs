@@ -122,11 +122,13 @@ fn arb_demand(
 /// dépasse le plafond).
 fn arb_demand_seq() -> impl Strategy<Value = Vec<Demand>> {
     prop::collection::vec(
-        (0u64..=5, 0u64..=50, 0.0f64..=3.0, 0u64..=5_000).prop_map(|(steps, tokens, cost, ms)| Demand {
-            steps,
-            tokens,
-            cost_usd: cost,
-            time_ms: ms,
+        (0u64..=5, 0u64..=50, 0.0f64..=3.0, 0u64..=5_000).prop_map(|(steps, tokens, cost, ms)| {
+            Demand {
+                steps,
+                tokens,
+                cost_usd: cost,
+                time_ms: ms,
+            }
         }),
         12..100,
     )
@@ -135,8 +137,8 @@ fn arb_demand_seq() -> impl Strategy<Value = Vec<Demand>> {
 /// Action tirée hors de la table standard : fail-closed vérifiable.
 fn arb_unknown_action() -> impl Strategy<Value = String> {
     const KNOWN: [&str; 11] = [
-        "read", "list", "grep", "write", "create", "edit", "remove", "network", "exec",
-        "subagent", "sub-plan",
+        "read", "list", "grep", "write", "create", "edit", "remove", "network", "exec", "subagent",
+        "sub-plan",
     ];
     proptest::string::string_regex("[a-z_]{1,40}[a-z0-9_]{0,20}")
         .unwrap()
@@ -191,15 +193,12 @@ fn arb_refusal_case() -> impl Strategy<Value = (Limits, Demand, Demand)> {
                 lim.max_cost_usd + 50.0,
                 lim.max_time_ms + 30_000,
             )
-            .prop_filter(
-                "la demande doit déborder (un axe à lui seul)",
-                move |d| {
-                    d.steps > lim.max_steps
-                        || d.tokens > lim.max_tokens
-                        || d.cost_usd > lim.max_cost_usd
-                        || d.time_ms > lim.max_time_ms
-                },
-            ),
+            .prop_filter("la demande doit déborder (un axe à lui seul)", move |d| {
+                d.steps > lim.max_steps
+                    || d.tokens > lim.max_tokens
+                    || d.cost_usd > lim.max_cost_usd
+                    || d.time_ms > lim.max_time_ms
+            }),
             arb_demand(
                 lim.max_steps,
                 lim.max_tokens,

@@ -9,12 +9,14 @@
 
 use async_trait::async_trait;
 use omega_core::tool_loop::{ToolCall, ToolLoopOperation, ToolObservation, ToolSurface};
-use omega_core::{cancellation_pair, Event, EventBus, InMemoryBus, Operation, RunContext, RunState};
+use omega_core::{
+    cancellation_pair, Event, EventBus, InMemoryBus, Operation, RunContext, RunState,
+};
 use omega_ports::Provider;
+use omega_types::{ChatRequest, ChatResponse, Message, ModelId, OmegaError, OmegaResult, Role};
 use proptest::prelude::*;
 use serde_json::json;
 use std::sync::{Arc, Mutex};
-use omega_types::{ChatRequest, ChatResponse, Message, ModelId, OmegaError, OmegaResult, Role};
 
 /// Provider scripté déterministe : le script est fabriqué par réflexion du
 /// seed (LCG), chaque tour émet un tool-call (la boucle ne peut pas sortir

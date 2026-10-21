@@ -14,7 +14,6 @@ pub mod tool_surface;
 
 pub use tool_surface::{ToolCall, ToolCallOrigin, ToolObservation, ToolSurface};
 
-
 /// Fournit de l'inference. Regime : *ensemble*.
 #[async_trait]
 pub trait Provider: Send + Sync {

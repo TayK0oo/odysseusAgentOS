@@ -15,7 +15,9 @@ use std::collections::HashMap;
 use std::fmt;
 
 /// Paliers documentés.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Tier {
     /// Lecture seule.
@@ -223,15 +225,11 @@ mod tests {
 
     #[test]
     fn t0_and_t1_allowed_t2_denied_while_sandbox_not_green() {
-        let p = TierPolicy::standard()
-            .with_approvals(Box::new(AlwaysApprove));
+        let p = TierPolicy::standard().with_approvals(Box::new(AlwaysApprove));
         assert_eq!(p.authorize("read"), TierDecision::Allow { tier: Tier::T0 });
         assert_eq!(p.authorize("write"), TierDecision::Allow { tier: Tier::T1 });
         // T2 fermé : refus malgré l'approbateur oui-oui.
-        assert!(matches!(
-            p.authorize("network"),
-            TierDecision::Deny { .. }
-        ));
+        assert!(matches!(p.authorize("network"), TierDecision::Deny { .. }));
     }
 
     #[test]
@@ -245,7 +243,10 @@ mod tests {
         let p = TierPolicy::standard()
             .with_t2_open(true)
             .with_approvals(Box::new(AlwaysApprove));
-        assert_eq!(p.authorize("network"), TierDecision::Allow { tier: Tier::T2 });
+        assert_eq!(
+            p.authorize("network"),
+            TierDecision::Allow { tier: Tier::T2 }
+        );
     }
 
     #[test]

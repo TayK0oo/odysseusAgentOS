@@ -265,7 +265,9 @@ mod tests {
     }
 
     /// Utilitaire des tests `#[test]` purs : bloque sur le futur du `run`.
-    fn block_run(fut: impl std::future::Future<Output = OmegaResult<CommandOutput>>) -> OmegaResult<CommandOutput> {
+    fn block_run(
+        fut: impl std::future::Future<Output = OmegaResult<CommandOutput>>,
+    ) -> OmegaResult<CommandOutput> {
         tokio::runtime::Runtime::new().unwrap().block_on(fut)
     }
 
@@ -308,7 +310,10 @@ mod tests {
         )
         .map(|_: BwrapSandboxBackend| ())
         .unwrap_err();
-        assert!(matches!(err, OmegaError::ForbiddenCommand { .. }), "obtenu : {err:?}");
+        assert!(
+            matches!(err, OmegaError::ForbiddenCommand { .. }),
+            "obtenu : {err:?}"
+        );
     }
 
     #[test]
@@ -331,7 +336,10 @@ mod tests {
             return;
         }
         let out = block_run(backend().run("cat /etc/passwd")).unwrap();
-        assert_ne!(out.exit_code, 0, "cat /etc/passwd a réussi dans le jail : {out:?}");
+        assert_ne!(
+            out.exit_code, 0,
+            "cat /etc/passwd a réussi dans le jail : {out:?}"
+        );
         assert!(!out.stdout.contains("root:"), "évasion FS : {out:?}");
     }
 
