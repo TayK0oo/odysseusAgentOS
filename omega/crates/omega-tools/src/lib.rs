@@ -9,9 +9,11 @@ pub mod diff;
 pub mod glob;
 pub mod grep;
 pub mod registry;
+pub mod surface;
 pub mod workspace;
 
 use std::path::{Path, PathBuf};
+use unicode_normalization::UnicodeNormalization;
 
 /// Bornes de sécurité (port de `agent_tools/__init__.py`).
 pub const MAX_AGENT_ROUNDS: usize = 50;
@@ -19,6 +21,8 @@ pub const SHELL_TIMEOUT_SECS: u64 = 60;
 pub const PYTHON_TIMEOUT_SECS: u64 = 30;
 pub const MAX_DIFF_LINES: usize = 400;
 pub const MAX_READ_BYTES: usize = 2_000_000;
+/// Borne de longueur d'un chemin exigé par la jail (PATH_MAX + marge).
+pub const MAX_PATH_CHARS: usize = 4096;
 
 /// Résultat d'un appel d'outil.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -82,6 +86,23 @@ impl ToolCtx {
     /// (`ponytail:` on garde une seule résolution — `canonicalize` du parent —
     /// plutôt qu'un moteur de résolution complet ; suffisant pour un garde-fou.)
     pub fn resolve(&self, rel: &str) -> Result<PathBuf, String> {
+        // Garde de surface avant tout contact avec le FS : octets nuls (API C,
+        // elles échouent plus tard avec un message inexploitable), Unicode non
+        // canonique (NFC/NFD : deux écritures d'un "même" fichier → confusion
+        // de cible), chemins au-delà de PATH_MAX.
+        if rel.contains('\0') {
+            return Err("octet nul dans le chemin".to_string());
+        }
+        if rel.chars().count() > MAX_PATH_CHARS {
+            return Err(format!(
+                "chemin trop long : {} caracteres (max {})",
+                rel.chars().count(),
+                MAX_PATH_CHARS
+            ));
+        }
+        if rel.nfc().collect::<String>() != rel {
+            return Err("unicode non canonique (décomposition NFC/NFD)".to_string());
+        }
         let raw = Path::new(rel);
         let abs = if raw.is_absolute() {
             raw.to_path_buf()
@@ -168,7 +189,20 @@ pub fn read_file(ctx: &ToolCtx, rel: &str) -> ToolOutput {
                     "content": text,
                     "lines": text.lines().count(),
                 })),
-                Err(_) => ToolOutput::err("fichier binaire (UTF-8 invalide)"),
+                // Fichier binaire (cas limite plan §6) : contenu UTF-8 valide
+                // tronque au premier octet invalide, marque binary+truncated —
+                // jamais une erreur ni un contenu decode elle-meme.
+                Err(e) => {
+                    let valid = e.utf8_error().valid_up_to();
+                    let bytes = e.into_bytes();
+                    let text = String::from_utf8_lossy(&bytes[..valid]).into_owned();
+                    ToolOutput::ok(serde_json::json!({
+                        "path": rel,
+                        "content": text,
+                        "binary": true,
+                        "truncated": true,
+                    }))
+                }
             }
         }
         Err(e) => ToolOutput::err(format!("lecture impossible : {}", e)),
@@ -271,6 +305,14 @@ pub fn list_dir(ctx: &ToolCtx, rel: &str) -> ToolOutput {
 mod tests {
     use super::*;
 
+    fn ctx_resolve(c: &ToolCtx, rel: &str) -> bool {
+        c.resolve(rel).is_ok()
+    }
+
+    fn ctx_resolve_err(c: &ToolCtx, rel: &str) -> bool {
+        c.resolve(rel).is_err()
+    }
+
     fn ctx(name: &str) -> ToolCtx {
         let p = std::env::temp_dir().join(format!("omega-tools-{}", name));
         let _ = std::fs::remove_dir_all(&p);
@@ -336,10 +378,66 @@ mod tests {
     }
 
     #[test]
+    fn jail_refuse_octets_nuls() {
+        let c = ctx("nul");
+        assert!(ctx_resolve_err(&c, "a\0b"));
+        assert!(ctx_resolve_err(&c, "sous\0/rep/f.txt"));
+        let _ = std::fs::remove_dir_all(&c.root);
+    }
+
+    #[test]
+    fn jail_refuse_unicode_non_canonique() {
+        // NFC = "é" précomposé ; NFD = "e" + combining. La même lettre visuelle,
+        // deux formes : seule l'une d'elles doit passer.
+        let c = ctx("unicode");
+        let nfc = "caf\u{00e9}.txt"; // precompose (U+00E9)
+        let nfd = "cafe\u{0301}.txt"; // decomposed (e + U+0301)
+        assert_eq!(nfc.chars().count() + 1, nfd.chars().count());
+        // L'une est NFC, l'autre non : la forme non canonique est refusee.
+        assert!(ctx_resolve_err(&c, nfd) || ctx_resolve_err(&c, nfc));
+        // Et les deux formes ne sont JAMAIS resolues en un seul fichier commun :
+        // si les deux passaient, un modele pourrait viser un fichier hors
+        // attente par confusion NFC/NFD.
+        let forms = [nfd, nfc]
+            .iter()
+            .filter(|p| ctx_resolve(&c, p))
+            .count();
+        assert!(forms <= 1, "au moins une forme non canonique est passee");
+        let _ = std::fs::remove_dir_all(&c.root);
+    }
+
+    #[test]
+    fn jail_refuse_chemins_tres_longs() {
+        let c = ctx("long");
+        let long = format!("{}.txt", "a".repeat(4096));
+        assert!(ctx_resolve_err(&c, &long));
+        let _ = std::fs::remove_dir_all(&c.root);
+    }
+
+    #[test]
     fn deny_list_protects_secrets() {
         let c = ctx("secrets");
         std::fs::write(c.root.join(".env"), "SECRET=1").unwrap();
         assert!(!read_file(&c, ".env").is_ok());
+        let _ = std::fs::remove_dir_all(&c.root);
+    }
+
+    #[test]
+    fn binary_read_is_truncated_and_marked() {
+        // (Cas limite plan §6) fichier binaire : pas d'erreur, pas un contenu
+        // octet-alors-texte fantaisiste — un contenu UTF-8 tronqué, marque.
+        let c = ctx("bin");
+        let mut bytes = b"TXT".to_vec();
+        bytes.push(0xFF); // invalide UTF-8 au milieu ; valides avant.
+        std::fs::write(c.root.join("bin.dat"), &bytes).unwrap();
+        match read_file(&c, "bin.dat") {
+            ToolOutput::Ok { content } => {
+                assert_eq!(content["binary"], true);
+                assert_eq!(content["truncated"], true);
+                assert_eq!(content["content"], "TXT");
+            }
+            _ => panic!("un fichier binaire ne doit pas renvoyer une erreur (plan §6)"),
+        }
         let _ = std::fs::remove_dir_all(&c.root);
     }
 
