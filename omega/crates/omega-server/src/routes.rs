@@ -162,6 +162,13 @@ async fn plugins(State(state): State<Arc<AppState>>) -> Json<Vec<PluginEntry>> {
             entries.push(PluginEntry::active(id, *cap));
         }
     }
+    // (P1-2) Le registre de composition : chaque adaptateur enregistre
+    // (actif ou non) est expose ; la liste nominative vient de
+    // `composition.entries()` elle-meme, pas d'une copie maintenue a la main.
+    // Source de verite unique : un id ne peut pas apparaitre deux fois (test).
+    for (id, capability, active) in state.composition.entries() {
+        entries.push(PluginEntry::registered(id, &capability, active));
+    }
     Json(entries)
 }
 
@@ -237,7 +244,10 @@ mod tests {
         assert!(entries
             .iter()
             .any(|e| e.id == "stub-file" && e.capability == "event-store"));
-        assert!(entries.iter().all(|e| e.active));
+        // Les plugins cables restent actifs ; les adaptateurs du registre de
+        // composition (P1-2) sont en registres jusqu'a leur activation (A2),
+        // donc les deux mondes coexistent avec des `active` differents.
+        assert!(entries.iter().any(|e| !e.active));
     }
 
     // (P1-2) Snapshot nominal : les 8 adaptateurs portes doivent etre visibles
