@@ -2,6 +2,13 @@
 //! coût, temps. Chaque appel est consommé **atomiquement** et tout, ou rien :
 //! si un seul axe dérape, l'appel est refusé et **rien n'est débité**.
 //!
+//! Frontière avec la boucle agent (fin-A2) : ce budget POLITIQUE plafonne les
+//! COÛTS par appel (steps consommés par les appels outils, tokens, coût, temps)
+//! et les PERMISSIONS (modules tiers.rs) ; la BOUCLE plafonne le nombre de
+//! TOURS de son côté (`AgentLoop`, port omega-ports). Deux compteurs distincts
+//! : la boucle appelle `Budget::consume_call` une fois par tour/apel outil ;
+//! elle reste seule responsable de son propre nombre de tours.
+//!
 //! Garantie (testée en property, `tests/proptests.rs`) : aucune séquence
 //! d'appels acceptés ne peut dépasser le plafond — jamais N+1 exécutions
 //! pour un budget de N. Convention du port Python `BudgetEnforcer` : un
