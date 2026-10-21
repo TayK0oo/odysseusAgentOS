@@ -19,6 +19,7 @@ async-trait = { workspace = true }
 tokio = { version = "1", features = ["sync", "rt", "macros", "process", "time"] }
 
 [dev-dependencies]
+omega-tools = { path = "../omega-tools" }
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 omega-providers = { path = "../omega-providers" }
 omega-context = { path = "../omega-context" }

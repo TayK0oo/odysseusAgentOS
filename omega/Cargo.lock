@@ -699,6 +699,7 @@ dependencies = [
  "omega-providers",
  "omega-registry",
  "omega-router",
+ "omega-tools",
  "omega-types",
  "serde",
  "serde_json",
@@ -737,6 +738,7 @@ dependencies = [
  "async-trait",
  "omega-ports",
  "omega-types",
+ "proptest",
  "serde",
  "serde_json",
  "tokio",
@@ -821,6 +823,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "omega-types",
+ "serde",
  "serde_json",
  "tokio",
 ]
@@ -948,10 +951,12 @@ dependencies = [
  "async-trait",
  "omega-ports",
  "omega-types",
+ "proptest",
  "regex",
  "serde",
  "serde_json",
  "tokio",
+ "unicode-normalization",
 ]
 
 [[package]]

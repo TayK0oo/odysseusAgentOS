@@ -10,6 +10,10 @@ use omega_types::{
     OmegaResult, PermissionEffect, RawModel, RouterDecision, RouterError, RoutingRequest, TaskType,
     TelemetryEvent, ToolSpec, Weights,
 };
+pub mod tool_surface;
+
+pub use tool_surface::{ToolCall, ToolCallOrigin, ToolObservation, ToolSurface};
+
 
 /// Fournit de l'inference. Regime : *ensemble*.
 #[async_trait]
