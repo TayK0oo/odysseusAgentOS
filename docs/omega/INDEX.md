@@ -1,6 +1,6 @@
 # INDEX — Espace Omega (carte)
 
-> **Généré le** par `omega/scripts/generate_index.py` à HEAD `ccd80e70` [observed].
+> **Généré le** par `omega/scripts/generate_index.py` à HEAD `2c984f90` [observed].
 > Les sections balisées `<!-- gen:... -->` sont régénérées à chaque run ; le reste
 > de la carte est maintenu à la main. Chiffres vivants : `docs/omega/plan/STATUS.json`.
 
@@ -38,6 +38,8 @@
 | 0010 | Convergence Plugin : architecture "Everything is a Plugin" | ✅ Accepté |
 | 0011 | Scope `pytest` de `verify.py` : Python nouveau bloquant, socle legacy dette P1 | ✅ Accepté |
 | 0012 | Reproductibilité : le lockfile est commité, et le timeout tue toute la descendance | ✅ Accepté |
+| 0013 | La porte G1 devient exécutable : mort du faux vert | ✅ Accepté |
+| 0014 | Ajustements d'implémentation pour la porte G1 | ✅ Accepté |
 
 <!-- /gen -->
 

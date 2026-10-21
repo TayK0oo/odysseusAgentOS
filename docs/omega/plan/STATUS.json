@@ -1,6 +1,6 @@
 {
-  "git_sha": "831a4145",
-  "mesure_le": "2026-10-20T23:17:32+00:00",
+  "git_sha": "2c984f90",
+  "mesure_le": "2026-10-21T07:07:12+00:00",
   "moteur_reference": "Rust (ADR-0009)",
   "socles": {
     "rust": {
@@ -30,36 +30,36 @@
         "omega-types"
       ],
       "tests": {
-        "valeur": 370,
+        "valeur": 411,
         "methode": "scan_attributs",
         "detail_par_crate": [
-          "omega-adapters:15",
+          "omega-adapters:20",
           "omega-app:19",
           "omega-config:10",
           "omega-context:46",
-          "omega-core:10",
+          "omega-core:16",
           "omega-harness:8",
           "omega-mcp:8",
           "omega-memory:12",
           "omega-otel:16",
           "omega-plugin-api:5",
-          "omega-policy:10",
+          "omega-policy:21",
           "omega-ports:8",
           "omega-protocol:5",
           "omega-providers:17",
           "omega-python-bridge:3",
           "omega-registry:15",
           "omega-router:62",
-          "omega-sandbox:26",
+          "omega-sandbox:37",
           "omega-search:9",
-          "omega-server:39",
-          "omega-tools:27"
+          "omega-server:40",
+          "omega-tools:34"
         ]
       }
     },
     "python": {
       "tests": {
-        "valeur": 4425,
+        "valeur": 4436,
         "methode": "ast"
       },
       "ruff_legacy_erreurs": {
@@ -200,6 +200,54 @@
           "id": "embedded",
           "capability": "harness-catalog",
           "active": true
+        },
+        {
+          "schema_version": 1,
+          "id": "agentstore/default",
+          "capability": "agent-store",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "config/default",
+          "capability": "config-source",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "loop/default",
+          "capability": "agent-loop",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "sandbox/default",
+          "capability": "sandbox-backend",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "skills/default",
+          "capability": "skill-store",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "ui/main",
+          "capability": "ui-surface",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "ui/sidebar",
+          "capability": "ui-surface",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "workflow/default",
+          "capability": "workflow-engine",
+          "active": false
         }
       ],
       "methode": "instance_jetable_http"
@@ -294,6 +342,54 @@
           "id": "embedded",
           "capability": "harness-catalog",
           "active": true
+        },
+        {
+          "schema_version": 1,
+          "id": "agentstore/default",
+          "capability": "agent-store",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "config/default",
+          "capability": "config-source",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "loop/default",
+          "capability": "agent-loop",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "sandbox/default",
+          "capability": "sandbox-backend",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "skills/default",
+          "capability": "skill-store",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "ui/main",
+          "capability": "ui-surface",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "ui/sidebar",
+          "capability": "ui-surface",
+          "active": false
+        },
+        {
+          "schema_version": 1,
+          "id": "workflow/default",
+          "capability": "workflow-engine",
+          "active": false
         }
       ],
       "methode": "instance_jetable_http"
@@ -310,8 +406,8 @@
       "reel": "NON_EXECUTE"
     },
     "S2": {
-      "scripte": "NON_EXECUTE_ABSENT",
-      "reel": "NON_EXECUTE_ABSENT"
+      "scripte": "XFAIL",
+      "reel": "NON_EXECUTE"
     },
     "S3": {
       "scripte": "NON_EXECUTE_ABSENT",
@@ -353,7 +449,7 @@
   "couverture_ponderee": 0.0,
   "portes": {
     "G0": "VERT",
-    "G1": "VERT",
+    "G1": "ROUGE",
     "G2": "NON_EXECUTE",
     "G3": "NON_EXECUTE",
     "G4": "NON_EXECUTE",
@@ -361,5 +457,5 @@
     "G6": "NON_EXECUTE",
     "G7": "NON_EXECUTE"
   },
-  "prochaine_action": "G2 : porte non executee — lancer omega/scripts/gate.py --phase 2"
+  "prochaine_action": "G1.a.s1 : S1 outil reel canary : 5 runs tous PASS (rouge tant que la boucle d'outils n'est pas livree — A2 fera basculer) — corriger puis relancer omega/scripts/gate.py --phase 1"
 }

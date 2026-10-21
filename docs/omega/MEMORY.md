@@ -1,10 +1,9 @@
 # MEMORY.md — Omega (auto-généré)
 
-> **Bannière (auto-calculée, jamais saisie)** : généré le 2026-10-20 23:58 · HEAD `ccd80e70` (feat/agentos-omega) · à jour.
+> **Bannière (auto-calculée, jamais saisie)** : généré le 2026-10-21 09:07 · HEAD `2c984f90` (feat/agentos-omega) · à jour.
 > **Working tree dirty** : d'autres modifications coexistent avec cette génération.
-> ⚠️ STATUS.json a été mesuré sur le commit `8ca3626c` le 2026-10-20T21:30:16+00:00 — antérieur au HEAD : les chiffres ci-dessous peuvent être périmés, relancer `measure.py`.
 
-**Généré le:** 2026-10-20 23:58
+**Généré le:** 2026-10-21 09:07
 **Source:** `omega/scripts/generate_memory.py` — génère MEMORY.md depuis STATUS.json + git — provenance: [observed]
 
 ---
@@ -12,8 +11,8 @@
 ## État Git
 
 - **Branche:** feat/agentos-omega
-- **Dernier commit:** ccd80e70 fix(measure): moteur_reference derives d'ADR-0009 — plus de chaine figee (principe 7) (2026-10-20 23:30:44 +0200)
-- **Total commits:** 2257
+- **Dernier commit:** 2c984f90 fix(acceptance): runner sans PyYAML au import-module (venv hermétique ADR-0005) — ERREUR nommée si absent ; cargo fmt app test (2026-10-21 08:51:09 +0200)
+- **Total commits:** 2294
 - **Working tree dirty:** oui
 
 ---
@@ -27,8 +26,8 @@
 
 ## Tests (depuis STATUS.json — aucune exécution ici)
 
-- **Rust:** 370 <!--m:socles.rust.tests.valeur=370--> tests (scan_attributs) — [observed]
-- **Python:** 4425 <!--m:socles.python.tests.valeur=4425--> tests (ast) — [observed]
+- **Rust:** 411 <!--m:socles.rust.tests.valeur=411--> tests (scan_attributs) — [observed]
+- **Python:** 4436 <!--m:socles.python.tests.valeur=4436--> tests (ast) — [observed]
 
 ---
 

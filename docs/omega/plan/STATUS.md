@@ -1,15 +1,15 @@
 # STATUS — AgentOS Omega (généré par measure.py — jamais édité à la main)
 
-SHA `831a4145` · mesuré le 2026-10-20T23:17:32+00:00 · moteur Rust (ADR-0009)
+SHA `2c984f90` · mesuré le 2026-10-21T07:07:12+00:00 · moteur Rust (ADR-0009)
 
 | Mesure | Valeur | Méthode |
 |---|---|---|
 | Crates Rust | 22 | cargo metadata |
-| Tests Rust (attributs test) | 370 | scan attributs |
-| Tests Python (test_*) | 4425 | ast |
+| Tests Rust (attributs test) | 411 | scan attributs |
+| Tests Python (test_*) | 4436 | ast |
 | model_policy --check | OK | script |
 | dep_graph | OK | script |
 
 **Scénarios** : S0–S11 `NON_EXECUTE` (banc d'acceptation = P0-4).
-**Portes** : G0 VERT · G1 VERT · G2 NON_EXECUTE · G3 NON_EXECUTE · G4 NON_EXECUTE · G5 NON_EXECUTE · G6 NON_EXECUTE · G7 NON_EXECUTE — l'etat vient des rapports gate.py (docs/omega/plan/gates/), seule la sortie de gate.py fait foi (lecon L6).
-**Prochaine action** : G2 : porte non executee — lancer omega/scripts/gate.py --phase 2
+**Portes** : G0 VERT · G1 ROUGE · G2 NON_EXECUTE · G3 NON_EXECUTE · G4 NON_EXECUTE · G5 NON_EXECUTE · G6 NON_EXECUTE · G7 NON_EXECUTE — l'etat vient des rapports gate.py (docs/omega/plan/gates/), seule la sortie de gate.py fait foi (lecon L6).
+**Prochaine action** : G1.a.s1 : S1 outil reel canary : 5 runs tous PASS (rouge tant que la boucle d'outils n'est pas livree — A2 fera basculer) — corriger puis relancer omega/scripts/gate.py --phase 1

@@ -57,6 +57,16 @@
 - Contrôles : doc-truth VERT, 4/4 tests du validateur verts. F541 (f-string sans placeholder) introduit puis corrigé à la racine — pris par ruff 0.6.9 épinglé ET système, contrôle négatif vérifié.
 - Reste en P0 : rien de bloquant ; P0 fermable, prochaine porte G1 (`gate.py --phase 1`).
 
+## 2026-10-21 — P1 Lot A intégré : faux vert mort, G1 Rouge execute (3/4 rouge honnete, 1/4 vert)
+## 2026-10-21 (main) — Lot A après intége en main (Fusions A1-fin→A3→A4→A5→A2)
+
+## 2026-10-21 — P1 Lot A intégré (5 fusions, verify VERT ×2, doc-truth VERT)
+- Intégré sur feuilles d'ordre A1-fin→A3→A4→A2 en 3 phases : A1 (ADR-0013/0014, porte réelle), A3 (52 tests policy multiplier), A4 (>20 adapters + trace)、A5 (36 tests, bwrap fail-closed)、A2 (boucle, ToolSurface exécutée via ports, proptests budget+jail, trace intégrée). 24 suites cargo vertes, clippy 0, verify VERT ×2 clones vierges.
+- G1 : **ROUGE execute** et digne (G1.a.s1 ECHEC=5, G1.b.s2 ECHEC, G1.c.sequence ECHEC, **G1.d.plugins VERT = 13/13 nominatif actif après régénération du binaire omega-server** ; cette ligne restait rouge à cause du binaire non régénéré par engines/rust.py docs/omega/acceptance/engines/rust.py (if not binary.exists() : jamais rebuild si en retard — lesson à capitaliser).
+- Intégration : my own suicide arête omega-adapters→omega-otel (usage test only, ADR-0004) ; PyYAML venv hermétique (runner.) ; cargo fmt (tool_loop/test). doc-truth : 9+2 tags réalignés (381/4436/411 : le compte de test grimpe avec chaque fusion mesurable).
+- Figure clé : STATUS : *ruff épinglé 0.6,9 (legacy 1040 échelle verify), crates 22, tests Rust **411**, Python **4436**, docs 381 (ce n'est pas le compte final, la mesure du HEAD final) ; CI : est-active (gate --phase 0 red by design S0/S1 XFAIL — codé bleu attendu).
+- Reste G1 : **S1/S2/séquence verts** ⇄ branchement de la boucle au serveur (`/api/run` doit piloter ToolLoopOperation) — c'est le Lot B annoncé (P1-5 robustesse, fuzz parser, mutation policy/jail).
+
 ## 2026-10-21 — Lot A (P1) : gel de session, A6 mergé, faux vert démoli
 - **Faux vert découvert** : `gate.py --phase 1` renvoyait VERT/DELEGUE_CI sur un critère placeholder — l'outillage était la vraie prochaine action, pas G2. ADR-0013 (A1, worktree) : G1 devient exécutable, S1 = outil réel canary, S2 = limites/budgets.
 - **Diagnostic CI (A6, faits)** : les runs omega-gates **ont tourné** sur chaque push (8ca3626c, 68cc7423) et sont rouges *by design* — `G0.c.s0/s1 ECHEC` : S0/S1 rouges. La prémisse P0-7 (« OAuth workflow ») est obsolète ; réflexe : toujours `gh -R TayK0oo/odysseusAgentOS` (sinon résolution vers l'upstream du fork → 404 trompeurs).
