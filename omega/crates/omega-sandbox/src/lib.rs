@@ -6,6 +6,7 @@ mod backend;
 mod contributor;
 mod namespace_backend;
 mod policy;
+mod timeout;
 
 pub use approvals::{Approval, ApprovalId, ApprovalQueue, ApprovalState};
 pub use backend::LocalSandboxBackend;

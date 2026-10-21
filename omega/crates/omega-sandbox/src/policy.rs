@@ -214,6 +214,14 @@ pub(crate) fn gate(
     command: &str,
     approvals: Option<&std::sync::Arc<ApprovalQueue>>,
 ) -> OmegaResult<()> {
+    // Canon : octets nuls → refus explicite, jamais « au hasard » d'un
+    // `execve ArgumentListNotValid` raté (le nul est indépassable pour argv).
+    if command.contains('\0') {
+        return Err(OmegaError::ForbiddenCommand {
+            command: command.to_string(),
+            reason: "octet nul interdit".to_string(),
+        });
+    }
     let decision = match policy.evaluate(command) {
         ExecDecision::Allow if has_unquoted_metachars(command) => {
             ExecDecision::Prompt("commande composée : approbation requise".to_string())
@@ -248,6 +256,17 @@ mod tests {
             .rule("sudo", ExecDecision::Prompt("élévation".to_string()))
             .rule("echo", ExecDecision::Allow)
             .rule("ls", ExecDecision::Allow)
+    }
+
+    #[test]
+    fn gate_refuses_nul_bytes() {
+        // Canon : le refus précède tout fork — aucun backend ne peut passer.
+        let p = RuleBasedExecPolicy::new("t").rule("cat", ExecDecision::Allow);
+        let err = gate(&p, "cat /etc/\0passwd", None).unwrap_err();
+        assert!(
+            matches!(err, OmegaError::ForbiddenCommand { .. }),
+            "obtenu : {err:?}"
+        );
     }
 
     #[test]

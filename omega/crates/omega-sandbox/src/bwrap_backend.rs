@@ -45,7 +45,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use omega_ports::{ExecPolicy, SandboxBackend};
-use omega_types::{CommandOutput, OmegaResult};
+use omega_types::{CommandOutput, OmegaError, OmegaResult};
 
 use crate::approvals::ApprovalQueue;
 
@@ -74,16 +74,36 @@ impl std::fmt::Display for SandboxMode {
     }
 }
 
-/// Mode de la sandbox pour le chemin bwrap donné (détection de binaire).
-pub fn sandbox_mode(bwrap_path: &Path) -> SandboxMode {
-    let _ = bwrap_path;
-    todo!("impl vert (commit 2)")
+/// Un chemin est un bwrap exécutable : direct si le chemin contient un
+/// séparateur (`/bin/bwrap`, `./bwrap`), sinon recherche dans `PATH`.
+/// Épreuve : fichier régulier + bit exécutable (`std::os::unix::fs::`), zéro fork.
+pub fn bwrap_available(bwrap_path: &Path) -> bool {
+    fn executable(p: &Path) -> bool {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::metadata(p)
+            .map(|m| m.is_file() && (m.permissions().mode() & 0o111) != 0)
+            .unwrap_or(false)
+    }
+    if bwrap_path.to_str().is_some_and(|s| s.contains('/')) {
+        return executable(bwrap_path);
+    }
+    // Nom nu : chaque répertoire de `PATH` (parcouru jusqu'au premier hit).
+    let Some(path) = std::env::var_os("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&path)
+        .map(|dir| dir.join(bwrap_path))
+        .any(|p| executable(&p))
 }
 
-/// Un chemin est un bwrap exécutable : direct si absolu, sinon recherche `PATH`.
-pub fn bwrap_available(bwrap_path: &Path) -> bool {
-    let _ = bwrap_path;
-    todo!("impl vert (commit 2)")
+/// Mode de la sandbox pour le chemin bwrap donné : `Active` si le binaire est
+/// présent, `Skipped(bwrap_absent)` sinon — jamais de faux vert (L4/L5).
+pub fn sandbox_mode(bwrap_path: &Path) -> SandboxMode {
+    if bwrap_available(bwrap_path) {
+        SandboxMode::Active
+    } else {
+        SandboxMode::Skipped(BWRAP_ABSENT)
+    }
 }
 
 /// Configuration du backend bwrap (tout fail-closed par défaut).
@@ -130,11 +150,25 @@ pub struct BwrapSandboxBackend {
 
 impl BwrapSandboxBackend {
     /// Construit le backend. **Fail-closed** : bwrap absent → `Err`, jamais
-    /// un backend qui exécuterait à découvert.
-    #[allow(clippy::todo)]
+    /// un backend qui exécuterait à découvert. Le refus précède tout fork.
     pub fn try_new(policy: Arc<dyn ExecPolicy>, config: BwrapConfig) -> OmegaResult<Self> {
-        let _ = (&policy, &config);
-        todo!("impl vert (commit 2)")
+        if !bwrap_available(&config.bwrap_path) {
+            return Err(OmegaError::ForbiddenCommand {
+                command: config.bwrap_path.display().to_string(),
+                reason: BWRAP_ABSENT.to_string(),
+            });
+        }
+        if !config.sh_path.is_absolute() {
+            return Err(OmegaError::ForbiddenCommand {
+                command: config.bwrap_path.display().to_string(),
+                reason: "sh_path_absolu_requis".to_string(),
+            });
+        }
+        Ok(Self {
+            policy,
+            config,
+            approvals: None,
+        })
     }
 
     /// Attache une file d'approbations (même canon que les autres backends).
@@ -150,10 +184,52 @@ impl SandboxBackend for BwrapSandboxBackend {
         "bwrap"
     }
 
-    #[allow(clippy::todo)]
     async fn run(&self, command: &str) -> OmegaResult<CommandOutput> {
-        let _ = command;
-        todo!("impl vert (commit 2)")
+        // Fail-closed re-vérifié au run : bwrap disparu entre construction et
+        // exécution → refus explicite, jamais de fork à découvert.
+        if !bwrap_available(&self.config.bwrap_path) {
+            return Err(OmegaError::ForbiddenCommand {
+                command: self.config.bwrap_path.display().to_string(),
+                reason: BWRAP_ABSENT.to_string(),
+            });
+        }
+        // Canon de refus : évaluation + garde anti-composition + octets nuls +
+        // approbations — partagé par tous les backends sandbox.
+        crate::policy::gate(self.policy.as_ref(), command, self.approvals.as_ref())?;
+
+        // Toutes les options AVANT la racine positionnelle : après le premier
+        // non-option (la nouvelle racine), bwrap ne lit plus d'options.
+        let mut cmd = tokio::process::Command::new(&self.config.bwrap_path);
+        cmd.arg("--unshare-all") // pas de `lo` : toute connexion sortante échoue
+            .arg("--clearenv")
+            .arg("--die-with-parent");
+        // Racine vide + whitelistes : tout ce qui n'est pas bindé n'existe
+        // pas ; `*-try` rétrécit la vue (chemin absent), ne l'élargit jamais.
+        for dir in &self.config.ro_binds {
+            let l = dir.to_string_lossy();
+            cmd.args(["--ro-bind-try", l.as_ref(), &l]);
+        }
+        for dir in &self.config.rw_binds {
+            let l = dir.to_string_lossy();
+            cmd.args(["--bind-try", l.as_ref(), &l]);
+        }
+        for (k, v) in &self.config.env {
+            cmd.args(["--setenv", k, v]);
+        }
+        // Première position = nouvelle racine (vide sans bind).
+        // Le shell n'est exécuté QUE dans le jail (jamais côté hôte).
+        cmd.arg(&self.config.sh_path).arg("-c").arg(command);
+
+        // Groupe de processus dédié + kill descendance au timeout : canon
+        // dans `crate::timeout` (correctifs CONCURRENCE partagés).
+        crate::timeout::spawn_and_wait(
+            cmd,
+            self.config.timeout,
+            command,
+            "spawn bwrap",
+            "attente bwrap",
+        )
+        .await
     }
 }
 
