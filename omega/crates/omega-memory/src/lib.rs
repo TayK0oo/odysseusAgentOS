@@ -8,6 +8,7 @@
 pub mod skill;
 
 use async_trait::async_trait;
+use omega_core::{redact_json, redact_secrets};
 use omega_ports::MemoryStore;
 use omega_types::OmegaResult;
 use serde::{Deserialize, Serialize};
@@ -93,6 +94,15 @@ impl JsonlMemoryStore {
             .lines()
             .filter(|l| !l.trim().is_empty())
             .filter_map(|l| serde_json::from_str::<MemoryRecord>(l).ok())
+            .map(|mut r| {
+                r.text = redact_secrets(&r.text);
+                let mut v = serde_json::Value::Object(r.metadata.clone());
+                redact_json(&mut v);
+                if let serde_json::Value::Object(m) = v {
+                    r.metadata = m;
+                }
+                r
+            })
             .collect()
     }
 
@@ -102,8 +112,15 @@ impl JsonlMemoryStore {
         }
         let mut out = String::new();
         for r in records {
+            let mut r = r.clone();
+            r.text = redact_secrets(&r.text);
+            let mut v = serde_json::Value::Object(r.metadata.clone());
+            redact_json(&mut v);
+            if let serde_json::Value::Object(m) = v {
+                r.metadata = m;
+            }
             out.push_str(
-                &serde_json::to_string(r)
+                &serde_json::to_string(&r)
                     .map_err(|e| omega_types::OmegaError::Io(e.to_string()))?,
             );
             out.push('\n');

@@ -11,6 +11,7 @@ omega-types = { workspace = true }
 omega-ports = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 async-trait = { workspace = true }
 tokio = { version = "1", features = ["sync", "rt", "macros"] }
 

@@ -22,8 +22,14 @@ async fn secret_redacted_on_disk_memory() {
 
     let path = dir.join("memories.jsonl");
     let content = fs::read_to_string(&path).unwrap();
-    assert!(!content.contains(canary_sk), "sk_live canary leaked in memory file");
-    assert!(!content.contains(canary_ak), "AKIA canary leaked in memory file");
+    assert!(
+        !content.contains(canary_sk),
+        "sk_live canary leaked in memory file"
+    );
+    assert!(
+        !content.contains(canary_ak),
+        "AKIA canary leaked in memory file"
+    );
     assert!(content.contains("[REDACTED:"), "no redaction marker");
     let _ = fs::remove_dir_all(&dir);
 }

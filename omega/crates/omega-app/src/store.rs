@@ -152,6 +152,12 @@ impl EventStore for FileEventStore {
                 to_write.push(b'\n');
             }
         }
+        // P2-6 : masquage des secrets au point d'écriture unique (trace).
+        let mut event = event;
+        if let Some(op) = &event.operation_id {
+            event.operation_id = Some(omega_core::redact_secrets(op));
+        }
+        omega_core::redact_json(&mut event.payload);
         let mut line = serde_json::to_vec(&event.with_seq(seq))
             .map_err(|e| OmegaError::Io(format!("sérialisation événement : {e}")))?;
         line.push(b'\n');
@@ -187,7 +193,12 @@ impl EventStore for FileEventStore {
         let mut events = Vec::new();
         for line in content.lines() {
             // Une ligne malformée (écriture interrompue) est ignorée.
-            if let Ok(ev) = serde_json::from_str::<DurableEvent>(line) {
+            if let Ok(mut ev) = serde_json::from_str::<DurableEvent>(line) {
+                // P2-6 : masquage à la lecture (export/repr).
+                if let Some(op) = &ev.operation_id {
+                    ev.operation_id = Some(omega_core::redact_secrets(op));
+                }
+                omega_core::redact_json(&mut ev.payload);
                 events.push(ev);
             }
         }
