@@ -21,6 +21,8 @@ omega-providers = { path = "../omega-providers" }
 omega-sandbox = { path = "../omega-sandbox" }
 omega-harness = { path = "../omega-harness" }
 omega-mcp = { path = "../omega-mcp" }
+omega-tools = { path = "../omega-tools" }
+omega-policy = { path = "../omega-policy" }
 omega-adapters = { path = "../omega-adapters" }
 serde = { workspace = true }
 serde_json = { workspace = true }

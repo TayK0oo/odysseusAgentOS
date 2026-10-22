@@ -119,6 +119,16 @@ pub struct RunResponse {
     pub summary: RunSummary,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub answer: Option<String>,
+    /// Le run s'est arrete sur le plafond de budget (P1-3).
+    ///
+    /// Vient du **moteur** (evenement `infer.completed` du journal), jamais
+    /// de la prose du modele : le client doit pouvoir distinguer « l'agent a
+    /// repondu » de « le moteur a coupe » sans lire les mots.
+    #[serde(default)]
+    pub budget_exhausted: bool,
+    /// Nombre d'executions d'outils observees dans le run.
+    #[serde(default)]
+    pub tool_executions: u64,
 }
 
 /// Corps de `GET /api/trace/:run_id` : journal rejoue + resume deterministe.
@@ -252,6 +262,8 @@ mod tests {
             decision: RouterDecision::new("ollama/qwen2.5-coder:7b", 0.91, "task=T3 eligible=1"),
             summary,
             answer: Some("bonjour".to_string()),
+            budget_exhausted: false,
+            tool_executions: 0,
         };
         assert_eq!(round_trip(&resp), resp);
     }

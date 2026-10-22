@@ -22,6 +22,42 @@ pub const DEFAULT_MAX_TOKENS: usize = 8000;
 /// Contexte d'inference exige par le selecteur (tokens).
 pub const REQUIRED_CONTEXT: u32 = 4000;
 
+/// Budget d'executions d'outils par run (P1-1) : borne stricte, un tour de
+/// boucle consomme une unite.
+pub const DEFAULT_TOOL_BUDGET: usize = 8;
+
+/// Surface d'outils utilisee par la boucle d'outils (P1-1).
+///
+/// La surface **MCP** (`mcp:rea`) reste branchee au registre comme capacite
+/// `tool-surface` (cf. `state.rs`). Elle lance `npx rea-agents --mcp` a chaque
+/// appel : impossible en CI, et sans rapport avec le cas d'usage local
+/// (lister/lire un fichier du workspace). D'ou une **seconde** surface, locale
+/// et explicite, choisie par configuration — pas par le registre.
+///
+/// Ce n'est pas une exception a « everything is a plugin » : la surface reste
+/// une implementation du port `ToolSurface` (`omega-ports`), resolue par le
+/// meme chemin que les autres capacites. Seule la *selection* est explicite.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ToolSurfaceKind {
+    /// Surface filesystem locale, ancree sur une racine (jail `omega-tools`).
+    LocalFs {
+        /// Racine du workspace : tout chemin resolu doit en rester sous elle.
+        root: PathBuf,
+    },
+    /// Surface MCP (serveur externe) — comportement historique.
+    Mcp,
+}
+
+impl ToolSurfaceKind {
+    /// Racine du workspace, si la surface est locale.
+    pub fn root(&self) -> Option<&std::path::Path> {
+        match self {
+            ToolSurfaceKind::LocalFs { root } => Some(root),
+            ToolSurfaceKind::Mcp => None,
+        }
+    }
+}
+
 /// Configuration du serveur.
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
@@ -40,6 +76,15 @@ pub struct ServerConfig {
     /// `None` → API seule. Defaut : chemin de compilation `../../ui/dist`
     /// (relatif a la crate), surchargeable par `OMEGA_UI_DIR`.
     pub ui_dir: Option<PathBuf>,
+    /// Surface d'outils de la boucle (P1-1). `None` → pas de boucle d'outils
+    /// (comportement d'avant B1 : un seul appel modele).
+    ///
+    /// Surchargeable par `OMEGA_TOOL_SURFACE=fs|mcp|off` ; la racine du
+    /// workspace FS vient de `OMEGA_WORKSPACE_ROOT` (defaut : repertoire
+    /// courant du processus).
+    pub tool_surface: Option<ToolSurfaceKind>,
+    /// Budget d'executions d'outils par run (P1-1, borne stricte).
+    pub tool_budget: usize,
 }
 
 impl Default for ServerConfig {
@@ -51,6 +96,10 @@ impl Default for ServerConfig {
             event_dir: std::env::temp_dir().join("omega-server"),
             max_tokens: DEFAULT_MAX_TOKENS,
             ui_dir: Some(default_ui_dir()),
+            tool_surface: Some(ToolSurfaceKind::LocalFs {
+                root: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            }),
+            tool_budget: DEFAULT_TOOL_BUDGET,
         }
     }
 }
@@ -96,6 +145,31 @@ impl ServerConfig {
             } else {
                 Some(PathBuf::from(dir))
             };
+        }
+        // Surface d'outils : `OMEGA_TOOL_SURFACE=fs|mcp|off` (defaut `fs`),
+        // racine du workspace via `OMEGA_WORKSPACE_ROOT`.
+        let workspace_root = std::env::var("OMEGA_WORKSPACE_ROOT")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .map(PathBuf::from)
+            .or_else(|| std::env::current_dir().ok())
+            .unwrap_or_else(|| PathBuf::from("."));
+        cfg.tool_surface = match std::env::var("OMEGA_TOOL_SURFACE")
+            .ok()
+            .as_deref()
+            .map(str::trim)
+        {
+            Some("off") | Some("none") => None,
+            Some("mcp") => Some(ToolSurfaceKind::Mcp),
+            _ => Some(ToolSurfaceKind::LocalFs {
+                root: workspace_root,
+            }),
+        };
+        if let Some(b) = std::env::var("OMEGA_TOOL_BUDGET")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+        {
+            cfg.tool_budget = b;
         }
         cfg
     }

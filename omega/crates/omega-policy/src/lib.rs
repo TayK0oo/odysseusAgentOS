@@ -6,10 +6,13 @@
 #![allow(clippy::new_without_default)]
 
 pub mod budget;
+pub mod run_budget;
 pub mod tiers;
 
 use omega_ports::{ExecPolicy, PermissionPolicy};
+
 use omega_types::{ExecDecision, PermissionEffect};
+pub use run_budget::PolicyRunBudget;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Budget (port de src/budget_enforcer.py)

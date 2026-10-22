@@ -31,8 +31,12 @@ def test_gates_toml_couvre_les_phases_0_a_7_et_G0():
     gates = gate.charger()
     assert gate.phases(gates) == [f"phase{i}" for i in range(8)]
     ids = [c["id"] for c in gates["phase0"]["criteres"]]
-    for attendu in ("G0.a", "G0.b", "G0.c.s0", "G0.c.s1", "G0.d", "G0.e"):
+    # `G0.c.s1` a été retiré : le critère affirmait « S1 rouge sur l'état
+    # actuel », devenu faux une fois la boucle d'outils livrée (ADR-0015).
+    # S1 est désormais couvert par `G1.a.s1` en phase 1.
+    for attendu in ("G0.a", "G0.b", "G0.c.s0", "G0.d", "G0.e"):
         assert attendu in ids
+    assert "G0.c.s1" not in ids, "critère « S1 rouge » retiré (ADR-0015)"
 
 
 def test_commande_qui_sort_du_code_attendu_est_echec():

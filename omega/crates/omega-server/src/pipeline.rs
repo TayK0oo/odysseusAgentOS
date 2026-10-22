@@ -49,6 +49,21 @@ pub async fn execute_run(
     messages: Vec<Message>,
     run_id: Option<String>,
 ) -> OmegaResult<RunResponse> {
+    execute_run_with_budget(state, messages, run_id, state.config.tool_budget).await
+}
+
+/// Execute un run avec un budget d'executions d'outils explicite.
+///
+/// La boucle d'outils (P1-1) remplace l'inference unique quand une surface
+/// d'outils est configuree : `assemble` puis `tool_loop` (detection ->
+/// execution -> observation -> re-injection -> multi-tours). Sans surface,
+/// le comportement d'avant est conserve (`assemble` + `infer`).
+pub async fn execute_run_with_budget(
+    state: &AppState,
+    messages: Vec<Message>,
+    run_id: Option<String>,
+    tool_budget: usize,
+) -> OmegaResult<RunResponse> {
     if messages.is_empty() {
         return Err(OmegaError::Config("aucun message fourni".to_string()));
     }
@@ -69,22 +84,58 @@ pub async fn execute_run(
         .select_with_local_preference(task, Capabilities::default(), REQUIRED_CONTEXT, &candidates)
         .map_err(|e| OmegaError::Config(format!("selection : {e:?}")))?;
 
-    // 3. Assemble (ContextEngine du registre) + infere (Provider du registre).
+    // 3. Assemble (ContextEngine du registre) + execution.
     let app = &state.app;
-    let ops: Vec<Box<dyn omega_core::Operation>> = vec![
-        app.assemble_operation(messages.clone())?,
-        app.infer_operation(ModelId::new(decision.model_id.clone()), messages)?,
-    ];
-    let mut input = RunInput::new(ops);
-    if let Some(id) = run_id {
-        input = input.with_run_id(id);
+    let mut ops: Vec<Box<dyn omega_core::Operation>> =
+        vec![app.assemble_operation(messages.clone())?];
+
+    // Identifiant du run : la boucle d'outils ecrit sa trace SOUS cet
+    // identifiant, il faut donc le connaître AVANT de construire l'operation.
+    let effective_run_id = run_id.clone().unwrap_or_else(omega_app::next_run_id);
+
+    match state.tool_surface() {
+        Some(surface) => {
+            // Boucle d'outils : le provider est resolu par le registre, la
+            // surface vient de la configuration (slot explicite — la surface
+            // MCP du registre ne peut pas servir le cas local, cf.
+            // `config::ToolSurfaceKind`).
+            let provider = app.provider()?;
+            // Budget de politique (P1-3) : plafonds portants sur le budget
+            // d'executions d'outils. La politique calcule le cumul monotone ;
+            // la boucle ne connait que le port.
+            let policy_budget: Option<std::sync::Arc<dyn omega_ports::RunBudget>> = {
+                let limits = omega_policy::budget::Limits {
+                    max_steps: tool_budget as u64,
+                    ..omega_policy::budget::Limits::default()
+                };
+                Some(std::sync::Arc::new(omega_policy::PolicyRunBudget::new(
+                    std::sync::Arc::new(omega_policy::budget::Budget::new(limits)),
+                )))
+            };
+            ops.push(Box::new(omega_core::tool_loop::ToolLoopOperation {
+                provider,
+                model: ModelId::new(decision.model_id.clone()),
+                surface,
+                messages,
+                budget: tool_budget,
+                policy_budget,
+                run_id: effective_run_id.clone(),
+                trace: None,
+            }));
+        }
+        None => {
+            ops.push(app.infer_operation(ModelId::new(decision.model_id.clone()), messages)?);
+        }
     }
+
+    let input = RunInput::new(ops).with_run_id(effective_run_id);
     let outcome = app.run(input).await?;
 
     // 4. Preuve par le journal : resume rejoue (deterministe) + reponse du modele.
     let journal = state.store.read_run(&outcome.run_id)?;
     let answer = last_answer(&journal);
     let summary = TraceReplayer::summarize(&outcome.run_id, journal);
+    let (budget_exhausted, tool_executions) = budget_facts(state, &outcome.run_id);
 
     Ok(RunResponse {
         run_id: outcome.run_id,
@@ -92,7 +143,29 @@ pub async fn execute_run(
         decision,
         summary,
         answer,
+        budget_exhausted,
+        tool_executions,
     })
+}
+
+/// Faits de budget lus dans le journal (preuve, pas affirmation) :
+/// le moteur a-t-il coupe sur le plafond ? combien d'executions d'outils ?
+fn budget_facts(state: &AppState, run_id: &str) -> (bool, u64) {
+    let Ok(journal) = state.store.read_run(run_id) else {
+        return (false, 0);
+    };
+    let exhausted = journal.iter().any(|e| {
+        e.name == "infer.completed"
+            && e.payload
+                .get("budget_exhausted")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false)
+    });
+    let executions = journal
+        .iter()
+        .filter(|e| e.name == "tool.call.completed")
+        .count() as u64;
+    (exhausted, executions)
 }
 
 #[cfg(test)]

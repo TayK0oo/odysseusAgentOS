@@ -73,6 +73,10 @@ export interface RunResponse {
   summary: RunSummary;
   /** Dernière réponse du modèle, relue dans le journal (`infer.completed`). */
   answer?: string;
+  /** Le moteur a coupé le run sur le plafond de budget (P1-3). */
+  budget_exhausted: boolean;
+  /** Nombre d'exécutions d'outils observées dans le run. */
+  tool_executions: number;
 }
 
 /* --- Miroirs de `omega-otel::replay` (W8, rejoué sans ré-exécuter) --------- */

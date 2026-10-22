@@ -3,6 +3,7 @@ nom: outil_reel_canary
 phase: P1
 modes: [scripte]
 prerequis: [cargo, python_3_12]
+llm_scripte: outil
 mise_en_situation:
   workdir: tmpdir
   fichiers: {nombre: 7, noms: hex8, contenu: hex32}
@@ -13,15 +14,9 @@ attendu:
   reponse_contient_les_canaries: true
   evenement_appele_outil: true
 controle_negatif:
-  # le modele scripte n'a aucun moyen de connaitre les noms (aléatoires) :
-  # sans surface d'outils leur absence est la norme — contrôle du contrôle.
+  # le meme scenario, moteur SANS surface d'outils : le modele n'a alors
+  # aucun moyen de connaitre les noms (aleatoires) — leur absence prouve
+  # que la reponse nominale vient bien de l'observation de l'outil.
   desactiver: [tool_surface]
   attendu: canaries_absentes
-verdict_attendu: FAIL
-xfail_raison: >-
-  Trois causes empilées, nommées et mesurées : (1) le wire du provider
-  (WireMessage {role, content}, ollama.rs:22) ne transporte pas de tool_calls —
-  ADR-0006 décide l'extension du schéma ; (2) la boucle d'outils de l'agent
-  n'existe pas (P1-1 rescopé par ADR-0006) ; (3) le ScriptedProvider doit
-  scripter les deux formes (natif + ReAct) avant que S1 puisse passer.
-  L'agent répond sans appeler fs.list, les canaries restent absentes.
+verdict_attendu: PASS

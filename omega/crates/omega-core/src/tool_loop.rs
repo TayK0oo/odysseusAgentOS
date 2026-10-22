@@ -27,7 +27,7 @@
 //! branché devant la boucle.
 
 use async_trait::async_trait;
-use omega_ports::{EventStore, Provider};
+use omega_ports::{BudgetDemand, EventStore, Provider, RunBudget};
 use omega_types::Message;
 use omega_types::{ChatRequest, DurableEvent, OmegaResult, Role};
 use serde_json::{json, Value};
@@ -143,12 +143,25 @@ pub struct ToolLoopOperation {
     pub messages: Vec<Message>,
     /// Budget d'exécutions d'outils (§7-A2 : monotone, strict).
     pub budget: usize,
+    /// Budget de politique (port `RunBudget`, P1-3). `Some` = la boucle
+    /// consulte le plafond de la politique avant chaque exécution d'outil et
+    /// s'arrête proprement au refus (raison nommée dans la trace).
+    ///
+    /// `None` = seul le plafond `budget` ci-dessus s'applique (usage direct
+    /// de l'opération, hors moteur).
+    pub policy_budget: Option<std::sync::Arc<dyn RunBudget>>,
     /// Identifiant du run, propagé dans chaque événement d'outil.
     pub run_id: String,
     /// Journal durable optionnel (port `EventStore`) : chaque exécution d'outil
     /// y écrit un event `tool.call.completed` (`run_id`, `call_id`, origine) —
     /// rejouable par la couche trace (A4). Échec d'append = event bus dédié,
     /// la boucle ne meurt jamais pour une écriture de trace.
+    ///
+    /// **À laisser à `None` quand la boucle tourne dans l'`App`** : le bus
+    /// est deja adosse au journal durable et append chaque evenement publié.
+    /// Les deux chemins ecriraient le meme evenement DEUX fois (mesuré :
+    /// 2 occurrences de `tool.call.completed` au lieu d'une). Le champ reste
+    /// utile hors `App` (usage direct de l'operation).
     pub trace: Option<std::sync::Arc<dyn EventStore>>,
 }
 
@@ -159,7 +172,12 @@ impl Operation for ToolLoopOperation {
     }
 
     async fn run(&self, ctx: &mut RunContext<'_>) -> OmegaResult<()> {
-        let mut messages = self.messages.clone();
+        // Contexte assemble par l'operation precedente (`assemble`), sinon
+        // repli sur les messages d'entree — meme contrat que `infer`
+        // (omega-app), pour que la compression de contexte s'applique aussi
+        // a la boucle d'outils.
+        let mut messages: Vec<Message> =
+            serde_json::from_value(ctx.state.0.clone()).unwrap_or_else(|_| self.messages.clone());
         let mut executed: usize = 0;
         let mut rounds: usize = 0;
 
@@ -177,7 +195,20 @@ impl Operation for ToolLoopOperation {
                 .await?;
 
             let Some(call) = detect_react_call(&response.message.content, rounds) else {
-                // Pas de tool-call : la boucle se termine.
+                // Pas de tool-call : la boucle se termine. La reponse finale
+                // du modele est publiee sous `infer.completed` — meme nom
+                // d'evenement que l'inference simple : le contrat du journal
+                // (`last_answer`, UI) ne depend pas du chemin pris.
+                ctx.publish(Event::new(
+                    "infer.completed",
+                    json!({
+                        "model": self.model.0.clone(),
+                        "role": "assistant",
+                        "content": response.message.content.clone(),
+                        "input_tokens": response.usage.input_tokens,
+                        "output_tokens": response.usage.output_tokens,
+                    }),
+                ));
                 ctx.publish(Event::new(
                     "tool.loop.completed",
                     json!({
@@ -194,6 +225,52 @@ impl Operation for ToolLoopOperation {
                 return Ok(());
             };
 
+            // Budget de la POLITIQUE (P1-3) : consulte AVANT chaque
+            // execution. Un refus ne debite rien (monotone, tout-ou-rien) et
+            // arrete la boucle proprement, avec la raison nommee.
+            if let Some(policy) = &self.policy_budget {
+                if let Err(refus) = policy.consume(BudgetDemand {
+                    steps: 1,
+                    ..BudgetDemand::default()
+                }) {
+                    ctx.publish(Event::new(
+                        "tool.budget.exhausted",
+                        json!({
+                            "budget": policy.usage().steps,
+                            "requested": call.name,
+                            "run_id": self.run_id,
+                            "source": "policy",
+                            "axis": refus.axis,
+                            "reason": refus.reason,
+                        }),
+                    ));
+                    // La reponse finale est publiee sous le meme nom
+                    // d'evenement que l'inference simple : le client (UI,
+                    // `/api/run`) lit toujours `infer.completed`. Le marqueur
+                    // `budget` est dans le contenu — c'est le MOTEUR qui
+                    // l'emet, jamais le provider scripté.
+                    ctx.publish(Event::new(
+                        "infer.completed",
+                        json!({
+                            "model": self.model.0.clone(),
+                            "role": "assistant",
+                            "content": response.message.content.clone(),
+                            "input_tokens": response.usage.input_tokens,
+                            "output_tokens": response.usage.output_tokens,
+                            "budget_exhausted": true,
+                            "budget": policy.usage().steps,
+                        }),
+                    ));
+                    ctx.state.0 = json!({
+                        "content": response.message.content,
+                        "rounds": rounds,
+                        "tool_executions": executed,
+                        "status": "budget-exhausted",
+                    });
+                    return Ok(());
+                }
+            }
+
             if executed >= self.budget {
                 // Budget épuisé : arrêt propre et tracé (§7-A2, monotone).
                 ctx.publish(Event::new(
@@ -202,6 +279,18 @@ impl Operation for ToolLoopOperation {
                         "budget": self.budget,
                         "requested": call.name,
                         "run_id": self.run_id,
+                    }),
+                ));
+                ctx.publish(Event::new(
+                    "infer.completed",
+                    json!({
+                        "model": self.model.0.clone(),
+                        "role": "assistant",
+                        "content": response.message.content.clone(),
+                        "input_tokens": response.usage.input_tokens,
+                        "output_tokens": response.usage.output_tokens,
+                        "budget_exhausted": true,
+                        "budget": self.budget,
                     }),
                 ));
                 ctx.state.0 = json!({

@@ -77,6 +77,7 @@ fn op(
         surface,
         messages,
         budget: 8,
+        policy_budget: None,
         run_id: "run-integration".to_string(),
         trace: None,
     }
@@ -144,6 +145,7 @@ async fn interruption_arrete_la_boucle_avant_execution() {
         surface: surface.clone(),
         messages,
         budget: 8,
+        policy_budget: None,
         run_id: "run-cancel".to_string(),
         trace: None,
     };

@@ -37,6 +37,32 @@ impl AppState {
     pub fn model(&self) -> &str {
         &self.config.ollama_model
     }
+
+    /// Surface d'outils de la boucle (P1-1), si configuree.
+    ///
+    /// La surface **MCP** du registre (`mcp:rea`) ne peut pas servir le cas
+    /// local : elle lance `npx rea-agents --mcp` a chaque appel (indisponible
+    /// en CI, et sans rapport avec « lister un repertoire »). D'ou une
+    /// surface FS **locale**, resolue ici depuis la configuration — c'est un
+    /// choix explicite, trace, et non une surface fantome.
+    ///
+    /// La surface reste une implementation du port `ToolSurface`
+    /// (`omega-ports`) : la boucle ne connait que le port.
+    pub fn tool_surface(&self) -> Option<std::sync::Arc<dyn omega_ports::ToolSurface>> {
+        match self.config.tool_surface.as_ref()? {
+            crate::config::ToolSurfaceKind::LocalFs { root } => {
+                let ctx = omega_tools::ToolCtx::new(root);
+                Some(std::sync::Arc::new(omega_tools::surface::FsSurface::new(
+                    ctx,
+                )))
+            }
+            crate::config::ToolSurfaceKind::Mcp => {
+                // Surface MCP du registre : resolue par le registre, comme
+                // toute autre capacite.
+                self.app.resolve_tool_surface().ok()
+            }
+        }
+    }
 }
 
 /// Contributeur `llm-provider` : expose l'`OllamaProvider` au registre.

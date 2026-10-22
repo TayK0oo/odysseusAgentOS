@@ -124,3 +124,26 @@ def seq_react_toolcall(tool: str, tours: int = 12):
     """
     rep = _reply(json.dumps({"tool": tool, "arguments": {}}, sort_keys=True))
     return [lambda req: rep for _ in range(tours)]
+
+
+def seq_tool_then_echo(tool: str, arguments: dict | None = None):
+    """Le modèle demande UN outil, puis repond en reprenant l'observation.
+
+    Base du scénario S1 (outil reel, canary) : le tour 1 propose l'appel
+    d'outil (forme ReAct d'ADR-0006 — le wire ne transporte pas encore
+    `tool_calls`), le tour 2 reprend **integralement** le dernier message
+    (l'observation reinjectee par la boucle). Les noms de canary sont
+    aleatoires : le modele ne peut pas les connaitre autrement qu'en lisant
+    l'observation — c'est la preuve que l'outil a reellement ete execute.
+
+    La reprise est INTEGRALE (pas tronquee comme `seq_echoreq_reply`) : la
+    liste des canaries doit tenir dans la reponse.
+    """
+    call = _reply(json.dumps({"tool": tool, "arguments": arguments or {}}, sort_keys=True))
+
+    def echo_observation(req):
+        msgs = req.get("messages", [])
+        last = msgs[-1].get("content", "") if msgs else ""
+        return _reply(last)
+
+    return [lambda req: call, echo_observation]
