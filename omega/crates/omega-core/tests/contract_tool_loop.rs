@@ -118,6 +118,7 @@ fn op(
         run_id: "run-contract".to_string(),
         trace: None,
         budget,
+        policy_budget: None,
     }
 }
 

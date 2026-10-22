@@ -10,7 +10,10 @@ use omega_types::{
     OmegaResult, PermissionEffect, RawModel, RouterDecision, RouterError, RoutingRequest, TaskType,
     TelemetryEvent, ToolSpec, Weights,
 };
+pub mod run_budget;
 pub mod tool_surface;
+
+pub use run_budget::{BudgetDemand, BudgetRefusal, BudgetUsage, RunBudget};
 
 pub use tool_surface::{ToolCall, ToolCallOrigin, ToolObservation, ToolSurface};
 

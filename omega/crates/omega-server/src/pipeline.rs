@@ -100,12 +100,25 @@ pub async fn execute_run_with_budget(
             // MCP du registre ne peut pas servir le cas local, cf.
             // `config::ToolSurfaceKind`).
             let provider = app.provider()?;
+            // Budget de politique (P1-3) : plafonds portants sur le budget
+            // d'executions d'outils. La politique calcule le cumul monotone ;
+            // la boucle ne connait que le port.
+            let policy_budget: Option<std::sync::Arc<dyn omega_ports::RunBudget>> = {
+                let limits = omega_policy::budget::Limits {
+                    max_steps: tool_budget as u64,
+                    ..omega_policy::budget::Limits::default()
+                };
+                Some(std::sync::Arc::new(omega_policy::PolicyRunBudget::new(
+                    std::sync::Arc::new(omega_policy::budget::Budget::new(limits)),
+                )))
+            };
             ops.push(Box::new(omega_core::tool_loop::ToolLoopOperation {
                 provider,
                 model: ModelId::new(decision.model_id.clone()),
                 surface,
                 messages,
                 budget: tool_budget,
+                policy_budget,
                 run_id: effective_run_id.clone(),
                 trace: None,
             }));

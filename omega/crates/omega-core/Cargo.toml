@@ -16,4 +16,5 @@ tokio = { version = "1", features = ["sync", "rt", "macros"] }
 
 [dev-dependencies]
 proptest = { workspace = true }
+omega-tools = { path = "../omega-tools" }
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "time"] }

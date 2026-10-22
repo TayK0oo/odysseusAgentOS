@@ -737,6 +737,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "omega-ports",
+ "omega-tools",
  "omega-types",
  "proptest",
  "serde",
@@ -930,6 +931,7 @@ dependencies = [
  "omega-mcp",
  "omega-otel",
  "omega-plugin-api",
+ "omega-policy",
  "omega-ports",
  "omega-protocol",
  "omega-providers",

@@ -121,6 +121,7 @@ proptest! {
             surface: surface.clone(),
             messages: vec![Message::new(Role::User, "travaille")],
             budget: n,
+            policy_budget: None,
             run_id: "run-prop".to_string(),
             trace: None,
         };

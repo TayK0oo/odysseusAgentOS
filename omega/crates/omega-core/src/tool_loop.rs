@@ -27,7 +27,7 @@
 //! branché devant la boucle.
 
 use async_trait::async_trait;
-use omega_ports::{EventStore, Provider};
+use omega_ports::{BudgetDemand, EventStore, Provider, RunBudget};
 use omega_types::Message;
 use omega_types::{ChatRequest, DurableEvent, OmegaResult, Role};
 use serde_json::{json, Value};
@@ -143,6 +143,13 @@ pub struct ToolLoopOperation {
     pub messages: Vec<Message>,
     /// Budget d'exécutions d'outils (§7-A2 : monotone, strict).
     pub budget: usize,
+    /// Budget de politique (port `RunBudget`, P1-3). `Some` = la boucle
+    /// consulte le plafond de la politique avant chaque exécution d'outil et
+    /// s'arrête proprement au refus (raison nommée dans la trace).
+    ///
+    /// `None` = seul le plafond `budget` ci-dessus s'applique (usage direct
+    /// de l'opération, hors moteur).
+    pub policy_budget: Option<std::sync::Arc<dyn RunBudget>>,
     /// Identifiant du run, propagé dans chaque événement d'outil.
     pub run_id: String,
     /// Journal durable optionnel (port `EventStore`) : chaque exécution d'outil
@@ -218,6 +225,52 @@ impl Operation for ToolLoopOperation {
                 return Ok(());
             };
 
+            // Budget de la POLITIQUE (P1-3) : consulte AVANT chaque
+            // execution. Un refus ne debite rien (monotone, tout-ou-rien) et
+            // arrete la boucle proprement, avec la raison nommee.
+            if let Some(policy) = &self.policy_budget {
+                if let Err(refus) = policy.consume(BudgetDemand {
+                    steps: 1,
+                    ..BudgetDemand::default()
+                }) {
+                    ctx.publish(Event::new(
+                        "tool.budget.exhausted",
+                        json!({
+                            "budget": policy.usage().steps,
+                            "requested": call.name,
+                            "run_id": self.run_id,
+                            "source": "policy",
+                            "axis": refus.axis,
+                            "reason": refus.reason,
+                        }),
+                    ));
+                    // La reponse finale est publiee sous le meme nom
+                    // d'evenement que l'inference simple : le client (UI,
+                    // `/api/run`) lit toujours `infer.completed`. Le marqueur
+                    // `budget` est dans le contenu — c'est le MOTEUR qui
+                    // l'emet, jamais le provider scripté.
+                    ctx.publish(Event::new(
+                        "infer.completed",
+                        json!({
+                            "model": self.model.0.clone(),
+                            "role": "assistant",
+                            "content": response.message.content.clone(),
+                            "input_tokens": response.usage.input_tokens,
+                            "output_tokens": response.usage.output_tokens,
+                            "budget_exhausted": true,
+                            "budget": policy.usage().steps,
+                        }),
+                    ));
+                    ctx.state.0 = json!({
+                        "content": response.message.content,
+                        "rounds": rounds,
+                        "tool_executions": executed,
+                        "status": "budget-exhausted",
+                    });
+                    return Ok(());
+                }
+            }
+
             if executed >= self.budget {
                 // Budget épuisé : arrêt propre et tracé (§7-A2, monotone).
                 ctx.publish(Event::new(
@@ -228,11 +281,6 @@ impl Operation for ToolLoopOperation {
                         "run_id": self.run_id,
                     }),
                 ));
-                // La reponse finale est publiee sous le meme nom d'evenement
-                // que l'inference simple : le client (UI, `/api/run`) lit
-                // toujours `infer.completed`. Le marqueur `budget` est dans
-                // le contenu — c'est le MOTEUR qui l'emet, jamais le
-                // provider scripté (cf. SCENARIOS-README).
                 ctx.publish(Event::new(
                     "infer.completed",
                     json!({
