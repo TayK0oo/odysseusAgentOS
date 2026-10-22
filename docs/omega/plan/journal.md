@@ -102,3 +102,10 @@
 - Négatifs : S3, S4, cascade, corruption, concurrence verts avec contrôles négatifs. S5 scénario trivial (health + echo) — compaction non exercée par le runner.
 - Mutation / revue indépendante : non exécutées (budget délégation épuisé).
 - Verdict audit : G2 verte au sens gate, mais preuve partielle (S4/S5 simplifiés, latence non gelée). P3 sur ordre explicite.
+
+## 2026-10-23 — Réparation G2 : verdict honnête
+- G2 gate VERT (9/9, 0 DELEGUE_CI). verify VERT. HEAD pushé.
+- Écart confirmé : S4.yaml teste la durabilité (append), PAS la récupération mémoire du plan. Aucun outil mémoire exposé à l'agent (pas de memory.store/recall) ; C4 (récupération dans le contexte) non implémenté. La preuve par l'effet de S4 porte sur l'append, pas sur la mémoire.
+- Pour rendre le plan's S4 vert : implémenter un outil mémoire + C4 (injection conditionnelle sous budget) + réécrire S4. Hors périmètre de cette session.
+- Latence : cargo test latency_memory, seuil 1000 ms provisoire, ADR « Seuils v1 » absent.
+- G2 reste verte au sens gate ; la preuve de la mémoire (plan §2 S4) est incomplète.
