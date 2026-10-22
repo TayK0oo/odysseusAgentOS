@@ -314,6 +314,6 @@ mod tests {
     }
 }
 
-// Re-export du faux adaptateur mémoire (A1).
-pub use omega_memory::InMemoryMemoryStore as FakeMemoryStore;
-pub use omega_memory::JsonlMemoryStore;
+// Re-export retiré : omega-adapters ne peut pas dépendre de omega-memory
+// (les deux sont "adapters" — règle ARCH_RULES). Les tests A1 utilisent
+// omega_memory directement.

@@ -1,7 +1,6 @@
 //! P2-6 — masquage des secrets dans la mémoire (preuve par relecture fs).
 
 use omega_memory::JsonlMemoryStore;
-use omega_ports::MemoryStore;
 use std::fs;
 
 fn tmp(name: &str) -> std::path::PathBuf {
