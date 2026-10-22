@@ -64,15 +64,6 @@ timeout = 600
 bloquant = true
 
 [[phase0.criteres]]
-id = "G0.c.s1"
-description = "S1 rouge sur l'etat actuel (XFAIL nomme = exit 0 ; XPASS ou FAIL = exit 1)"
-kind = "command"
-argv = ["python3", "omega/acceptance/runner.py", "--scenario", "S1", "--mode", "scripte"]
-expect_exit = 0
-timeout = 600
-bloquant = true
-
-[[phase0.criteres]]
 id = "G0.d"
 description = "ADR D0 fusionne (moteur de reference : Rust ou Python)"
 kind = "file"
@@ -102,7 +93,7 @@ nom = "L'agent qui agit, dans une boite"
 
 [[phase1.criteres]]
 id = "G1.a.s1"
-description = "S1 outil reel canary : 5 runs tous PASS (rouge tant que la boucle d'outils n'est pas livree — A2 fera basculer)"
+description = "S1 outil reel canary : 5 runs tous PASS (canary obtenu par un VRAI appel d'outil + controle negatif sans surface)"
 kind = "command"
 argv = ["python3", "omega/acceptance/runner.py", "--scenario", "S1", "--mode", "scripte", "--runs", "5", "--attendu", "PASS"]
 expect_exit = 0
