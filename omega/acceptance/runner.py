@@ -42,7 +42,12 @@ sys.path.insert(0, str(HERE / "engines"))
 
 from engines.python import PythonEngine  # noqa: E402
 from engines.rust import RustEngine, get_json, post_json  # noqa: E402
-from scripted_provider import ScriptedProvider, seq_echoreq_reply  # noqa: E402
+from scripted_provider import (  # noqa: E402
+    ScriptedProvider,
+    seq_echoreq_reply,
+    seq_react_toolcall,
+    seq_tool_then_echo,
+)
 
 SCEN = HERE / "scenarios"
 # racine du dépôt : les engines attendent <repo>/omega/target
@@ -85,7 +90,6 @@ def _run_sans_budget(spec: dict, engine_name: str, mode: str,
     engine = None
     try:
         if mode == "scripte":
-            from scripted_provider import seq_react_toolcall
             provider = ScriptedProvider(seq_react_toolcall("echo"))
             provider.start()
         engine = {"rust": RustEngine, "python": PythonEngine}[engine_name](REPO_ROOT)
@@ -99,7 +103,6 @@ def _run_sans_budget(spec: dict, engine_name: str, mode: str,
         for a in spec.get("actions", []):
             if "post" in a:
                 _status, body = post_json(url + str(a["post"]), a["body"])
-        contenu = json.dumps(body, ensure_ascii=False).lower()
         # Contrôle STRICT : ni le drapeau du moteur, ni l'événement de la
         # trace ne doivent signaler un arrêt sur budget.
         aucun = not (isinstance(body, dict) and body.get("budget_exhausted") is True)
@@ -144,7 +147,6 @@ def _run_sans_surface(spec: dict, engine_name: str, mode: str,
     engine = None
     try:
         if mode == "scripte":
-            from scripted_provider import seq_tool_then_echo
             provider = ScriptedProvider(seq_tool_then_echo("ls", {"path": "."}))
             provider.start()
         engine = {"rust": RustEngine, "python": PythonEngine}[engine_name](REPO_ROOT)
@@ -256,13 +258,11 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
                 # S2 : le modèle propose une boucle d'appels d'outil (forme
                 # texte canonique ADR-0006) ; aucun mot-marqueur de budget —
                 # un arrêt ne peut venir que du MOTEUR.
-                from scripted_provider import seq_react_toolcall
                 provider = ScriptedProvider(seq_react_toolcall("echo"))
             elif spec.get("llm_scripte") == "outil":
                 # S1 : le modèle demande UN outil reel (ls) puis reprend
                 # l'observation. Les noms de canary sont aleatoires : ils ne
                 # peuvent venir que de l'observation de l'outil.
-                from scripted_provider import seq_tool_then_echo
                 provider = ScriptedProvider(
                     seq_tool_then_echo("ls", {"path": "."}))
             else:
