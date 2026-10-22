@@ -21,7 +21,8 @@ class RustEngine(Engine):
         self.repo = repo
         self.proc: subprocess.Popen | None = None
 
-    def start(self, *, llm_url, model, event_dir, port):
+    def start(self, *, llm_url, model, event_dir, port, workspace=None,
+              tool_surface=True):
         binary = self.repo / "omega" / "target" / "debug" / "omega-server"
         if not binary.exists():
             r = subprocess.run(["cargo", "build", "-p", "omega-server"],
@@ -35,6 +36,15 @@ class RustEngine(Engine):
                "OMEGA_PORT": str(port),
                "OMEGA_EVENT_DIR": str(event_dir),
                "OMEGA_UI_DIR": ""}  # API seule : la UI absente n'échoue pas S0
+        if workspace is not None:
+            # Racine de la surface d'outils (P1-1) : c'est le workdir du
+            # scenario, la ou les canaries sont ecrits.
+            env["OMEGA_WORKSPACE_ROOT"] = str(workspace)
+        if not tool_surface:
+            # Controle negatif : moteur SANS surface d'outils. L'agent ne peut
+            # alors pas lister les fichiers — les canaries doivent rester
+            # absents de la reponse (controle du controle).
+            env["OMEGA_TOOL_SURFACE"] = "off"
         self.proc = subprocess.Popen([str(binary)], env=env,
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE, text=True)

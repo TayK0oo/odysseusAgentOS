@@ -20,7 +20,7 @@ class PythonEngine(Engine):
     def __init__(self, repo):
         self.repo = repo
 
-    def start(self, *, llm_url, model, event_dir, port):
+    def start(self, *, llm_url, model, event_dir, port, workspace=None):
         raise RuntimeError(
             "SKIPPED(python_engine_absent) : le socle Python se lance par "
             "`python3 app.py` (uvicorn, APP_BIND=127.0.0.1, APP_PORT=7000), "

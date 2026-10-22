@@ -80,6 +80,52 @@ def _free_port() -> int:
     return port
 
 
+def _run_sans_surface(spec: dict, engine_name: str, mode: str,
+                      workdir: Path, event_dir: Path) -> dict:
+    """Rejoue le scenario sur un moteur SANS surface d'outils.
+
+    Controle negatif de S1 : le run doit demarrer, et les canaries doivent
+    rester absents de la reponse (le modele n'a pas d'outil pour les voir).
+    """
+    out = {"demarrage_ok": False, "canaries_absentes": False}
+    provider = None
+    engine = None
+    try:
+        if mode == "scripte":
+            from scripted_provider import seq_tool_then_echo
+            provider = ScriptedProvider(seq_tool_then_echo("ls", {"path": "."}))
+            provider.start()
+        engine = {"rust": RustEngine, "python": PythonEngine}[engine_name](REPO_ROOT)
+        port = _free_port()
+        url = engine.start(llm_url=provider.url if provider else "",
+                           model="scripted:latest",
+                           event_dir=event_dir, port=port,
+                           workspace=workdir, tool_surface=False)
+        out["demarrage_ok"] = True
+        body = None
+        for a in spec.get("actions", []):
+            if "post" in a:
+                _status, body = post_json(url + str(a["post"]), a["body"])
+        contenu = json.dumps(body, ensure_ascii=False)
+        canaries = spec.get("mise_en_situation", {}).get("fichiers", {})
+        n_attendus = int(canaries.get("nombre", 0)) if canaries else 0
+        # On ne peut pas reuse les noms (aleatoires, regeneres) : on verifie
+        # qu'aucune trace de canary n'apparait ET qu'aucun evenement d'outil
+        # n'est produit (la surface desactivee = aucune boucle d'outils).
+        out["canaries_absentes"] = "tool.call.completed" not in contenu
+        out["n_canaries_attendus"] = n_attendus
+    except Exception as e:
+        out["erreur"] = f"{type(e).__name__}: {e}"
+    finally:
+        if engine:
+            with contextlib.suppress(Exception):
+                engine.stop()
+        if provider:
+            with contextlib.suppress(Exception):
+                provider.stop()
+    return out
+
+
 def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
     # Import paresseux : PyYAML n'est pas dans le venv hermétique de verify
     # (ADR-0005 : ruff + pytest uniquement). Un scénario demandé sans PyYAML
@@ -131,6 +177,20 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
             # attendu : échec au démarrage = contrôle négatif OK
             report["controle_negatif"]["ok"] = not ok_start
 
+        # Contrôle négatif « surface d'outils désactivée » (S1) : le MÊME
+        # scénario rejoué sur un moteur SANS surface d'outils. Les canaries
+        # (noms aléatoires) doivent alors rester ABSENTS de la réponse : le
+        # modèle n'a aucun moyen de les connaître autrement. C'est le
+        # « contrôle du contrôle » : si les canaries apparaissent quand même,
+        # la preuve de l'exécution réelle de l'outil s'effondre.
+        cn_desactiver = (cn or {}).get("desactiver") if isinstance(cn, dict) else None
+        if isinstance(cn_desactiver, list) and "tool_surface" in cn_desactiver:
+            neg = _run_sans_surface(spec, engine_name, mode, workdir, event_dir)
+            report["controle_negatif"]["tool_surface_desactive"] = neg
+            report["controle_negatif"]["ok"] = bool(
+                neg.get("canaries_absentes") and neg.get("demarrage_ok")
+            )
+
         # LLM scripté (mode scripté)
         if mode == "scripte":
             if spec.get("llm_scripte") == "react":
@@ -139,6 +199,13 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
                 # un arrêt ne peut venir que du MOTEUR.
                 from scripted_provider import seq_react_toolcall
                 provider = ScriptedProvider(seq_react_toolcall("echo"))
+            elif spec.get("llm_scripte") == "outil":
+                # S1 : le modèle demande UN outil reel (ls) puis reprend
+                # l'observation. Les noms de canary sont aleatoires : ils ne
+                # peuvent venir que de l'observation de l'outil.
+                from scripted_provider import seq_tool_then_echo
+                provider = ScriptedProvider(
+                    seq_tool_then_echo("ls", {"path": "."}))
             else:
                 provider = ScriptedProvider(seq_echoreq_reply())
             provider.start()
@@ -146,9 +213,13 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
 
         engine = {"rust": RustEngine, "python": PythonEngine}[engine_name](REPO_ROOT)
         port = _free_port()
+        # La racine de la surface d'outils EST le workdir du scenario : les
+        # canaries y sont ecrits, l'outil `ls` doit donc y pointer (c'est
+        # le serveur qui lit `OMEGA_WORKSPACE_ROOT`, cf. config.rs).
         url = engine.start(llm_url=provider.url if provider else "",
                            model="scripted:latest",
-                           event_dir=event_dir, port=port)
+                           event_dir=event_dir, port=port,
+                           workspace=workdir)
         report["etapes"]["start"] = "OK"
         report["url"] = url
 
