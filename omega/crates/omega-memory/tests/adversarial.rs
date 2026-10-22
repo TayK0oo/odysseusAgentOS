@@ -219,7 +219,10 @@ fn cascade_forget_removes_all_traces() {
 
     // 0 trace in BM25 recall
     let recalled = futures_lite_block_on(store.recall(canary, 5)).unwrap();
-    assert!(recalled.is_empty(), "BM25 recall still returns the forgotten fact");
+    assert!(
+        recalled.is_empty(),
+        "BM25 recall still returns the forgotten fact"
+    );
 
     // 0 trace in vector index
     assert_eq!(store.vector_count(), 0, "vector index not cleared");
