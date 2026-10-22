@@ -102,7 +102,7 @@ bloquant = true
 
 [[phase1.criteres]]
 id = "G1.b.s2"
-description = "S2 limites/budgets : 5 runs tous PASS (rouge tant que les budgets ne sont pas appliques dans la boucle — P1-3 fera basculer)"
+description = "S2 limites/budgets : 5 runs tous PASS (arret sur budget emis par le MOTEUR + controle negatif sans budget)"
 kind = "command"
 argv = ["python3", "omega/acceptance/runner.py", "--scenario", "S2", "--mode", "scripte", "--runs", "5", "--attendu", "PASS"]
 expect_exit = 0
@@ -120,7 +120,7 @@ bloquant = true
 
 [[phase1.criteres]]
 id = "G1.d.plugins"
-description = "registre vif == liste nominative (13 couples : 5 cables vifs + 8 adaptateurs de production, cf. ADR-0014) — A4 fera basculer"
+description = "registre vif == liste nominative (13 couples : 5 cables vifs + 8 adaptateurs de production, cf. ADR-0014)"
 kind = "command"
 argv = ["python3", "omega/acceptance/verifier_plugins.py"]
 expect_exit = 0

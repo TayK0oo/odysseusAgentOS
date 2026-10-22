@@ -135,6 +135,7 @@ pub async fn execute_run_with_budget(
     let journal = state.store.read_run(&outcome.run_id)?;
     let answer = last_answer(&journal);
     let summary = TraceReplayer::summarize(&outcome.run_id, journal);
+    let (budget_exhausted, tool_executions) = budget_facts(state, &outcome.run_id);
 
     Ok(RunResponse {
         run_id: outcome.run_id,
@@ -142,7 +143,29 @@ pub async fn execute_run_with_budget(
         decision,
         summary,
         answer,
+        budget_exhausted,
+        tool_executions,
     })
+}
+
+/// Faits de budget lus dans le journal (preuve, pas affirmation) :
+/// le moteur a-t-il coupe sur le plafond ? combien d'executions d'outils ?
+fn budget_facts(state: &AppState, run_id: &str) -> (bool, u64) {
+    let Ok(journal) = state.store.read_run(run_id) else {
+        return (false, 0);
+    };
+    let exhausted = journal.iter().any(|e| {
+        e.name == "infer.completed"
+            && e.payload
+                .get("budget_exhausted")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false)
+    });
+    let executions = journal
+        .iter()
+        .filter(|e| e.name == "tool.call.completed")
+        .count() as u64;
+    (exhausted, executions)
 }
 
 #[cfg(test)]

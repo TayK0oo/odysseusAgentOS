@@ -22,7 +22,7 @@ class RustEngine(Engine):
         self.proc: subprocess.Popen | None = None
 
     def start(self, *, llm_url, model, event_dir, port, workspace=None,
-              tool_surface=True):
+              tool_surface=True, tool_budget=None):
         binary = self.repo / "omega" / "target" / "debug" / "omega-server"
         if not binary.exists():
             r = subprocess.run(["cargo", "build", "-p", "omega-server"],
@@ -40,6 +40,10 @@ class RustEngine(Engine):
             # Racine de la surface d'outils (P1-1) : c'est le workdir du
             # scenario, la ou les canaries sont ecrits.
             env["OMEGA_WORKSPACE_ROOT"] = str(workspace)
+        if tool_budget is not None:
+            # Budget d'executions d'outils du moteur (P1-3). Controle
+            # negatif : une valeur enorme = aucun plafond effectif.
+            env["OMEGA_TOOL_BUDGET"] = str(tool_budget)
         if not tool_surface:
             # Controle negatif : moteur SANS surface d'outils. L'agent ne peut
             # alors pas lister les fichiers — les canaries doivent rester

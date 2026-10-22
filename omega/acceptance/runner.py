@@ -72,6 +72,58 @@ def _mk_canary(workdir: Path, spec: dict) -> list[str]:
     return names
 
 
+def _run_sans_budget(spec: dict, engine_name: str, mode: str,
+                     workdir: Path, event_dir: Path) -> dict:
+    """Rejoue le scenario avec un budget de moteur INEFFECTIF.
+
+    Controle negatif de S2 : sans mecanisme de budget, le moteur ne peut
+    produire aucun marqueur d'arret sur budget. Les marqueurs observes dans
+    le run nominal viennent donc du MOTEUR, jamais de la prose scriptee.
+    """
+    out = {"aucun_marqueur_budget": False, "demarrage_ok": False}
+    provider = None
+    engine = None
+    try:
+        if mode == "scripte":
+            from scripted_provider import seq_react_toolcall
+            provider = ScriptedProvider(seq_react_toolcall("echo"))
+            provider.start()
+        engine = {"rust": RustEngine, "python": PythonEngine}[engine_name](REPO_ROOT)
+        port = _free_port()
+        url = engine.start(llm_url=provider.url if provider else "",
+                           model="scripted:latest",
+                           event_dir=event_dir, port=port,
+                           workspace=workdir, tool_budget=1_000_000)
+        out["demarrage_ok"] = True
+        body = None
+        for a in spec.get("actions", []):
+            if "post" in a:
+                _status, body = post_json(url + str(a["post"]), a["body"])
+        contenu = json.dumps(body, ensure_ascii=False).lower()
+        # Contrôle STRICT : ni le drapeau du moteur, ni l'événement de la
+        # trace ne doivent signaler un arrêt sur budget.
+        aucun = not (isinstance(body, dict) and body.get("budget_exhausted") is True)
+        run_id = (body or {}).get("run_id") if isinstance(body, dict) else None
+        if run_id:
+            try:
+                events = get_json(f"{url}/api/runs/{run_id}/events")
+                aucun = aucun and "tool.budget.exhausted" not in json.dumps(events)
+            except Exception:
+                pass
+        out["aucun_marqueur_budget"] = aucun
+        out["reponse"] = body
+    except Exception as e:
+        out["erreur"] = f"{type(e).__name__}: {e}"
+    finally:
+        if engine:
+            with contextlib.suppress(Exception):
+                engine.stop()
+        if provider:
+            with contextlib.suppress(Exception):
+                provider.stop()
+    return out
+
+
 def _free_port() -> int:
     s = socket.socket()
     s.bind(("127.0.0.1", 0))
@@ -190,6 +242,13 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
             report["controle_negatif"]["ok"] = bool(
                 neg.get("canaries_absentes") and neg.get("demarrage_ok")
             )
+        if isinstance(cn_desactiver, list) and "budgets" in cn_desactiver:
+            neg = _run_sans_budget(spec, engine_name, mode, workdir, event_dir)
+            report["controle_negatif"]["budgets_desactives"] = neg
+            report["controle_negatif"]["ok"] = bool(
+                report["controle_negatif"].get("ok", True)
+                and neg.get("aucun_marqueur_budget")
+            )
 
         # LLM scripté (mode scripté)
         if mode == "scripte":
@@ -258,19 +317,22 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
                     report["attendus"]["trace_erreur"] = f"{type(e).__name__}: {e}"
 
         # évaluation S2 : arrêt sur budget observable dans la réponse ET la
-        # trace. Heuristique assumée : marqueur « budget » seul (les mots
-        # marqueurs sont volontairement absents des messages scriptés —
-        # un arrêt ne peut venir que du MOTEUR, cf. SCENARIOS-README).
-        # champ dédié budget_exceeded possible dans le RunResponse quand
-        # P1-3 livrera la boucle + budgets.
+        # trace. Contrôle STRICT (pas de sous-chaîne « budget » : le champ
+        # `budget_exhausted` de la réponse porterait ce mot en toutes
+        # circonstances et le test deviendrait trivialement vert — le contrôle
+        # négatif l'a attrapé). On vérifie donc :
+        #   - la réponse : `budget_exhausted == true` (émis par le MOTEUR) ;
+        #   - la trace : un événement `tool.budget.exhausted` (le marqueur).
         if "arret_budget_reponse" in spec.get("attendu", {}):
-            contenu_reponse = json.dumps(reponse_run, ensure_ascii=False).lower()
-            report["attendus"]["arret_budget_reponse"] = "budget" in contenu_reponse
+            est_coupe = bool(isinstance(reponse_run, dict)
+                             and reponse_run.get("budget_exhausted") is True)
+            report["attendus"]["arret_budget_reponse"] = est_coupe
             run_id = (reponse_run or {}).get("run_id")
             try:
                 events = get_json(f"{url}/api/runs/{run_id}/events") if run_id else []
-                trace = json.dumps(events).lower()
-                report["attendus"]["arret_budget_trace"] = "budget" in trace
+                trace = json.dumps(events)
+                report["attendus"]["arret_budget_trace"] = (
+                    "tool.budget.exhausted" in trace)
             except Exception as e:
                 report["attendus"]["arret_budget_trace"] = False
                 report["trace_erreur"] = f"{type(e).__name__}: {e}"

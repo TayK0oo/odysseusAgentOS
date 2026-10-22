@@ -8,7 +8,8 @@ class Engine(ABC):
 
     @abstractmethod
     def start(self, *, llm_url: str, model: str, event_dir: Path, port: int,
-              workspace: Path | None = None) -> str:
+              workspace: Path | None = None, tool_surface: bool = True,
+              tool_budget: int | None = None) -> str:
         """Démarre ; lève si échec ; retourne l'URL HTTP de base.
 
         `workspace` : racine du workspace de l'agent (surface d'outils P1-1).

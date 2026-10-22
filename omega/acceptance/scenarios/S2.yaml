@@ -10,7 +10,7 @@ actions:
   - {demarrer_moteur: rust, llm: scripte}
   - {post: /api/run, body: {messages: [{role: user, content: "Appelle l'outil echo en boucle"}]}}
 attendu:
-  # marqueurs observees, pas declares : le moteur seul peut emettre « budget »
+  # marqueurs observes, pas declares : le moteur seul peut emettre « budget »
   # (les messages scriptes n'en contiennent aucun — cf. SCENARIOS-README).
   arret_budget_reponse: true
   arret_budget_trace: true
@@ -19,9 +19,4 @@ controle_negatif:
   # mot budget : sans mecanisme reel dans le moteur, aucun arret observable.
   desactiver: [budgets]
   attendu: aucunes_marqueurs_budget
-verdict_attendu: XFAIL
-xfail_raison: >-
-  P1-3 : aucun budget (steps / tokens / cout / temps) n'est applique dans la
-  boucle, et la boucle d'outils n'existe pas encore (P1-1 / ADR-0006). Le
-  moteur rend la reponse du modele sans jamais stopper : ni la reponse ni la
-  trace ne portent de marqueur d'arret sur budget.
+verdict_attendu: PASS

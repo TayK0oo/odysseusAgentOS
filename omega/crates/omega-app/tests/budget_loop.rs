@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use omega_core::{Event, EventBus, Operation};
+use omega_core::{EventBus, Operation};
 use omega_ports::{BudgetDemand, BudgetRefusal, BudgetUsage, Provider, RunBudget};
 use omega_types::{ChatRequest, ChatResponse, Message, Role, Usage};
 
@@ -22,7 +22,7 @@ struct CountingBudget {
 }
 
 impl RunBudget for CountingBudget {
-    fn consume(&self, demand: BudgetDemand) -> Result<BudgetUsage, BudgetRefusal> {
+    fn consume(&self, _demand: BudgetDemand) -> Result<BudgetUsage, BudgetRefusal> {
         let n = self.used.fetch_add(1, Ordering::SeqCst) as u64;
         if n >= self.max {
             // Refus : on rend le compteur (rien n'est débité).
