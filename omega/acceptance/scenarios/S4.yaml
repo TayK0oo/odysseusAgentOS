@@ -1,0 +1,21 @@
+id: S4
+nom: memoire_persistante
+phase: P2
+modes: [scripte]
+prerequis: [cargo, python_3_12]
+llm_scripte: append
+mise_en_situation:
+  workdir: tmpdir
+actions:
+  - {demarrer_moteur: rust, llm: scripte}
+  - {post: /api/run, body: {messages: [{role: user, content: "Ajoute une ligne au fichier"}], run_id: "s4-run"}}
+interruption:
+  kill_after_events: 2
+attendu:
+  reprise_reussie: true
+  append_exactement_une_ligne: true
+  journal_coherent: true
+controle_negatif:
+  desactiver: [journal]
+  attendu: effet_duplique_detecte
+verdict_attendu: PASS

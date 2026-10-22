@@ -47,6 +47,22 @@ pub trait MemoryStore: Send + Sync {
     fn name(&self) -> &str;
     async fn recall(&self, query: &str, limit: usize) -> OmegaResult<Vec<String>>;
     async fn remember(&self, fact: &str) -> OmegaResult<()>;
+    async fn forget(&self, id: &str) -> OmegaResult<bool> {
+        let _ = id;
+        Ok(false)
+    }
+    async fn propose_draft(&self, fact: &str) -> OmegaResult<String> {
+        let _ = fact;
+        Err(omega_types::OmegaError::Config("not supported".into()))
+    }
+    async fn commit_draft(&self, draft_id: &str) -> OmegaResult<bool> {
+        let _ = draft_id;
+        Ok(false)
+    }
+    async fn reject_draft(&self, draft_id: &str) -> OmegaResult<bool> {
+        let _ = draft_id;
+        Ok(false)
+    }
 }
 
 /// Un outil executable. Regime : *ensemble*.

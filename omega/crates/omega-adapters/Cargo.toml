@@ -9,6 +9,7 @@ description = "Omega — adaptateurs par defaut pour les ports (everything is a 
 [dependencies]
 omega-types = { workspace = true }
 omega-ports = { workspace = true }
+omega-memory = { workspace = true }
 async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

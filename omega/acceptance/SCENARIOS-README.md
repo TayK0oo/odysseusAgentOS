@@ -11,6 +11,7 @@
 | S1 | outil_reel_canary | le run écrit une trace avec un `tool_call` réel, l'observation est réinjectée (7 canaries hex, noms aléatoires, écrites dans un tmpdir) | XFAIL | P1-1 / A2 : boucle d'outils + wire tool_calls (ADR-0006) |
 | S2 | limites_budgets | arrêt sur budget (steps/tokens) observable dans la réponse ET la trace | XFAIL | P1-3 : budgets appliqués dans la boucle |
 | S3 | reprise_crash_append | run scripté multi-étapes avec append_file, kill -9 au milieu, relance même data dir, reprise ; fichier append exactement une ligne, journal cohérent (readback fs) ; contrôle négatif : reprise sans journal ⇒ effet dupliqué détecté | PASS | P2-C2 : idempotence outil + reprise crash |
+| S4 | memoire_persistante | mot aléatoire planté session A (kill -9) ; session B retrouve le mot ; entrée taguée [stated] ; oubli ⇒ plus aucune trace (store, BM25, vecteurs) | PASS | P2-C3 : MemoryStore durci |
 
 ## Pourquoi il n'existe pas de « S1-wire » distinct
 

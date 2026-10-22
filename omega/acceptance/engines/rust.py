@@ -4,11 +4,12 @@ Contrat env réel (omega-server/src/config.rs) : OMEGA_PORT, OLLAMA_URL,
 OLLAMA_MODEL, OMEGA_EVENT_DIR, OMEGA_UI_DIR (vide = API seule).
 Route santé réelle : GET /api/health (routes.rs:124).
 """
+import contextlib
 import json
 import os
+import signal
 import subprocess
 import time
-import signal
 import urllib.request
 from pathlib import Path
 
@@ -107,10 +108,8 @@ class RustEngine(Engine):
     def kill(self):
         # SIGKILL brutal (simule crash) — pas de flush, pas de cleanup.
         if self.proc is not None and self.proc.poll() is None:
-            try:
+            with contextlib.suppress(ProcessLookupError, PermissionError):
                 os.kill(self.proc.pid, signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
             try:
                 self.proc.wait(timeout=5)
             except subprocess.TimeoutExpired:

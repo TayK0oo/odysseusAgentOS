@@ -27,15 +27,15 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import copy
 import json
 import secrets
 import shutil
 import socket
 import sys
 import tempfile
-import time
 import threading
-import copy
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -437,7 +437,7 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
                 run_id_eval = run_id
             append_path = workdir / "append.txt"
             exact_one = append_path.exists() and len(
-                [ln for ln in append_path.read_text(encoding="utf-8").splitlines()]) == 1
+                list(append_path.read_text(encoding="utf-8").splitlines())) == 1
             journal_ok = False
             try:
                 evresp = get_json(f"{url}/api/runs/{run_id_eval}/events")
@@ -473,10 +473,8 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
                     if isinstance(neg_body, dict):
                         neg_body["resume"] = True
                         neg_body["run_id"] = run_id_eval
-                    try:
+                    with contextlib.suppress(Exception):
                         post_json(neg_url + post_path, neg_body)
-                    except Exception:
-                        pass
                     lines_after = 0
                     if append_path.exists():
                         lines_after = len(append_path.read_text(encoding="utf-8").splitlines())

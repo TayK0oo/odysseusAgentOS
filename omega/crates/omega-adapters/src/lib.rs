@@ -313,3 +313,7 @@ mod tests {
         assert_eq!(s.name(), "default-sandbox-v2");
     }
 }
+
+// Re-export du faux adaptateur mémoire (A1).
+pub use omega_memory::InMemoryMemoryStore as FakeMemoryStore;
+pub use omega_memory::JsonlMemoryStore;

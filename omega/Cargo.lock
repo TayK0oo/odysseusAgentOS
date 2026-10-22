@@ -726,6 +726,7 @@ name = "omega-adapters"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "omega-memory",
  "omega-ports",
  "omega-types",
  "serde",

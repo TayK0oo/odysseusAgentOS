@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import json
 import shutil
 import socket
 import sys
@@ -138,7 +137,7 @@ def one(k: int, run_idx: int) -> bool:
         if not append_path.exists():
             ok = False
         else:
-            lines = [ln for ln in append_path.read_text(encoding="utf-8").splitlines()]
+            lines = list(append_path.read_text(encoding="utf-8").splitlines())
             if len(lines) != 1:
                 ok = False
         # Journal coherent : au moins un evenement.
