@@ -286,6 +286,9 @@ pub struct JsonlMemoryStore {
 }
 
 impl JsonlMemoryStore {
+    pub fn vector_count(&self) -> usize {
+        self.vectors.lock().map(|v| v.len()).unwrap_or(0)
+    }
     pub fn new(data_dir: impl AsRef<Path>) -> Self {
         let dir = data_dir.as_ref();
         Self {

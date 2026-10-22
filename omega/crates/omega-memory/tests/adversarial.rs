@@ -189,3 +189,39 @@ fn atk_tokenize_handles_huge_input() {
     let t = tokenize(&big);
     assert_eq!(t.len(), 1, "tokenize doit dédupliquer");
 }
+
+#[test]
+fn cascade_forget_removes_all_traces() {
+    let d = dir("cascade");
+    let store = JsonlMemoryStore::new(&d);
+    let canary = "zzxcascade-canary-9f8e7d6c";
+    futures_lite_block_on(async {
+        store.remember(canary).await.unwrap();
+    });
+
+    // recover the generated id from the persisted file
+    let path = d.join("memories.jsonl");
+    let content = std::fs::read_to_string(&path).unwrap();
+    let id = content
+        .lines()
+        .next()
+        .and_then(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+        .and_then(|v| v.get("id").and_then(|x| x.as_str()).map(str::to_string))
+        .expect("id present");
+
+    futures_lite_block_on(async {
+        assert!(store.forget(&id).await.unwrap());
+    });
+
+    // 0 trace in store file
+    let after = std::fs::read_to_string(&path).unwrap_or_default();
+    assert!(!after.contains(canary), "canary leaked in store file");
+
+    // 0 trace in BM25 recall
+    let recalled = futures_lite_block_on(store.recall(canary, 5)).unwrap();
+    assert!(recalled.is_empty(), "BM25 recall still returns the forgotten fact");
+
+    // 0 trace in vector index
+    assert_eq!(store.vector_count(), 0, "vector index not cleared");
+    let _ = std::fs::remove_dir_all(&d);
+}
