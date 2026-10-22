@@ -214,21 +214,18 @@ impl EventStore for FileEventStore {
             .map_err(|e| OmegaError::Io(format!("lecture {} : {e}", path.display())))?;
         let mut events = Vec::new();
         for line in content.lines() {
-<<<<<<< HEAD
-            // Une ligne malformée (écriture interrompue) est ignorée.
-            if let Ok(mut ev) = serde_json::from_str::<DurableEvent>(line) {
-                // P2-6 : masquage à la lecture (export/repr).
-                if let Some(op) = &ev.operation_id {
-                    ev.operation_id = Some(omega_types::redact_secrets(op));
-                }
-                omega_types::redact_json(&mut ev.payload);
-                events.push(ev);
-=======
             if line.trim().is_empty() {
                 continue;
             }
             match serde_json::from_str::<DurableEvent>(line) {
-                Ok(ev) => events.push(ev),
+                Ok(mut ev) => {
+                    // P2-6 : masquage à la lecture (export/repr).
+                    if let Some(op) = &ev.operation_id {
+                        ev.operation_id = Some(omega_types::redact_secrets(op));
+                    }
+                    omega_types::redact_json(&mut ev.payload);
+                    events.push(ev);
+                }
                 Err(e) => {
                     // Rejet explicite (tracé) d'une ligne malformée : jamais
                     // ignorée silencieusement.
@@ -238,7 +235,6 @@ impl EventStore for FileEventStore {
                         e
                     );
                 }
->>>>>>> feat/p2-C2
             }
         }
         Ok(events)
