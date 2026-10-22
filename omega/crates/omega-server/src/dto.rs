@@ -24,6 +24,12 @@ pub struct ApiMessage {
 pub struct ApiRunRequest {
     pub messages: Vec<ApiMessage>,
     pub run_id: Option<String>,
+    /// Active la reprise depuis le journal durable (idempotence).
+    #[serde(default)]
+    pub resume: bool,
+    /// Reprendre le run identifie par cet id (equivalent a run_id + resume=true).
+    #[serde(default)]
+    pub resume_from: Option<String>,
 }
 
 /// Convertit un role en clair vers le domaine. Insensible a la casse ;
@@ -192,6 +198,8 @@ mod tests {
                 content: "bonjour".to_string(),
             }],
             run_id: None,
+            resume: false,
+            resume_from: None,
         };
         assert_eq!(
             ok.to_messages().unwrap(),
@@ -201,6 +209,8 @@ mod tests {
         let empty = ApiRunRequest {
             messages: vec![],
             run_id: None,
+            resume: false,
+            resume_from: None,
         };
         assert!(empty.to_messages().is_err());
 
@@ -210,6 +220,8 @@ mod tests {
                 content: "x".to_string(),
             }],
             run_id: None,
+            resume: false,
+            resume_from: None,
         };
         assert!(bad_role.to_messages().is_err());
 
@@ -219,6 +231,8 @@ mod tests {
                 content: "   ".to_string(),
             }],
             run_id: None,
+            resume: false,
+            resume_from: None,
         };
         assert!(blank.to_messages().is_err());
     }

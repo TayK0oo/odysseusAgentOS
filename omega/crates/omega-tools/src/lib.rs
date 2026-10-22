@@ -230,6 +230,54 @@ pub fn write_file(ctx: &ToolCtx, rel: &str, content: &str) -> ToolOutput {
     }
 }
 
+/// Port de `AppendFileTool.execute` : ajoute une ligne (canary) a un fichier du
+/// workspace (creation si absent). Ecriture T1 (append, jamais d'ecrasement).
+pub fn append_file(ctx: &ToolCtx, rel: &str, content: &str) -> ToolOutput {
+    let abs = match ctx.resolve(rel) {
+        Ok(p) => p,
+        Err(e) => return ToolOutput::err(e),
+    };
+    if let Some(parent) = abs.parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            return ToolOutput::err(format!("création dossier impossible : {}", e));
+        }
+    }
+    let line = if content.ends_with('\n') {
+        content.to_string()
+    } else {
+        format!("{}\n", content)
+    };
+    let payload_content = if content.is_empty() {
+        "canary"
+    } else {
+        content
+    };
+    let line = if content.is_empty() {
+        "canary\n".to_string()
+    } else {
+        line
+    };
+    match std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&abs)
+    {
+        Ok(mut f) => {
+            use std::io::Write;
+            if let Err(e) = f.write_all(line.as_bytes()) {
+                return ToolOutput::err(format!("écriture impossible : {}", e));
+            }
+            let _ = f.flush();
+            ToolOutput::ok(serde_json::json!({
+                "path": rel,
+                "bytes": line.len(),
+                "appended": payload_content,
+            }))
+        }
+        Err(e) => ToolOutput::err(format!("écriture impossible : {}", e)),
+    }
+}
+
 /// Port de `EditFileTool.execute` : substitution exacte (old_string → new_string),
 /// avec refus si l'ancre est absente ou ambiguë.
 pub fn edit_file(ctx: &ToolCtx, rel: &str, old_string: &str, new_string: &str) -> ToolOutput {

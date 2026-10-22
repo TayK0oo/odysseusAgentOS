@@ -33,6 +33,9 @@ import shutil
 import socket
 import sys
 import tempfile
+import time
+import threading
+import copy
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -265,37 +268,125 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
                 # peuvent venir que de l'observation de l'outil.
                 provider = ScriptedProvider(
                     seq_tool_then_echo("ls", {"path": "."}))
+            elif spec.get("llm_scripte") == "append":
+                # S3 : le modèle demande UN append_file puis reprend
+                # l'observation. L'effet (fichier) doit etre execute une
+                # seule fois meme en cas de crash + reprise.
+                provider = ScriptedProvider(
+                    seq_tool_then_echo("append_file",
+                                       {"path": "append.txt",
+                                        "content": "canary-line"}))
             else:
                 provider = ScriptedProvider(seq_echoreq_reply())
             provider.start()
             report["llm_url"] = provider.url
 
-        engine = {"rust": RustEngine, "python": PythonEngine}[engine_name](REPO_ROOT)
-        port = _free_port()
-        # La racine de la surface d'outils EST le workdir du scenario : les
-        # canaries y sont ecrits, l'outil `ls` doit donc y pointer (c'est
-        # le serveur qui lit `OMEGA_WORKSPACE_ROOT`, cf. config.rs).
-        url = engine.start(llm_url=provider.url if provider else "",
-                           model="scripted:latest",
-                           event_dir=event_dir, port=port,
-                           workspace=workdir)
-        report["etapes"]["start"] = "OK"
-        report["url"] = url
-
-        # actions HTTP
+        interruption = spec.get("interruption") if isinstance(spec.get("interruption"), dict) else None
         reponse_run = None
-        for a in spec.get("actions", []):
-            if "get" in a:
-                body = get_json(url + a["get"])
-                report["etapes"][f"GET {a['get']}"] = {
-                    "status": 200, "body": body}
-                if str(a["get"]) == "/api/health":
-                    report["attendus"]["health_ok"] = body.get("status") == "ok"
-            if "post" in a:
-                status, body = post_json(url + str(a["post"]), a["body"])
-                reponse_run = body
-                report["etapes"][f"POST {a['post']}"] = {"status": status,
-                                                         "body": body}
+
+        if interruption:
+            # --- Parcours avec interruption (kill -9) + reprise --------------
+            actions = spec.get("actions", [])
+            post_action = next((a for a in actions if "post" in a), None)
+            assert post_action is not None, "interruption requiert une action post"
+            post_path = str(post_action["post"])
+            base_body = copy.deepcopy(post_action["body"])
+            run_id = None
+            if isinstance(base_body, dict):
+                run_id = base_body.get("run_id") or base_body.get("resume_from")
+            if not run_id:
+                run_id = f"s3-{secrets.token_hex(4)}"
+            if isinstance(base_body, dict):
+                base_body["run_id"] = run_id
+
+            k = int(interruption.get("kill_after_events", 2))
+
+            engine = {"rust": RustEngine, "python": PythonEngine}[engine_name](REPO_ROOT)
+            port = _free_port()
+            url = engine.start(llm_url=provider.url if provider else "",
+                               model="scripted:latest",
+                               event_dir=event_dir, port=port,
+                               workspace=workdir)
+            report["etapes"]["start"] = "OK"
+            report["url"] = url
+
+            # Lancement du POST en arriere-plan : il ne reviendra pas (kill).
+            body1 = copy.deepcopy(base_body)
+            if isinstance(body1, dict):
+                body1["resume"] = False
+            result: dict = {}
+
+            def worker():
+                try:
+                    st, bd = post_json(url + post_path, body1)
+                    result["status"] = st
+                    result["body"] = bd
+                except Exception as e:
+                    result["erreur"] = f"{type(e).__name__}: {e}"
+
+            t = threading.Thread(target=worker, daemon=True)
+            t.start()
+
+            # Tuer apres k evenements journalises.
+            for _ in range(2000):
+                if not t.is_alive():
+                    break
+                try:
+                    evresp = get_json(f"{url}/api/runs/{run_id}/events")
+                    evs = evresp.get("events", []) if isinstance(evresp, dict) else []
+                    if len(evs) >= k:
+                        engine.kill()
+                        break
+                except Exception:
+                    pass
+                time.sleep(0.05)
+            t.join(timeout=10)
+
+            # Relance sur le MEME event_dir (nouveau PID).
+            engine2 = {"rust": RustEngine, "python": PythonEngine}[engine_name](REPO_ROOT)
+            port2 = _free_port()
+            url2 = engine2.start(llm_url=provider.url if provider else "",
+                                 model="scripted:latest",
+                                 event_dir=event_dir, port=port2,
+                                 workspace=workdir)
+            report["etapes"]["restart"] = "OK"
+            report["url"] = url2
+
+            body2 = copy.deepcopy(base_body)
+            if isinstance(body2, dict):
+                body2["resume"] = True
+            status, reponse_run = post_json(url2 + post_path, body2)
+            report["etapes"][f"POST {post_path}"] = {"status": status,
+                                                     "body": reponse_run}
+            engine = engine2
+            url = url2
+        else:
+            engine = {"rust": RustEngine, "python": PythonEngine}[engine_name](REPO_ROOT)
+            port = _free_port()
+            # La racine de la surface d'outils EST le workdir du scenario : les
+            # canaries y sont ecrits, l'outil `ls` doit donc y pointer (c'est
+            # le serveur qui lit `OMEGA_WORKSPACE_ROOT`, cf. config.rs).
+            url = engine.start(llm_url=provider.url if provider else "",
+                               model="scripted:latest",
+                               event_dir=event_dir, port=port,
+                               workspace=workdir)
+            report["etapes"]["start"] = "OK"
+            report["url"] = url
+
+            # actions HTTP
+            reponse_run = None
+            for a in spec.get("actions", []):
+                if "get" in a:
+                    body = get_json(url + a["get"])
+                    report["etapes"][f"GET {a['get']}"] = {
+                        "status": 200, "body": body}
+                    if str(a["get"]) == "/api/health":
+                        report["attendus"]["health_ok"] = body.get("status") == "ok"
+                if "post" in a:
+                    status, body = post_json(url + str(a["post"]), a["body"])
+                    reponse_run = body
+                    report["etapes"][f"POST {a['post']}"] = {"status": status,
+                                                             "body": body}
 
         # évaluation S1 : canaries + événement d'outil, observés pas déclarés
         if "reponse_contient_les_canaries" in spec.get("attendu", {}):
@@ -336,6 +427,72 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
             except Exception as e:
                 report["attendus"]["arret_budget_trace"] = False
                 report["trace_erreur"] = f"{type(e).__name__}: {e}"
+
+        # Evaluation S3 : reprise apres crash + idempotence de l'effet append.
+        if interruption:
+            run_id_eval = None
+            if isinstance(reponse_run, dict):
+                run_id_eval = reponse_run.get("run_id")
+            if not run_id_eval:
+                run_id_eval = run_id
+            append_path = workdir / "append.txt"
+            exact_one = append_path.exists() and len(
+                [ln for ln in append_path.read_text(encoding="utf-8").splitlines()]) == 1
+            journal_ok = False
+            try:
+                evresp = get_json(f"{url}/api/runs/{run_id_eval}/events")
+                evs = evresp.get("events", []) if isinstance(evresp, dict) else []
+                journal_ok = len(evs) > 0
+            except Exception as e:
+                report["trace_erreur"] = f"{type(e).__name__}: {e}"
+            final_ok = isinstance(reponse_run, dict)
+            report["attendus"]["reprise_reussie"] = final_ok
+            report["attendus"]["append_exactement_une_ligne"] = exact_one
+            report["attendus"]["journal_coherent"] = journal_ok
+
+            # Controle negatif : reprise SANS journal -> effet duplique detecte.
+            cn_desactiver = (spec.get("controle_negatif") or {}).get("desactiver") if isinstance(spec.get("controle_negatif"), dict) else None
+            if isinstance(cn_desactiver, list) and "journal" in cn_desactiver:
+                neg_event_dir = Path(tempfile.mkdtemp(prefix=f"acc-{spec['id']}-neg-"))
+                neg_engine = {"rust": RustEngine, "python": PythonEngine}[engine_name](REPO_ROOT)
+                neg_provider = None
+                duplicate = False
+                try:
+                    if mode == "scripte":
+                        neg_provider = ScriptedProvider(
+                            seq_tool_then_echo("append_file",
+                                               {"path": "append.txt",
+                                                "content": "canary-line"}))
+                        neg_provider.start()
+                    neg_url = neg_engine.start(
+                        llm_url=neg_provider.url if neg_provider else "",
+                        model="scripted:latest",
+                        event_dir=neg_event_dir, port=_free_port(),
+                        workspace=workdir)
+                    neg_body = copy.deepcopy(base_body)
+                    if isinstance(neg_body, dict):
+                        neg_body["resume"] = True
+                        neg_body["run_id"] = run_id_eval
+                    try:
+                        post_json(neg_url + post_path, neg_body)
+                    except Exception:
+                        pass
+                    lines_after = 0
+                    if append_path.exists():
+                        lines_after = len(append_path.read_text(encoding="utf-8").splitlines())
+                    duplicate = lines_after >= 2
+                except Exception as e:
+                    report["controle_negatif"]["erreur"] = f"{type(e).__name__}: {e}"
+                finally:
+                    with contextlib.suppress(Exception):
+                        neg_engine.stop()
+                    if neg_provider:
+                        with contextlib.suppress(Exception):
+                            neg_provider.stop()
+                    shutil.rmtree(neg_event_dir, ignore_errors=True)
+                report["controle_negatif"]["journal_absent"] = {
+                    "duplicate_detected": duplicate}
+                report["controle_negatif"]["ok"] = bool(duplicate)
 
         # verdict
         attendus = report["attendus"]

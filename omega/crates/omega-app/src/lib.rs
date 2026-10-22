@@ -403,6 +403,11 @@ fn to_durable_event(run_id: &str, event: &Event) -> DurableEvent {
             .get("operation")
             .and_then(serde_json::Value::as_str)
             .map(str::to_string),
+        "tool.call.pending" | "tool.call.completed" => event
+            .payload
+            .get("idempotency_key")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string),
         _ => None,
     };
     DurableEvent::new(run_id, event.name.clone(), event.payload.clone())

@@ -124,6 +124,7 @@ proptest! {
             policy_budget: None,
             run_id: "run-prop".to_string(),
             trace: None,
+            store: None,
         };
         let bus = InMemoryBus::new();
         let (token, _handle) = cancellation_pair();

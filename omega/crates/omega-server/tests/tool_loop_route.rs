@@ -131,7 +131,7 @@ async fn api_run_execute_un_outil_reel_et_reinjecte_l_observation() {
     let state = state_with_tool_provider(&root);
     let messages = vec![Message::new(Role::User, "Liste les fichiers")];
 
-    let resp = omega_server::execute_run(&state, messages, Some("b1-run".into()))
+    let resp = omega_server::execute_run(&state, messages, Some("b1-run".into()), false)
         .await
         .expect("le run doit reussir");
 
@@ -216,7 +216,7 @@ async fn outil_inconnu_ne_panique_pas() {
 
     let messages = vec![Message::new(Role::User, "appelle un outil inconnu")];
     // Pas de panic : le run se termine (Ok ou Err typee), jamais d'unwind.
-    let _ = omega_server::execute_run(&state, messages, Some("b1-unknown".into())).await;
+    let _ = omega_server::execute_run(&state, messages, Some("b1-unknown".into()), false).await;
 
     let _ = std::fs::remove_dir_all(&root);
 }
@@ -233,9 +233,10 @@ async fn budget_zero_n_execute_aucun_outil() {
     let state = state_with_tool_provider(&root);
     let messages = vec![Message::new(Role::User, "Liste les fichiers")];
 
-    let resp = omega_server::execute_run_with_budget(&state, messages, Some("b1-budget".into()), 0)
-        .await
-        .expect("le run doit reussir");
+    let resp =
+        omega_server::execute_run_with_budget(&state, messages, Some("b1-budget".into()), 0, false)
+            .await
+            .expect("le run doit reussir");
 
     let answer = resp.answer.clone().unwrap_or_default();
     assert!(

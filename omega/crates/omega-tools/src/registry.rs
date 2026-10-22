@@ -3,14 +3,17 @@
 //! Port de `src/tool_schemas.py::FUNCTION_TOOL_SCHEMAS` + `tool_execution.py`
 //! pour la sous-famille filesystem.
 
-use super::{edit_file, list_dir, read_file, workspace, write_file, ToolCtx, ToolOutput};
+use super::{
+    append_file, edit_file, list_dir, read_file, workspace, write_file, ToolCtx, ToolOutput,
+};
 use omega_types::OmegaResult;
 use omega_types::ToolSpec;
 
 /// Nom des outils exposés (identiques à `TOOL_TAGS` d'odysseus).
-pub const TOOL_NAMES: [&str; 7] = [
+pub const TOOL_NAMES: [&str; 8] = [
     "read_file",
     "write_file",
+    "append_file",
     "edit_file",
     "ls",
     "glob",
@@ -31,6 +34,12 @@ pub fn schemas() -> Vec<serde_json::Value> {
             "write_file",
             "Écrit (ou crée) un fichier texte.",
             vec!["path", "content"],
+            vec!["path", "content"],
+        ),
+        schema(
+            "append_file",
+            "Ajoute une ligne (canary) a un fichier texte (append, creation si absent).",
+            vec!["path"],
             vec!["path", "content"],
         ),
         schema(
@@ -97,6 +106,7 @@ pub fn dispatch(ctx: &ToolCtx, tool: &str, args: &serde_json::Value) -> ToolOutp
     match tool {
         "read_file" => read_file(ctx, s("path")),
         "write_file" => write_file(ctx, s("path"), s("content")),
+        "append_file" => append_file(ctx, s("path"), s("content")),
         "edit_file" => edit_file(ctx, s("path"), s("old_string"), s("new_string")),
         "ls" => list_dir(ctx, s("path")),
         "glob" => super::glob::glob(ctx, s("pattern")),
@@ -142,8 +152,8 @@ mod tests {
 
     #[test]
     fn seven_tools_declared() {
-        assert_eq!(TOOL_NAMES.len(), 7);
-        assert_eq!(schemas().len(), 7);
+        assert_eq!(TOOL_NAMES.len(), 8);
+        assert_eq!(schemas().len(), 8);
     }
 
     #[test]

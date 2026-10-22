@@ -90,6 +90,7 @@ async fn la_boucle_arrete_au_budget_de_politique_et_renseigne_la_raison() {
         policy_budget: Some(budget.clone() as Arc<dyn RunBudget>),
         run_id: "b2-run".to_string(),
         trace: None,
+        store: None,
     };
 
     let bus = omega_core::InMemoryBus::default();
@@ -160,6 +161,7 @@ async fn sans_budget_de_politique_le_plafond_technique_suffit() {
         policy_budget: None,
         run_id: "b2-run-2".to_string(),
         trace: None,
+        store: None,
     };
 
     let bus = omega_core::InMemoryBus::default();

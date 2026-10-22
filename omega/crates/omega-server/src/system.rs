@@ -621,6 +621,7 @@ mod tests {
                 "bonjour",
             )],
             Some("run-liste-1".to_string()),
+            false,
         )
         .await
         .unwrap();
@@ -746,6 +747,7 @@ mod tests {
                 "bonjour",
             )],
             Some("trace-raw-1".to_string()),
+            false,
         )
         .await
         .unwrap();
