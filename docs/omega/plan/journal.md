@@ -80,3 +80,7 @@
 - **Piège attrapé par le contrôle négatif de S2** : la vérification par sous-chaîne « budget » devenait trivialement vraie (le nom du champ porte le mot) — remplacée par une vérification stricte (drapeau du moteur + événement `tool.budget.exhausted`).
 - **B6** : le moteur reconstruisait le binaire seulement s'il était *absent* — un binaire *périmé* mesurait un état faux (2 faux rouges observés). `needs_rebuild()` : fonction pure, 4 tests.
 - **Résultat** : `verify` VERT ×2, `gate.py --phase 0` VERT, `gate.py --phase 1` **VERT** (G1.a.s1, G1.b.s2, G1.c.sequence, G1.d.plugins), doc-truth VERT, clippy 0, fmt OK, 22 crates / 0 arête interdite. Prochaine porte : **P2** (G2 — mémoire durable), sur ordre explicite.
+
+## 2026-10-22 — P2 ouvre (porte G2 — « Se souvenir »)
+- Re-vérification portes P1 : measure.py exit 0, `gate.py --phase 0` VERT, `gate.py --phase 1` VERT (4/4 critères). Verdict = sortie porte, pas récit.
+- P2 (unités C1–C6, cf. mission) démarre sous-délégation ; vague 1 : C0 (CI rouge `G0.c.s0` = PyYAML absent du venv CI), C1 (P2-6 masquage), C2 (P2-1 journal durable + S3 + A3).
