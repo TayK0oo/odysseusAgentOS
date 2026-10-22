@@ -84,3 +84,9 @@
 ## 2026-10-22 — P2 ouvre (porte G2 — « Se souvenir »)
 - Re-vérification portes P1 : measure.py exit 0, `gate.py --phase 0` VERT, `gate.py --phase 1` VERT (4/4 critères). Verdict = sortie porte, pas récit.
 - P2 (unités C1–C6, cf. mission) démarre sous-délégation ; vague 1 : C0 (CI rouge `G0.c.s0` = PyYAML absent du venv CI), C1 (P2-6 masquage), C2 (P2-1 journal durable + S3 + A3).
+
+## 2026-10-23 — P2 étape A + C3
+- ADR-0016 + gates.toml phase 2 outillés (rouge sincère) ; seuils ⚙ latence provisoires.
+- C3 : MemoryStore (provenance, classification, TTL, staging, cascade forget) + S4 5/5 PASS + A1 vert + cascade vert.
+- G2 : S3 S4 A3 A1 corruption concurrence cascade VERTS ; reste S5 (C5) + latence (calibration).
+- verify VERT, push e968b966. Prochaine session : C5 (compaction + S5) puis C4/C6.
