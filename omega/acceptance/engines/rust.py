@@ -14,17 +14,42 @@ from pathlib import Path
 from .base import Engine
 
 
+def needs_rebuild(binary: Path, sources_root: Path) -> bool:
+    """Le binaire doit-il etre reconstruit ?
+
+    Oui s'il est absent, ou si une source Rust est plus recente que lui.
+    Fonction pure (testable sans compiler) : la decision de reconstruire
+    est le sujet — un binaire perime fait mesurer un etat faux a la porte.
+    """
+    if not binary.exists():
+        return True
+    try:
+        built = binary.stat().st_mtime
+    except OSError:
+        return True
+    for src in sources_root.rglob("*.rs"):
+        try:
+            if src.stat().st_mtime > built:
+                return True
+        except OSError:
+            continue
+    return False
+
+
 class RustEngine(Engine):
     name = "rust"
 
     def __init__(self, repo: Path):
         self.repo = repo
         self.proc: subprocess.Popen | None = None
-
     def start(self, *, llm_url, model, event_dir, port, workspace=None,
               tool_surface=True, tool_budget=None):
         binary = self.repo / "omega" / "target" / "debug" / "omega-server"
-        if not binary.exists():
+        # Rebuild si le binaire est ABSENT **ou PERIME**. Sans ce second
+        # cas, le moteur lance un binaire anterieur au code : la porte
+        # mesure alors un etat faux. Observe deux fois le 2026-10-22
+        # (G1.d.plugins puis G1 entier) — le meme piege, deux faux rouges.
+        if needs_rebuild(binary, self.repo / "omega" / "crates"):
             r = subprocess.run(["cargo", "build", "-p", "omega-server"],
                                cwd=self.repo / "omega",
                                capture_output=True, text=True, check=False)
