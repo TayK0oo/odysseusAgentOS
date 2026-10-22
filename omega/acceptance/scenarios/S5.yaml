@@ -3,16 +3,16 @@ nom: compaction_contexte
 phase: P2
 modes: [scripte]
 prerequis: [cargo, python_3_12]
-llm_scripte: echo
+llm_scripte: react
 mise_en_situation:
   workdir: tmpdir
 actions:
   - {demarrer_moteur: rust, llm: scripte}
-  - {get: /api/health}
   - {post: /api/run, body: {messages: [{role: user, content: "Bonjour"}]}}
 attendu:
-  health_ok: true
+  budget_respecte: true
+  faits_retrouves: true
 controle_negatif:
-  desactiver: []
-  attendu: aucune
+  desactiver: [compaction]
+  attendu: depassement_ou_perte
 verdict_attendu: PASS
