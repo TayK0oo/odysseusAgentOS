@@ -26,7 +26,7 @@ use omega_core::{
     cancellation_pair, AgentLoop, Event, EventBus, Operation, RunContext, RunState, RunStatus,
 };
 use omega_plugin_api::{compose, Contributor, InstallContext};
-use omega_ports::{ContextEngine, EventStore, Provider, SubagentRunner};
+use omega_ports::{ContextEngine, EventStore, Provider, SubagentRunner, ToolSurface};
 use omega_registry::Registry;
 use omega_types::{
     Capability, ChatRequest, DurableEvent, Message, ModelId, OmegaError, OmegaResult,
@@ -93,6 +93,17 @@ impl App {
             .read()
             .expect("registre empoisonné")
             .resolve_dyn::<dyn EventStore>(Capability::EventStore)
+    }
+
+    /// Resout la surface d'outils active (capacite `tool-surface`).
+    ///
+    /// Capacite **ensemble** : plusieurs surfaces peuvent coexister, la
+    /// resolution prend la premiere active qui implemente le port.
+    pub fn resolve_tool_surface(&self) -> OmegaResult<Arc<dyn ToolSurface>> {
+        self.registry
+            .read()
+            .expect("registre empoisonné")
+            .resolve_dyn::<dyn ToolSurface>(Capability::ToolSurface)
     }
 
     /// Met un plugin en quarantaine (scopee par capacite). Les resolutions suivantes
@@ -324,6 +335,13 @@ static RUN_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 fn generate_run_id() -> String {
     format!("run-{}", RUN_ID_COUNTER.fetch_add(1, Ordering::Relaxed))
+}
+
+/// Identifiant de run suivant, depuis le meme compteur que le generateur
+/// interne. Public : la boucle d'outils doit connaître l'identifiant AVANT
+/// d'ecrire sa trace (P1-1), donc le run est identifie en amont.
+pub fn next_run_id() -> String {
+    generate_run_id()
 }
 
 /// Pont entre l'event-bus du noyau et l'`EventStore` durable.

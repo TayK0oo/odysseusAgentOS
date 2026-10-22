@@ -936,6 +936,7 @@ dependencies = [
  "omega-registry",
  "omega-router",
  "omega-sandbox",
+ "omega-tools",
  "omega-types",
  "serde",
  "serde_json",

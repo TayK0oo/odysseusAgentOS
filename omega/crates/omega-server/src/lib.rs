@@ -23,11 +23,11 @@ mod routes;
 mod state;
 mod system;
 
-pub use config::ServerConfig;
+pub use config::{ServerConfig, ToolSurfaceKind};
 pub use dto::{
     ApiErrorBody, ApiMessage, ApiRunRequest, HealthResponse, PluginEntry, RunResponse,
     TraceResponse,
 };
-pub use pipeline::{execute_run, local_candidate};
+pub use pipeline::{execute_run, execute_run_with_budget, local_candidate};
 pub use routes::{create_router, create_router_with_ui};
 pub use state::{build_app_state, build_app_state_with, AppState};

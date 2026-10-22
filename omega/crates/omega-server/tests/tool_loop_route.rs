@@ -70,7 +70,7 @@ impl omega_plugin_api::Contributor for P {
     }
 }
 
-struct S(Arc<omega_app::FileEventStore>);
+struct S(Arc<dyn omega_ports::EventStore>);
 impl omega_plugin_api::Contributor for S {
     fn name(&self) -> &str {
         "file-store"
@@ -100,7 +100,9 @@ fn state_with_tool_provider(root: &std::path::Path) -> omega_server::AppState {
             calls: AtomicUsize::new(0),
         }))))
         .add_contributor(Box::new(omega_context::ContextContributor::new()))
-        .add_contributor(Box::new(S(Arc::clone(&store))))
+        .add_contributor(Box::new(S(
+            Arc::clone(&store) as Arc<dyn omega_ports::EventStore>
+        )))
         .build()
         .unwrap();
     omega_server::AppState {
@@ -129,7 +131,7 @@ async fn api_run_execute_un_outil_reel_et_reinjecte_l_observation() {
     let state = state_with_tool_provider(&root);
     let messages = vec![Message::new(Role::User, "Liste les fichiers")];
 
-    let resp = omega_server::execute_run_for_test(&state, messages, Some("b1-run".into()))
+    let resp = omega_server::execute_run(&state, messages, Some("b1-run".into()))
         .await
         .expect("le run doit reussir");
 
@@ -164,10 +166,7 @@ async fn outil_inconnu_ne_panique_pas() {
         fn id(&self) -> &str {
             "unknown-tool"
         }
-        async fn complete(
-            &self,
-            _req: ChatRequest,
-        ) -> omega_types::OmegaResult<ChatResponse> {
+        async fn complete(&self, _req: ChatRequest) -> omega_types::OmegaResult<ChatResponse> {
             Ok(ChatResponse {
                 message: Message::new(
                     Role::Assistant,
@@ -188,7 +187,9 @@ async fn outil_inconnu_ne_panique_pas() {
     let app = omega_app::AppBuilder::new()
         .add_contributor(Box::new(P(Arc::new(UnknownToolProvider))))
         .add_contributor(Box::new(omega_context::ContextContributor::new()))
-        .add_contributor(Box::new(S(Arc::clone(&store))))
+        .add_contributor(Box::new(S(
+            Arc::clone(&store) as Arc<dyn omega_ports::EventStore>
+        )))
         .build()
         .unwrap();
     let state = omega_server::AppState {
@@ -197,16 +198,14 @@ async fn outil_inconnu_ne_panique_pas() {
         composition: Arc::new(omega_adapters::composition::compose_ported_crates()),
         config: omega_server::ServerConfig {
             ollama_model: "test-model".to_string(),
-            tool_surface: Some(omega_server::ToolSurfaceKind::LocalFs {
-                root: root.clone(),
-            }),
+            tool_surface: Some(omega_server::ToolSurfaceKind::LocalFs { root: root.clone() }),
             ..omega_server::ServerConfig::default()
         },
     };
 
     let messages = vec![Message::new(Role::User, "appelle un outil inconnu")];
     // Pas de panic : le run se termine (Ok ou Err typee), jamais d'unwind.
-    let _ = omega_server::execute_run_for_test(&state, messages, Some("b1-unknown".into())).await;
+    let _ = omega_server::execute_run(&state, messages, Some("b1-unknown".into())).await;
 
     let _ = std::fs::remove_dir_all(&root);
 }
@@ -223,14 +222,9 @@ async fn budget_zero_n_execute_aucun_outil() {
     let state = state_with_tool_provider(&root);
     let messages = vec![Message::new(Role::User, "Liste les fichiers")];
 
-    let resp = omega_server::execute_run_for_test_with_budget(
-        &state,
-        messages,
-        Some("b1-budget".into()),
-        0,
-    )
-    .await
-    .expect("le run doit reussir");
+    let resp = omega_server::execute_run_with_budget(&state, messages, Some("b1-budget".into()), 0)
+        .await
+        .expect("le run doit reussir");
 
     let answer = resp.answer.clone().unwrap_or_default();
     assert!(

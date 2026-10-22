@@ -159,7 +159,12 @@ impl Operation for ToolLoopOperation {
     }
 
     async fn run(&self, ctx: &mut RunContext<'_>) -> OmegaResult<()> {
-        let mut messages = self.messages.clone();
+        // Contexte assemble par l'operation precedente (`assemble`), sinon
+        // repli sur les messages d'entree — meme contrat que `infer`
+        // (omega-app), pour que la compression de contexte s'applique aussi
+        // a la boucle d'outils.
+        let mut messages: Vec<Message> =
+            serde_json::from_value(ctx.state.0.clone()).unwrap_or_else(|_| self.messages.clone());
         let mut executed: usize = 0;
         let mut rounds: usize = 0;
 
@@ -177,7 +182,20 @@ impl Operation for ToolLoopOperation {
                 .await?;
 
             let Some(call) = detect_react_call(&response.message.content, rounds) else {
-                // Pas de tool-call : la boucle se termine.
+                // Pas de tool-call : la boucle se termine. La reponse finale
+                // du modele est publiee sous `infer.completed` — meme nom
+                // d'evenement que l'inference simple : le contrat du journal
+                // (`last_answer`, UI) ne depend pas du chemin pris.
+                ctx.publish(Event::new(
+                    "infer.completed",
+                    json!({
+                        "model": self.model.0.clone(),
+                        "role": "assistant",
+                        "content": response.message.content.clone(),
+                        "input_tokens": response.usage.input_tokens,
+                        "output_tokens": response.usage.output_tokens,
+                    }),
+                ));
                 ctx.publish(Event::new(
                     "tool.loop.completed",
                     json!({
@@ -202,6 +220,23 @@ impl Operation for ToolLoopOperation {
                         "budget": self.budget,
                         "requested": call.name,
                         "run_id": self.run_id,
+                    }),
+                ));
+                // La reponse finale est publiee sous le meme nom d'evenement
+                // que l'inference simple : le client (UI, `/api/run`) lit
+                // toujours `infer.completed`. Le marqueur `budget` est dans
+                // le contenu — c'est le MOTEUR qui l'emet, jamais le
+                // provider scripté (cf. SCENARIOS-README).
+                ctx.publish(Event::new(
+                    "infer.completed",
+                    json!({
+                        "model": self.model.0.clone(),
+                        "role": "assistant",
+                        "content": response.message.content.clone(),
+                        "input_tokens": response.usage.input_tokens,
+                        "output_tokens": response.usage.output_tokens,
+                        "budget_exhausted": true,
+                        "budget": self.budget,
                     }),
                 ));
                 ctx.state.0 = json!({
