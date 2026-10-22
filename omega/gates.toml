@@ -153,11 +153,90 @@ plugins = { attendus = [
 [phase2]
 nom = "Se souvenir : durabilite, memoire, contexte"
 
+# ADR-0016 : tous les criteres sont executables, mesurables et bloquants —
+# le placeholder kind="ci" (« porte non outillee ») est mort, comme pour G1
+# (ADR-0013). Seuils ⚙ (latence memoire p95 sur 1000 souvenirs) provisoires
+# (500 ms) — a calibrer en 5 runs baseline par C3 et geler par ADR « Seuils
+# v1 » avant que G2 ne puisse passer en VERT. Les criteres scriptes sont
+# bloquants ; les criteres ⚙ sont non bloquants tant que non gels.
+
 [[phase2.criteres]]
-id = "G2"
-description = "P2 : la memoire survit au redemarrage (porte non outillee)"
+id = "G2.a.s3"
+description = "S3 durabilite : 5 runs tous PASS (crash + reprise, effet exactement 1 fois)"
+kind = "command"
+argv = ["python3", "omega/acceptance/runner.py", "--scenario", "S3", "--mode", "scripte", "--runs", "5", "--attendu", "PASS"]
+expect_exit = 0
+timeout = 1800
+bloquant = true
+
+[[phase2.criteres]]
+id = "G2.b.s4"
+description = "S4 memoire persistante : 5 runs tous PASS (mot retrouve apres kill -9, oubli cascade)"
+kind = "command"
+argv = ["python3", "omega/acceptance/runner.py", "--scenario", "S4", "--mode", "scripte", "--runs", "5", "--attendu", "PASS"]
+expect_exit = 0
+timeout = 1800
+bloquant = true
+
+[[phase2.criteres]]
+id = "G2.c.s5"
+description = "S5 compaction contexte : 5 runs tous PASS (faits retrouves apres compaction, budget respecte)"
+kind = "command"
+argv = ["python3", "omega/acceptance/runner.py", "--scenario", "S5", "--mode", "scripte", "--runs", "5", "--attendu", "PASS"]
+expect_exit = 0
+timeout = 1800
+bloquant = true
+
+[[phase2.criteres]]
+id = "G2.d.a3"
+description = "A3 crash a chaque pas : matrice reduite (k=1..6) verte"
+kind = "command"
+argv = ["python3", "omega/acceptance/a3_crash.py", "--runs", "2"]
+expect_exit = 0
+timeout = 1800
+bloquant = true
+
+[[phase2.criteres]]
+id = "G2.e.a1"
+description = "A1 conformite par port sur MemoryStore (Jsonl + InMemory)"
+kind = "command"
+argv = ["python3", "omega/acceptance/a1_memory.py"]
+expect_exit = 0
+timeout = 600
+bloquant = true
+
+[[phase2.criteres]]
+id = "G2.f.corruption"
+description = "corruption journal tronque : recuperation ou erreur explicite, jamais silencieux"
+kind = "command"
+argv = ["cargo", "test", "-p", "omega-server", "--test", "corruption_journal"]
+expect_exit = 0
+timeout = 600
+bloquant = true
+
+[[phase2.criteres]]
+id = "G2.g.concurrence"
+description = "concurrence 2 runs : 0 mise a jour perdue"
+kind = "command"
+argv = ["cargo", "test", "-p", "omega-server", "--test", "concurrency_run"]
+expect_exit = 0
+timeout = 600
+bloquant = true
+
+[[phase2.criteres]]
+id = "G2.h.cascade"
+description = "oubli en cascade : 0 trace store, BM25, vecteurs apres forget"
+kind = "command"
+argv = ["cargo", "test", "-p", "omega-memory", "cascade"]
+expect_exit = 0
+timeout = 600
+bloquant = true
+
+[[phase2.criteres]]
+id = "G2.i.latence"
+description = "latence memoire p95 sur 1000 souvenirs <= 500 ms (seuil provisoire, a geler par ADR Seuils v1)"
 kind = "ci"
-note = "a outiller en P2"
+note = "a calibrer par C3 (5 runs baseline) puis geler"
 bloquant = false
 
 [phase3]
