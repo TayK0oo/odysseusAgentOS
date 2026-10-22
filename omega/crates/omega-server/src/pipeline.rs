@@ -107,7 +107,7 @@ pub async fn execute_run_with_budget(
                 messages,
                 budget: tool_budget,
                 run_id: effective_run_id.clone(),
-                trace: Some(state.store.clone()),
+                trace: None,
             }));
         }
         None => {

@@ -149,6 +149,12 @@ pub struct ToolLoopOperation {
     /// y écrit un event `tool.call.completed` (`run_id`, `call_id`, origine) —
     /// rejouable par la couche trace (A4). Échec d'append = event bus dédié,
     /// la boucle ne meurt jamais pour une écriture de trace.
+    ///
+    /// **À laisser à `None` quand la boucle tourne dans l'`App`** : le bus
+    /// est deja adosse au journal durable et append chaque evenement publié.
+    /// Les deux chemins ecriraient le meme evenement DEUX fois (mesuré :
+    /// 2 occurrences de `tool.call.completed` au lieu d'une). Le champ reste
+    /// utile hors `App` (usage direct de l'operation).
     pub trace: Option<std::sync::Arc<dyn EventStore>>,
 }
 

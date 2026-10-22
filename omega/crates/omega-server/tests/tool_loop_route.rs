@@ -151,6 +151,17 @@ async fn api_run_execute_un_outil_reel_et_reinjecte_l_observation() {
         "le journal doit contenir tool.call.completed ; evenements = {names:?}"
     );
 
+    // Un seul evenement par execution d'outil (le bus est la source unique :
+    // le champ `trace` de la boucle ne doit pas doubler l'ecriture).
+    let n = journal
+        .iter()
+        .filter(|e| e.name == "tool.call.completed")
+        .count();
+    assert_eq!(
+        n, 1,
+        "un seul tool.call.completed par execution ; trouve {n}"
+    );
+
     let _ = std::fs::remove_dir_all(&root);
 }
 
