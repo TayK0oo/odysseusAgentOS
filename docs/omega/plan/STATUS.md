@@ -1,6 +1,6 @@
 # STATUS — AgentOS Omega (généré par measure.py — jamais édité à la main)
 
-SHA `d1bc307f` · mesuré le 2026-10-22T22:24:01+00:00 · moteur Rust (ADR-0009)
+SHA `d2385bd0` · mesuré le 2026-10-22T22:24:55+00:00 · moteur Rust (ADR-0009)
 
 | Mesure | Valeur | Méthode |
 |---|---|---|

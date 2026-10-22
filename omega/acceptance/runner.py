@@ -248,7 +248,8 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
                 neg.get("canaries_absentes") and neg.get("demarrage_ok")
             )
         if isinstance(cn_desactiver, list) and "budgets" in cn_desactiver:
-            neg = _run_sans_budget(spec, engine_name, mode, workdir, event_dir)
+            neg_event_dir = Path(tempfile.mkdtemp(prefix=f"acc-{spec['id']}-negbudget-"))
+            neg = _run_sans_budget(spec, engine_name, mode, workdir, neg_event_dir)
             report["controle_negatif"]["budgets_desactives"] = neg
             report["controle_negatif"]["ok"] = bool(
                 report["controle_negatif"].get("ok", True)
