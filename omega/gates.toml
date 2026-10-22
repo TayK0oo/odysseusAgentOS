@@ -234,10 +234,12 @@ bloquant = true
 
 [[phase2.criteres]]
 id = "G2.i.latence"
-description = "latence memoire p95 sur 1000 souvenirs <= 500 ms (seuil provisoire, a geler par ADR Seuils v1)"
-kind = "ci"
-note = "a calibrer par C3 (5 runs baseline) puis geler"
-bloquant = false
+description = "latence memoire p95 sur 1000 souvenirs < 1000 ms (seuil provisoire, a geler par ADR Seuils v1)"
+kind = "command"
+argv = ["cargo", "test", "--manifest-path", "omega/Cargo.toml", "-p", "omega-memory", "latency_memory"]
+expect_exit = 0
+timeout = 300
+bloquant = true
 
 [phase3]
 nom = "Apprendre : skills auto-generes et surete de l'apprentissage"

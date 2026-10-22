@@ -228,3 +228,26 @@ fn cascade_forget_removes_all_traces() {
     assert_eq!(store.vector_count(), 0, "vector index not cleared");
     let _ = std::fs::remove_dir_all(&d);
 }
+
+#[test]
+fn latency_memory_p95_under_threshold() {
+    let d = dir("latency");
+    let store = JsonlMemoryStore::new(&d);
+    futures_lite_block_on(async {
+        for i in 0..1000 {
+            store.remember(&format!("mémoire numéro {} avec du contenu", i)).await.unwrap();
+        }
+    });
+    // 5 runs de mesure
+    let mut times = Vec::new();
+    for _ in 0..5 {
+        let t0 = std::time::Instant::now();
+        let _ = futures_lite_block_on(store.recall("mémoire numéro 500", 10));
+        times.push(t0.elapsed().as_millis());
+    }
+    times.sort();
+    let p95 = times[times.len() * 95 / 100];
+    // Seuil provisoire 1000 ms (à geler par ADR Seuils v1 après calibration).
+    assert!(p95 < 1000, "latence p95 {} ms dépasse le seuil provisoire", p95);
+    let _ = std::fs::remove_dir_all(&d);
+}

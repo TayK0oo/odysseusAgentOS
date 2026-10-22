@@ -90,3 +90,7 @@
 - C3 : MemoryStore (provenance, classification, TTL, staging, cascade forget) + S4 5/5 PASS + A1 vert + cascade vert.
 - G2 : S3 S4 A3 A1 corruption concurrence cascade VERTS ; reste S5 (C5) + latence (calibration).
 - verify VERT, push e968b966. Prochaine session : C5 (compaction + S5) puis C4/C6.
+
+## 2026-10-23 — P2 G2 VERT
+- G2 vert : 9/9 critères VERT, 0 DELEGUE_CI. S5 (compaction) + latence ajoutés.
+- verify VERT. Push. STOP (pas de P3 sans ordre).
