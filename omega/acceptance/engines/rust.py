@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import time
+import signal
 import urllib.request
 from pathlib import Path
 
@@ -42,6 +43,7 @@ class RustEngine(Engine):
     def __init__(self, repo: Path):
         self.repo = repo
         self.proc: subprocess.Popen | None = None
+        self._last: dict | None = None
     def start(self, *, llm_url, model, event_dir, port, workspace=None,
               tool_surface=True, tool_budget=None):
         binary = self.repo / "omega" / "target" / "debug" / "omega-server"
@@ -74,6 +76,11 @@ class RustEngine(Engine):
             # alors pas lister les fichiers — les canaries doivent rester
             # absents de la reponse (controle du controle).
             env["OMEGA_TOOL_SURFACE"] = "off"
+        self._last = {
+            "llm_url": llm_url, "model": model, "event_dir": event_dir,
+            "port": port, "workspace": workspace, "tool_surface": tool_surface,
+            "tool_budget": tool_budget,
+        }
         self.proc = subprocess.Popen([str(binary)], env=env,
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE, text=True)
@@ -96,6 +103,33 @@ class RustEngine(Engine):
                 self.proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.proc.kill()
+
+    def kill(self):
+        # SIGKILL brutal (simule crash) — pas de flush, pas de cleanup.
+        if self.proc is not None and self.proc.poll() is None:
+            try:
+                os.kill(self.proc.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+            try:
+                self.proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+        self.proc = None
+
+    def restart(self, **overrides):
+        self.kill()
+        params = dict(self._last or {})
+        params.update(overrides)
+        return self.start(
+            llm_url=params.get("llm_url", ""),
+            model=params.get("model", "scripted:latest"),
+            event_dir=params["event_dir"],
+            port=params["port"],
+            workspace=params.get("workspace"),
+            tool_surface=params.get("tool_surface", True),
+            tool_budget=params.get("tool_budget"),
+        )
 
     def health(self, url):
         with urllib.request.urlopen(url + "/api/health", timeout=3) as r:

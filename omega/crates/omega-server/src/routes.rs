@@ -177,14 +177,16 @@ async fn run(
     Json(req): Json<ApiRunRequest>,
 ) -> Result<Json<RunResponse>, ApiError> {
     let messages = req.to_messages().map_err(ApiError::bad_request)?;
-    if let Some(id) = &req.run_id {
+    let resume = req.resume || req.resume_from.is_some();
+    let requested_run_id = req.resume_from.clone().or(req.run_id.clone());
+    if let Some(id) = &requested_run_id {
         if !omega_app::is_valid_run_id(id) {
             return Err(ApiError::bad_request(format!(
                 "run_id invalide : {id:?} ([A-Za-z0-9_-]{{1,128}})"
             )));
         }
     }
-    let resp = execute_run(&state, messages, req.run_id)
+    let resp = execute_run(&state, messages, requested_run_id, resume)
         .await
         .map_err(ApiError::from_domain)?;
     Ok(Json(resp))
@@ -318,6 +320,8 @@ mod tests {
                 content: "Liste les trois principes d'Omega en bullets.".to_string(),
             }],
             run_id: Some("route-1".to_string()),
+            resume: false,
+            resume_from: None,
         };
         let resp = run(state_arg(&state), Json(req)).await.unwrap().0;
         assert_eq!(resp.run_id, "route-1");
@@ -332,6 +336,8 @@ mod tests {
         let req = ApiRunRequest {
             messages: vec![],
             run_id: None,
+            resume: false,
+            resume_from: None,
         };
         let err = run(state_arg(&state), Json(req)).await.unwrap_err();
         assert_eq!(err.status, StatusCode::BAD_REQUEST);
@@ -347,6 +353,8 @@ mod tests {
                 content: "bonjour".to_string(),
             }],
             run_id: Some("../evil".to_string()),
+            resume: false,
+            resume_from: None,
         };
         let err = run(state_arg(&state), Json(req)).await.unwrap_err();
         assert_eq!(err.status, StatusCode::BAD_REQUEST);
@@ -366,6 +374,8 @@ mod tests {
                 content: "Bonjour, resume Omega en une phrase.".to_string(),
             }],
             run_id: Some("route-trace-1".to_string()),
+            resume: false,
+            resume_from: None,
         };
         let created = run(state_arg(&state), Json(req)).await.unwrap().0;
         assert_eq!(created.run_id, "route-trace-1");

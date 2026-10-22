@@ -117,6 +117,7 @@ fn op(
         messages: vec![Message::new(Role::User, "travaille")],
         run_id: "run-contract".to_string(),
         trace: None,
+        store: None,
         budget,
         policy_budget: None,
     }

@@ -80,6 +80,7 @@ fn op(
         policy_budget: None,
         run_id: "run-integration".to_string(),
         trace: None,
+        store: None,
     }
 }
 
@@ -148,6 +149,7 @@ async fn interruption_arrete_la_boucle_avant_execution() {
         policy_budget: None,
         run_id: "run-cancel".to_string(),
         trace: None,
+        store: None,
     };
     let status = loop_op.run(&mut ctx).await;
     assert!(status.is_err());

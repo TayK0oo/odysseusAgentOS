@@ -130,26 +130,28 @@ impl EventStore for FileEventStore {
             .map_err(|e| OmegaError::Io(format!("création {} : {e}", self.dir.display())))?;
 
         let path = self.path_for(&event.run_id);
+
+        // Lecture de l'état courant (si présent). Une queue tronquée (crash
+        // antérieur) est rejetée explicitement : on la retire du calcul plutôt
+        // que de la fusionner silencieusement avec le nouvel événement.
         let existing = if path.exists() {
-            Some(
-                fs::read(&path)
-                    .map_err(|e| OmegaError::Io(format!("lecture {} : {e}", path.display())))?,
-            )
+            fs::read(&path)
+                .map_err(|e| OmegaError::Io(format!("lecture {} : {e}", path.display())))?
         } else {
-            None
+            Vec::new()
         };
 
-        let seq = existing
-            .as_ref()
-            .map(|b| b.iter().filter(|&&x| x == b'\n').count() as u64)
-            .unwrap_or(0);
-
-        let mut to_write: Vec<u8> = Vec::new();
-        if let Some(bytes) = &existing {
-            if !bytes.is_empty() && *bytes.last().unwrap() != b'\n' {
-                // Termine une ligne tronquée (crash précédent) pour ne pas la fusionner
-                // avec le prochain événement. Elle sera ignorée à la lecture (parse KO).
-                to_write.push(b'\n');
+        let mut base = existing.clone();
+        if !base.is_empty() && *base.last().unwrap() != b'\n' {
+            // Rejet explicite (tracé) de la queue tronquée : on la tronque
+            // pour ne pas corrompre la ligne suivante. L'événement partiel est
+            // perdu, jamais fusionné.
+            eprintln!(
+                "[omega-app][file-store] queue tronquee rejetee : {}",
+                path.display()
+            );
+            while !base.is_empty() && *base.last().unwrap() != b'\n' {
+                base.pop();
             }
         }
         // P2-6 : masquage des secrets au point d'écriture unique (trace).
@@ -158,19 +160,39 @@ impl EventStore for FileEventStore {
             event.operation_id = Some(omega_types::redact_secrets(op));
         }
         omega_types::redact_json(&mut event.payload);
+
+        let seq = base.iter().filter(|&&x| x == b'\n').count() as u64;
         let mut line = serde_json::to_vec(&event.with_seq(seq))
             .map_err(|e| OmegaError::Io(format!("sérialisation événement : {e}")))?;
         line.push(b'\n');
-        to_write.extend_from_slice(&line);
 
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .map_err(|e| OmegaError::Io(format!("ouverture {} : {e}", path.display())))?;
-        file.write_all(&to_write)
-            .and_then(|_| file.flush())
-            .map_err(|e| OmegaError::Io(format!("append {} : {e}", path.display())))?;
+        let mut new_bytes = base;
+        new_bytes.extend_from_slice(&line);
+
+        // Écriture atomique : tmp + fsync + rename. Un crash laisse soit
+        // l'ancien fichier complet, soit le nouveau — jamais une ligne
+        // partiellement écrite.
+        let tmp = path.with_extension("jsonl.tmp");
+        {
+            let mut file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(&tmp)
+                .map_err(|e| OmegaError::Io(format!("ouverture {} : {e}", tmp.display())))?;
+            file.write_all(&new_bytes)
+                .and_then(|_| file.flush())
+                .map_err(|e| OmegaError::Io(format!("ecriture {} : {e}", tmp.display())))?;
+            file.sync_all()
+                .map_err(|e| OmegaError::Io(format!("fsync {} : {e}", tmp.display())))?;
+        }
+        fs::rename(&tmp, &path).map_err(|e| {
+            OmegaError::Io(format!(
+                "rename {} -> {} : {e}",
+                tmp.display(),
+                path.display()
+            ))
+        })?;
 
         Ok(seq)
     }
@@ -192,6 +214,7 @@ impl EventStore for FileEventStore {
             .map_err(|e| OmegaError::Io(format!("lecture {} : {e}", path.display())))?;
         let mut events = Vec::new();
         for line in content.lines() {
+<<<<<<< HEAD
             // Une ligne malformée (écriture interrompue) est ignorée.
             if let Ok(mut ev) = serde_json::from_str::<DurableEvent>(line) {
                 // P2-6 : masquage à la lecture (export/repr).
@@ -200,6 +223,22 @@ impl EventStore for FileEventStore {
                 }
                 omega_types::redact_json(&mut ev.payload);
                 events.push(ev);
+=======
+            if line.trim().is_empty() {
+                continue;
+            }
+            match serde_json::from_str::<DurableEvent>(line) {
+                Ok(ev) => events.push(ev),
+                Err(e) => {
+                    // Rejet explicite (tracé) d'une ligne malformée : jamais
+                    // ignorée silencieusement.
+                    eprintln!(
+                        "[omega-app][file-store] ligne malformee rejetee ({}): {}",
+                        path.display(),
+                        e
+                    );
+                }
+>>>>>>> feat/p2-C2
             }
         }
         Ok(events)

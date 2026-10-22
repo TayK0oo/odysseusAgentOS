@@ -48,8 +48,9 @@ pub async fn execute_run(
     state: &AppState,
     messages: Vec<Message>,
     run_id: Option<String>,
+    resume: bool,
 ) -> OmegaResult<RunResponse> {
-    execute_run_with_budget(state, messages, run_id, state.config.tool_budget).await
+    execute_run_with_budget(state, messages, run_id, state.config.tool_budget, resume).await
 }
 
 /// Execute un run avec un budget d'executions d'outils explicite.
@@ -63,6 +64,7 @@ pub async fn execute_run_with_budget(
     messages: Vec<Message>,
     run_id: Option<String>,
     tool_budget: usize,
+    resume: bool,
 ) -> OmegaResult<RunResponse> {
     if messages.is_empty() {
         return Err(OmegaError::Config("aucun message fourni".to_string()));
@@ -121,6 +123,7 @@ pub async fn execute_run_with_budget(
                 policy_budget,
                 run_id: effective_run_id.clone(),
                 trace: None,
+                store: Some(state.store.clone()),
             }));
         }
         None => {
@@ -128,7 +131,8 @@ pub async fn execute_run_with_budget(
         }
     }
 
-    let input = RunInput::new(ops).with_run_id(effective_run_id);
+    let input = RunInput::new(ops).with_run_id(effective_run_id.clone());
+    let input = if resume { input.resume() } else { input };
     let outcome = app.run(input).await?;
 
     // 4. Preuve par le journal : resume rejoue (deterministe) + reponse du modele.
@@ -313,7 +317,7 @@ pub mod tests {
             omega_types::Role::User,
             "Resume ce texte en trois points : Omega est un harnais.",
         )];
-        let resp = execute_run(&state, messages, Some("pipe-1".to_string()))
+        let resp = execute_run(&state, messages, Some("pipe-1".to_string()), false)
             .await
             .unwrap();
         assert_eq!(resp.run_id, "pipe-1");
@@ -328,7 +332,7 @@ pub mod tests {
     #[tokio::test]
     async fn pipeline_rejects_empty_messages() {
         let (state, _) = test_state("pipeline-empty");
-        let err = execute_run(&state, vec![], None).await.unwrap_err();
+        let err = execute_run(&state, vec![], None, false).await.unwrap_err();
         assert!(matches!(err, OmegaError::Config(_)));
     }
 
@@ -338,7 +342,7 @@ pub mod tests {
         // etat cache : l'UI la restitue sans re-executer l'inference (W8).
         let (state, _) = test_state("pipeline-answer");
         let messages = vec![Message::new(omega_types::Role::User, "bonjour")];
-        let resp = execute_run(&state, messages, Some("ans-1".to_string()))
+        let resp = execute_run(&state, messages, Some("ans-1".to_string()), false)
             .await
             .unwrap();
         let answer = resp.answer.expect("reponse presente dans le journal");

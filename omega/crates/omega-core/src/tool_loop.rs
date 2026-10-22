@@ -163,6 +163,12 @@ pub struct ToolLoopOperation {
     /// 2 occurrences de `tool.call.completed` au lieu d'une). Le champ reste
     /// utile hors `App` (usage direct de l'operation).
     pub trace: Option<std::sync::Arc<dyn EventStore>>,
+    /// Journal durable pour l'idempotence au niveau outil (write-ahead).
+    /// `Some` = la boucle journalise `tool.call.pending` avant exécution et
+    /// `tool.call.completed` (avec cle d'idempotence) après ; à la reprise
+    /// (même `run_id`) elle rejoue l'observation sans ré-exécuter l'effet.
+    /// `None` = aucune idempotence outil (comportement historique).
+    pub store: Option<std::sync::Arc<dyn EventStore>>,
 }
 
 #[async_trait]
@@ -224,6 +230,111 @@ impl Operation for ToolLoopOperation {
                 });
                 return Ok(());
             };
+
+            // --- Idempotence niveau outil (write-ahead) ---------------------------
+            // Cle d'idempotence : run_id + step (round) + call_id.
+            let idempotency_key = format!("{}:{}:{}", self.run_id, rounds, call.call_id);
+            let mut replayed_observation: Option<ToolObservation> = None;
+
+            if let Some(store) = &self.store {
+                let journal = store.read_run(&self.run_id).unwrap_or_default();
+                // 1. completed present -> rejouer l'observation sans re-executer.
+                if let Some(ev) = journal.iter().rev().find(|e| {
+                    e.name == "tool.call.completed"
+                        && e.operation_id.as_deref() == Some(idempotency_key.as_str())
+                }) {
+                    let ok = ev
+                        .payload
+                        .get("ok")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(true);
+                    let content = ev.payload.get("content").cloned().unwrap_or(Value::Null);
+                    let cid = ev
+                        .payload
+                        .get("call_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or(&call.call_id)
+                        .to_string();
+                    replayed_observation = Some(ToolObservation {
+                        call_id: cid,
+                        ok,
+                        content,
+                    });
+                }
+                // 2. pending present -> verifier l'effet reel avant decision.
+                else if journal.iter().any(|e| {
+                    e.name == "tool.call.pending"
+                        && e.operation_id.as_deref() == Some(idempotency_key.as_str())
+                }) {
+                    if call.name == "append_file" {
+                        let path = call
+                            .arguments
+                            .get("path")
+                            .and_then(Value::as_str)
+                            .unwrap_or("");
+                        let needle = call
+                            .arguments
+                            .get("content")
+                            .or_else(|| call.arguments.get("line"))
+                            .and_then(Value::as_str)
+                            .unwrap_or("canary");
+                        let read_call = ToolCall {
+                            call_id: call.call_id.clone(),
+                            name: "read_file".to_string(),
+                            arguments: json!({"path": path}),
+                            origin: call.origin,
+                        };
+                        if let Ok(obs) = self.surface.execute(&read_call).await {
+                            if let Some(text) = obs.content.get("content").and_then(Value::as_str) {
+                                if text.contains(needle) {
+                                    replayed_observation = Some(ToolObservation {
+                                        call_id: call.call_id.clone(),
+                                        ok: true,
+                                        content: json!({
+                                            "path": path,
+                                            "appended": true,
+                                            "already_present": true,
+                                        }),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                // 3. sinon -> journaliser pending avant execution.
+                else {
+                    ctx.publish(Event::new(
+                        "tool.call.pending",
+                        json!({
+                            "run_id": self.run_id,
+                            "call_id": call.call_id,
+                            "tool": call.name,
+                            "origin": call.origin.as_str(),
+                            "round": rounds,
+                            "idempotency_key": idempotency_key,
+                        }),
+                    ));
+                }
+            }
+
+            if let Some(obs) = replayed_observation {
+                // Rejouer l'observation sans re-executer l'effet.
+                messages.push(Message::new(
+                    Role::Assistant,
+                    response.message.content.clone(),
+                ));
+                messages.push(Message::new(
+                    Role::Tool,
+                    json!({
+                        "call_id": obs.call_id,
+                        "ok": obs.ok,
+                        "content": obs.content,
+                        "replayed": true,
+                    })
+                    .to_string(),
+                ));
+                continue;
+            }
 
             // Budget de la POLITIQUE (P1-3) : consulte AVANT chaque
             // execution. Un refus ne debite rien (monotone, tout-ou-rien) et
@@ -324,6 +435,7 @@ impl Operation for ToolLoopOperation {
                     "origin": call.origin.as_str(),
                     "ok": observation.ok,
                     "content": observation.content,
+                    "idempotency_key": idempotency_key,
                 }),
             ));
 
