@@ -1,6 +1,6 @@
 {
-  "git_sha": "650a025a",
-  "mesure_le": "2026-10-22T04:10:47+00:00",
+  "git_sha": "91952f3f",
+  "mesure_le": "2026-10-22T04:13:02+00:00",
   "moteur_reference": "Rust (ADR-0009)",
   "socles": {
     "rust": {
@@ -59,7 +59,7 @@
     },
     "python": {
       "tests": {
-        "valeur": 4436,
+        "valeur": 4440,
         "methode": "ast"
       },
       "ruff_legacy_erreurs": {
@@ -402,11 +402,11 @@
       "reel": "NON_EXECUTE"
     },
     "S1": {
-      "scripte": "FAIL",
+      "scripte": "PASS",
       "reel": "NON_EXECUTE"
     },
     "S2": {
-      "scripte": "FAIL",
+      "scripte": "PASS",
       "reel": "NON_EXECUTE"
     },
     "S3": {
@@ -449,7 +449,7 @@
   "couverture_ponderee": 0.0,
   "portes": {
     "G0": "VERT",
-    "G1": "ROUGE",
+    "G1": "VERT",
     "G2": "NON_EXECUTE",
     "G3": "NON_EXECUTE",
     "G4": "NON_EXECUTE",
@@ -457,5 +457,5 @@
     "G6": "NON_EXECUTE",
     "G7": "NON_EXECUTE"
   },
-  "prochaine_action": "G1.a.s1 : S1 outil reel canary : 5 runs tous PASS (canary obtenu par un VRAI appel d'outil + controle negatif sans surface) — corriger puis relancer omega/scripts/gate.py --phase 1"
+  "prochaine_action": "G2 : porte non executee — lancer omega/scripts/gate.py --phase 2"
 }

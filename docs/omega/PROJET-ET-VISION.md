@@ -26,7 +26,7 @@ auto-hébergé, sceptique, outillé, et qui s'améliore tout seul.
 
 | Socle | Langage | Rôle | État |
 |---|---|---|---|
-| **odysseusAgentOS** | Python | le système qui **tourne** : 4 436 <!--m:socles.python.tests=4436--> fonctions de test recensées (méthode : AST — pas une exécution) | ⚠️ suite non exécutée ici (dépendances absentes, ADR-0011) |
+| **odysseusAgentOS** | Python | le système qui **tourne** : 4 440 <!--m:socles.python.tests=4440--> fonctions de test recensées (méthode : AST — pas une exécution) | ⚠️ suite non exécutée ici (dépendances absentes, ADR-0011) |
 | **omega** | Rust + React | le noyau **nouveau** : routeur, ports, sandbox | ⚠️ châssis réel, moteur absent |
 
 > **Point crucial, détaillé en Partie 4** : ces deux socles se sont malencontreusement
@@ -202,7 +202,7 @@ faite — pas un statut, pas un rapport.
 
 ### 3.9 Le projet Python (`/home/tayk0oo/Projets/odysseusAgentOS/`)
 
-**321 modules, 729 fichiers de test, 4 436 <!--m:socles.python.tests=4436--> fonctions de test recensées.**
+**321 modules, 729 fichiers de test, 4 440 <!--m:socles.python.tests=4440--> fonctions de test recensées.**
 
 | Zone | Ce qu'elle contient |
 |---|---|
@@ -253,7 +253,7 @@ POST /api/run {"messages":[{"role":"user","content":"Liste les fichiers"}]}
 | API HTTP + UI | 15 routes, cockpit React servi |
 | Corpus RE | 51 dissections <!--m:avancee.dissections=51-->, 910 <!--m:avancee.fonctionnalites_total=910--> fonctions, toutes les refs `fichier:ligne` résolues |
 | Sécurité (Rust) | 46 tests adversariaux, 8 vulnérabilités trouvées et corrigées |
-| Python odysseusAgentOS | **4 436** <!--m:socles.python.tests=4436--> fonctions de test (AST), suite non exécutée ici (ADR-0011) |
+| Python odysseusAgentOS | **4 440** <!--m:socles.python.tests=4440--> fonctions de test (AST), suite non exécutée ici (ADR-0011) |
 
 ### 4.2 Ce qui est vide — le constat qu'il faut assumer
 
@@ -265,7 +265,7 @@ POST /api/run {"messages":[{"role":"user","content":"Liste les fichiers"}]}
 | **Les skills ne s'auto-génèrent pas** | `omega-memory` sait *lire* un `SKILL.md`, mais rien ne l'écrit. |
 | **148 vidéos TikTok → 0 code** | Cataloguées, jamais absorbées. |
 | **910 fonctions RE → ~4 crates** | 910 <!--m:avancee.fonctionnalites_total=910--> fonctions recensées ; 223 k lignes Python → ~4 k traduites. |
-| **Rust vs Python** | Python : 4 436 <!--m:socles.python.tests=4436--> fonctions de test. Rust : 411 <!--m:socles.rust.tests=411-->. **Nous avons réécrit en plus faible ce qui marchait.** |
+| **Rust vs Python** | Python : 4 440 <!--m:socles.python.tests=4440--> fonctions de test. Rust : 411 <!--m:socles.rust.tests=411-->. **Nous avons réécrit en plus faible ce qui marchait.** |
 | **Le handler Python est un stub** | `{"status": "executed"}` — n'exécute aucun outil. |
 
 ### 4.3 Pourquoi nous en sommes là
@@ -313,7 +313,7 @@ code. Il monte quand un scénario passe, pas quand une ligne est écrite.
 
 | Erreur | Pourquoi elle a coûté cher |
 |---|---|
-| Réécrire en Rust ce qui marche en Python | 4 436 <!--m:socles.python.tests=4436--> fonctions de test Python abandonnées au profit de 411 <!--m:socles.rust.tests=411--> tests Rust |
+| Réécrire en Rust ce qui marche en Python | 4 440 <!--m:socles.python.tests=4440--> fonctions de test Python abandonnées au profit de 411 <!--m:socles.rust.tests=411--> tests Rust |
 | Optimiser les gates plutôt que la capacité | 27 phases de cérémonies, 0 agent capable |
 | Produire des docs au lieu de démontrations | Le corpus RE est splendide et inexploité |
 | Ne pas lire les rapports de la session précédente | 12 rapports + 6 veilles ignorés |

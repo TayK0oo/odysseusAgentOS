@@ -1,6 +1,6 @@
 # INDEX — Espace Omega (carte)
 
-> **Généré le** par `omega/scripts/generate_index.py` à HEAD `2c984f90` [observed].
+> **Généré le** par `omega/scripts/generate_index.py` à HEAD `91952f3f` [observed].
 > Les sections balisées `<!-- gen:... -->` sont régénérées à chaque run ; le reste
 > de la carte est maintenu à la main. Chiffres vivants : `docs/omega/plan/STATUS.json`.
 
@@ -40,6 +40,7 @@
 | 0012 | Reproductibilité : le lockfile est commité, et le timeout tue toute la descendance | ✅ Accepté |
 | 0013 | La porte G1 devient exécutable : mort du faux vert | ✅ Accepté |
 | 0014 | Ajustements d'implémentation pour la porte G1 | ✅ Accepté |
+| 0015 | G1.a.s1 : S1 passe au vert, le critère « S1 rouge » (G0.c.s1) est retiré | ✅ Accepté |
 
 <!-- /gen -->
 

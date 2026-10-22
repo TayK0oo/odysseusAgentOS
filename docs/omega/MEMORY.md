@@ -1,9 +1,9 @@
 # MEMORY.md — Omega (auto-généré)
 
-> **Bannière (auto-calculée, jamais saisie)** : généré le 2026-10-21 09:07 · HEAD `2c984f90` (feat/agentos-omega) · à jour.
+> **Bannière (auto-calculée, jamais saisie)** : généré le 2026-10-22 06:13 · HEAD `91952f3f` (feat/agentos-omega) · à jour.
 > **Working tree dirty** : d'autres modifications coexistent avec cette génération.
 
-**Généré le:** 2026-10-21 09:07
+**Généré le:** 2026-10-22 06:13
 **Source:** `omega/scripts/generate_memory.py` — génère MEMORY.md depuis STATUS.json + git — provenance: [observed]
 
 ---
@@ -11,8 +11,8 @@
 ## État Git
 
 - **Branche:** feat/agentos-omega
-- **Dernier commit:** 2c984f90 fix(acceptance): runner sans PyYAML au import-module (venv hermétique ADR-0005) — ERREUR nommée si absent ; cargo fmt app test (2026-10-21 08:51:09 +0200)
-- **Total commits:** 2294
+- **Dernier commit:** 91952f3f fix(p1-6): le moteur reconstruit un binaire PERIME, pas seulement absent (2026-10-22 06:12:53 +0200)
+- **Total commits:** 2305
 - **Working tree dirty:** oui
 
 ---
@@ -27,7 +27,7 @@
 ## Tests (depuis STATUS.json — aucune exécution ici)
 
 - **Rust:** 411 <!--m:socles.rust.tests.valeur=411--> tests (scan_attributs) — [observed]
-- **Python:** 4436 <!--m:socles.python.tests.valeur=4436--> tests (ast) — [observed]
+- **Python:** 4440 <!--m:socles.python.tests.valeur=4440--> tests (ast) — [observed]
 
 ---
 
