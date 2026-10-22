@@ -9,7 +9,6 @@ description = "Omega — portage Rust des services memory/skills d'odysseusAgent
 [dependencies]
 omega-types = { workspace = true }
 omega-ports = { workspace = true }
-omega-core = { workspace = true }
 async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

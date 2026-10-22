@@ -18,10 +18,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
 
-pub mod secret_redact;
 pub mod tool_loop;
 pub use omega_types::Event;
-pub use secret_redact::{redact_json, redact_secrets, secret_tag};
+pub use omega_types::{redact_json, redact_secrets, secret_tag};
 
 /// Bus d'evenements interne au noyau.
 pub trait EventBus: Send + Sync {

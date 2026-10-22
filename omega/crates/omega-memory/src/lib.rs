@@ -8,7 +8,7 @@
 pub mod skill;
 
 use async_trait::async_trait;
-use omega_core::{redact_json, redact_secrets};
+use omega_types::{redact_json, redact_secrets};
 use omega_ports::MemoryStore;
 use omega_types::OmegaResult;
 use serde::{Deserialize, Serialize};

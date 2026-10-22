@@ -726,7 +726,6 @@ name = "omega-adapters"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "omega-app",
  "omega-ports",
  "omega-types",
  "serde",
@@ -825,7 +824,6 @@ name = "omega-memory"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "omega-core",
  "omega-ports",
  "omega-types",
  "serde",
@@ -1018,6 +1016,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 1.0.69",
 ]
 

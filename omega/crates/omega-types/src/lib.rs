@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 mod error;
 pub mod model;
 pub mod routing;
+pub mod secret_redact;
+pub use secret_redact::{redact_json, redact_secrets, secret_tag};
 
 pub use error::{OmegaError, OmegaResult};
 pub use model::{ModelRecord, ModelTier, QualityAxes};

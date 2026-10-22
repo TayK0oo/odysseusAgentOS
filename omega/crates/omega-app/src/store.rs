@@ -155,9 +155,9 @@ impl EventStore for FileEventStore {
         // P2-6 : masquage des secrets au point d'écriture unique (trace).
         let mut event = event;
         if let Some(op) = &event.operation_id {
-            event.operation_id = Some(omega_core::redact_secrets(op));
+            event.operation_id = Some(omega_types::redact_secrets(op));
         }
-        omega_core::redact_json(&mut event.payload);
+        omega_types::redact_json(&mut event.payload);
         let mut line = serde_json::to_vec(&event.with_seq(seq))
             .map_err(|e| OmegaError::Io(format!("sérialisation événement : {e}")))?;
         line.push(b'\n');
@@ -196,9 +196,9 @@ impl EventStore for FileEventStore {
             if let Ok(mut ev) = serde_json::from_str::<DurableEvent>(line) {
                 // P2-6 : masquage à la lecture (export/repr).
                 if let Some(op) = &ev.operation_id {
-                    ev.operation_id = Some(omega_core::redact_secrets(op));
+                    ev.operation_id = Some(omega_types::redact_secrets(op));
                 }
-                omega_core::redact_json(&mut ev.payload);
+                omega_types::redact_json(&mut ev.payload);
                 events.push(ev);
             }
         }
