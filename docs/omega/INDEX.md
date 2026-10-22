@@ -1,6 +1,6 @@
 # INDEX — Espace Omega (carte)
 
-> **Généré le** par `omega/scripts/generate_index.py` à HEAD `91952f3f` [observed].
+> **Généré le** par `omega/scripts/generate_index.py` à HEAD `d1bc307f` [observed].
 > Les sections balisées `<!-- gen:... -->` sont régénérées à chaque run ; le reste
 > de la carte est maintenu à la main. Chiffres vivants : `docs/omega/plan/STATUS.json`.
 

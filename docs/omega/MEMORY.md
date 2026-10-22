@@ -1,9 +1,9 @@
 # MEMORY.md — Omega (auto-généré)
 
-> **Bannière (auto-calculée, jamais saisie)** : généré le 2026-10-22 06:13 · HEAD `91952f3f` (feat/agentos-omega) · à jour.
+> **Bannière (auto-calculée, jamais saisie)** : généré le 2026-10-23 00:24 · HEAD `d1bc307f` (feat/agentos-omega) · à jour.
 > **Working tree dirty** : d'autres modifications coexistent avec cette génération.
 
-**Généré le:** 2026-10-22 06:13
+**Généré le:** 2026-10-23 00:24
 **Source:** `omega/scripts/generate_memory.py` — génère MEMORY.md depuis STATUS.json + git — provenance: [observed]
 
 ---
@@ -11,8 +11,8 @@
 ## État Git
 
 - **Branche:** feat/agentos-omega
-- **Dernier commit:** 91952f3f fix(p1-6): le moteur reconstruit un binaire PERIME, pas seulement absent (2026-10-22 06:12:53 +0200)
-- **Total commits:** 2305
+- **Dernier commit:** d1bc307f fix(p2): dep_graph (adapters->memory retire) + clippy unused import (2026-10-23 00:23:13 +0200)
+- **Total commits:** 2318
 - **Working tree dirty:** oui
 
 ---
@@ -26,7 +26,7 @@
 
 ## Tests (depuis STATUS.json — aucune exécution ici)
 
-- **Rust:** 411 <!--m:socles.rust.tests.valeur=411--> tests (scan_attributs) — [observed]
+- **Rust:** 408 <!--m:socles.rust.tests.valeur=408--> tests (scan_attributs) — [observed]
 - **Python:** 4440 <!--m:socles.python.tests.valeur=4440--> tests (ast) — [observed]
 
 ---
