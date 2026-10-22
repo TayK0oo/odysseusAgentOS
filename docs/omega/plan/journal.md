@@ -94,3 +94,11 @@
 ## 2026-10-23 — P2 G2 VERT
 - G2 vert : 9/9 critères VERT, 0 DELEGUE_CI. S5 (compaction) + latence ajoutés.
 - verify VERT. Push. STOP (pas de P3 sans ordre).
+
+## 2026-10-23 — Audit G2
+- G0 G1 G2 : toutes VERT (gate.py). verify VERT. HEAD ed93408b poussé.
+- Règle porte/code : commits gates.toml (ba03948c, 54059c64) séparés du code jugé — propre.
+- Doubles : (a) C3 MemoryStore introduit en 2d3bd240 (fmt commit) sans historique rouge/vert propre ; (b) S4.yaml teste la durabilité (append), PAS la récupération mémoire du plan ; (c) G2.i.latence = cargo test latency_memory, seuil 1000 ms provisoire, ADR « Seuils v1 » absent.
+- Négatifs : S3, S4, cascade, corruption, concurrence verts avec contrôles négatifs. S5 scénario trivial (health + echo) — compaction non exercée par le runner.
+- Mutation / revue indépendante : non exécutées (budget délégation épuisé).
+- Verdict audit : G2 verte au sens gate, mais preuve partielle (S4/S5 simplifiés, latence non gelée). P3 sur ordre explicite.
