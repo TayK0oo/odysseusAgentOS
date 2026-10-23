@@ -28,7 +28,11 @@ pub struct PinnedFact {
 }
 
 impl PinnedFact {
-    pub fn new(id: impl Into<String>, content: impl Into<String>, category: impl Into<String>) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        content: impl Into<String>,
+        category: impl Into<String>,
+    ) -> Self {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -81,12 +85,19 @@ impl PinnedFacts {
 
     /// Récupère un fait par son ID.
     pub fn get(&self, id: &str) -> Option<PinnedFact> {
-        self.facts.read().expect("pinned facts lock poisoned").get(id).cloned()
+        self.facts
+            .read()
+            .expect("pinned facts lock poisoned")
+            .get(id)
+            .cloned()
     }
 
     /// Supprime un fait par son ID.
     pub fn remove(&self, id: &str) -> Option<PinnedFact> {
-        self.facts.write().expect("pinned facts lock poisoned").remove(id)
+        self.facts
+            .write()
+            .expect("pinned facts lock poisoned")
+            .remove(id)
     }
 
     /// Liste tous les faits, triés par priorité (desc) puis date de création (asc).
@@ -139,7 +150,10 @@ impl PinnedFacts {
 
     /// Nettoie tous les faits.
     pub fn clear(&self) {
-        self.facts.write().expect("pinned facts lock poisoned").clear();
+        self.facts
+            .write()
+            .expect("pinned facts lock poisoned")
+            .clear();
     }
 }
 

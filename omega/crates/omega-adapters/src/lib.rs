@@ -271,27 +271,48 @@ mod compaction_wired_tests {
     use omega_plugin_api::{compose, InstallContext};
     use omega_ports::{ContextEngine, Provider};
     use omega_types::{Capability, ChatRequest, ChatResponse, Message, OmegaResult, Role};
-    use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
 
     /// Provider stub qui echoue (pour tester le fallback).
     struct FailProvider;
     #[async_trait]
     impl Provider for FailProvider {
-        fn id(&self) -> &str { "fail" }
+        fn id(&self) -> &str {
+            "fail"
+        }
         async fn complete(&self, _: ChatRequest) -> OmegaResult<ChatResponse> {
-            Err(omega_types::OmegaError::NoImplementation(Capability::LlmProvider))
+            Err(omega_types::OmegaError::NoImplementation(
+                Capability::LlmProvider,
+            ))
         }
     }
 
     /// Provider stub qui renvoie un resume fixe.
-    struct EchoProvider { calls: AtomicUsize }
-    impl EchoProvider { fn new() -> Self { Self { calls: AtomicUsize::new(0) } } }
+    struct EchoProvider {
+        calls: AtomicUsize,
+    }
+    impl EchoProvider {
+        fn new() -> Self {
+            Self {
+                calls: AtomicUsize::new(0),
+            }
+        }
+    }
     #[async_trait]
     impl Provider for EchoProvider {
-        fn id(&self) -> &str { "echo" }
+        fn id(&self) -> &str {
+            "echo"
+        }
         async fn complete(&self, req: ChatRequest) -> OmegaResult<ChatResponse> {
             self.calls.fetch_add(1, Ordering::SeqCst);
-            let last = req.messages.last().map(|m| m.content.clone()).unwrap_or_default();
+            let last = req
+                .messages
+                .last()
+                .map(|m| m.content.clone())
+                .unwrap_or_default();
             Ok(ChatResponse {
                 message: Message::new(Role::Assistant, format!("SUMMARY: {}", last)),
                 usage: Default::default(),
@@ -313,7 +334,10 @@ mod compaction_wired_tests {
             .expect("context-engine absent");
 
         assert_eq!(engine.name(), "llm-compaction");
-        assert!(engine.owns_compaction(), "LlmCompactionEngine doit declarer owns_compaction=true");
+        assert!(
+            engine.owns_compaction(),
+            "LlmCompactionEngine doit declarer owns_compaction=true"
+        );
 
         // Test assemble: doit ajouter le resume LLM
         let msgs = vec![
@@ -322,8 +346,11 @@ mod compaction_wired_tests {
             Message::new(Role::User, "b".repeat(40)),
         ];
         let out = engine.assemble(msgs).await.unwrap();
-        assert!(out.iter().any(|m| m.content.starts_with("Summary: SUMMARY:")),
-            "doit contenir le resume LLM");
+        assert!(
+            out.iter()
+                .any(|m| m.content.starts_with("Summary: SUMMARY:")),
+            "doit contenir le resume LLM"
+        );
     }
 
     #[tokio::test]
@@ -349,17 +376,24 @@ mod compaction_wired_tests {
         ];
         let out = engine.assemble(msgs).await.unwrap();
         // Fallback: marqueur de truncation simple, pas de resume LLM
-        assert!(out.iter().any(|m| m.content.starts_with("…[compacted")),
-            "fallback: doit contenir le marqueur de truncation");
-        assert!(!out.iter().any(|m| m.content.starts_with("Summary:")),
-            "fallback: pas de resume LLM");
+        assert!(
+            out.iter().any(|m| m.content.starts_with("…[compacted")),
+            "fallback: doit contenir le marqueur de truncation"
+        );
+        assert!(
+            !out.iter().any(|m| m.content.starts_with("Summary:")),
+            "fallback: pas de resume LLM"
+        );
     }
 
     #[test]
     fn compaction_wired_pinned_facts_registered_and_resolvable() {
         // ContextContributor avec PinnedFacts -> capacite pinned-facts resolvable
         let facts = PinnedFacts::new();
-        facts.upsert(omega_context::PinnedFact::new("f1", "User prefers Rust", "preference").with_priority(10));
+        facts.upsert(
+            omega_context::PinnedFact::new("f1", "User prefers Rust", "preference")
+                .with_priority(10),
+        );
 
         let contributor = ContextContributor::new()
             .with_max_tokens(100)

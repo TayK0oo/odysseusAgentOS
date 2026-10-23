@@ -12,6 +12,7 @@ omega-ports = { path = "../omega-ports" }
 omega-registry = { path = "../omega-registry" }
 omega-plugin-api = { path = "../omega-plugin-api" }
 async-trait = { workspace = true }
+tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
 serde_json = { workspace = true }
 
 [dev-dependencies]
