@@ -265,7 +265,7 @@ POST /api/run {"messages":[{"role":"user","content":"Liste les fichiers"}]}
 | **Les skills ne s'auto-génèrent pas** | `omega-memory` sait *lire* un `SKILL.md`, mais rien ne l'écrit. |
 | **148 vidéos TikTok → 0 code** | Cataloguées, jamais absorbées. |
 | **910 fonctions RE → ~4 crates** | 910 <!--m:avancee.fonctionnalites_total=910--> fonctions recensées ; 223 k lignes Python → ~4 k traduites. |
-| **Rust vs Python** | Python : 4 440 <!--m:socles.python.tests=4440--> fonctions de test. Rust : 411 <!--m:socles.rust.tests=408-->. **Nous avons réécrit en plus faible ce qui marchait.** |
+| **Rust vs Python** | Python : 4 440 <!--m:socles.python.tests=4440--> fonctions de test. Rust : 411 <!--m:socles.rust.tests=447-->. **Nous avons réécrit en plus faible ce qui marchait.** |
 | **Le handler Python est un stub** | `{"status": "executed"}` — n'exécute aucun outil. |
 
 ### 4.3 Pourquoi nous en sommes là
@@ -313,7 +313,7 @@ code. Il monte quand un scénario passe, pas quand une ligne est écrite.
 
 | Erreur | Pourquoi elle a coûté cher |
 |---|---|
-| Réécrire en Rust ce qui marche en Python | 4 440 <!--m:socles.python.tests=4440--> fonctions de test Python abandonnées au profit de 411 <!--m:socles.rust.tests=408--> tests Rust |
+| Réécrire en Rust ce qui marche en Python | 4 440 <!--m:socles.python.tests=4440--> fonctions de test Python abandonnées au profit de 411 <!--m:socles.rust.tests=447--> tests Rust |
 | Optimiser les gates plutôt que la capacité | 27 phases de cérémonies, 0 agent capable |
 | Produire des docs au lieu de démontrations | Le corpus RE est splendide et inexploité |
 | Ne pas lire les rapports de la session précédente | 12 rapports + 6 veilles ignorés |

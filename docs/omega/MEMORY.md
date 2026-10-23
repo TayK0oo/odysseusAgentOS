@@ -1,9 +1,9 @@
 # MEMORY.md — Omega (auto-généré)
 
-> **Bannière (auto-calculée, jamais saisie)** : généré le 2026-10-23 00:24 · HEAD `d1bc307f` (feat/agentos-omega) · à jour.
+> **Bannière (auto-calculée, jamais saisie)** : généré le 2026-10-23 05:42 · HEAD `5a0e159a` (feat/agentos-omega) · à jour.
 > **Working tree dirty** : d'autres modifications coexistent avec cette génération.
 
-**Généré le:** 2026-10-23 00:24
+**Généré le:** 2026-10-23 05:42
 **Source:** `omega/scripts/generate_memory.py` — génère MEMORY.md depuis STATUS.json + git — provenance: [observed]
 
 ---
@@ -11,8 +11,8 @@
 ## État Git
 
 - **Branche:** feat/agentos-omega
-- **Dernier commit:** d1bc307f fix(p2): dep_graph (adapters->memory retire) + clippy unused import (2026-10-23 00:23:13 +0200)
-- **Total commits:** 2318
+- **Dernier commit:** 5a0e159a docs(p2): G2 VERT — S4 et S5 honnetes verts (2026-10-23 05:38:11 +0200)
+- **Total commits:** 2361
 - **Working tree dirty:** oui
 
 ---
@@ -26,7 +26,7 @@
 
 ## Tests (depuis STATUS.json — aucune exécution ici)
 
-- **Rust:** 408 <!--m:socles.rust.tests.valeur=408--> tests (scan_attributs) — [observed]
+- **Rust:** 447 <!--m:socles.rust.tests.valeur=447--> tests (scan_attributs) — [observed]
 - **Python:** 4440 <!--m:socles.python.tests.valeur=4440--> tests (ast) — [observed]
 
 ---
