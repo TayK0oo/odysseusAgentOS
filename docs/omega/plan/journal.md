@@ -136,3 +136,7 @@
 - P3 s'ouvre par décision stratégique (ADR-0020), pas par calcul. Préalable recommandé : P0-6 détecteur d'orphelins (seule dette qui touche P3-3 validation).
 - R5 mutation déférée P7 (ticket ouvert, non bloquant P3). P0-8 ledger déféré P7 (non bloquant P3).
 - Prochaine action : décision explicite (P0-6 seul, ou P3 avec ADR-0020, ou attente quota). Le plan ne tranche pas.
+
+## 2026-10-23 — P0-6 détecteur d'orphelins
+- detect_orphans.py : baseline (8 orphelins nommés) + --strict (exit 1). 2 tests verts.
+- verify VERT, gate G2 VERT. Push c7555383.
