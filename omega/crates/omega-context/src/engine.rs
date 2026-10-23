@@ -1,12 +1,13 @@
 //! Moteur de contexte **par defaut** (`name = "default"`, `owns_compaction = false`).
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use omega_ports::ContextEngine;
 use omega_types::{Message, OmegaError, OmegaResult, Role};
 
 use crate::budget::ContextBudget;
+use crate::injection::{ContextInjector, InjectionTrace, MemoryInjection};
 use crate::token::TokenEstimator;
 
 /// Rapport d'assemblage : journalise ce qui a ete coupe (payload de test).
@@ -43,6 +44,12 @@ pub struct DefaultContextEngine {
     budget: ContextBudget,
     estimator: TokenEstimator,
     last_report: Mutex<AssembleReport>,
+    /// Injecteur optionnel de memoire (consulte avant chaque assemble).
+    injector: Option<Arc<dyn ContextInjector>>,
+    /// Derniere decision d'injection (trace vide = absence injection).
+    last_injection: Mutex<InjectionTrace>,
+    /// Journal des decisions d'injection, dans l'ordre des consultes.
+    injection_journal: Mutex<Vec<InjectionTrace>>,
 }
 
 impl DefaultContextEngine {
@@ -51,7 +58,34 @@ impl DefaultContextEngine {
             budget: ContextBudget::new(max_tokens),
             estimator: TokenEstimator::new(),
             last_report: Mutex::new(AssembleReport::default()),
+            injector: None,
+            last_injection: Mutex::new(InjectionTrace::default()),
+            injection_journal: Mutex::new(Vec::new()),
         }
+    }
+
+    /// Moteur avec injection memoire : les faits pertinents sont consultes sur
+    /// le `MemoryStore` avant chaque assemble, sous un budget explicite.
+    pub fn with_memory(store: Arc<dyn omega_ports::MemoryStore>, max_tokens: usize) -> Self {
+        let mut e = Self::new(max_tokens);
+        e.injector = Some(Arc::new(MemoryInjection::new(store)));
+        e
+    }
+
+    /// Derniere decision d'injection (trace vide = rien n'a ete injecte).
+    pub fn last_injection(&self) -> InjectionTrace {
+        self.last_injection
+            .lock()
+            .expect("trace empoisonnee")
+            .clone()
+    }
+
+    /// Journal complet des decisions d'injection de ce moteur, dans l'ordre.
+    pub fn injection_journal(&self) -> Vec<InjectionTrace> {
+        self.injection_journal
+            .lock()
+            .expect("journal empoisonne")
+            .clone()
     }
 
     /// Plafond du budget de contexte du moteur.
@@ -62,6 +96,35 @@ impl DefaultContextEngine {
     /// Dernier rapport d'assemblage (coupes journalisees).
     pub fn last_report(&self) -> AssembleReport {
         self.last_report.lock().expect("rapport empoisonne").clone()
+    }
+
+    /// Consulte l'injecteur de memoire (si branche) puis assemble le resultat.
+    ///
+    /// L'injection s'applique a la tranche recue par [`Self::assemble_sync`] :
+    /// elle est inseree apres le prefixe systeme par l'injecteur, la coupe
+    /// budgetaire ensuite s'effectue sur le flux enrichi sans jamais couper le
+    /// systeme. En l'absence d'injecteur, `assemble_with_injection` est un
+    /// passthrough vers `assemble_sync`.
+    pub async fn assemble_with_injection(
+        &self,
+        messages: &[Message],
+    ) -> OmegaResult<(Vec<Message>, AssembleReport)> {
+        let (flux, trace) = match &self.injector {
+            None => (messages.to_vec(), InjectionTrace::default()),
+            Some(injector) => {
+                // Budget explicite : l'enveloppe totale du moteur plafonne
+                // l'injection (la coupe garde la main apres, systeme premier).
+                let budget = self.budget.max_tokens();
+                injector.inject(messages.to_vec(), budget).await?
+            }
+        };
+        *self.last_injection.lock().expect("trace empoisonnee") = trace.clone();
+        self.injection_journal
+            .lock()
+            .expect("journal empoisonne")
+            .push(trace);
+        let (result, report) = self.assemble_sync(&flux);
+        Ok((result, report))
     }
 
     /// Assemble en mode synchrone (coeur deterministe, testable sans runtime).
@@ -267,6 +330,92 @@ mod tests {
             assert!(matches!(r1, Err(OmegaError::BudgetExceeded { .. })));
             assert!(r2.is_ok());
         }
+    }
+
+    // ═══ T2 (commit 1 — rouge) : injection memoire dans le moteur ═══
+    // Double MemoryStore minimal : restitue les faits dont un mot-cle de la
+    // requete apparait dans le texte (memes regles de pertinence que le module).
+    struct StaticMemory {
+        facts: Vec<String>,
+    }
+
+    #[async_trait]
+    impl omega_ports::MemoryStore for StaticMemory {
+        fn name(&self) -> &str {
+            "static-test"
+        }
+        async fn recall(&self, query: &str, limit: usize) -> OmegaResult<Vec<String>> {
+            let q = query.to_lowercase();
+            let hits: Vec<String> = self
+                .facts
+                .iter()
+                .filter(|f| {
+                    q.split_whitespace()
+                        .filter(|w| w.chars().count() >= 4)
+                        .any(|w| f.to_lowercase().contains(w))
+                })
+                .take(limit)
+                .cloned()
+                .collect();
+            Ok(hits)
+        }
+        async fn remember(&self, _fact: &str) -> OmegaResult<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn assemble_injecte_la_memoire_relevante_avant_assemble_sync() {
+        // Un fait pertinent doit arriver au modele, sans changer la coupe
+        // budgetaire (systeme preserve, plus anciens non-systeme d'abord).
+        let store: Arc<dyn omega_ports::MemoryStore> = Arc::new(StaticMemory {
+            facts: vec!["OSAKA: le run budget se lit via RunBudget.usage()".to_string()],
+        });
+        let e = DefaultContextEngine::with_memory(store, 60);
+        let msgs = vec![user("explique le run budget d'OSAKA stp")];
+        let (out, report) = e.assemble_with_injection(&msgs).await.unwrap();
+
+        // Le fait pertinent est arrive au modele, insere apres le prefixe systeme.
+        assert_eq!(out[0].role, Role::System);
+        assert!(out[0].content.contains("RunBudget.usage()"));
+        assert_eq!(out[1].role, Role::User);
+        assert_eq!(report.kept, 2);
+        assert_eq!(e.last_injection().lines.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn assemble_sans_injecteur_passthrough() {
+        // Sans injecteur, assemble_with_injection = assemble_sync (passthrough).
+        let e = DefaultContextEngine::new(100);
+        let msgs = vec![user("hello")];
+        let (out, _) = e.assemble_with_injection(&msgs).await.unwrap();
+        assert_eq!(out, msgs);
+        assert!(e.last_injection().is_empty());
+        assert_eq!(e.injection_journal().len(), 1); // decision passthrough journalisee
+    }
+
+    #[tokio::test]
+    async fn injection_journalisé_à_chaque_consulte() {
+        // Chaque consulte du MemoryStore laisse une trace dans le journal du
+        // moteur : deux appels -> deux entrees, injectante ou pas.
+        let store: Arc<dyn omega_ports::MemoryStore> = Arc::new(StaticMemory {
+            facts: vec!["OSAKA: le run budget se lit via RunBudget.usage()".to_string()],
+        });
+        let e = DefaultContextEngine::with_memory(store, 60);
+        let _ = e
+            .assemble_with_injection(&[user("explique le run budget d'OSAKA")])
+            .await
+            .unwrap();
+        let _ = e
+            .assemble_with_injection(&[user("questions sans rapport")])
+            .await
+            .unwrap();
+
+        let journal = e.injection_journal();
+        assert_eq!(journal.len(), 2);
+        assert_eq!(journal[0].lines.len(), 1); // injecte
+        assert!(journal[1].is_empty()); // pertinent absente -> decision vide
+        assert_eq!(e.last_injection().lines.len(), 0);
     }
 
     #[tokio::test]
