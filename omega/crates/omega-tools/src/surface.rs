@@ -106,6 +106,51 @@ mod tests {
         let _ = std::fs::remove_dir_all(&s.ctx.root);
     }
 
+    #[test]
+    fn tool_surface_contains_memory_tools() {
+        // La memoire est un outil de premiere classe de la surface (pas un
+        // port interne) : elle doit figurer au catalogue avec son schema.
+        for name in ["memory_store", "memory_recall"] {
+            assert!(
+                crate::registry::TOOL_NAMES.contains(&name),
+                "{} absent du catalogue",
+                name
+            );
+            assert!(crate::registry::spec(name).is_ok(), "{} sans schema", name);
+        }
+    }
+
+    #[tokio::test]
+    async fn memory_store_recall() {
+        let s = surface("memory");
+        let w = s
+            .execute(&call(
+                "memory_store",
+                serde_json::json!({"content": "le canari est vert", "provenance": "test:surface"}),
+            ))
+            .await
+            .unwrap();
+        assert!(w.ok, "store : {:?}", w.content);
+
+        let r = s
+            .execute(&call(
+                "memory_recall",
+                serde_json::json!({"query": "canari"}),
+            ))
+            .await
+            .unwrap();
+        assert!(r.ok);
+        let hits = r.content["results"].as_array().unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0]["content"], "le canari est vert");
+        assert_eq!(hits[0]["provenance"], "test:surface");
+
+        // Persistance T1 : le fait est ecrit dans le workspace (JSONL append).
+        let raw = std::fs::read_to_string(s.ctx.root.join(".omega/memory.jsonl")).unwrap();
+        assert_eq!(raw.lines().count(), 1);
+        let _ = std::fs::remove_dir_all(&s.ctx.root);
+    }
+
     #[tokio::test]
     async fn unknown_tool_is_structured_error() {
         let s = surface("unknown");
