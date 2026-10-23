@@ -55,7 +55,9 @@ pub fn store(ctx: &ToolCtx, content: &str, provenance: &str) -> ToolOutput {
             if let Err(e) = f.write_all(line.as_bytes()) {
                 return ToolOutput::err(format!("écriture impossible : {}", e));
             }
-            let _ = f.flush();
+            if let Err(e) = f.sync_all() {
+                return ToolOutput::err(format!("écriture impossible : {}", e));
+            }
             ToolOutput::ok(serde_json::json!({
                 "path": MEMORY_PATH,
                 "bytes": line.len(),
@@ -71,7 +73,7 @@ pub fn store(ctx: &ToolCtx, content: &str, provenance: &str) -> ToolOutput {
 pub fn recall(ctx: &ToolCtx, query: &str) -> ToolOutput {
     if query.trim().is_empty() {
         return ToolOutput::ok(serde_json::json!({
-            "query": query,
+            "query": omega_types::redact_secrets(query),
             "results": [],
             "count": 0,
         }));
@@ -109,7 +111,7 @@ pub fn recall(ctx: &ToolCtx, query: &str) -> ToolOutput {
         }
     }
     ToolOutput::ok(serde_json::json!({
-        "query": query,
+        "query": omega_types::redact_secrets(query),
         "results": results,
         "count": results.len(),
     }))
@@ -141,10 +143,11 @@ pub fn forget(ctx: &ToolCtx, query: &str) -> ToolOutput {
                 if content.contains(query) {
                     removed += 1;
                 } else {
-                    kept.push(line.to_string());
+                    // Masque les secrets dans les faits conserves (reecriture).
+                    kept.push(omega_types::redact_secrets(line));
                 }
             }
-            Err(_) => kept.push(line.to_string()),
+            Err(_) => kept.push(omega_types::redact_secrets(line)),
         }
     }
     let mut out = String::new();
@@ -156,10 +159,15 @@ pub fn forget(ctx: &ToolCtx, query: &str) -> ToolOutput {
         return ToolOutput::err(e);
     }
     ToolOutput::ok(serde_json::json!({
-        "query": query,
+        "query": omega_types::redact_secrets(query),
         "removed": removed,
         "remaining": kept.len(),
     }))
+}
+
+/// Alias explicite (nom d'outil) pour `forget`.
+pub fn memory_forget(ctx: &ToolCtx, query: &str) -> ToolOutput {
+    forget(ctx, query)
 }
 
 fn unique_tmp_id() -> u64 {
