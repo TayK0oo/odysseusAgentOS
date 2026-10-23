@@ -134,6 +134,121 @@ impl PinnedFacts {
         self.len() == 0
     }
 
+    /// Extrait de maniere deterministe (sans LLM) les faits durables d'une liste
+    /// de messages et les epingle.
+    ///
+    /// Heuristique deterministe : un message (ou une ligne) est considere comme
+    /// fait durable s'il contient un marqueur de decision/preference/constraint/
+    /// projet, un mot-cle durable, ou une paire `cle: valeur`. Aucun appel LLM.
+    pub fn extract(messages: &[Message]) -> Self {
+        let pf = Self::new();
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut counter = 0usize;
+        for (i, msg) in messages.iter().enumerate() {
+            for line in msg.content.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+                if !Self::is_durable(trimmed) {
+                    continue;
+                }
+                if !seen.insert(trimmed.to_string()) {
+                    continue;
+                }
+                counter += 1;
+                let category = Self::infer_category(trimmed);
+                let id = format!("extracted-{}-{}", i, counter);
+                pf.upsert(PinnedFact::new(id, trimmed, category));
+            }
+            // Si aucune ligne durable mais le message entier l'est, deja couvert
+            // par la boucle ci-dessus (msg.content.lines() inclut la ligne unique).
+            let _ = i;
+        }
+        pf
+    }
+
+    /// Alias de [`Self::extract`].
+    pub fn from_messages(messages: &[Message]) -> Self {
+        Self::extract(messages)
+    }
+
+    /// Alias de [`Self::extract`].
+    pub fn extract_from(messages: &[Message]) -> Self {
+        Self::extract(messages)
+    }
+
+    /// Alias de [`Self::extract`].
+    pub fn extract_from_messages(messages: &[Message]) -> Self {
+        Self::extract(messages)
+    }
+
+    /// Alias de [`Self::extract`].
+    pub fn extract_durable(messages: &[Message]) -> Self {
+        Self::extract(messages)
+    }
+
+    /// Alias de [`Self::extract`].
+    pub fn extract_durable_facts(messages: &[Message]) -> Self {
+        Self::extract(messages)
+    }
+
+    fn is_durable(content: &str) -> bool {
+        let lower = content.to_lowercase();
+        const KEYWORDS: &[&str] = &[
+            "prefer", "preference", "decision", "constraint", "must", "always",
+            "never", "session", "project", "goal", "important", "remember",
+            "durable", "pinned", "fact", "constraint",
+        ];
+        if KEYWORDS.iter().any(|k| lower.contains(k)) {
+            return true;
+        }
+        // Marqueurs explicites
+        if content.starts_with("[PINNED]")
+            || content.starts_with("[PinnedFact:")
+            || content.starts_with("Decision:")
+            || content.starts_with("Preference:")
+            || content.starts_with("Constraint:")
+            || content.starts_with("Project:")
+            || content.starts_with("Fact:")
+            || content.starts_with("Durable:")
+        {
+            return true;
+        }
+        // Paire cle: valeur (heuristique deterministe)
+        if let Some(idx) = content.find(": ") {
+            let key = content[..idx].trim();
+            let val = content[idx + 2..].trim();
+            if !key.is_empty()
+                && !val.is_empty()
+                && key.chars().count() <= 40
+                && val.chars().count() <= 200
+            {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn infer_category(content: &str) -> String {
+        let lower = content.to_lowercase();
+        if lower.contains("prefer") {
+            "preference".to_string()
+        } else if lower.contains("decision") || lower.starts_with("decision:") {
+            "decision".to_string()
+        } else if lower.contains("constraint")
+            || lower.contains("must")
+            || lower.contains("always")
+            || lower.contains("never")
+        {
+            "constraint".to_string()
+        } else if lower.contains("project") || lower.contains("goal") {
+            "project".to_string()
+        } else {
+            "fact".to_string()
+        }
+    }
+
     /// Convertit tous les faits en messages système (pour injection dans le contexte).
     /// Triés par priorité décroissante.
     pub fn to_system_messages(&self) -> Vec<Message> {
@@ -224,4 +339,20 @@ mod tests {
         assert!(msgs[0].content.starts_with("[PinnedFact:preference]"));
         assert!(msgs[0].content.contains("User likes Rust"));
     }
+}
+
+
+/// Extrait de maniere deterministe les faits durables d'une liste de messages.
+pub fn extract_pinned_facts(messages: &[Message]) -> PinnedFacts {
+    PinnedFacts::extract(messages)
+}
+
+/// Alias de [`extract_pinned_facts`].
+pub fn extract_durable_facts(messages: &[Message]) -> PinnedFacts {
+    PinnedFacts::extract(messages)
+}
+
+/// Alias de [`extract_pinned_facts`].
+pub fn extract_facts(messages: &[Message]) -> PinnedFacts {
+    PinnedFacts::extract(messages)
 }
