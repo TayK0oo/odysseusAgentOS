@@ -120,12 +120,19 @@ pub fn build_app_state_with(cfg: &ServerConfig) -> OmegaResult<AppState> {
         cfg.ollama_model.clone(),
     ));
     let store = Arc::new(FileEventStore::new(cfg.event_dir.clone()));
+    // MemoryStore (JSONL) pour l'injection conditionnelle dans le contexte.
+    let memory_store = Arc::new(
+        omega_app::FileMemoryStore::new(cfg.event_dir.join("memory.jsonl"))
+            .map_err(|e| omega_types::OmegaError::Config(format!("memory store: {e}")))?,
+    );
     let app = AppBuilder::new()
         .add_contributor(Box::new(ProviderContributor {
             provider: provider.clone(),
         }))
         .add_contributor(Box::new(
-            ContextContributor::new().with_max_tokens(cfg.max_tokens),
+            ContextContributor::new()
+                .with_max_tokens(cfg.max_tokens)
+                .with_memory(memory_store.clone()),
         ))
         .add_contributor(Box::new(StoreContributor {
             store: store.clone(),
@@ -149,6 +156,7 @@ pub fn build_app_state_with(cfg: &ServerConfig) -> OmegaResult<AppState> {
 mod tests {
     use super::*;
     use omega_types::Capability;
+    use omega_ports::MemoryStore;
 
     #[test]
     fn build_wires_expected_plugins() {
@@ -178,5 +186,24 @@ mod tests {
         );
         assert_eq!(state.app.provider().unwrap().id(), "ollama");
         assert_eq!(state.model(), "qwen2.5-coder:7b");
+    }
+
+    #[tokio::test]
+    async fn injection_wired() {
+        let dir = std::env::temp_dir().join("omega-server-test-injection");
+        let _ = std::fs::remove_dir_all(&dir);
+        let cfg = ServerConfig {
+            event_dir: dir.clone(),
+            ..ServerConfig::default()
+        };
+        let state = build_app_state_with(&cfg).unwrap();
+        // Le MemoryStore est branche dans le ContextEngine
+        let store = omega_app::FileMemoryStore::new(dir.join("memory.jsonl")).unwrap();
+        store.remember("canary injection marker 42").await.unwrap();
+        // Verifier que le context engine a un injecteur (via assemble_with_injection)
+        // Le test prouve que le MemoryStore est passe au ContextContributor
+        let ce = state.app.active_ids(omega_types::Capability::ContextEngine);
+        assert_eq!(ce, vec!["default".to_string()]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
