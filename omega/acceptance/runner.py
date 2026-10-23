@@ -504,9 +504,13 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
 
         # Evaluation S4 : memoire persistante.
         if "memoire_retrouvee" in spec.get("attendu", {}):
-            contenu = json.dumps(reponse_run, ensure_ascii=False)
+            # Preuve par l'effet : le canary doit apparaitre dans la
+            # REPONSE du LLM (answer), pas dans l'input utilisateur.
+            answer = ""
+            if isinstance(reponse_run, dict):
+                answer = str(reponse_run.get("answer", ""))
             canary = "CANARY42"
-            report["attendus"]["memoire_retrouvee"] = canary in contenu
+            report["attendus"]["memoire_retrouvee"] = canary in answer
             run_id = (reponse_run or {}).get("run_id")
             prov_ok = False
             try:

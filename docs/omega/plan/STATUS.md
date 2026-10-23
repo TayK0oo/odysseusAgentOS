@@ -1,6 +1,6 @@
 # STATUS — AgentOS Omega (généré par measure.py — jamais édité à la main)
 
-SHA `f361b4a3` · mesuré le 2026-10-23T04:45:23+00:00 · moteur Rust (ADR-0009)
+SHA `1b94ae3c` · mesuré le 2026-10-23T05:16:37+00:00 · moteur Rust (ADR-0009)
 
 | Mesure | Valeur | Méthode |
 |---|---|---|
@@ -11,5 +11,5 @@ SHA `f361b4a3` · mesuré le 2026-10-23T04:45:23+00:00 · moteur Rust (ADR-0009)
 | dep_graph | OK | script |
 
 **Scénarios** : S0–S11 `NON_EXECUTE` (banc d'acceptation = P0-4).
-**Portes** : G0 VERT · G1 VERT · G2 VERT · G3 NON_EXECUTE · G4 NON_EXECUTE · G5 NON_EXECUTE · G6 NON_EXECUTE · G7 NON_EXECUTE — l'etat vient des rapports gate.py (docs/omega/plan/gates/), seule la sortie de gate.py fait foi (lecon L6).
-**Prochaine action** : G3 : porte non executee — lancer omega/scripts/gate.py --phase 3
+**Portes** : G0 VERT · G1 VERT · G2 ROUGE · G3 NON_EXECUTE · G4 NON_EXECUTE · G5 NON_EXECUTE · G6 NON_EXECUTE · G7 NON_EXECUTE — l'etat vient des rapports gate.py (docs/omega/plan/gates/), seule la sortie de gate.py fait foi (lecon L6).
+**Prochaine action** : G2.c.s5 : S5 compaction contexte : 5 runs tous PASS (faits retrouves apres compaction, budget respecte) — corriger puis relancer omega/scripts/gate.py --phase 2
