@@ -208,7 +208,7 @@ impl ContextEngine for DefaultContextEngine {
     }
 
     async fn assemble(&self, messages: Vec<Message>) -> OmegaResult<Vec<Message>> {
-        let (result, report) = self.assemble_sync(&messages);
+        let (result, report) = self.assemble_with_injection(&messages).await?;
         if report.over_budget {
             // Le systeme seul depasse le budget : signal type, jamais de resultat
             // hors contrat silencieux (REVIEW-W6 M1).
@@ -427,5 +427,19 @@ mod tests {
 
         let out = engine.assemble(vec![user("hi")]).await.unwrap();
         assert_eq!(out, vec![user("hi")]);
+    }
+
+    #[test]
+    fn assemble_sync_n_injecte_pas_depuis_memory_store() {
+        let store: Arc<dyn omega_ports::MemoryStore> = Arc::new(StaticMemory {
+            facts: vec!["CANARY injection marker value 42".to_string()],
+        });
+        let e = DefaultContextEngine::with_memory(store, 100);
+        let msgs = vec![user("tell me about canary please")];
+        let (out, _) = e.assemble_sync(&msgs);
+        assert!(
+            !out.iter().any(|m| m.content.contains("CANARY")),
+            "assemble_sync ne doit pas injecter (injection reservee a assemble_with_injection)"
+        );
     }
 }

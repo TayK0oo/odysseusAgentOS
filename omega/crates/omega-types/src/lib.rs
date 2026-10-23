@@ -288,7 +288,9 @@ impl Capability {
         use Capability::*;
         match self {
             ModelRegistry | TaskClassifier | RouterPolicy | ContextEngine | PromptCachePolicy
-            | MemoryStore | ExecPolicy | PermissionPolicy | EventStore | PinnedFacts => Regime::Slot,
+            | MemoryStore | ExecPolicy | PermissionPolicy | EventStore | PinnedFacts => {
+                Regime::Slot
+            }
             _ => Regime::Ensemble,
         }
     }

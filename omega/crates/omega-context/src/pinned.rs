@@ -257,7 +257,7 @@ mod tests {
         let u2 = Message::new(Role::User, "b".repeat(40));
         let msgs = vec![system.clone(), u1, u2];
 
-        let mut pinned = PinnedFacts::new();
+        let pinned = PinnedFacts::new();
         pinned.pin("explicit: important");
         let out = truncate_compact_with_pinned(&msgs, 25, &pinned);
 
@@ -273,7 +273,7 @@ mod tests {
         let u2 = Message::new(Role::User, "b".repeat(40));
         let msgs = vec![system, u1, u2];
 
-        let mut pinned = PinnedFacts::new();
+        let pinned = PinnedFacts::new();
         pinned.pin("z_fact");
         pinned.pin("a_fact");
 

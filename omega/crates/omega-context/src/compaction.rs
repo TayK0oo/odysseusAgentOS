@@ -445,13 +445,19 @@ mod pinned_compaction_tests {
         let u3 = Message::new(Role::User, "c".repeat(40));
         let msgs = vec![system.clone(), u1, u2, u3];
 
-        let mut pinned = PinnedFacts::new();
-        pinned.upsert(PinnedFact::new("pref1", "User prefers dark mode", "preference"));
+        let pinned = PinnedFacts::new();
+        pinned.upsert(PinnedFact::new(
+            "pref1",
+            "User prefers dark mode",
+            "preference",
+        ));
 
         let out = truncate_compact_with_pinned(&msgs, 25, &pinned);
 
         // Le fait épinglé doit être présent
-        assert!(out.iter().any(|m| m.content.contains("User prefers dark mode")));
+        assert!(out
+            .iter()
+            .any(|m| m.content.contains("User prefers dark mode")));
         // Le système préservé
         assert_eq!(out[0], system);
         // Marqueur de compaction présent (3 messages non-système, 2 gardés max)
@@ -464,7 +470,7 @@ mod pinned_compaction_tests {
         let u1 = Message::new(Role::User, "x".repeat(20));
         let msgs = vec![system.clone(), u1];
 
-        let mut pinned = PinnedFacts::new();
+        let pinned = PinnedFacts::new();
         pinned.upsert(PinnedFact::new("low", "low priority", "preference").with_priority(0));
         pinned.upsert(PinnedFact::new("high", "high priority", "decision").with_priority(10));
 
@@ -488,7 +494,7 @@ mod pinned_compaction_tests {
         let u1 = Message::new(Role::User, "u".repeat(100));
         let msgs = vec![system.clone(), u1];
 
-        let mut pinned = PinnedFacts::new();
+        let pinned = PinnedFacts::new();
         pinned.upsert(PinnedFact::new("fact1", "critical fact", "constraint").with_priority(100));
 
         // Budget très serré : système + épinglé + marqueur > budget
@@ -509,7 +515,7 @@ mod pinned_compaction_tests {
         let u2 = Message::new(Role::User, "b".repeat(40));
         let msgs = vec![system, u1, u2];
 
-        let mut pinned = PinnedFacts::new();
+        let pinned = PinnedFacts::new();
         pinned.upsert(PinnedFact::new("z", "z fact", "cat"));
         pinned.upsert(PinnedFact::new("a", "a fact", "cat"));
 
