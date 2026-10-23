@@ -1,6 +1,6 @@
 {
-  "git_sha": "5a0e159a",
-  "mesure_le": "2026-10-23T03:41:13+00:00",
+  "git_sha": "a2f3c8a9",
+  "mesure_le": "2026-10-23T03:48:28+00:00",
   "moteur_reference": "Rust (ADR-0009)",
   "socles": {
     "rust": {
@@ -30,10 +30,10 @@
         "omega-types"
       ],
       "tests": {
-        "valeur": 447,
+        "valeur": 442,
         "methode": "scan_attributs",
         "detail_par_crate": [
-          "omega-adapters:25",
+          "omega-adapters:20",
           "omega-app:19",
           "omega-config:10",
           "omega-context:73",
@@ -76,8 +76,8 @@
       "extrait": "modeles live: 83 (11 gratuits)\nreferences par la politique: 22\n\nmodeles interdits surveilles (ne doivent jamais apparaitre dans une regle) : 8\n\nOK : politique coherente avec la liste live"
     },
     "dep_graph": {
-      "verdict": "ECHEC(1)",
-      "extrait": "Graphe de dependances invalide (22 crates, 1 violation(s)) :\n  - arete interdite : omega-adapters (adapters) -> omega-context (adapters)"
+      "verdict": "OK",
+      "extrait": "Graphe de dependances valide (22 crates, 0 cycle, 0 arete interdite)."
     }
   },
   "avancee": {

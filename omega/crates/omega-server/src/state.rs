@@ -155,8 +155,8 @@ pub fn build_app_state_with(cfg: &ServerConfig) -> OmegaResult<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use omega_types::Capability;
     use omega_ports::MemoryStore;
+    use omega_types::Capability;
 
     #[test]
     fn build_wires_expected_plugins() {
