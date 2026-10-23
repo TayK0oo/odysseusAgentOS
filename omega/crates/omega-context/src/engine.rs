@@ -48,6 +48,8 @@ pub struct DefaultContextEngine {
     injector: Option<Arc<dyn ContextInjector>>,
     /// Derniere decision d'injection (trace vide = absence injection).
     last_injection: Mutex<InjectionTrace>,
+    /// Journal des decisions d'injection, dans l'ordre des consultes.
+    injection_journal: Mutex<Vec<InjectionTrace>>,
 }
 
 impl DefaultContextEngine {
@@ -58,6 +60,7 @@ impl DefaultContextEngine {
             last_report: Mutex::new(AssembleReport::default()),
             injector: None,
             last_injection: Mutex::new(InjectionTrace::default()),
+            injection_journal: Mutex::new(Vec::new()),
         }
     }
 
@@ -74,6 +77,14 @@ impl DefaultContextEngine {
         self.last_injection
             .lock()
             .expect("trace empoisonnee")
+            .clone()
+    }
+
+    /// Journal complet des decisions d'injection de ce moteur, dans l'ordre.
+    pub fn injection_journal(&self) -> Vec<InjectionTrace> {
+        self.injection_journal
+            .lock()
+            .expect("journal empoisonne")
             .clone()
     }
 
@@ -107,7 +118,11 @@ impl DefaultContextEngine {
                 injector.inject(messages.to_vec(), budget).await?
             }
         };
-        *self.last_injection.lock().expect("trace empoisonnee") = trace;
+        *self.last_injection.lock().expect("trace empoisonnee") = trace.clone();
+        self.injection_journal
+            .lock()
+            .expect("journal empoisonne")
+            .push(trace);
         let (result, report) = self.assemble_sync(&flux);
         Ok((result, report))
     }
@@ -366,6 +381,41 @@ mod tests {
         assert_eq!(out[1].role, Role::User);
         assert_eq!(report.kept, 2);
         assert_eq!(e.last_injection().lines.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn assemble_sans_injecteur_passthrough() {
+        // Sans injecteur, assemble_with_injection = assemble_sync (passthrough).
+        let e = DefaultContextEngine::new(100);
+        let msgs = vec![user("hello")];
+        let (out, _) = e.assemble_with_injection(&msgs).await.unwrap();
+        assert_eq!(out, msgs);
+        assert!(e.last_injection().is_empty());
+        assert_eq!(e.injection_journal().len(), 1); // decision passthrough journalisee
+    }
+
+    #[tokio::test]
+    async fn injection_journalisé_à_chaque_consulte() {
+        // Chaque consulte du MemoryStore laisse une trace dans le journal du
+        // moteur : deux appels -> deux entrees, injectante ou pas.
+        let store: Arc<dyn omega_ports::MemoryStore> = Arc::new(StaticMemory {
+            facts: vec!["OSAKA: le run budget se lit via RunBudget.usage()".to_string()],
+        });
+        let e = DefaultContextEngine::with_memory(store, 60);
+        let _ = e
+            .assemble_with_injection(&[user("explique le run budget d'OSAKA")])
+            .await
+            .unwrap();
+        let _ = e
+            .assemble_with_injection(&[user("questions sans rapport")])
+            .await
+            .unwrap();
+
+        let journal = e.injection_journal();
+        assert_eq!(journal.len(), 2);
+        assert_eq!(journal[0].lines.len(), 1); // injecte
+        assert!(journal[1].is_empty()); // pertinent absente -> decision vide
+        assert_eq!(e.last_injection().lines.len(), 0);
     }
 
     #[tokio::test]
