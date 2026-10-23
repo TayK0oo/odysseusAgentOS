@@ -46,6 +46,7 @@ pub fn store(ctx: &ToolCtx, content: &str, provenance: &str) -> ToolOutput {
             ToolOutput::ok(serde_json::json!({
                 "path": MEMORY_PATH,
                 "bytes": line.len(),
+                "provenance": provenance,
             }))
         }
         Err(e) => ToolOutput::err(format!("écriture impossible : {}", e)),

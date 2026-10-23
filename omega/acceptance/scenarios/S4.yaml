@@ -3,7 +3,7 @@ nom: memoire_persistante
 phase: P2
 modes: [scripte]
 prerequis: [cargo, python_3_12]
-llm_scripte: react
+llm_scripte: memory
 mise_en_situation:
   workdir: tmpdir
 actions:

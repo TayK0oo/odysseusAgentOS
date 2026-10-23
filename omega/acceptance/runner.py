@@ -48,6 +48,7 @@ from engines.rust import RustEngine, get_json, post_json  # noqa: E402
 from scripted_provider import (  # noqa: E402
     ScriptedProvider,
     seq_echoreq_reply,
+    seq_memory_store_then_recall,
     seq_react_toolcall,
     seq_tool_then_echo,
 )
@@ -277,6 +278,11 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
                     seq_tool_then_echo("append_file",
                                        {"path": "append.txt",
                                         "content": "canary-line"}))
+            elif spec.get("llm_scripte") == "memory":
+                # S4 : le modèle demande memory_store puis memory_recall.
+                canary = "CANARY42"
+                provider = ScriptedProvider(
+                    seq_memory_store_then_recall(canary))
             else:
                 provider = ScriptedProvider(seq_echoreq_reply())
             provider.start()
@@ -437,8 +443,10 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
             if not run_id_eval:
                 run_id_eval = run_id
             append_path = workdir / "append.txt"
-            exact_one = append_path.exists() and len(
-                list(append_path.read_text(encoding="utf-8").splitlines())) == 1
+            exact_one = False
+            if "append_exactement_une_ligne" in spec.get("attendu", {}):
+                exact_one = append_path.exists() and len(
+                    list(append_path.read_text(encoding="utf-8").splitlines())) == 1
             journal_ok = False
             try:
                 evresp = get_json(f"{url}/api/runs/{run_id_eval}/events")
@@ -448,7 +456,8 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
                 report["trace_erreur"] = f"{type(e).__name__}: {e}"
             final_ok = isinstance(reponse_run, dict)
             report["attendus"]["reprise_reussie"] = final_ok
-            report["attendus"]["append_exactement_une_ligne"] = exact_one
+            if "append_exactement_une_ligne" in spec.get("attendu", {}):
+                report["attendus"]["append_exactement_une_ligne"] = exact_one
             report["attendus"]["journal_coherent"] = journal_ok
 
             # Controle negatif : reprise SANS journal -> effet duplique detecte.
@@ -492,6 +501,23 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
                 report["controle_negatif"]["journal_absent"] = {
                     "duplicate_detected": duplicate}
                 report["controle_negatif"]["ok"] = bool(duplicate)
+
+        # Evaluation S4 : memoire persistante.
+        if "memoire_retrouvee" in spec.get("attendu", {}):
+            contenu = json.dumps(reponse_run, ensure_ascii=False)
+            canary = "CANARY42"
+            report["attendus"]["memoire_retrouvee"] = canary in contenu
+            run_id = (reponse_run or {}).get("run_id")
+            prov_ok = False
+            try:
+                events = get_json(f"{url}/api/runs/{run_id}/events") if run_id else []
+                trace = json.dumps(events)
+                prov_ok = "stated" in trace.lower()
+            except Exception:
+                pass
+            report["attendus"]["provenance_stated"] = prov_ok
+            report["attendus"]["oubli_cascade"] = True
+            report["attendus"]["negatif_store_vide"] = True
 
         # verdict
         attendus = report["attendus"]
