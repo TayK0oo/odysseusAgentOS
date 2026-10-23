@@ -66,78 +66,6 @@ pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
     result
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use omega_types::{Message, Role};
-
-    #[test]
-    fn under_budget_is_unchanged() {
-        let msgs = vec![
-            Message::new(Role::System, "SYS"),
-            Message::new(Role::User, "u1"),
-        ];
-        let out = truncate_compact(&msgs, 100);
-        assert_eq!(out, msgs);
-    }
-
-    #[test]
-    fn over_budget_keeps_system_recent_and_marks_omitted() {
-        let system = Message::new(Role::System, "s".repeat(40));
-        let u1 = Message::new(Role::User, "a".repeat(40));
-        let u2 = Message::new(Role::User, "b".repeat(40));
-        let u3 = Message::new(Role::User, "c".repeat(40));
-        let u4 = Message::new(Role::User, "d".repeat(40));
-        let u5 = Message::new(Role::User, "e".repeat(40));
-        let msgs = vec![system.clone(), u1, u2, u3, u4.clone(), u5.clone()];
-
-        let out = truncate_compact(&msgs, 38);
-
-        assert_eq!(out.len(), 4);
-        assert_eq!(out[0], system);
-        assert_eq!(
-            out[1],
-            Message::new(Role::System, "…[compacted 3 messages omis]…")
-        );
-        assert_eq!(out[2], u4);
-        assert_eq!(out[3], u5);
-    }
-
-    #[test]
-    fn compacted_result_respects_budget() {
-        let msgs: Vec<Message> = (0..20)
-            .map(|i| Message::new(Role::User, format!("message numero {i}")))
-            .collect();
-        let out = truncate_compact(&msgs, 24);
-        let estimator = TokenEstimator::new();
-        assert!(estimator.estimate_messages(&out) <= 24);
-        assert!(out.iter().any(|m| m.content.starts_with("…[compacted")));
-    }
-
-    #[test]
-    fn compaction_is_deterministic() {
-        let msgs = vec![
-            Message::new(Role::System, "s".repeat(40)),
-            Message::new(Role::User, "a".repeat(40)),
-            Message::new(Role::User, "b".repeat(40)),
-            Message::new(Role::User, "c".repeat(40)),
-            Message::new(Role::User, "d".repeat(40)),
-        ];
-        let a = truncate_compact(&msgs, 28);
-        let b = truncate_compact(&msgs, 28);
-        assert_eq!(a, b);
-    }
-
-    #[test]
-    fn system_alone_over_budget_preserves_system_without_lying_marker() {
-        let system = Message::new(Role::System, "s".repeat(40));
-        let user = Message::new(Role::User, "u".repeat(8));
-        let out = truncate_compact(&[system.clone(), user], 5);
-
-        assert_eq!(out, vec![system]);
-        assert!(out.iter().all(|m| !m.content.starts_with("…[compacted")));
-    }
-}
 
 // --- Double-layer LLM compaction (NOYAU Phase C) ------------------------------
 
@@ -273,6 +201,7 @@ impl LlmCompactionEngine {
     }
 }
 
+#[allow(clippy::items_after_test_module)]
 #[cfg(test)]
 mod llm_compaction_tests {
     use super::*;
@@ -522,5 +451,79 @@ mod pinned_compaction_tests {
         let out1 = truncate_compact_with_pinned(&msgs, 25, &pinned);
         let out2 = truncate_compact_with_pinned(&msgs, 25, &pinned);
         assert_eq!(out1, out2);
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::items_after_test_module)]
+mod tests {
+    use super::*;
+    use omega_types::{Message, Role};
+
+    #[test]
+    fn under_budget_is_unchanged() {
+        let msgs = vec![
+            Message::new(Role::System, "SYS"),
+            Message::new(Role::User, "u1"),
+        ];
+        let out = truncate_compact(&msgs, 100);
+        assert_eq!(out, msgs);
+    }
+
+    #[test]
+    fn over_budget_keeps_system_recent_and_marks_omitted() {
+        let system = Message::new(Role::System, "s".repeat(40));
+        let u1 = Message::new(Role::User, "a".repeat(40));
+        let u2 = Message::new(Role::User, "b".repeat(40));
+        let u3 = Message::new(Role::User, "c".repeat(40));
+        let u4 = Message::new(Role::User, "d".repeat(40));
+        let u5 = Message::new(Role::User, "e".repeat(40));
+        let msgs = vec![system.clone(), u1, u2, u3, u4.clone(), u5.clone()];
+
+        let out = truncate_compact(&msgs, 38);
+
+        assert_eq!(out.len(), 4);
+        assert_eq!(out[0], system);
+        assert_eq!(
+            out[1],
+            Message::new(Role::System, "…[compacted 3 messages omis]…")
+        );
+        assert_eq!(out[2], u4);
+        assert_eq!(out[3], u5);
+    }
+
+    #[test]
+    fn compacted_result_respects_budget() {
+        let msgs: Vec<Message> = (0..20)
+            .map(|i| Message::new(Role::User, format!("message numero {i}")))
+            .collect();
+        let out = truncate_compact(&msgs, 24);
+        let estimator = TokenEstimator::new();
+        assert!(estimator.estimate_messages(&out) <= 24);
+        assert!(out.iter().any(|m| m.content.starts_with("…[compacted")));
+    }
+
+    #[test]
+    fn compaction_is_deterministic() {
+        let msgs = vec![
+            Message::new(Role::System, "s".repeat(40)),
+            Message::new(Role::User, "a".repeat(40)),
+            Message::new(Role::User, "b".repeat(40)),
+            Message::new(Role::User, "c".repeat(40)),
+            Message::new(Role::User, "d".repeat(40)),
+        ];
+        let a = truncate_compact(&msgs, 28);
+        let b = truncate_compact(&msgs, 28);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn system_alone_over_budget_preserves_system_without_lying_marker() {
+        let system = Message::new(Role::System, "s".repeat(40));
+        let user = Message::new(Role::User, "u".repeat(8));
+        let out = truncate_compact(&[system.clone(), user], 5);
+
+        assert_eq!(out, vec![system]);
+        assert!(out.iter().all(|m| !m.content.starts_with("…[compacted")));
     }
 }

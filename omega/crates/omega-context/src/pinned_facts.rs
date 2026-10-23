@@ -196,9 +196,22 @@ impl PinnedFacts {
     fn is_durable(content: &str) -> bool {
         let lower = content.to_lowercase();
         const KEYWORDS: &[&str] = &[
-            "prefer", "preference", "decision", "constraint", "must", "always",
-            "never", "session", "project", "goal", "important", "remember",
-            "durable", "pinned", "fact", "constraint",
+            "prefer",
+            "preference",
+            "decision",
+            "constraint",
+            "must",
+            "always",
+            "never",
+            "session",
+            "project",
+            "goal",
+            "important",
+            "remember",
+            "durable",
+            "pinned",
+            "fact",
+            "constraint",
         ];
         if KEYWORDS.iter().any(|k| lower.contains(k)) {
             return true;
@@ -272,6 +285,22 @@ impl PinnedFacts {
     }
 }
 
+
+/// Extrait de maniere deterministe les faits durables d'une liste de messages.
+pub fn extract_pinned_facts(messages: &[Message]) -> PinnedFacts {
+    PinnedFacts::extract(messages)
+}
+
+/// Alias de [`extract_pinned_facts`].
+pub fn extract_durable_facts(messages: &[Message]) -> PinnedFacts {
+    PinnedFacts::extract(messages)
+}
+
+/// Alias de [`extract_pinned_facts`].
+pub fn extract_facts(messages: &[Message]) -> PinnedFacts {
+    PinnedFacts::extract(messages)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -339,20 +368,4 @@ mod tests {
         assert!(msgs[0].content.starts_with("[PinnedFact:preference]"));
         assert!(msgs[0].content.contains("User likes Rust"));
     }
-}
-
-
-/// Extrait de maniere deterministe les faits durables d'une liste de messages.
-pub fn extract_pinned_facts(messages: &[Message]) -> PinnedFacts {
-    PinnedFacts::extract(messages)
-}
-
-/// Alias de [`extract_pinned_facts`].
-pub fn extract_durable_facts(messages: &[Message]) -> PinnedFacts {
-    PinnedFacts::extract(messages)
-}
-
-/// Alias de [`extract_pinned_facts`].
-pub fn extract_facts(messages: &[Message]) -> PinnedFacts {
-    PinnedFacts::extract(messages)
 }
