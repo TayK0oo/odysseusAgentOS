@@ -140,3 +140,10 @@
 ## 2026-10-23 — P0-6 détecteur d'orphelins
 - detect_orphans.py : baseline (8 orphelins nommés) + --strict (exit 1). 2 tests verts.
 - verify VERT, gate G2 VERT. Push c7555383.
+
+## 2026-10-23 — Audit G2 (Vague A)
+- A1: stubs = True littéraux (runner.py:519-520,525,527,437,134). G2.b.s4 et G2.c.s5 verts malgré sabotage sur assertions stubbées.
+- A2: /api/run = POST JSON, DefaultContextEngine (owns_compaction=false), injection lit event_dir/memory.jsonl (souvent vide), outil écrit workspace/.omega/memory.jsonl — deux stores disjoints.
+- A3: measure/verify/gate 0/1/2 VERT, CI omega-gates success, 27 branches obsolètes, 125 worktrees prunables, journal clean.
+- A4: 6 défauts — mémoire déconnectée (haute), pas de redaction dans l'outil (moyenne), recall contains vide (moyenne), delete ignore erreurs (moyenne), budget injection incomplet (basse), collision .tmp concurrent (basse).
+- Barrière A : N0 relance gate+measure → VERT. Rapport cohérent avec sortie. Prochaine : Vague B (gate-honnête).
