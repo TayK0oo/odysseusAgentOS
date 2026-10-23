@@ -20,7 +20,7 @@ import argparse
 import json
 import sys
 import tomllib
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent

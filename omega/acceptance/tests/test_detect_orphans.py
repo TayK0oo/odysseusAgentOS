@@ -14,7 +14,7 @@ def test_detect_orphans_baseline():
     """Mode baseline : exit 0, JSON écrit."""
     r = subprocess.run(
         [sys.executable, str(SCRIPT)],
-        capture_output=True, text=True,
+        capture_output=True, text=True, check=False,
     )
     assert r.returncode == 0, r.stderr
     data = json.loads(r.stdout)
@@ -25,7 +25,7 @@ def test_detect_orphans_baseline():
 def test_detect_orphans_strict_names_fake():
     """Contrôle négatif : un plugin factice sans scénario ⇒ --strict échoue en le nommant."""
     with tempfile.TemporaryDirectory() as td:
-        td = Path(td)
+        td = Path(td)  # noqa: PLW2901
         # gates.toml minimal avec un plugin factice
         gates = td / "gates.toml"
         gates.write_text(
@@ -42,7 +42,7 @@ def test_detect_orphans_strict_names_fake():
         r = subprocess.run(
             [sys.executable, str(SCRIPT), "--gates", str(gates),
              "--scenarios", str(scen), "--strict", "--baselines", str(td / "baselines")],
-            capture_output=True, text=True,
+            capture_output=True, text=True, check=False,
         )
         assert r.returncode == 1, f"attendu exit 1, obtenu {r.returncode}"
         combined = r.stdout + r.stderr
