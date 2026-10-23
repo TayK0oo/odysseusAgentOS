@@ -116,12 +116,24 @@ impl ContextInjector for MemoryInjection {
         if !keywords.is_empty() && budget_tokens > 0 {
             let recalled = self.store.recall(query, self.recall_limit).await?;
             for fact in recalled {
-                // 1) pertinence
-                if !keywords.iter().any(|w| fact.to_lowercase().contains(w)) {
+                // 1) pertinence : au moins un mot-cle du fait vient de la requete.
+                let matched: Vec<String> = keywords
+                    .iter()
+                    .filter(|w| fact.to_lowercase().contains(w.as_str()))
+                    .cloned()
+                    .collect();
+                if matched.is_empty() {
                     continue;
                 }
-                // 2) change la reponse ? (si deja present, injecter ne changerait rien)
-                let deja_compris = messages.iter().any(|m| m.content.contains(&fact));
+                // 2) change la reponse ? Si des messages non-Utilisateur deja
+                // au modele couvrent tous les mots-cles du fait, l'injecter
+                // n'apporterait aucune information nouvelle.
+                let deja_compris = matched.iter().all(|w| {
+                    messages
+                        .iter()
+                        .filter(|m| m.role != Role::User)
+                        .any(|m| m.content.to_lowercase().contains(w))
+                });
                 if deja_compris {
                     continue;
                 }
@@ -146,7 +158,10 @@ impl ContextInjector for MemoryInjection {
             tokens_used: used,
             budget: budget_tokens,
         };
-        self.journal.lock().expect("journal empoisonne").push(trace.clone());
+        self.journal
+            .lock()
+            .expect("journal empoisonne")
+            .push(trace.clone());
 
         if selected.is_empty() {
             return Ok((messages, trace));
@@ -246,15 +261,13 @@ mod tests {
         assert!(trace.lines[0].fact.contains("OSAKA"));
         assert!(trace.lines[0].tokens > 0);
         assert_eq!(trace.tokens_used, trace.lines[0].tokens);
-        // deja compris : pas d'injection, la reponse n'en changerait pas
+        // deja compris : une reponse non-User couvre deja tous les mots-cles du
+        // fait -> l'injecter ne changerait rien.
         let deja = vec![
             user_msg("explique le run budget d'OSAKA stp"),
-            Message::new(Role::Assistant, "cf RunBudget.usage()"),
+            Message::new(Role::Assistant, "OSAKA budget: cf doc"),
         ];
-        let (out2, trace2) = inj
-            .inject(deja, 50)
-            .await
-            .expect("dedup");
+        let (out2, trace2) = inj.inject(deja, 50).await.expect("dedup");
         assert_eq!(out2.len(), 2);
         assert!(trace2.is_empty());
     }
