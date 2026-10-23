@@ -1,6 +1,6 @@
 {
-  "git_sha": "1b94ae3c",
-  "mesure_le": "2026-10-23T05:16:37+00:00",
+  "git_sha": "4616e314",
+  "mesure_le": "2026-10-23T05:24:49+00:00",
   "moteur_reference": "Rust (ADR-0009)",
   "socles": {
     "rust": {
