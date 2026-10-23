@@ -10,7 +10,7 @@ use omega_types::OmegaResult;
 use omega_types::ToolSpec;
 
 /// Nom des outils exposés (identiques à `TOOL_TAGS` d'odysseus).
-pub const TOOL_NAMES: [&str; 10] = [
+pub const TOOL_NAMES: [&str; 11] = [
     "read_file",
     "write_file",
     "append_file",
@@ -21,6 +21,7 @@ pub const TOOL_NAMES: [&str; 10] = [
     "get_workspace",
     "memory_store",
     "memory_recall",
+    "memory_forget",
 ];
 
 /// Schémas JSON des outils filesystem.
@@ -86,6 +87,12 @@ pub fn schemas() -> Vec<serde_json::Value> {
             vec!["query"],
             vec!["query"],
         ),
+        schema(
+            "memory_forget",
+            "Oublie les faits mémorisés dont le contenu contient la requête.",
+            vec!["query"],
+            vec!["query"],
+        ),
     ]
 }
 
@@ -135,6 +142,7 @@ pub fn dispatch(ctx: &ToolCtx, tool: &str, args: &serde_json::Value) -> ToolOutp
         "get_workspace" => workspace::describe(ctx),
         "memory_store" => memory::store(ctx, s("content"), s("provenance")),
         "memory_recall" => memory::recall(ctx, s("query")),
+        "memory_forget" => memory::forget(ctx, s("query")),
         other => ToolOutput::err(format!("outil inconnu : {}", other)),
     }
 }
@@ -167,9 +175,9 @@ mod tests {
     }
 
     #[test]
-    fn ten_tools_declared() {
-        assert_eq!(TOOL_NAMES.len(), 10);
-        assert_eq!(schemas().len(), 10);
+    fn eleven_tools_declared() {
+        assert_eq!(TOOL_NAMES.len(), 11);
+        assert_eq!(schemas().len(), 11);
     }
 
     #[test]

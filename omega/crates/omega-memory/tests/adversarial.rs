@@ -109,7 +109,7 @@ fn atk_delete_wrong_id_is_noop() {
         store.remember("garder").await.unwrap();
     });
     assert!(
-        !store.delete("id-inexistant"),
+        !store.delete("id-inexistant").unwrap_or(false),
         "suppression inexistante doit être no-op"
     );
     assert_eq!(store.all(10).len(), 1, "la mémoire a été perdue");

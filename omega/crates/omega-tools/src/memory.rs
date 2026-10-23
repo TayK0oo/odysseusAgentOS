@@ -20,6 +20,8 @@ pub fn store(ctx: &ToolCtx, content: &str, provenance: &str) -> ToolOutput {
     if provenance.trim().is_empty() {
         return ToolOutput::err("provenance vide : fait non traçable");
     }
+    let content = omega_types::redact_secrets(content);
+    let provenance = omega_types::redact_secrets(provenance);
     let abs = match ctx.resolve(MEMORY_PATH) {
         Ok(p) => p,
         Err(e) => return ToolOutput::err(e),
@@ -56,6 +58,13 @@ pub fn store(ctx: &ToolCtx, content: &str, provenance: &str) -> ToolOutput {
 /// Rappelle les faits dont le contenu contient `query` (filtre littéral, comme
 /// `FileMemoryStore::recall`).
 pub fn recall(ctx: &ToolCtx, query: &str) -> ToolOutput {
+    if query.trim().is_empty() {
+        return ToolOutput::ok(serde_json::json!({
+            "query": query,
+            "results": [],
+            "count": 0,
+        }));
+    }
     let abs = match ctx.resolve(MEMORY_PATH) {
         Ok(p) => p,
         Err(e) => return ToolOutput::err(e),
@@ -81,8 +90,8 @@ pub fn recall(ctx: &ToolCtx, query: &str) -> ToolOutput {
             continue;
         }
         results.push(serde_json::json!({
-            "content": content,
-            "provenance": v.get("provenance").and_then(|p| p.as_str()).unwrap_or(""),
+            "content": omega_types::redact_secrets(content),
+            "provenance": omega_types::redact_secrets(v.get("provenance").and_then(|p| p.as_str()).unwrap_or("")),
         }));
         if results.len() >= RECALL_LIMIT {
             break;
@@ -93,6 +102,93 @@ pub fn recall(ctx: &ToolCtx, query: &str) -> ToolOutput {
         "results": results,
         "count": results.len(),
     }))
+}
+
+/// Supprime les faits dont le contenu contient `query` (filtre littéral).
+pub fn forget(ctx: &ToolCtx, query: &str) -> ToolOutput {
+    if query.trim().is_empty() {
+        return ToolOutput::err("requête vide : rien à oublier");
+    }
+    let abs = match ctx.resolve(MEMORY_PATH) {
+        Ok(p) => p,
+        Err(e) => return ToolOutput::err(e),
+    };
+    let text = match std::fs::read_to_string(&abs) {
+        Ok(t) => t,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return ToolOutput::err(format!("lecture impossible : {}", e)),
+    };
+    let mut kept: Vec<String> = Vec::new();
+    let mut removed = 0usize;
+    for line in text.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        match serde_json::from_str::<serde_json::Value>(line) {
+            Ok(v) => {
+                let content = v.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                if content.contains(query) {
+                    removed += 1;
+                } else {
+                    kept.push(line.to_string());
+                }
+            }
+            Err(_) => kept.push(line.to_string()),
+        }
+    }
+    let mut out = String::new();
+    for l in &kept {
+        out.push_str(l);
+        out.push('\n');
+    }
+    if let Err(e) = atomic_write(&abs, &out) {
+        return ToolOutput::err(e);
+    }
+    ToolOutput::ok(serde_json::json!({
+        "query": query,
+        "removed": removed,
+        "remaining": kept.len(),
+    }))
+}
+
+fn unique_tmp_id() -> u64 {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static CTR: AtomicU64 = AtomicU64::new(0);
+    let n = CTR.fetch_add(1, Ordering::Relaxed);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0);
+    nanos ^ (n.wrapping_mul(0x9e3779b97f4a7c15)) ^ (std::process::id() as u64)
+}
+
+fn atomic_write(path: &std::path::Path, content: &str) -> Result<(), String> {
+    let tmp_name = format!(
+        "{}.{}.tmp",
+        path.file_name().unwrap_or_default().to_string_lossy(),
+        unique_tmp_id()
+    );
+    let tmp = path.with_file_name(tmp_name);
+    {
+        use std::io::Write;
+        let mut f =
+            std::fs::File::create(&tmp).map_err(|e| format!("écriture impossible : {}", e))?;
+        f.write_all(content.as_bytes())
+            .map_err(|e| format!("écriture impossible : {}", e))?;
+        f.sync_all()
+            .map_err(|e| format!("écriture impossible : {}", e))?;
+    }
+    std::fs::rename(&tmp, path).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        format!("écriture impossible : {}", e)
+    })?;
+    if let Some(parent) = path.parent() {
+        if let Ok(d) = std::fs::File::open(parent) {
+            let _ = d.sync_all();
+        }
+    }
+    let _ = std::fs::remove_file(&tmp);
+    Ok(())
 }
 
 #[cfg(test)]

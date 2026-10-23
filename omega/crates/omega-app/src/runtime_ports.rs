@@ -56,6 +56,9 @@ impl MemoryStore for FileMemoryStore {
         "file-memory"
     }
     async fn recall(&self, query: &str, limit: usize) -> OmegaResult<Vec<String>> {
+        if query.trim().is_empty() {
+            return Ok(Vec::new());
+        }
         let facts = self.facts.lock().unwrap();
         let results: Vec<String> = facts
             .iter()
