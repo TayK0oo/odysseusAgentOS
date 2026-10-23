@@ -428,4 +428,18 @@ mod tests {
         let out = engine.assemble(vec![user("hi")]).await.unwrap();
         assert_eq!(out, vec![user("hi")]);
     }
+
+    #[test]
+    fn assemble_sync_n_injecte_pas_depuis_memory_store() {
+        let store: Arc<dyn omega_ports::MemoryStore> = Arc::new(StaticMemory {
+            facts: vec!["CANARY injection marker value 42".to_string()],
+        });
+        let e = DefaultContextEngine::with_memory(store, 100);
+        let msgs = vec![user("tell me about canary please")];
+        let (out, _) = e.assemble_sync(&msgs);
+        assert!(
+            out.iter().any(|m| m.content.contains("CANARY")),
+            "assemble_sync ne consulte pas le ContextInjector"
+        );
+    }
 }
