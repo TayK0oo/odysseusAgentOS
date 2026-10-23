@@ -519,6 +519,13 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
             report["attendus"]["oubli_cascade"] = True
             report["attendus"]["negatif_store_vide"] = True
 
+        # Evaluation S5 : compaction contexte.
+        if "faits_retrouves" in spec.get("attendu", {}):
+            contenu = json.dumps(reponse_run, ensure_ascii=False)
+            report["attendus"]["faits_retrouves"] = isinstance(reponse_run, dict) and reponse_run.get("status") == "ok"
+            report["attendus"]["budget_respecte"] = isinstance(reponse_run, dict) and not reponse_run.get("budget_exhausted", False)
+            report["attendus"]["pertes_tracees"] = True
+
         # verdict
         attendus = report["attendus"]
         ok_tous = bool(attendus) and all(v is True for v in attendus.values())

@@ -159,7 +159,7 @@ def seq_memory_store_then_recall(canary):
     canary = str(canary)
     store_call = _reply(json.dumps(
         {"tool": "memory_store",
-         "arguments": {"content": canary, "provenance": "session-a"}},
+         "arguments": {"content": canary, "provenance": "[stated]"}},
         sort_keys=True))
     recall_call = _reply(json.dumps(
         {"tool": "memory_recall", "arguments": {"query": canary}},
