@@ -129,3 +129,10 @@
 - cargo-mutants non disponible → mutation non exécutée. Dette nommée, à traiter avant G7.
 - ADR-0018 : seuil 50 ms choisi (marge ×4,5), non dérivé. Dette nommée.
 - G2 VERT sur le gate (9/9). P3 sur ordre explicite.
+
+## 2026-10-23 — Plateau : 3 portes fermées, zéro dette silencieuse
+- HEAD 090c1886 : G0+G1+G2 VERT, verify VERT. ADR-0018 (seuil choisi) + ADR-0019 (déférée totalité) + ticket cargo-mutants tracés.
+- Aucune porte rouge → "prochaine action calculée" n'existe plus (plan §10 est un protocole d'exécution, pas de décision de plateau).
+- P3 s'ouvre par décision stratégique (ADR-0020), pas par calcul. Préalable recommandé : P0-6 détecteur d'orphelins (seule dette qui touche P3-3 validation).
+- R5 mutation déférée P7 (ticket ouvert, non bloquant P3). P0-8 ledger déféré P7 (non bloquant P3).
+- Prochaine action : décision explicite (P0-6 seul, ou P3 avec ADR-0020, ou attente quota). Le plan ne tranche pas.
