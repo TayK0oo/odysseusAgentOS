@@ -1,14 +1,19 @@
 //! Câblage : [`ContextContributor`] fournit le moteur et (optionnellement) les index
 //! via le registre (`register_dyn` pour le port, `register_typed` pour les index).
+//!
+//! Peut optionnellement brancher `LlmCompactionEngine` (double couche) si un
+//! `Provider` est fourni, et exposer `PinnedFacts` pour les faits durables.
 
 use std::sync::Arc;
 
 use omega_plugin_api::{Contributor, InstallContext};
-use omega_ports::ContextEngine;
+use omega_ports::{ContextEngine, Provider};
 use omega_registry::{Manifest, RegistryBuilder};
 use omega_types::{Capability, OmegaResult};
 
+use crate::compaction::LlmCompactionEngine;
 use crate::engine::DefaultContextEngine;
+use crate::pinned_facts::PinnedFacts;
 use crate::skills::SkillIndex;
 use crate::tool_surface::ToolSurfaceIndex;
 
@@ -16,7 +21,9 @@ use crate::tool_surface::ToolSurfaceIndex;
 pub const DEFAULT_MAX_TOKENS: usize = 4000;
 
 /// Contribue `DefaultContextEngine` (slot `context-engine`) et, si fournis, un
-/// `ToolSurfaceIndex` (capacite `tool-surface`) et un `SkillIndex` (`skill-store`).
+/// `ToolSurfaceIndex` (capacite `tool-surface`), un `SkillIndex` (`skill-store`),
+/// un `PinnedFacts` (capacite `pinned-facts`), et optionnellement un
+/// `LlmCompactionEngine` (double couche LLM) si un `Provider` est fourni.
 ///
 /// Enregistrable dans `AppBuilder` : `add_contributor(Box::new(ContextContributor::new()))`.
 /// Le moteur est enregistre en `Arc<dyn ContextEngine>` (`register_dyn`) pour etre
@@ -25,6 +32,11 @@ pub struct ContextContributor {
     max_tokens: usize,
     tool_index: Option<Arc<ToolSurfaceIndex>>,
     skill_index: Option<Arc<SkillIndex>>,
+    pinned_facts: Option<Arc<PinnedFacts>>,
+    /// Provider optionnel pour activer `LlmCompactionEngine` (couche 2 LLM).
+    /// Si fourni, remplace le moteur par defaut par un `LlmCompactionEngine`
+    /// qui enrobe le `DefaultContextEngine`.
+    llm_provider: Option<Arc<dyn Provider>>,
 }
 
 impl Default for ContextContributor {
@@ -39,6 +51,8 @@ impl ContextContributor {
             max_tokens: DEFAULT_MAX_TOKENS,
             tool_index: None,
             skill_index: None,
+            pinned_facts: None,
+            llm_provider: None,
         }
     }
 
@@ -54,6 +68,20 @@ impl ContextContributor {
 
     pub fn with_skill_index(mut self, index: SkillIndex) -> Self {
         self.skill_index = Some(Arc::new(index));
+        self
+    }
+
+    /// Fournit un `PinnedFacts` partagé (enregistré comme capacite `pinned-facts`).
+    pub fn with_pinned_facts(mut self, facts: PinnedFacts) -> Self {
+        self.pinned_facts = Some(Arc::new(facts));
+        self
+    }
+
+    /// Fournit un `Provider` pour activer `LlmCompactionEngine` (double couche LLM).
+    /// Le moteur par defaut (`DefaultContextEngine`) devient la couche 1 (truncation
+    /// deterministe) et `LlmCompactionEngine` ajoute la couche 2 (resume LLM).
+    pub fn with_llm_compaction(mut self, provider: Arc<dyn Provider>) -> Self {
+        self.llm_provider = Some(provider);
         self
     }
 
@@ -73,8 +101,18 @@ impl Contributor for ContextContributor {
     }
 
     fn contribute(&self, builder: &mut RegistryBuilder, ctx: &InstallContext) -> OmegaResult<()> {
-        let engine: Arc<dyn ContextEngine> =
-            Arc::new(DefaultContextEngine::new(self.resolve_max_tokens(ctx)));
+        let max_tokens = self.resolve_max_tokens(ctx);
+
+        // Moteur de base (couche 1 : truncation deterministe)
+        let base_engine: Arc<dyn ContextEngine> = Arc::new(DefaultContextEngine::new(max_tokens));
+
+        // Si provider fourni, enrober dans LlmCompactionEngine (couche 2 : resume LLM)
+        let engine: Arc<dyn ContextEngine> = if let Some(provider) = &self.llm_provider {
+            Arc::new(LlmCompactionEngine::new(base_engine, provider.clone()))
+        } else {
+            base_engine
+        };
+
         builder.register_dyn(
             Manifest::new("default", Capability::ContextEngine, "1"),
             engine,
@@ -90,6 +128,12 @@ impl Contributor for ContextContributor {
             builder.register_typed(
                 Manifest::new("progressive", Capability::SkillStore, "1"),
                 index.clone(),
+            )?;
+        }
+        if let Some(facts) = &self.pinned_facts {
+            builder.register_typed(
+                Manifest::new("default", Capability::PinnedFacts, "1"),
+                facts.clone(),
             )?;
         }
         Ok(())
