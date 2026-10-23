@@ -3,6 +3,7 @@
 
 use omega_types::{Message, Role};
 
+use crate::pinned_facts::PinnedFacts;
 use crate::token::TokenEstimator;
 
 /// Marqueur de compaction : `k` = nombre de messages omis.
@@ -348,5 +349,172 @@ mod llm_compaction_tests {
         assert!(out
             .iter()
             .any(|m| m.content.starts_with("Summary: SUMMARY:")));
+    }
+}
+
+/// Compacte une conversation sous budget en **préservant les faits épinglés**.
+///
+/// Les faits épinglés (via `PinnedFacts`) sont injectés après le préfixe système
+/// et avant le marqueur de compaction. Ils ne sont jamais supprimés.
+///
+/// Algorithme :
+/// 1. Sépare le préfixe système (rôles `System` initiaux)
+/// 2. Calcule le coût des faits épinglés + système
+/// 3. Réserve la place pour le marqueur de compaction
+/// 4. Garde le suffixe maximal des messages récents non-épinglés
+/// 5. Insère le marqueur si des messages ont été omis
+pub fn truncate_compact_with_pinned(
+    messages: &[Message],
+    budget: usize,
+    pinned: &PinnedFacts,
+) -> Vec<Message> {
+    let estimator = TokenEstimator::new();
+
+    // 1. Préfixe système (intouchable)
+    let system: Vec<Message> = messages
+        .iter()
+        .take_while(|m| m.role == Role::System)
+        .cloned()
+        .collect();
+
+    // 2. Messages non-système
+    let non_system = &messages[system.len()..];
+
+    // 3. Faits épinglés -> messages système
+    let pinned_msgs = pinned.to_system_messages();
+
+    // 4. Combine système + épinglés
+    let mut preserved_prefix = system;
+    preserved_prefix.extend(pinned_msgs);
+    let prefix_tokens = estimator.estimate_messages(&preserved_prefix);
+
+    // 5. Réserve place pour le marqueur (pire cas : tout le non-système omis)
+    let marker_reserve = estimator.estimate(&compaction_marker(non_system.len()));
+
+    // 6. Si tout tient dans le budget (messages originaux + faits épinglés), on retourne
+    //    le tout avec les faits épinglés injectés (pas de compaction nécessaire).
+    let original_with_pinned = {
+        let mut v = preserved_prefix.clone();
+        v.extend(non_system.iter().cloned());
+        v
+    };
+    if estimator.estimate_messages(&original_with_pinned) <= budget {
+        return original_with_pinned;
+    }
+
+    // 7. Budget trop étroit pour tout garder : garde seulement le préfixe (pas de marqueur mensonger)
+    if prefix_tokens + marker_reserve > budget {
+        return preserved_prefix;
+    }
+
+    // 8. Suffixe maximal des messages récents non-épinglés
+    let mut kept: Vec<Message> = Vec::new();
+    let mut kept_tokens = prefix_tokens + marker_reserve;
+    for msg in non_system.iter().rev() {
+        let t = estimator.estimate(&msg.content);
+        if kept_tokens + t <= budget {
+            kept_tokens += t;
+            kept.push(msg.clone());
+        } else {
+            break;
+        }
+    }
+    kept.reverse();
+    let omitted = non_system.len() - kept.len();
+
+    // 9. Reconstitue : préfixe + marqueur (si omis) + suffixe gardé
+    let mut result = preserved_prefix;
+    if omitted > 0 {
+        result.push(Message::new(Role::System, compaction_marker(omitted)));
+    }
+    result.extend(kept);
+    result
+}
+
+#[cfg(test)]
+mod pinned_compaction_tests {
+    use super::*;
+    use crate::pinned_facts::PinnedFact;
+    use omega_types::{Message, Role};
+
+    #[test]
+    fn truncate_compact_with_pinned_preserves_pinned_facts() {
+        let system = Message::new(Role::System, "SYS");
+        let u1 = Message::new(Role::User, "a".repeat(40));
+        let u2 = Message::new(Role::User, "b".repeat(40));
+        let u3 = Message::new(Role::User, "c".repeat(40));
+        let msgs = vec![system.clone(), u1, u2, u3];
+
+        let mut pinned = PinnedFacts::new();
+        pinned.upsert(PinnedFact::new("pref1", "User prefers dark mode", "preference"));
+
+        let out = truncate_compact_with_pinned(&msgs, 25, &pinned);
+
+        // Le fait épinglé doit être présent
+        assert!(out.iter().any(|m| m.content.contains("User prefers dark mode")));
+        // Le système préservé
+        assert_eq!(out[0], system);
+        // Marqueur de compaction présent (3 messages non-système, 2 gardés max)
+        assert!(out.iter().any(|m| m.content.starts_with("…[compacted")));
+    }
+
+    #[test]
+    fn truncate_compact_with_pinned_multiple_facts_sorted_by_priority() {
+        let system = Message::new(Role::System, "SYS");
+        let u1 = Message::new(Role::User, "x".repeat(20));
+        let msgs = vec![system.clone(), u1];
+
+        let mut pinned = PinnedFacts::new();
+        pinned.upsert(PinnedFact::new("low", "low priority", "preference").with_priority(0));
+        pinned.upsert(PinnedFact::new("high", "high priority", "decision").with_priority(10));
+
+        let out = truncate_compact_with_pinned(&msgs, 30, &pinned);
+
+        // Les deux faits doivent être présents, triés par priorité
+        let pinned_contents: Vec<_> = out
+            .iter()
+            .filter(|m| m.content.starts_with("[PinnedFact:"))
+            .map(|m| m.content.clone())
+            .collect();
+        assert_eq!(pinned_contents.len(), 2);
+        // high priority en premier
+        assert!(pinned_contents[0].contains("high priority"));
+        assert!(pinned_contents[1].contains("low priority"));
+    }
+
+    #[test]
+    fn truncate_compact_with_pinned_budget_too_tight_keeps_system_and_pinned() {
+        let system = Message::new(Role::System, "S".repeat(100)); // ~25 tokens
+        let u1 = Message::new(Role::User, "u".repeat(100));
+        let msgs = vec![system.clone(), u1];
+
+        let mut pinned = PinnedFacts::new();
+        pinned.upsert(PinnedFact::new("fact1", "critical fact", "constraint").with_priority(100));
+
+        // Budget très serré : système + épinglé + marqueur > budget
+        let out = truncate_compact_with_pinned(&msgs, 15, &pinned);
+
+        // Système préservé (primauté du système)
+        assert_eq!(out[0], system);
+        // Fait épinglé préservé aussi
+        assert!(out.iter().any(|m| m.content.contains("critical fact")));
+        // Pas de marqueur mensonger
+        assert!(out.iter().all(|m| !m.content.starts_with("…[compacted")));
+    }
+
+    #[test]
+    fn truncate_compact_with_pinned_deterministic() {
+        let system = Message::new(Role::System, "SYS");
+        let u1 = Message::new(Role::User, "a".repeat(40));
+        let u2 = Message::new(Role::User, "b".repeat(40));
+        let msgs = vec![system, u1, u2];
+
+        let mut pinned = PinnedFacts::new();
+        pinned.upsert(PinnedFact::new("z", "z fact", "cat"));
+        pinned.upsert(PinnedFact::new("a", "a fact", "cat"));
+
+        let out1 = truncate_compact_with_pinned(&msgs, 25, &pinned);
+        let out2 = truncate_compact_with_pinned(&msgs, 25, &pinned);
+        assert_eq!(out1, out2);
     }
 }

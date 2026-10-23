@@ -9,9 +9,11 @@
 //! - [`TokenEstimator`] : estimation `ceil(chars / 4)` ;
 //! - [`ContextBudget`] : `estimate → check → enforce`, depassement = `BudgetExceeded` ;
 //! - [`DefaultContextEngine`] : moteur de contexte par defaut (port `ContextEngine`) ;
+//! - [`LlmCompactionEngine`] : moteur double couche (truncation + resume LLM) ;
 //! - [`ToolSurfaceIndex`] : BM25 simplifie + gate par le token le plus rare ;
 //! - [`SkillIndex`] : progressive disclosure 3 niveaux + cache par signature ;
 //! - [`truncate_compact`] : compaction deterministe sans LLM ;
+//! - [`PinnedFacts`] : faits épinglés survivant à la compaction ;
 //! - [`ContextContributor`] : cablage moteur + index via le registre.
 
 mod budget;
@@ -24,7 +26,7 @@ mod token;
 mod tool_surface;
 
 pub use budget::ContextBudget;
-pub use compaction::{compaction_marker, truncate_compact, LlmCompactionEngine};
+pub use compaction::{compaction_marker, truncate_compact, truncate_compact_with_pinned, LlmCompactionEngine};
 pub use contributor::{ContextContributor, DEFAULT_MAX_TOKENS};
 pub use engine::{AssembleReport, DefaultContextEngine};
 pub use pinned_facts::{PinnedFact, PinnedFacts};
