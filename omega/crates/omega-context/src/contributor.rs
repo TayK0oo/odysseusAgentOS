@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use omega_plugin_api::{Contributor, InstallContext};
-use omega_ports::{ContextEngine, Provider};
+use omega_ports::{ContextEngine, MemoryStore, Provider};
 use omega_registry::{Manifest, RegistryBuilder};
 use omega_types::{Capability, OmegaResult};
 
@@ -37,6 +37,9 @@ pub struct ContextContributor {
     /// Si fourni, remplace le moteur par defaut par un `LlmCompactionEngine`
     /// qui enrobe le `DefaultContextEngine`.
     llm_provider: Option<Arc<dyn Provider>>,
+    /// MemoryStore optionnel pour activer l'injection de memoire dans le
+    /// `DefaultContextEngine` (assemble_with_injection).
+    memory_store: Option<Arc<dyn MemoryStore>>,
 }
 
 impl Default for ContextContributor {
@@ -53,6 +56,7 @@ impl ContextContributor {
             skill_index: None,
             pinned_facts: None,
             llm_provider: None,
+            memory_store: None,
         }
     }
 
@@ -85,6 +89,25 @@ impl ContextContributor {
         self
     }
 
+    /// Branche un `MemoryStore` pour activer l'injection de memoire dans le
+    /// moteur (assemble_with_injection).
+    pub fn with_memory(mut self, store: Arc<dyn MemoryStore>) -> Self {
+        self.memory_store = Some(store);
+        self
+    }
+
+    /// Alias de `with_memory` (compatibilite de nommage).
+    pub fn with_memory_store(mut self, store: Arc<dyn MemoryStore>) -> Self {
+        self.memory_store = Some(store);
+        self
+    }
+
+    /// Alias de `with_memory` (compatibilite de nommage).
+    pub fn with_store(mut self, store: Arc<dyn MemoryStore>) -> Self {
+        self.memory_store = Some(store);
+        self
+    }
+
     /// Budget effectif : `context.max_tokens` de la config, sinon le defaut du contributeur.
     fn resolve_max_tokens(&self, ctx: &InstallContext) -> usize {
         ctx.config
@@ -103,8 +126,13 @@ impl Contributor for ContextContributor {
     fn contribute(&self, builder: &mut RegistryBuilder, ctx: &InstallContext) -> OmegaResult<()> {
         let max_tokens = self.resolve_max_tokens(ctx);
 
-        // Moteur de base (couche 1 : truncation deterministe)
-        let base_engine: Arc<dyn ContextEngine> = Arc::new(DefaultContextEngine::new(max_tokens));
+        // Moteur de base (couche 1 : truncation deterministe), avec injection
+        // memoire si un MemoryStore est branche.
+        let base_engine: Arc<dyn ContextEngine> = if let Some(store) = &self.memory_store {
+            Arc::new(DefaultContextEngine::with_memory(store.clone(), max_tokens))
+        } else {
+            Arc::new(DefaultContextEngine::new(max_tokens))
+        };
 
         // Si provider fourni, enrober dans LlmCompactionEngine (couche 2 : resume LLM)
         let engine: Arc<dyn ContextEngine> = if let Some(provider) = &self.llm_provider {
