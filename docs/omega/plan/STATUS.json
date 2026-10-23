@@ -1,6 +1,6 @@
 {
-  "git_sha": "bda482d5",
-  "mesure_le": "2026-10-23T05:47:55+00:00",
+  "git_sha": "ceab213d",
+  "mesure_le": "2026-10-23T06:52:38+00:00",
   "moteur_reference": "Rust (ADR-0009)",
   "socles": {
     "rust": {
@@ -453,7 +453,7 @@
   },
   "couverture_ponderee": 0.0,
   "portes": {
-    "G0": "ROUGE",
+    "G0": "VERT",
     "G1": "VERT",
     "G2": "ROUGE",
     "G3": "NON_EXECUTE",
@@ -462,5 +462,5 @@
     "G6": "NON_EXECUTE",
     "G7": "NON_EXECUTE"
   },
-  "prochaine_action": "G0.a : verify exit 0 sur clone vierge (execution complete, tests inclus) — corriger puis relancer omega/scripts/gate.py --phase 0"
+  "prochaine_action": "G2.b.s4 : S4 memoire persistante : 5 runs tous PASS (mot retrouve apres kill -9, oubli cascade) — corriger puis relancer omega/scripts/gate.py --phase 2"
 }

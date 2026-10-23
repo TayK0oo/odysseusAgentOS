@@ -9,6 +9,17 @@ use super::{ToolCtx, ToolOutput};
 /// Fichier de mémoire, relatif à la racine du workspace.
 pub const MEMORY_PATH: &str = ".omega/memory.jsonl";
 
+/// Résout le chemin du magasin mémoire : env OMEGA_MEMORY_STORE si défini
+/// (store unifié avec l'injection C4), sinon .omega/memory.jsonl dans le
+/// workspace. Un seul magasin pour l'outil et l'injection.
+pub fn memory_path(ctx: &ToolCtx) -> Result<std::path::PathBuf, String> {
+    let rel = std::env::var("OMEGA_MEMORY_STORE")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .unwrap_or_else(|| MEMORY_PATH.to_string());
+    ctx.resolve(&rel)
+}
+
 /// Nombre maximal de faits renvoyés par un `recall` (borne de sortie).
 pub const RECALL_LIMIT: usize = 20;
 
@@ -22,7 +33,7 @@ pub fn store(ctx: &ToolCtx, content: &str, provenance: &str) -> ToolOutput {
     }
     let content = omega_types::redact_secrets(content);
     let provenance = omega_types::redact_secrets(provenance);
-    let abs = match ctx.resolve(MEMORY_PATH) {
+    let abs = match memory_path(ctx) {
         Ok(p) => p,
         Err(e) => return ToolOutput::err(e),
     };
@@ -65,7 +76,7 @@ pub fn recall(ctx: &ToolCtx, query: &str) -> ToolOutput {
             "count": 0,
         }));
     }
-    let abs = match ctx.resolve(MEMORY_PATH) {
+    let abs = match memory_path(ctx) {
         Ok(p) => p,
         Err(e) => return ToolOutput::err(e),
     };
@@ -109,7 +120,7 @@ pub fn forget(ctx: &ToolCtx, query: &str) -> ToolOutput {
     if query.trim().is_empty() {
         return ToolOutput::err("requête vide : rien à oublier");
     }
-    let abs = match ctx.resolve(MEMORY_PATH) {
+    let abs = match memory_path(ctx) {
         Ok(p) => p,
         Err(e) => return ToolOutput::err(e),
     };

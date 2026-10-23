@@ -121,8 +121,11 @@ pub fn build_app_state_with(cfg: &ServerConfig) -> OmegaResult<AppState> {
     ));
     let store = Arc::new(FileEventStore::new(cfg.event_dir.clone()));
     // MemoryStore (JSONL) pour l'injection conditionnelle dans le contexte.
+    // Unifie avec l'outil memory_store via OMEGA_MEMORY_STORE (meme fichier).
+    let memory_path = cfg.event_dir.join("memory.jsonl");
+    std::env::set_var("OMEGA_MEMORY_STORE", memory_path.display().to_string());
     let memory_store = Arc::new(
-        omega_app::FileMemoryStore::new(cfg.event_dir.join("memory.jsonl"))
+        omega_app::FileMemoryStore::new(memory_path)
             .map_err(|e| omega_types::OmegaError::Config(format!("memory store: {e}")))?,
     );
     let app = AppBuilder::new()
