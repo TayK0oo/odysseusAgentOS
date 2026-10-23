@@ -1,9 +1,9 @@
 # MEMORY.md — Omega (auto-généré)
 
-> **Bannière (auto-calculée, jamais saisie)** : généré le 2026-10-23 05:42 · HEAD `5a0e159a` (feat/agentos-omega) · à jour.
+> **Bannière (auto-calculée, jamais saisie)** : généré le 2026-10-23 05:52 · HEAD `cdf26e0e` (feat/agentos-omega) · à jour.
 > **Working tree dirty** : d'autres modifications coexistent avec cette génération.
 
-**Généré le:** 2026-10-23 05:42
+**Généré le:** 2026-10-23 05:52
 **Source:** `omega/scripts/generate_memory.py` — génère MEMORY.md depuis STATUS.json + git — provenance: [observed]
 
 ---
@@ -11,8 +11,8 @@
 ## État Git
 
 - **Branche:** feat/agentos-omega
-- **Dernier commit:** 5a0e159a docs(p2): G2 VERT — S4 et S5 honnetes verts (2026-10-23 05:38:11 +0200)
-- **Total commits:** 2361
+- **Dernier commit:** cdf26e0e fix(p2): cargo fmt (2026-10-23 05:50:11 +0200)
+- **Total commits:** 2363
 - **Working tree dirty:** oui
 
 ---
@@ -26,7 +26,7 @@
 
 ## Tests (depuis STATUS.json — aucune exécution ici)
 
-- **Rust:** 447 <!--m:socles.rust.tests.valeur=447--> tests (scan_attributs) — [observed]
+- **Rust:** 442 <!--m:socles.rust.tests.valeur=442--> tests (scan_attributs) — [observed]
 - **Python:** 4440 <!--m:socles.python.tests.valeur=4440--> tests (ast) — [observed]
 
 ---
