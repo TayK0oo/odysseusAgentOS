@@ -158,3 +158,8 @@
 - Stubs retirés : S4/S5 ECHEC pour la bonne raison (tautologie supprimée).
 - G0 VERT, G1 VERT, G2 ROUGE (S4 ECHEC, S5 ECHEC). verify VERT.
 - HEAD 67c851c5 pushé. STOP. P3 sur ordre explicite.
+
+## 2026-10-23 — G2 VERT (honnête)
+- G0 VERT, G1 VERT, G2 VERT (9/9, 0 DELEGUE_CI). verify VERT.
+- S4 et S5 passent (stubs retirés, canary aléatoire, compaction évaluation).
+- HEAD dcc01705 pushé. STOP. P3 sur ordre explicite.
