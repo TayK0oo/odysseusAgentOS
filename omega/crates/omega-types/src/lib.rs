@@ -269,6 +269,8 @@ pub enum Capability {
     UiPanel,
     /// Catalogue de reverse-engineering des harnais (donnees embarquees).
     HarnessCatalog,
+    /// Faits épinglés durables (survivent à la compaction).
+    PinnedFacts,
 }
 
 /// Regime d'activation d'une capacite (cf. ADR-0003).
@@ -286,7 +288,7 @@ impl Capability {
         use Capability::*;
         match self {
             ModelRegistry | TaskClassifier | RouterPolicy | ContextEngine | PromptCachePolicy
-            | MemoryStore | ExecPolicy | PermissionPolicy | EventStore => Regime::Slot,
+            | MemoryStore | ExecPolicy | PermissionPolicy | EventStore | PinnedFacts => Regime::Slot,
             _ => Regime::Ensemble,
         }
     }
@@ -321,6 +323,7 @@ impl Capability {
             ProvenanceSink => "provenance-sink",
             UiPanel => "ui-panel",
             HarnessCatalog => "harness-catalog",
+            PinnedFacts => "pinned-facts",
         }
     }
 }

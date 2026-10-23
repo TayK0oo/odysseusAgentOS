@@ -3,6 +3,24 @@
 All notable changes follow [SemVer](https://semver.org/) and
 [Keep a Changelog](https://keepachangelog.com/) conventions.
 
+## [v1.1.0] — 2026-10-23
+
+### Added
+- `omega-context`: PinnedFacts module for durable facts surviving compaction
+  - `PinnedFact` struct with id, content, category, priority, timestamps
+  - `PinnedFacts` thread-safe storage with upsert, get, remove, list, list_by_category
+  - Integration via `ContextContributor::with_pinned_facts()` registering `Capability::PinnedFacts`
+- `omega-context`: LlmCompactionEngine wiring via `ContextContributor::with_llm_compaction(provider)`
+  - Wraps `DefaultContextEngine` (layer 1: deterministic truncation) with LLM summary layer
+  - Fallback to truncation-only when provider fails (fail-closed)
+  - `owns_compaction = true` for LlmCompactionEngine, `false` for DefaultContextEngine
+- `omega-types`: `Capability::PinnedFacts` (Slot regime) for registry resolution
+- `omega-adapters`: 5 compaction wiring tests verifying LlmCompactionEngine and PinnedFacts integration
+
+### Changed
+- `ContextContributor` now optionally registers `PinnedFacts` and `LlmCompactionEngine`
+- Default context engine remains `DefaultContextEngine` when no provider provided
+
 ## [v1.0.0] — 2026-08-06
 
 ### Added
