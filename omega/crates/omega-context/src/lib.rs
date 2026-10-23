@@ -33,7 +33,9 @@ pub use compaction::{
 pub use contributor::{ContextContributor, DEFAULT_MAX_TOKENS};
 pub use engine::{AssembleReport, DefaultContextEngine};
 pub use injection::{ContextInjector, InjectionLine, InjectionTrace, MemoryInjection};
-pub use pinned_facts::{PinnedFact, PinnedFacts, extract_pinned_facts, extract_durable_facts, extract_facts};
+pub use pinned_facts::{
+    extract_durable_facts, extract_facts, extract_pinned_facts, PinnedFact, PinnedFacts,
+};
 pub use skills::{Skill, SkillIndex, SkillSummary};
 pub use token::{TokenEstimator, CHARS_PER_TOKEN};
 pub use tool_surface::{ToolDoc, ToolSurfaceIndex};

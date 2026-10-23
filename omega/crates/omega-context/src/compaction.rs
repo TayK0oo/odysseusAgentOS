@@ -66,7 +66,6 @@ pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
     result
 }
 
-
 // --- Double-layer LLM compaction (NOYAU Phase C) ------------------------------
 
 use async_trait::async_trait;

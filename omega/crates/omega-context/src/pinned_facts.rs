@@ -285,7 +285,6 @@ impl PinnedFacts {
     }
 }
 
-
 /// Extrait de maniere deterministe les faits durables d'une liste de messages.
 pub fn extract_pinned_facts(messages: &[Message]) -> PinnedFacts {
     PinnedFacts::extract(messages)
