@@ -250,9 +250,9 @@ fn latency_memory_p95_under_threshold() {
     }
     times.sort();
     let p95 = times[times.len() * 95 / 100];
-    // Seuil provisoire 1000 ms (à geler par ADR Seuils v1 après calibration).
+    // Seuil gelé 50 ms (ADR-0018) (à geler par ADR Seuils v1 après calibration).
     assert!(
-        p95 < 1000,
+        p95 < 50,
         "latence p95 {} ms dépasse le seuil provisoire",
         p95
     );
