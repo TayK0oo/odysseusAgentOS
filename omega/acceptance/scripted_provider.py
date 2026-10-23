@@ -147,3 +147,55 @@ def seq_tool_then_echo(tool: str, arguments: dict | None = None):
         return _reply(last)
 
     return [lambda req: call, echo_observation]
+
+
+def seq_memory_store_then_recall(canary):
+    """3 tours : session A stocke + confirme, session B rappelle.
+
+    Le tour 1 propose `memory_store` (canary comme contenu), le tour 2
+    confirme en texte, le tour 3 propose `memory_recall` sur le canary.
+    Les noms de canary sont aleatoires : la preuve vient de l'outil.
+    """
+    canary = str(canary)
+    store_call = _reply(json.dumps(
+        {"tool": "memory_store",
+         "arguments": {"content": canary, "provenance": "session-a"}},
+        sort_keys=True))
+    recall_call = _reply(json.dumps(
+        {"tool": "memory_recall", "arguments": {"query": canary}},
+        sort_keys=True))
+
+    def confirm(req):
+        return _reply(f"Memorise : {canary}")
+
+    return [lambda req: store_call, confirm, lambda req: recall_call]
+
+
+def seq_long_context_compaction(facts):
+    """8 a 15 tours de remplissage, puis compaction declenchee.
+
+    `facts` peut etre une chaine ou une liste de chaines : les faits sont
+    plantes aux tours 0 et au milieu. Chaque tour renvoie un message long
+    pour forcer le depassement de budget et la compaction.
+    """
+    if isinstance(facts, (list, tuple)):
+        fact_list = [str(f) for f in facts]
+    else:
+        fact_list = [str(facts)]
+    if not fact_list:
+        fact_list = [""]
+
+    n = 12
+    turns = []
+    filler = "remplissage " * 40
+    mid = n // 2
+    for i in range(n):
+        if i == 0:
+            content = f"FACT-DEBUT: {fact_list[0]} {filler}"
+        elif i == mid:
+            f = fact_list[1] if len(fact_list) > 1 else fact_list[0]
+            content = f"FACT-MILIEU: {f} {filler}"
+        else:
+            content = f"tour {i} {filler}"
+        turns.append(lambda req, c=content: _reply(c))
+    return turns
