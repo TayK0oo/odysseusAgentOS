@@ -110,7 +110,7 @@ mod tests {
     fn tool_surface_contains_memory_tools() {
         // La memoire est un outil de premiere classe de la surface (pas un
         // port interne) : elle doit figurer au catalogue avec son schema.
-        for name in ["memory_store", "memory_recall"] {
+        for name in ["memory_store", "memory_recall", "memory_forget"] {
             assert!(
                 crate::registry::TOOL_NAMES.contains(&name),
                 "{} absent du catalogue",

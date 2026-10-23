@@ -240,6 +240,23 @@ fn load_records(path: &Path) -> Vec<MemoryRecord> {
         .collect()
 }
 
+fn unique_tmp_path(path: &Path) -> PathBuf {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static CTR: AtomicU64 = AtomicU64::new(0);
+    let n = CTR.fetch_add(1, Ordering::Relaxed);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0);
+    let id = nanos ^ n.wrapping_mul(0x9e3779b97f4a7c15) ^ (std::process::id() as u64);
+    let name = format!(
+        "{}.{}.tmp",
+        path.file_name().unwrap_or_default().to_string_lossy(),
+        id
+    );
+    path.with_file_name(name)
+}
+
 fn save_records(path: &Path, records: &[MemoryRecord]) -> OmegaResult<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).ok();
@@ -252,8 +269,8 @@ fn save_records(path: &Path, records: &[MemoryRecord]) -> OmegaResult<()> {
         );
         out.push('\n');
     }
-    // atomic write + fsync
-    let tmp = path.with_extension("tmp");
+    // atomic write + fsync (tmp unique pour écriture concurrente)
+    let tmp = unique_tmp_path(path);
     {
         use std::io::Write;
         let mut f =
@@ -366,6 +383,9 @@ impl JsonlMemoryStore {
         self.search_at(query, top_k, now_secs())
     }
     pub fn search_at(&self, query: &str, top_k: usize, now: i64) -> Vec<ScoredMemory> {
+        if query.trim().is_empty() {
+            return Vec::new();
+        }
         let q = tokenize(query);
         let mut hits: Vec<ScoredMemory> = self
             .load_all()
@@ -425,18 +445,18 @@ impl JsonlMemoryStore {
             .collect()
     }
 
-    pub fn delete(&self, id: &str) -> bool {
+    pub fn delete(&self, id: &str) -> OmegaResult<bool> {
         let all2 = self.load_all();
         let existed2 = all2.iter().any(|m| m.id == id);
         let remaining2: Vec<_> = all2.into_iter().filter(|m| m.id != id).collect();
-        let _ = self.save_all(&remaining2);
+        self.save_all(&remaining2)?;
         let drafts = self.load_drafts();
         let remaining_d: Vec<_> = drafts.into_iter().filter(|m| m.id != id).collect();
-        let _ = self.save_drafts(&remaining_d);
+        self.save_drafts(&remaining_d)?;
         if let Ok(mut v) = self.vectors.lock() {
             v.retain(|(idv, _)| idv != id);
         }
-        existed2
+        Ok(existed2)
     }
 
     pub async fn forget(&self, id: &str) -> OmegaResult<bool> {
@@ -750,6 +770,9 @@ impl InMemoryMemoryStore {
             .collect()
     }
     pub fn search(&self, query: &str, top_k: usize) -> Vec<ScoredMemory> {
+        if query.trim().is_empty() {
+            return Vec::new();
+        }
         let q = tokenize(query);
         let now = now_secs();
         let mut hits: Vec<ScoredMemory> = self
@@ -801,13 +824,13 @@ impl InMemoryMemoryStore {
         dr.retain(|r| r.id != id);
         Ok(existed)
     }
-    pub fn delete(&self, id: &str) -> bool {
+    pub fn delete(&self, id: &str) -> OmegaResult<bool> {
         let mut recs = self.records.lock().unwrap();
         let existed = recs.iter().any(|r| r.id == id);
         recs.retain(|r| r.id != id);
         let mut dr = self.drafts.lock().unwrap();
         dr.retain(|r| r.id != id);
-        existed
+        Ok(existed)
     }
     pub async fn propose_draft(&self, fact: &str) -> OmegaResult<String> {
         let id = format!("d{:x}", now_nanos());
