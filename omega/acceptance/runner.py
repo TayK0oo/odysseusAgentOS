@@ -48,6 +48,7 @@ from engines.rust import RustEngine, get_json, post_json  # noqa: E402
 from scripted_provider import (  # noqa: E402
     ScriptedProvider,
     seq_echoreq_reply,
+    seq_long_context_compaction,
     seq_memory_store_then_recall,
     seq_react_toolcall,
     seq_tool_then_echo,
@@ -280,9 +281,19 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
                                         "content": "canary-line"}))
             elif spec.get("llm_scripte") == "memory":
                 # S4 : le modèle demande memory_store puis memory_recall.
-                canary = "CANARY42"
+                # Canari aleatoire : il ne peut venir que de l'outil, jamais
+                # de la prose scriptee ni du message utilisateur.
+                canary = "CANARY_" + secrets.token_hex(8)
+                ctx["memory_canary"] = canary
                 provider = ScriptedProvider(
                     seq_memory_store_then_recall(canary))
+            elif spec.get("llm_scripte") == "compaction":
+                # S5 : contexte long, faits plantes debut et milieu, compaction
+                # exercee par le moteur. Le faux LLM renvoie des tours de
+                # remplissage deterministes ; les faits ne survivent que si la
+                # compaction (ou le pinning) les preserve.
+                provider = ScriptedProvider(
+                    seq_long_context_compaction(["ALPHA-7", "BETA-9"]))
             else:
                 provider = ScriptedProvider(seq_echoreq_reply())
             provider.start()
@@ -504,23 +515,43 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
 
         # Evaluation S4 : memoire persistante.
         if "memoire_retrouvee" in spec.get("attendu", {}):
-            # Preuve par l'effet : le canary doit apparaitre dans la
-            # REPONSE du LLM (answer), pas dans l'input utilisateur.
+            # Preuve par l'effet : le canary (aleatoire) doit apparaitre
+            # dans la REPONSE du LLM (answer), et provenir d'un memory_recall
+            # reel (pas du texte de confirmation). Un simple echo du confirm
+            # ne compte pas : on exige une execution reussie de memory_recall.
             answer = ""
             if isinstance(reponse_run, dict):
                 answer = str(reponse_run.get("answer", ""))
-            canary = "CANARY42"
-            report["attendus"]["memoire_retrouvee"] = canary in answer
+            canary = ctx.get("memory_canary", "")
             run_id = (reponse_run or {}).get("run_id")
+            events = []
+            if run_id:
+                try:
+                    evresp = get_json(f"{url}/api/runs/{run_id}/events")
+                    events = evresp.get("events", []) if isinstance(evresp, dict) else []
+                except Exception:
+                    events = []
+            trace = json.dumps(events)
+            store_ok = '"tool": "memory_store"' in trace and '"ok": true' in trace
+            recall_ok = "memory_recall" in trace
+            report["attendus"]["memoire_retrouvee"] = bool(canary) and canary in answer and recall_ok
             # Provenance : l'outil memory_store stocke provenance dans le
             # fichier JSONL. On verifie que le store contient [stated].
-            prov_ok = True  # placeholder — a verifier par test dedie
+            prov_ok = "stated" in trace.lower() and store_ok
             report["attendus"]["provenance_stated"] = prov_ok
 
         # Evaluation S5 : compaction contexte.
         if "faits_retrouves" in spec.get("attendu", {}):
+            answer = ""
+            if isinstance(reponse_run, dict):
+                answer = str(reponse_run.get("answer", ""))
             contenu = json.dumps(reponse_run, ensure_ascii=False)
-            report["attendus"]["faits_retrouves"] = True  # placeholder — compaction non exercee par le runner
+            faits = ["ALPHA-7", "BETA-9"]
+            # Les faits plantes au debut et au milieu ne survivent a la
+            # compaction que si le moteur les preserve (pinning ou resume).
+            # Un simple status "ok" ne compte pas : on exige les faits dans
+            # la reponse (ou la trace).
+            report["attendus"]["faits_retrouves"] = all(f in (answer + contenu) for f in faits)
             report["attendus"]["budget_respecte"] = isinstance(reponse_run, dict) and not reponse_run.get("budget_exhausted", False)
 
         # verdict

@@ -1,6 +1,6 @@
 # ADR-0017 — S4 et S5 honnêtes : réécriture des faux verts
 
-**Date** : 2026-10-23 · **Statut** : Accepté · **Décidé par** : N0 (chef projet)
+**Date** : 2026-10-23 · **Statut** : Corrigé par ADR-0017-bis · **Décidé par** : N0 (chef projet)
 
 ## Contexte
 

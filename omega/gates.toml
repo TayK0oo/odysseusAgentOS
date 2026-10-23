@@ -171,7 +171,7 @@ bloquant = true
 
 [[phase2.criteres]]
 id = "G2.b.s4"
-description = "S4 memoire persistante : 5 runs tous PASS (mot retrouve apres kill -9, oubli cascade)"
+description = "S4 memoire persistante : 5 runs tous PASS (mot retrouve apres kill -9, oubli cascade) — rouge sincère jusqu'à B2 (ADR-0017-bis)"
 kind = "command"
 argv = ["python3", "omega/acceptance/runner.py", "--scenario", "S4", "--mode", "scripte", "--runs", "5", "--attendu", "PASS"]
 expect_exit = 0
@@ -180,7 +180,7 @@ bloquant = true
 
 [[phase2.criteres]]
 id = "G2.c.s5"
-description = "S5 compaction contexte : 5 runs tous PASS (faits retrouves apres compaction, budget respecte)"
+description = "S5 compaction contexte : 5 runs tous PASS (faits retrouves apres compaction, budget respecte) — rouge sincère jusqu'à B3 (ADR-0017-bis)"
 kind = "command"
 argv = ["python3", "omega/acceptance/runner.py", "--scenario", "S5", "--mode", "scripte", "--runs", "5", "--attendu", "PASS"]
 expect_exit = 0
