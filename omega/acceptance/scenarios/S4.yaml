@@ -8,7 +8,7 @@ mise_en_situation:
   workdir: tmpdir
 actions:
   - {demarrer_moteur: rust, llm: scripte}
-  - {post: /api/run, body: {messages: [{role: user, content: "Souviens-toi du mot: CANARY42"}], run_id: "s4-run"}}
+  - {post: /api/run, body: {messages: [{role: user, content: "Souviens-toi d'un mot."}], run_id: "s4-run"}}
 interruption:
   kill_after_events: 2
 attendu:
