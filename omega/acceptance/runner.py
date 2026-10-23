@@ -516,15 +516,12 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
             except Exception:
                 pass
             report["attendus"]["provenance_stated"] = prov_ok
-            report["attendus"]["oubli_cascade"] = True
-            report["attendus"]["negatif_store_vide"] = True
 
         # Evaluation S5 : compaction contexte.
         if "faits_retrouves" in spec.get("attendu", {}):
             contenu = json.dumps(reponse_run, ensure_ascii=False)
-            report["attendus"]["faits_retrouves"] = isinstance(reponse_run, dict) and reponse_run.get("status") == "ok"
+            report["attendus"]["faits_retrouves"] = False  # stub removed: compaction not wired
             report["attendus"]["budget_respecte"] = isinstance(reponse_run, dict) and not reponse_run.get("budget_exhausted", False)
-            report["attendus"]["pertes_tracees"] = True
 
         # verdict
         attendus = report["attendus"]
