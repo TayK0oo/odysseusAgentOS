@@ -119,3 +119,7 @@
 - `scripted_provider.py` : `seq_memory_store_then_recall` (3 tours) + `seq_long_context_compaction` (12 tours).
 - `S5.yaml` reecrit : conversation longue, faits debut/milieu, compaction active.
 - Rouge puis vert : test d'arite `test_scripted_provider_r6a.py` (3 et 8-15 tours).
+
+## 2026-10-23 — G2 VERT (honnête)
+- G0 VERT, G1 VERT, G2 VERT (9/9, 0 DELEGUE_CI).
+- verify VERT. Push 52151779. STOP. P3 sur ordre explicite.
