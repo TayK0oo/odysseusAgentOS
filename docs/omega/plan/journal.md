@@ -114,3 +114,8 @@
 - `omega-tools` expose `memory_store(content, provenance)` et `memory_recall(query)` sur la surface (`FsSurface`) : append JSONL `.omega/memory.jsonl` dans la jail `ToolCtx`, filtre littéral, borné à 20 faits.
 - Rouge d'abord (`surface::tests::memory_store_recall` → `outil inconnu : memory_store`), vert ensuite : `cargo test -p omega-tools` 40 + 11 + 1, clippy `-D warnings` 0.
 - Écart assumé : noms snake_case (convention catalogue, wire-safe) là où le brief écrivait `memory.store`/`memory.recall` ; `MemoryStore` (`omega-ports`) n'est pas branché (dispatch synchrone), la provenance n'existe pas dans ce trait.
+
+## 2026-10-23 — P2-R6a : sequences scriptees
+- `scripted_provider.py` : `seq_memory_store_then_recall` (3 tours) + `seq_long_context_compaction` (12 tours).
+- `S5.yaml` reecrit : conversation longue, faits debut/milieu, compaction active.
+- Rouge puis vert : test d'arite `test_scripted_provider_r6a.py` (3 et 8-15 tours).
