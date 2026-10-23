@@ -178,7 +178,7 @@ def seq_long_context_compaction(facts):
     plantes aux tours 0 et au milieu. Chaque tour renvoie un message long
     pour forcer le depassement de budget et la compaction.
     """
-    if isinstance(facts, (list, tuple)):
+    if isinstance(facts, list | tuple):
         fact_list = [str(f) for f in facts]
     else:
         fact_list = [str(facts)]
