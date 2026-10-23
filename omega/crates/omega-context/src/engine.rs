@@ -269,6 +269,55 @@ mod tests {
         }
     }
 
+    // ═══ T2 (commit 1 — rouge) : injection memoire dans le moteur ═══
+    // Double MemoryStore minimal : restitue les faits dont un mot-cle de la
+    // requete apparait dans le texte (memes regles de pertinence que le module).
+    struct StaticMemory {
+        facts: Vec<String>,
+    }
+
+    #[async_trait]
+    impl omega_ports::MemoryStore for StaticMemory {
+        fn name(&self) -> &str {
+            "static-test"
+        }
+        async fn recall(&self, query: &str, limit: usize) -> OmegaResult<Vec<String>> {
+            let q = query.to_lowercase();
+            let hits: Vec<String> = self
+                .facts
+                .iter()
+                .filter(|f| {
+                    q.split_whitespace()
+                        .filter(|w| w.chars().count() >= 4)
+                        .any(|w| f.to_lowercase().contains(w))
+                })
+                .take(limit)
+                .cloned()
+                .collect();
+            Ok(hits)
+        }
+        async fn remember(&self, _fact: &str) -> OmegaResult<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn assemble_injecte_la_memoire_relevante_avant_assemble_sync() {
+        // Un fait pertinent doit arriver au modele, sans changer la coupe
+        // budgetaire (systeme preserve, plus anciens non-systeme d'abord).
+        let store: Arc<dyn omega_ports::MemoryStore> = Arc::new(StaticMemory {
+            facts: vec!["OSAKA: le run budget se lit via RunBudget.usage()".to_string()],
+        });
+        let e = DefaultContextEngine::with_memory(store, 6);
+        let msgs = vec![user("explique le run budget d'OSAKA stp")];
+        let (out, report) = e.assemble_with_injection(&msgs).await.unwrap();
+
+        assert_eq!(out[0].role, Role::User);
+        assert!(out[0].content.contains("RunBudget.usage()"));
+        assert_eq!(report.kept, 2);
+        assert_eq!(e.last_injection().journal().len(), 1);
+    }
+
     #[tokio::test]
     async fn trait_contract_name_and_ownership() {
         let e = DefaultContextEngine::new(100);
