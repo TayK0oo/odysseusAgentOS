@@ -4,13 +4,13 @@
 //! pour la sous-famille filesystem.
 
 use super::{
-    append_file, edit_file, list_dir, read_file, workspace, write_file, ToolCtx, ToolOutput,
+    append_file, edit_file, list_dir, memory, read_file, workspace, write_file, ToolCtx, ToolOutput,
 };
 use omega_types::OmegaResult;
 use omega_types::ToolSpec;
 
 /// Nom des outils exposés (identiques à `TOOL_TAGS` d'odysseus).
-pub const TOOL_NAMES: [&str; 8] = [
+pub const TOOL_NAMES: [&str; 10] = [
     "read_file",
     "write_file",
     "append_file",
@@ -19,6 +19,8 @@ pub const TOOL_NAMES: [&str; 8] = [
     "glob",
     "grep",
     "get_workspace",
+    "memory_store",
+    "memory_recall",
 ];
 
 /// Schémas JSON des outils filesystem.
@@ -72,6 +74,18 @@ pub fn schemas() -> Vec<serde_json::Value> {
             vec![],
             vec![],
         ),
+        schema(
+            "memory_store",
+            "Mémorise un fait avec sa provenance (append dans le workspace).",
+            vec!["content", "provenance"],
+            vec!["content", "provenance"],
+        ),
+        schema(
+            "memory_recall",
+            "Rappelle les faits mémorisés dont le contenu contient la requête.",
+            vec!["query"],
+            vec!["query"],
+        ),
     ]
 }
 
@@ -119,6 +133,8 @@ pub fn dispatch(ctx: &ToolCtx, tool: &str, args: &serde_json::Value) -> ToolOutp
             super::grep::grep(ctx, s("pattern"), g, max)
         }
         "get_workspace" => workspace::describe(ctx),
+        "memory_store" => memory::store(ctx, s("content"), s("provenance")),
+        "memory_recall" => memory::recall(ctx, s("query")),
         other => ToolOutput::err(format!("outil inconnu : {}", other)),
     }
 }
@@ -151,9 +167,9 @@ mod tests {
     }
 
     #[test]
-    fn seven_tools_declared() {
-        assert_eq!(TOOL_NAMES.len(), 8);
-        assert_eq!(schemas().len(), 8);
+    fn ten_tools_declared() {
+        assert_eq!(TOOL_NAMES.len(), 10);
+        assert_eq!(schemas().len(), 10);
     }
 
     #[test]

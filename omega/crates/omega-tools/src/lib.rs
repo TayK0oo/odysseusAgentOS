@@ -1,13 +1,15 @@
 //! `omega-tools` — portage Rust de `src/agent_tools/filesystem_tools.py`.
 //!
 //! Outil set : `read_file`, `write_file`, `edit_file`, `ls`, `glob`, `grep`,
-//! `get_workspace`. Chaque fonction est une implémentation Rust pure ; le
-//! registre (`ToolSurface`) est construit dans [`registry`].
+//! `get_workspace`, `memory_store`, `memory_recall`. Chaque fonction est une
+//! implémentation Rust pure ; le registre (`ToolSurface`) est construit dans
+//! [`registry`].
 #![allow(clippy::new_without_default)]
 
 pub mod diff;
 pub mod glob;
 pub mod grep;
+pub mod memory;
 pub mod registry;
 pub mod surface;
 pub mod workspace;
