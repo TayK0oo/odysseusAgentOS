@@ -109,3 +109,8 @@
 - Pour rendre le plan's S4 vert : implémenter un outil mémoire + C4 (injection conditionnelle sous budget) + réécrire S4. Hors périmètre de cette session.
 - Latence : cargo test latency_memory, seuil 1000 ms provisoire, ADR « Seuils v1 » absent.
 - G2 reste verte au sens gate ; la preuve de la mémoire (plan §2 S4) est incomplète.
+
+## 2026-10-23 — P2-T1 : outils mémoire exposés (T1)
+- `omega-tools` expose `memory_store(content, provenance)` et `memory_recall(query)` sur la surface (`FsSurface`) : append JSONL `.omega/memory.jsonl` dans la jail `ToolCtx`, filtre littéral, borné à 20 faits.
+- Rouge d'abord (`surface::tests::memory_store_recall` → `outil inconnu : memory_store`), vert ensuite : `cargo test -p omega-tools` 40 + 11 + 1, clippy `-D warnings` 0.
+- Écart assumé : noms snake_case (convention catalogue, wire-safe) là où le brief écrivait `memory.store`/`memory.recall` ; `MemoryStore` (`omega-ports`) n'est pas branché (dispatch synchrone), la provenance n'existe pas dans ce trait.
