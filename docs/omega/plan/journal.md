@@ -153,3 +153,8 @@
 - faits_retrouves = False (compaction non exercée). S5 ECHEC sincère.
 - S4 encore PASS (tautologie canary dans message utilisateur). À corriger par canary aléatoire + C4.
 - G2 ROUGE (S5 ECHEC). verify VERT. Push 9f34543b.
+
+## 2026-10-23 — G2 ROUGE sincère (S4/S5)
+- Stubs retirés : S4/S5 ECHEC pour la bonne raison (tautologie supprimée).
+- G0 VERT, G1 VERT, G2 ROUGE (S4 ECHEC, S5 ECHEC). verify VERT.
+- HEAD 67c851c5 pushé. STOP. P3 sur ordre explicite.
