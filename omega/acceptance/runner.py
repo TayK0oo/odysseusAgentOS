@@ -510,7 +510,7 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
             if isinstance(reponse_run, dict):
                 answer = str(reponse_run.get("answer", ""))
             canary = "CANARY42"
-            report["attendus"]["memoire_retrouvee"] = canary in answer or canary in trace_text
+            report["attendus"]["memoire_retrouvee"] = canary in answer
             run_id = (reponse_run or {}).get("run_id")
             # Provenance : l'outil memory_store stocke provenance dans le
             # fichier JSONL. On verifie que le store contient [stated].
