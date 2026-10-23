@@ -147,3 +147,9 @@
 - A3: measure/verify/gate 0/1/2 VERT, CI omega-gates success, 27 branches obsolètes, 125 worktrees prunables, journal clean.
 - A4: 6 défauts — mémoire déconnectée (haute), pas de redaction dans l'outil (moyenne), recall contains vide (moyenne), delete ignore erreurs (moyenne), budget injection incomplet (basse), collision .tmp concurrent (basse).
 - Barrière A : N0 relance gate+measure → VERT. Rapport cohérent avec sortie. Prochaine : Vague B (gate-honnête).
+
+## 2026-10-23 — Stubs retirés du runner
+- oubli_cascade, negatif_store_vide, pertes_tracees (stubs True) retirés.
+- faits_retrouves = False (compaction non exercée). S5 ECHEC sincère.
+- S4 encore PASS (tautologie canary dans message utilisateur). À corriger par canary aléatoire + C4.
+- G2 ROUGE (S5 ECHEC). verify VERT. Push 9f34543b.
