@@ -3,12 +3,34 @@ nom: compaction_contexte
 phase: P2
 modes: [scripte]
 prerequis: [cargo, python_3_12]
-llm_scripte: react
+llm_scripte: compaction
 mise_en_situation:
   workdir: tmpdir
 actions:
   - {demarrer_moteur: rust, llm: scripte}
-  - {post: /api/run, body: {messages: [{role: user, content: "Bonjour"}]}}
+  - {post: /api/run, body: {messages: [
+      {role: user, content: "Fait du debut: ALPHA-7"},
+      {role: assistant, content: "Bien note."},
+      {role: user, content: "remplissage 1"},
+      {role: assistant, content: "ok"},
+      {role: user, content: "remplissage 2"},
+      {role: assistant, content: "ok"},
+      {role: user, content: "remplissage 3"},
+      {role: assistant, content: "ok"},
+      {role: user, content: "remplissage 4"},
+      {role: assistant, content: "ok"},
+      {role: user, content: "Fait du milieu: BETA-9"},
+      {role: assistant, content: "Bien note."},
+      {role: user, content: "remplissage 5"},
+      {role: assistant, content: "ok"},
+      {role: user, content: "remplissage 6"},
+      {role: assistant, content: "ok"},
+      {role: user, content: "remplissage 7"},
+      {role: assistant, content: "ok"},
+      {role: user, content: "remplissage 8"},
+      {role: assistant, content: "ok"},
+      {role: user, content: "Resume les faits retenus."}
+    ]}}
 attendu:
   budget_respecte: true
   faits_retrouves: true
