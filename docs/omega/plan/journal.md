@@ -123,3 +123,9 @@
 ## 2026-10-23 — G2 VERT (honnête)
 - G0 VERT, G1 VERT, G2 VERT (9/9, 0 DELEGUE_CI).
 - verify VERT. Push 52151779. STOP. P3 sur ordre explicite.
+
+## 2026-10-23 — ADR-0019 + R5-min
+- ADR-0019 écrit : déviation N0-seul nommée, R5 partielle (omega-memory), R5 omega-context déféré en P7.
+- cargo-mutants non disponible → mutation non exécutée. Dette nommée, à traiter avant G7.
+- ADR-0018 : seuil 50 ms choisi (marge ×4,5), non dérivé. Dette nommée.
+- G2 VERT sur le gate (9/9). P3 sur ordre explicite.
