@@ -235,7 +235,10 @@ fn latency_memory_p95_under_threshold() {
     let store = JsonlMemoryStore::new(&d);
     futures_lite_block_on(async {
         for i in 0..1000 {
-            store.remember(&format!("mémoire numéro {} avec du contenu", i)).await.unwrap();
+            store
+                .remember(&format!("mémoire numéro {} avec du contenu", i))
+                .await
+                .unwrap();
         }
     });
     // 5 runs de mesure
@@ -248,6 +251,10 @@ fn latency_memory_p95_under_threshold() {
     times.sort();
     let p95 = times[times.len() * 95 / 100];
     // Seuil provisoire 1000 ms (à geler par ADR Seuils v1 après calibration).
-    assert!(p95 < 1000, "latence p95 {} ms dépasse le seuil provisoire", p95);
+    assert!(
+        p95 < 1000,
+        "latence p95 {} ms dépasse le seuil provisoire",
+        p95
+    );
     let _ = std::fs::remove_dir_all(&d);
 }
