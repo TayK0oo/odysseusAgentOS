@@ -53,12 +53,20 @@ pub struct ToolCtx {
     pub root: PathBuf,
     /// Chemins qui ne doivent jamais être lus/écrits (guard-fou).
     pub deny_paths: Vec<String>,
+    /// Magasin memoire **fourni par le serveur** (chemin absolu, hors jail).
+    ///
+    /// Un seul magasin : c'est le meme fichier que celui lu par l'injection de
+    /// contexte (C4). Le chemin vient du serveur, jamais d'un argument d'outil :
+    /// il est donc de confiance et n'a pas a passer par `resolve` (qui, lui,
+    /// confine les chemins demandes par le modele).
+    pub memory_path: Option<PathBuf>,
 }
 
 impl ToolCtx {
     pub fn new(root: impl AsRef<Path>) -> Self {
         Self {
             root: root.as_ref().to_path_buf(),
+            memory_path: None,
             deny_paths: vec![
                 ".env".into(),
                 ".ssh".into(),
@@ -78,6 +86,12 @@ impl ToolCtx {
                 "*.keystore".into(),
             ],
         }
+    }
+
+    /// Fournit le magasin memoire unique (chemin absolu, choisi par le serveur).
+    pub fn with_memory_path(mut self, path: impl Into<PathBuf>) -> Self {
+        self.memory_path = Some(path.into());
+        self
     }
 
     /// Résout un chemin relatif et refuse la sortie du workspace + la deny-list.

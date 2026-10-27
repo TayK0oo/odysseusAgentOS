@@ -171,6 +171,12 @@ impl ServerConfig {
         {
             cfg.tool_budget = b;
         }
+        if let Some(n) = std::env::var("OMEGA_MAX_TOKENS")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+        {
+            cfg.max_tokens = n;
+        }
         cfg
     }
 }

@@ -38,6 +38,12 @@ impl AppState {
         &self.config.ollama_model
     }
 
+    /// Magasin memoire **unique** du serveur (meme fichier pour l'outil
+    /// `memory_store` et pour l'injection de contexte C4).
+    pub fn memory_path(&self) -> std::path::PathBuf {
+        self.config.event_dir.join("memory.jsonl")
+    }
+
     /// Surface d'outils de la boucle (P1-1), si configuree.
     ///
     /// La surface **MCP** du registre (`mcp:rea`) ne peut pas servir le cas
@@ -51,7 +57,8 @@ impl AppState {
     pub fn tool_surface(&self) -> Option<std::sync::Arc<dyn omega_ports::ToolSurface>> {
         match self.config.tool_surface.as_ref()? {
             crate::config::ToolSurfaceKind::LocalFs { root } => {
-                let ctx = omega_tools::ToolCtx::new(root);
+                let ctx = omega_tools::ToolCtx::new(root)
+                    .with_memory_path(self.memory_path());
                 Some(std::sync::Arc::new(omega_tools::surface::FsSurface::new(
                     ctx,
                 )))
@@ -120,10 +127,10 @@ pub fn build_app_state_with(cfg: &ServerConfig) -> OmegaResult<AppState> {
         cfg.ollama_model.clone(),
     ));
     let store = Arc::new(FileEventStore::new(cfg.event_dir.clone()));
-    // MemoryStore (JSONL) pour l'injection conditionnelle dans le contexte.
-    // Unifie avec l'outil memory_store via OMEGA_MEMORY_STORE (meme fichier).
+    // Un seul magasin memoire (ADR-0023) : le fichier est construit ici une
+    // fois, passe au ContextContributor (injection C4) ET au ToolCtx des outils
+    // (`memory_store`/`recall`/`forget` via `AppState::tool_surface`).
     let memory_path = cfg.event_dir.join("memory.jsonl");
-    std::env::set_var("OMEGA_MEMORY_STORE", memory_path.display().to_string());
     let memory_store = Arc::new(
         omega_app::FileMemoryStore::new(memory_path)
             .map_err(|e| omega_types::OmegaError::Config(format!("memory store: {e}")))?,

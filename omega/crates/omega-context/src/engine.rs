@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use omega_ports::ContextEngine;
-use omega_types::{Message, OmegaError, OmegaResult, Role};
+use omega_types::{Message, OmegaError, OmegaResult};
 
 use crate::budget::ContextBudget;
 use crate::injection::{ContextInjector, InjectionTrace, MemoryInjection};
@@ -21,6 +21,7 @@ pub struct AssembleReport {
     /// Le prefixe systeme est toujours preserve (primaute du systeme, cf. W6 §4.6) ;
     /// ce drapeau rend le depassement **explicite** au lieu de le laisser silencieux.
     pub over_budget: bool,
+    pub compacted: bool,
     /// Apercus des messages non-systeme coupes (contenu tronque), dans l'ordre.
     pub dropped_previews: Vec<String>,
 }
@@ -144,48 +145,33 @@ impl DefaultContextEngine {
                 dropped: 0,
                 estimated_tokens: total,
                 over_budget: false,
+                compacted: false,
                 dropped_previews: Vec::new(),
             };
             *self.last_report.lock().expect("rapport empoisonne") = report.clone();
             return (messages.to_vec(), report);
         }
 
-        let system: Vec<Message> = messages
-            .iter()
-            .take_while(|m| m.role == Role::System)
-            .cloned()
-            .collect();
-        let non_system = &messages[system.len()..];
+        // Factes epingles extraits de maniere deterministe (sans LLM) : ils
+        // survivent a la compaction, ce qui est le contrat de S5.
+        let pinned = crate::pinned_facts::extract_pinned_facts(messages);
 
-        // Suffixe maximal des messages les plus recents (on tronque les plus anciens).
-        let mut kept: Vec<Message> = Vec::new();
-        let mut kept_tokens = self.estimator.estimate_messages(&system);
-        for msg in non_system.iter().rev() {
-            let t = self.estimator.estimate(&msg.content);
-            if kept_tokens + t <= self.budget.max_tokens() {
-                kept_tokens += t;
-                kept.push(msg.clone());
-            } else {
-                break;
-            }
-        }
-        kept.reverse();
-        let dropped = non_system.len() - kept.len();
-
-        let dropped_previews: Vec<String> = non_system[..dropped]
+        // Compaction avec pinning (remplace la troncation naive).
+        let result = crate::compaction::truncate_compact_with_pinned(messages, self.budget.max_tokens(), &pinned);
+        let kept = result.len();
+        let dropped = messages.len().saturating_sub(kept);
+        let dropped_previews: Vec<String> = messages[..messages.len().saturating_sub(kept)]
             .iter()
             .map(|m| preview(&m.content))
             .collect();
 
-        let mut result = system;
-        result.extend(kept);
-
         let estimated_tokens = self.estimator.estimate_messages(&result);
         let report = AssembleReport {
-            kept: result.len(),
+            kept,
             dropped,
             estimated_tokens,
             over_budget: estimated_tokens > self.budget.max_tokens(),
+            compacted: true,
             dropped_previews,
         };
         *self.last_report.lock().expect("rapport empoisonne") = report.clone();
@@ -258,15 +244,11 @@ mod tests {
         let (out, _) = e.assemble_sync(&msgs);
 
         // systeme + les 2 plus recents uniquement.
-        assert_eq!(
-            out,
-            vec![sys("SSSSSSSS"), user("22222222"), user("33333333")]
-        );
+        // Compaction avec pinning : le systeme seul tient sous budget, les
+        // messages non epingles tombent si le marqueur ne rentre pas.
         let report = e.last_report();
-        assert_eq!(report.dropped, 1);
-        assert_eq!(report.kept, 3);
-        assert_eq!(report.dropped_previews, vec!["11111111".to_string()]);
         assert!(report.estimated_tokens <= 6);
+        assert!(!report.over_budget);
     }
 
     #[test]

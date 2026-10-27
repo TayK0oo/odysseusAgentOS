@@ -454,6 +454,15 @@ impl Operation for AssembleOperation {
 
     async fn run(&self, ctx: &mut RunContext<'_>) -> OmegaResult<()> {
         let assembled = self.engine.assemble(self.messages.clone()).await?;
+        if assembled.len() < self.messages.len() {
+            ctx.publish(Event::new(
+                "context.compacted",
+                serde_json::json!({
+                    "omitted": self.messages.len() - assembled.len(),
+                    "kept": assembled.len(),
+                }),
+            ));
+        }
         ctx.state.0 = serde_json::to_value(assembled)
             .map_err(|e| OmegaError::Config(format!("sérialisation contexte : {e}")))?;
         Ok(())

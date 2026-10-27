@@ -9,15 +9,14 @@ use super::{ToolCtx, ToolOutput};
 /// Fichier de mémoire, relatif à la racine du workspace.
 pub const MEMORY_PATH: &str = ".omega/memory.jsonl";
 
-/// Résout le chemin du magasin mémoire : env OMEGA_MEMORY_STORE si défini
-/// (store unifié avec l'injection C4), sinon .omega/memory.jsonl dans le
-/// workspace. Un seul magasin pour l'outil et l'injection.
+/// Résout le chemin du magasin mémoire : celui **fourni par le serveur**
+/// (`ToolCtx::memory_path`, store unique partagé avec l'injection C4) s'il
+/// existe, sinon `.omega/memory.jsonl` dans le workspace.
 pub fn memory_path(ctx: &ToolCtx) -> Result<std::path::PathBuf, String> {
-    let rel = std::env::var("OMEGA_MEMORY_STORE")
-        .ok()
-        .filter(|v| !v.trim().is_empty())
-        .unwrap_or_else(|| MEMORY_PATH.to_string());
-    ctx.resolve(&rel)
+    if let Some(p) = &ctx.memory_path {
+        return Ok(p.clone());
+    }
+    ctx.resolve(MEMORY_PATH)
 }
 
 /// Nombre maximal de faits renvoyés par un `recall` (borne de sortie).

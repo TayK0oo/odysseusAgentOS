@@ -18,10 +18,16 @@ use omega_ports::{Hook, MemoryStore, SubagentRunner};
 use omega_registry::{Manifest, RegistryBuilder};
 use omega_types::{Capability, OmegaError, OmegaResult};
 
-/// MemoryStore simple : stockage en memoire + fichier JSONL pour persistance.
+/// MemoryStore simple : stockage JSONL append-only, **relu depuis le disque a
+/// chaque `recall`** (un outil peut ecrire dans le meme fichier — un cache en
+/// memoire rendrait la lecture incoherente avec l'ecriture).
+///
+/// Format accepte en lecture (compatibilite outil/injection) :
+/// - une chaine JSON (`"fait"`) — forme historique ;
+/// - un objet (`{"content": "...", "provenance": "[stated]"}`) — forme ecrite
+///   par l'outil `memory_store` (`omega-tools`).
 pub struct FileMemoryStore {
     path: std::path::PathBuf,
-    facts: Mutex<Vec<String>>,
 }
 
 impl FileMemoryStore {
@@ -31,22 +37,38 @@ impl FileMemoryStore {
             std::fs::create_dir_all(parent)
                 .map_err(|e| OmegaError::Io(format!("creation repertoire : {e}")))?;
         }
+        Ok(Self { path })
+    }
+
+    /// Chemin du magasin (le meme fichier doit servir a l'outil et a
+    /// l'injection : un seul magasin, ADR-0023).
+    pub fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+
+    /// Faits presents sur disque, dans l'ordre d'ecriture.
+    fn read_facts(path: &std::path::Path) -> OmegaResult<Vec<String>> {
+        let content = match std::fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(OmegaError::Io(format!("lecture fichier : {e}"))),
+        };
         let mut facts = Vec::new();
-        if path.is_file() {
-            let content = std::fs::read_to_string(&path)
-                .map_err(|e| OmegaError::Io(format!("lecture fichier : {e}")))?;
-            for line in content.lines() {
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
-                    if let Some(s) = v.as_str() {
-                        facts.push(s.to_string());
-                    }
-                }
+        for line in content.lines() {
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+                // Ligne corrompue (ecriture interrompue) : ignoree, la memoire survit.
+                continue;
+            };
+            let fact = v
+                .as_str()
+                .map(str::to_string)
+                .or_else(|| v.get("content").and_then(|c| c.as_str()).map(str::to_string))
+                .or_else(|| v.get("text").and_then(|c| c.as_str()).map(str::to_string));
+            if let Some(f) = fact {
+                facts.push(f);
             }
         }
-        Ok(Self {
-            path,
-            facts: Mutex::new(facts),
-        })
+        Ok(facts)
     }
 }
 
@@ -59,17 +81,15 @@ impl MemoryStore for FileMemoryStore {
         if query.trim().is_empty() {
             return Ok(Vec::new());
         }
-        let facts = self.facts.lock().unwrap();
+        let facts = Self::read_facts(&self.path)?;
         let results: Vec<String> = facts
-            .iter()
+            .into_iter()
             .filter(|f| f.contains(query))
             .take(limit)
-            .cloned()
             .collect();
         Ok(results)
     }
     async fn remember(&self, fact: &str) -> OmegaResult<()> {
-        self.facts.lock().unwrap().push(fact.to_string());
         let mut file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
@@ -78,6 +98,8 @@ impl MemoryStore for FileMemoryStore {
         use std::io::Write;
         writeln!(file, "{}", serde_json::to_string(fact).unwrap())
             .map_err(|e| OmegaError::Io(format!("ecriture fichier : {e}")))?;
+        file.sync_all()
+            .map_err(|e| OmegaError::Io(format!("flush fichier : {e}")))?;
         Ok(())
     }
 }
