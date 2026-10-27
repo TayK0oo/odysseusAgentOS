@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace == with != in <impl ContextEngine for LlmCompactionEngine>::assemble
+@@ -153,17 +153,17 @@
+         let omitted_messages = &non_system[..omitted_count.min(non_system.len())];
+ 
+         let summary = self.summarize_omitted(omitted_messages).await;
+ 
+         // 3. Inserer le resume dans la liste tronquee
+         let mut result = truncated;
+         if let Some(summary_text) = summary {
+             let summary_msg = Message::new(Role::System, format!("Summary: {summary_text}"));
+-            let system_count = result.iter().take_while(|m| m.role == Role::System).count();
++            let system_count = result.iter().take_while(|m| m.role != /* ~ changed by cargo-mutants ~ */ Role::System).count();
+             result.insert(system_count, summary_msg);
+         }
+ 
+         // 4. Re-verifier le budget
+         if estimator.estimate_messages(&result) > max_tokens {
+             return Ok(truncate_compact(&result, max_tokens));
+         }
+ 

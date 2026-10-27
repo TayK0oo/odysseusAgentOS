@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace - with + in truncate_compact
+@@ -51,17 +51,17 @@
+         if kept_tokens + t <= budget {
+             kept_tokens += t;
+             kept.push(msg.clone());
+         } else {
+             break;
+         }
+     }
+     kept.reverse();
+-    let omitted = tail.len() - kept.len();
++    let omitted = tail.len() + /* ~ changed by cargo-mutants ~ */ kept.len();
+ 
+     let mut result: Vec<Message> = system.to_vec();
+     if omitted > 0 {
+         result.push(Message::new(Role::System, compaction_marker(omitted)));
+     }
+     result.extend(kept);
+     result
+ }

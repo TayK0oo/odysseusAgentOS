@@ -1,0 +1,21 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace PinnedFacts::extract_durable -> Self with Default::default()
+@@ -180,17 +180,17 @@
+ 
+     /// Alias de [`Self::extract`].
+     pub fn extract_from_messages(messages: &[Message]) -> Self {
+         Self::extract(messages)
+     }
+ 
+     /// Alias de [`Self::extract`].
+     pub fn extract_durable(messages: &[Message]) -> Self {
+-        Self::extract(messages)
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Alias de [`Self::extract`].
+     pub fn extract_durable_facts(messages: &[Message]) -> Self {
+         Self::extract(messages)
+     }
+ 
+     fn is_durable(content: &str) -> bool {

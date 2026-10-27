@@ -1,0 +1,21 @@
+--- crates/omega-context/src/tool_surface.rs
++++ replace && with || in stem
+@@ -91,17 +91,17 @@
+     // R5 — pluriel en `s` (`files -> file`, `writes -> write`).
+     if t.len() >= 4 && t.ends_with('s') {
+         let s = &t[..t.len() - 1];
+         if s.len() >= 2 {
+             return s.to_string();
+         }
+     }
+     // R6 — `eaux -> eau` (avant R7 : le suffixe finit en `x`).
+-    if t.len() >= 4 && t.ends_with("eaux") {
++    if t.len() >= 4 || /* ~ changed by cargo-mutants ~ */ t.ends_with("eaux") {
+         let s = &t[..t.len() - 1];
+         if s.len() >= 2 {
+             return s.to_string();
+         }
+     }
+     // R7 — pluriel en `x`.
+     if t.len() >= 4 && t.ends_with('x') {
+         let s = &t[..t.len() - 1];

@@ -1,0 +1,24 @@
+--- crates/omega-policy/src/lib.rs
++++ replace CommandPrefixExecPolicy::dangerous_defaults -> Self with Default::default()
+@@ -299,20 +299,17 @@
+             name: "command-prefix".into(),
+             denied_prefixes: denied_prefixes.iter().map(|s| s.to_string()).collect(),
+             denied_substrings: denied_substrings.iter().map(|s| s.to_string()).collect(),
+         }
+     }
+ 
+     /// Deny-list par défaut (rm -rf sur racine, fork bomb, curl|sh, etc.).
+     pub fn dangerous_defaults() -> Self {
+-        Self::new(
+-            &["rm -rf /", "mkfs", "dd if=", ":(){:|:&};:"],
+-            &["curl|sh", "wget|sh", "sudo rm", "chmod 777 /"],
+-        )
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl ExecPolicy for CommandPrefixExecPolicy {
+     fn name(&self) -> &str {
+         &self.name
+     }
+ 

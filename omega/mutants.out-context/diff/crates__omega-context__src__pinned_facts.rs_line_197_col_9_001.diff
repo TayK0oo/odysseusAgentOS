@@ -1,0 +1,67 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace PinnedFacts::is_durable -> bool with false
+@@ -189,63 +189,17 @@
+     }
+ 
+     /// Alias de [`Self::extract`].
+     pub fn extract_durable_facts(messages: &[Message]) -> Self {
+         Self::extract(messages)
+     }
+ 
+     fn is_durable(content: &str) -> bool {
+-        let lower = content.to_lowercase();
+-        const KEYWORDS: &[&str] = &[
+-            "prefer",
+-            "preference",
+-            "decision",
+-            "constraint",
+-            "must",
+-            "always",
+-            "never",
+-            "session",
+-            "project",
+-            "goal",
+-            "important",
+-            "remember",
+-            "durable",
+-            "pinned",
+-            "fact",
+-            "constraint",
+-        ];
+-        if KEYWORDS.iter().any(|k| lower.contains(k)) {
+-            return true;
+-        }
+-        // Marqueurs explicites
+-        if content.starts_with("[PINNED]")
+-            || content.starts_with("[PinnedFact:")
+-            || content.starts_with("Decision:")
+-            || content.starts_with("Preference:")
+-            || content.starts_with("Constraint:")
+-            || content.starts_with("Project:")
+-            || content.starts_with("Fact:")
+-            || content.starts_with("Durable:")
+-        {
+-            return true;
+-        }
+-        // Paire cle: valeur (heuristique deterministe)
+-        if let Some(idx) = content.find(": ") {
+-            let key = content[..idx].trim();
+-            let val = content[idx + 2..].trim();
+-            if !key.is_empty()
+-                && !val.is_empty()
+-                && key.chars().count() <= 40
+-                && val.chars().count() <= 200
+-            {
+-                return true;
+-            }
+-        }
+-        false
++        false /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn infer_category(content: &str) -> String {
+         let lower = content.to_lowercase();
+         if lower.contains("prefer") {
+             "preference".to_string()
+         } else if lower.contains("decision") || lower.starts_with("decision:") {
+             "decision".to_string()

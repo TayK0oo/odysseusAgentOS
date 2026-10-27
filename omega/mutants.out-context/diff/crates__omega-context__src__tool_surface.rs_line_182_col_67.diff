@@ -1,0 +1,21 @@
+--- crates/omega-context/src/tool_surface.rs
++++ replace + with - in ToolSurfaceIndex::rebuild_stats
+@@ -174,17 +174,17 @@
+                 if seen.insert(t.as_str()) {
+                     *self.df.entry(t.clone()).or_insert(0) += 1;
+                 }
+             }
+         }
+         self.idf.clear();
+         for (t, &df) in &self.df {
+             // IDF lisse BM25 : ln((N+1)/(df+1)) + 1.
+-            let idf = (((n + 1) as f64) / ((df + 1) as f64)).ln() + 1.0;
++            let idf = (((n + 1) as f64) / ((df + 1) as f64)).ln() - /* ~ changed by cargo-mutants ~ */ 1.0;
+             self.idf.insert(t.clone(), idf);
+         }
+     }
+ 
+     /// Token le plus discriminant de la requete : celui de **plus haut IDF**, c'est-a-dire
+     /// de **frequence documentaire minimale** (`df` minimal — IDF est strictement
+     /// decroissante en `df`).
+     ///

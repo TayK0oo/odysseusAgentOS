@@ -1,0 +1,24 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace PinnedFacts::estimate_tokens -> usize with 1
+@@ -265,20 +265,17 @@
+     /// Convertit tous les faits en messages système (pour injection dans le contexte).
+     /// Triés par priorité décroissante.
+     pub fn to_system_messages(&self) -> Vec<Message> {
+         self.list().iter().map(|f| f.to_system_message()).collect()
+     }
+ 
+     /// Estime le coût en tokens de tous les faits épinglés.
+     pub fn estimate_tokens(&self, estimator: &crate::token::TokenEstimator) -> usize {
+-        self.list()
+-            .iter()
+-            .map(|f| estimator.estimate(&f.content))
+-            .sum()
++        1 /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Nettoie tous les faits.
+     pub fn clear(&self) {
+         self.facts
+             .write()
+             .expect("pinned facts lock poisoned")
+             .clear();

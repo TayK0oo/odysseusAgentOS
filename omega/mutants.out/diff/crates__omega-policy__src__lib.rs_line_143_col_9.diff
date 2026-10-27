@@ -1,0 +1,32 @@
+--- crates/omega-policy/src/lib.rs
++++ replace BudgetEnforcer::consume_tool_call -> Verdict with Default::default()
+@@ -135,28 +135,17 @@
+                 pct(u.iterations as f64, self.budget.max_iterations as f64),
+             );
+         }
+         Verdict::ok()
+     }
+ 
+     /// Port de `consume_tool_call`.
+     pub fn consume_tool_call(&self) -> Verdict {
+-        let mut u = self.usage.lock().unwrap();
+-        u.tool_calls += 1;
+-        if u.tool_calls > self.budget.max_tool_calls {
+-            return Verdict::fail(
+-                format!(
+-                    "Tool call budget exceeded: {} / {}",
+-                    u.tool_calls, self.budget.max_tool_calls
+-                ),
+-                pct(u.tool_calls as f64, self.budget.max_tool_calls as f64),
+-            );
+-        }
+-        Verdict::ok()
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Port de `is_budget_ok` : coût d'abord, puis tokens/iterations/tool_calls.
+     pub fn is_budget_ok(&self) -> Verdict {
+         let u = self.usage.lock().unwrap();
+         if self.budget.max_cost_usd > 0.0 {
+             let p = pct(u.cost_usd, self.budget.max_cost_usd);
+             if p > 100.0 {

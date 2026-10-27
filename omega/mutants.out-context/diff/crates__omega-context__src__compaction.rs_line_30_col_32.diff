@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace == with != in truncate_compact
+@@ -22,17 +22,17 @@
+ pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
+     let estimator = TokenEstimator::new();
+     if estimator.estimate_messages(messages) <= budget {
+         return messages.to_vec();
+     }
+ 
+     let system_count = messages
+         .iter()
+-        .take_while(|m| m.role == Role::System)
++        .take_while(|m| m.role != /* ~ changed by cargo-mutants ~ */ Role::System)
+         .count();
+     let system = &messages[..system_count];
+     let tail = &messages[system_count..];
+     let system_tokens = estimator.estimate_messages(system);
+ 
+     // Reserve la place du marqueur (borne superieure = pire cas : omitted = tail.len()).
+     let marker_reserve = estimator.estimate(&compaction_marker(tail.len()));
+ 

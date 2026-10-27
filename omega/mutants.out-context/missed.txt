@@ -1,0 +1,94 @@
+crates/omega-context/src/compaction.rs:42:39: replace > with >= in truncate_compact
+crates/omega-context/src/compaction.rs:62:16: replace > with >= in truncate_compact
+crates/omega-context/src/compaction.rs:108:9: replace <impl ContextEngine for LlmCompactionEngine>::name -> &str with ""
+crates/omega-context/src/compaction.rs:108:9: replace <impl ContextEngine for LlmCompactionEngine>::name -> &str with "xyzzy"
+crates/omega-context/src/compaction.rs:112:9: replace <impl ContextEngine for LlmCompactionEngine>::owns_compaction -> bool with false
+crates/omega-context/src/compaction.rs:116:9: replace <impl ContextEngine for LlmCompactionEngine>::max_tokens -> usize with 0
+crates/omega-context/src/compaction.rs:116:9: replace <impl ContextEngine for LlmCompactionEngine>::max_tokens -> usize with 1
+crates/omega-context/src/compaction.rs:130:36: replace != with == in <impl ContextEngine for LlmCompactionEngine>::assemble
+crates/omega-context/src/compaction.rs:130:55: delete ! in <impl ContextEngine for LlmCompactionEngine>::assemble
+crates/omega-context/src/compaction.rs:143:36: replace == with != in <impl ContextEngine for LlmCompactionEngine>::assemble
+crates/omega-context/src/compaction.rs:150:32: replace != with == in <impl ContextEngine for LlmCompactionEngine>::assemble
+crates/omega-context/src/compaction.rs:150:51: delete ! in <impl ContextEngine for LlmCompactionEngine>::assemble
+crates/omega-context/src/compaction.rs:161:68: replace == with != in <impl ContextEngine for LlmCompactionEngine>::assemble
+crates/omega-context/src/compaction.rs:166:49: replace > with == in <impl ContextEngine for LlmCompactionEngine>::assemble
+crates/omega-context/src/compaction.rs:166:49: replace > with < in <impl ContextEngine for LlmCompactionEngine>::assemble
+crates/omega-context/src/compaction.rs:166:49: replace > with >= in <impl ContextEngine for LlmCompactionEngine>::assemble
+crates/omega-context/src/compaction.rs:334:39: replace > with >= in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:340:41: replace + with - in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:340:41: replace + with * in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:343:24: replace + with - in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:343:24: replace + with * in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:344:25: replace += with -= in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:344:25: replace += with *= in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:351:36: replace - with + in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:355:16: replace > with >= in truncate_compact_with_pinned
+crates/omega-context/src/contributor.rs:80:9: replace ContextContributor::with_pinned_facts -> Self with Default::default()
+crates/omega-context/src/contributor.rs:88:9: replace ContextContributor::with_llm_compaction -> Self with Default::default()
+crates/omega-context/src/contributor.rs:95:9: replace ContextContributor::with_memory -> Self with Default::default()
+crates/omega-context/src/contributor.rs:101:9: replace ContextContributor::with_memory_store -> Self with Default::default()
+crates/omega-context/src/contributor.rs:107:9: replace ContextContributor::with_store -> Self with Default::default()
+crates/omega-context/src/contributor.rs:123:9: replace <impl Contributor for ContextContributor>::name -> &str with ""
+crates/omega-context/src/contributor.rs:123:9: replace <impl Contributor for ContextContributor>::name -> &str with "xyzzy"
+crates/omega-context/src/engine.rs:33:5: replace preview -> String with String::new()
+crates/omega-context/src/engine.rs:33:5: replace preview -> String with "xyzzy".into()
+crates/omega-context/src/engine.rs:173:43: replace > with >= in DefaultContextEngine::assemble_sync
+crates/omega-context/src/injection.rs:43:9: replace InjectionTrace::is_empty -> bool with true
+crates/omega-context/src/injection.rs:81:9: replace MemoryInjection::journal -> Vec<InjectionTrace> with vec![Default::default()]
+crates/omega-context/src/injection.rs:86:9: replace MemoryInjection::keywords -> Vec<String> with vec![String::new()]
+crates/omega-context/src/injection.rs:98:9: replace <impl ContextInjector for MemoryInjection>::name -> &str with ""
+crates/omega-context/src/injection.rs:98:9: replace <impl ContextInjector for MemoryInjection>::name -> &str with "xyzzy"
+crates/omega-context/src/injection.rs:116:33: replace && with || in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/injection.rs:116:50: replace > with >= in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/injection.rs:142:34: replace > with >= in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/injection.rs:142:25: replace + with * in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/pinned_facts.rs:130:9: replace PinnedFacts::len -> usize with 0
+crates/omega-context/src/pinned_facts.rs:130:9: replace PinnedFacts::len -> usize with 1
+crates/omega-context/src/pinned_facts.rs:134:9: replace PinnedFacts::is_empty -> bool with true
+crates/omega-context/src/pinned_facts.rs:134:9: replace PinnedFacts::is_empty -> bool with false
+crates/omega-context/src/pinned_facts.rs:134:20: replace == with != in PinnedFacts::is_empty
+crates/omega-context/src/pinned_facts.rs:144:9: replace PinnedFacts::extract -> Self with Default::default()
+crates/omega-context/src/pinned_facts.rs:156:20: delete ! in PinnedFacts::extract
+crates/omega-context/src/pinned_facts.rs:159:25: replace += with -= in PinnedFacts::extract
+crates/omega-context/src/pinned_facts.rs:159:25: replace += with *= in PinnedFacts::extract
+crates/omega-context/src/pinned_facts.rs:173:9: replace PinnedFacts::from_messages -> Self with Default::default()
+crates/omega-context/src/pinned_facts.rs:178:9: replace PinnedFacts::extract_from -> Self with Default::default()
+crates/omega-context/src/pinned_facts.rs:183:9: replace PinnedFacts::extract_from_messages -> Self with Default::default()
+crates/omega-context/src/pinned_facts.rs:188:9: replace PinnedFacts::extract_durable -> Self with Default::default()
+crates/omega-context/src/pinned_facts.rs:193:9: replace PinnedFacts::extract_durable_facts -> Self with Default::default()
+crates/omega-context/src/pinned_facts.rs:197:9: replace PinnedFacts::is_durable -> bool with false
+crates/omega-context/src/pinned_facts.rs:227:13: replace || with && in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:226:13: replace || with && in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:225:13: replace || with && in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:224:13: replace || with && in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:223:13: replace || with && in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:222:13: replace || with && in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:221:13: replace || with && in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:234:35: replace + with - in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:234:35: replace + with * in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:238:17: replace && with || in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:237:17: replace && with || in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:236:17: replace && with || in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:235:16: delete ! in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:236:20: delete ! in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:237:40: replace <= with > in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:238:40: replace <= with > in PinnedFacts::is_durable
+crates/omega-context/src/pinned_facts.rs:247:9: replace PinnedFacts::infer_category -> String with String::new()
+crates/omega-context/src/pinned_facts.rs:247:9: replace PinnedFacts::infer_category -> String with "xyzzy".into()
+crates/omega-context/src/pinned_facts.rs:250:46: replace || with && in PinnedFacts::infer_category
+crates/omega-context/src/pinned_facts.rs:255:13: replace || with && in PinnedFacts::infer_category
+crates/omega-context/src/pinned_facts.rs:254:13: replace || with && in PinnedFacts::infer_category
+crates/omega-context/src/pinned_facts.rs:253:13: replace || with && in PinnedFacts::infer_category
+crates/omega-context/src/pinned_facts.rs:258:45: replace || with && in PinnedFacts::infer_category
+crates/omega-context/src/pinned_facts.rs:273:9: replace PinnedFacts::estimate_tokens -> usize with 0
+crates/omega-context/src/pinned_facts.rs:273:9: replace PinnedFacts::estimate_tokens -> usize with 1
+crates/omega-context/src/pinned_facts.rs:281:9: replace PinnedFacts::clear with ()
+crates/omega-context/src/pinned_facts.rs:290:5: replace extract_pinned_facts -> PinnedFacts with Default::default()
+crates/omega-context/src/pinned_facts.rs:295:5: replace extract_durable_facts -> PinnedFacts with Default::default()
+crates/omega-context/src/pinned_facts.rs:300:5: replace extract_facts -> PinnedFacts with Default::default()
+crates/omega-context/src/skills.rs:51:14: replace ^= with |= in signature
+crates/omega-context/src/skills.rs:51:14: replace ^= with &= in signature
+crates/omega-context/src/tool_surface.rs:99:16: replace >= with < in stem
+crates/omega-context/src/tool_surface.rs:101:20: replace >= with < in stem
+crates/omega-context/src/tool_surface.rs:182:48: replace + with * in ToolSurfaceIndex::rebuild_stats
+crates/omega-context/src/tool_surface.rs:201:84: replace < with <= in ToolSurfaceIndex::gate_token

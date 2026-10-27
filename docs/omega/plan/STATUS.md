@@ -1,6 +1,6 @@
 # STATUS — AgentOS Omega (généré par measure.py — jamais édité à la main)
 
-SHA `9fb36e2d` · mesuré le 2026-10-23T07:41:49+00:00 · moteur Rust (ADR-0009)
+SHA `6f4609cd` · mesuré le 2026-10-23T17:42:23+00:00 · moteur Rust (ADR-0009)
 
 | Mesure | Valeur | Méthode |
 |---|---|---|
@@ -11,5 +11,5 @@ SHA `9fb36e2d` · mesuré le 2026-10-23T07:41:49+00:00 · moteur Rust (ADR-0009)
 | dep_graph | OK | script |
 
 **Scénarios** : S0–S11 `NON_EXECUTE` (banc d'acceptation = P0-4).
-**Portes** : G0 ROUGE · G1 VERT · G2 VERT · G3 NON_EXECUTE · G4 NON_EXECUTE · G5 NON_EXECUTE · G6 NON_EXECUTE · G7 NON_EXECUTE — l'etat vient des rapports gate.py (docs/omega/plan/gates/), seule la sortie de gate.py fait foi (lecon L6).
-**Prochaine action** : G0.a : verify exit 0 sur clone vierge (execution complete, tests inclus) — corriger puis relancer omega/scripts/gate.py --phase 0
+**Portes** : G0 VERT · G1 VERT · G2 ROUGE · G3 NON_EXECUTE · G4 NON_EXECUTE · G5 NON_EXECUTE · G6 NON_EXECUTE · G7 NON_EXECUTE — l'etat vient des rapports gate.py (docs/omega/plan/gates/), seule la sortie de gate.py fait foi (lecon L6).
+**Prochaine action** : G2.b.s4 : S4 memoire persistante : 5 runs tous PASS (mot retrouve apres kill -9, oubli cascade) — rouge sincère jusqu'à B2 (ADR-0017-bis) — corriger puis relancer omega/scripts/gate.py --phase 2

@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ delete ! in <impl ContextEngine for LlmCompactionEngine>::assemble
+@@ -142,17 +142,17 @@
+             .iter()
+             .take_while(|m| m.role == Role::System)
+             .count();
+         let non_system = &messages[system_count..];
+ 
+         // Les messages non-systeme conserves (sans le marqueur)
+         let kept_non_system = truncated
+             .iter()
+-            .filter(|m| m.role != Role::System && !m.content.starts_with("…[compacted"))
++            .filter(|m| m.role != Role::System &&  /* ~ changed by cargo-mutants ~ */m.content.starts_with("…[compacted"))
+             .count();
+         let omitted_count = non_system.len().saturating_sub(kept_non_system);
+         let omitted_messages = &non_system[..omitted_count.min(non_system.len())];
+ 
+         let summary = self.summarize_omitted(omitted_messages).await;
+ 
+         // 3. Inserer le resume dans la liste tronquee
+         let mut result = truncated;

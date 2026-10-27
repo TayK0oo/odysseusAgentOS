@@ -1,0 +1,21 @@
+--- crates/omega-context/src/tool_surface.rs
++++ replace - with + in stem
+@@ -57,17 +57,17 @@
+ fn stem(token: &str) -> String {
+     let t = token.to_lowercase();
+     // R1 — exceptions exactes (conflation write/writing).
+     if t == "writing" || t == "write" {
+         return "writ".to_string();
+     }
+     // R2 — `ing`.
+     if t.len() >= 5 && t.ends_with("ing") {
+-        let s = &t[..t.len() - 3];
++        let s = &t[..t.len() + /* ~ changed by cargo-mutants ~ */ 3];
+         if s.len() >= 2 {
+             return s.to_string();
+         }
+     }
+     // R3 — `ed`.
+     if t.len() >= 4 && t.ends_with("ed") {
+         let s = &t[..t.len() - 2];
+         if s.len() >= 2 {

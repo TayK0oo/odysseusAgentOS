@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace <impl ContextEngine for LlmCompactionEngine>::max_tokens -> usize with 1
+@@ -108,17 +108,17 @@
+         "llm-compaction"
+     }
+ 
+     fn owns_compaction(&self) -> bool {
+         true
+     }
+ 
+     fn max_tokens(&self) -> usize {
+-        self.inner.max_tokens()
++        1 /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn assemble(&self, messages: Vec<Message>) -> OmegaResult<Vec<Message>> {
+         let max_tokens = self.inner.max_tokens();
+         let estimator = TokenEstimator::new();
+ 
+         // 1. Tentative avec truncation simple (couche 1)
+         let truncated = truncate_compact(&messages, max_tokens);

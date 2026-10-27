@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace == with != in truncate_compact_with_pinned
+@@ -296,17 +296,17 @@
+     budget: usize,
+     pinned: &PinnedFacts,
+ ) -> Vec<Message> {
+     let estimator = TokenEstimator::new();
+ 
+     // 1. Préfixe système (intouchable)
+     let system: Vec<Message> = messages
+         .iter()
+-        .take_while(|m| m.role == Role::System)
++        .take_while(|m| m.role != /* ~ changed by cargo-mutants ~ */ Role::System)
+         .cloned()
+         .collect();
+ 
+     // 2. Messages non-système
+     let non_system = &messages[system.len()..];
+ 
+     // 3. Faits épinglés -> messages système
+     let pinned_msgs = pinned.to_system_messages();

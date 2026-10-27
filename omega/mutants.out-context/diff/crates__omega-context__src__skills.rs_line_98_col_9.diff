@@ -1,0 +1,28 @@
+--- crates/omega-context/src/skills.rs
++++ replace SkillIndex::list -> Vec<SkillSummary> with vec![]
+@@ -90,24 +90,17 @@
+         } else {
+             self.by_id.insert(skill.id.clone(), self.skills.len());
+             self.skills.push(skill);
+         }
+     }
+ 
+     /// Niveau 1 : noms + descriptions (aucun corps charge).
+     pub fn list(&self) -> Vec<SkillSummary> {
+-        self.skills
+-            .iter()
+-            .map(|s| SkillSummary {
+-                id: s.id.clone(),
+-                name: s.name.clone(),
+-                description: s.description.clone(),
+-            })
+-            .collect()
++        vec![] /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Niveau 2 : corps du skill (cache par signature).
+     pub fn view(&self, id: &str) -> Option<Arc<str>> {
+         let pos = *self.by_id.get(id)?;
+         let skill = &self.skills[pos];
+         let sig = signature(&skill.body);
+         if let Some(cached) = self.cache.lock().expect("cache empoisonne").get(id) {

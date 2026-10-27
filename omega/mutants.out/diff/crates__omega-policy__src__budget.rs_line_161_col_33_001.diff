@@ -1,0 +1,21 @@
+--- crates/omega-policy/src/budget.rs
++++ replace > with < in Budget::consume_call
+@@ -153,17 +153,17 @@
+         };
+         // Tentatif sur les quatre axes : tout-ou-rien.
+         let proposed = Usage {
+             steps: used.steps + d.steps,
+             tokens: used.tokens + d.tokens,
+             cost_usd: used.cost_usd + d.cost_usd,
+             time_ms: used.time_ms + d.time_ms,
+         };
+-        if self.limit.max_steps > 0 && proposed.steps > self.limit.max_steps {
++        if self.limit.max_steps < /* ~ changed by cargo-mutants ~ */ 0 && proposed.steps > self.limit.max_steps {
+             return Err(exhausted(BudgetAxis::Steps, d, used, self.limit));
+         }
+         if self.limit.max_tokens > 0 && proposed.tokens > self.limit.max_tokens {
+             return Err(exhausted(BudgetAxis::Tokens, d, used, self.limit));
+         }
+         if self.limit.max_cost_usd > 0.0 && proposed.cost_usd > self.limit.max_cost_usd {
+             return Err(exhausted(BudgetAxis::Cost, d, used, self.limit));
+         }

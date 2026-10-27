@@ -1,0 +1,44 @@
+--- crates/omega-context/src/compaction.rs
++++ replace LlmCompactionEngine::summarize_omitted -> Option<String> with Some(String::new())
+@@ -168,40 +168,17 @@
+         }
+ 
+         Ok(result)
+     }
+ }
+ 
+ impl LlmCompactionEngine {
+     async fn summarize_omitted(&self, messages: &[Message]) -> Option<String> {
+-        if messages.is_empty() {
+-            return None;
+-        }
+-        let content: String = messages
+-            .iter()
+-            .map(|m| format!("{:?}: {}", m.role, m.content))
+-            .collect::<Vec<_>>()
+-            .join("\n");
+-
+-        let prompt = format!(
+-            "Resume les messages suivants en 1-2 phrases maximum, en conservant les faits cles, decisions et questions ouvertes:\n\n{}",
+-            content
+-        );
+-        let _prompt_len = prompt.len();
+-
+-        let req = omega_types::ChatRequest {
+-            model: omega_types::ModelId::new("auto"),
+-            messages: vec![Message::new(Role::User, prompt.clone())],
+-        };
+-
+-        match self.provider.complete(req).await {
+-            Ok(resp) => Some(resp.message.content),
+-            Err(_e) => None,
+-        }
++        Some(String::new()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[allow(clippy::items_after_test_module)]
+ #[cfg(test)]
+ mod llm_compaction_tests {
+     use super::*;
+     use crate::engine::DefaultContextEngine;

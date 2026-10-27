@@ -1,0 +1,22 @@
+--- crates/omega-context/src/compaction.rs
++++ replace LlmCompactionEngine::with_summary_budget -> Self with Default::default()
+@@ -92,18 +92,17 @@
+         Self {
+             inner,
+             provider,
+             summary_budget_ratio: 0.25,
+         }
+     }
+ 
+     pub fn with_summary_budget(mut self, ratio: f32) -> Self {
+-        self.summary_budget_ratio = ratio.clamp(0.1, 0.5);
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[async_trait]
+ impl ContextEngine for LlmCompactionEngine {
+     fn name(&self) -> &str {
+         "llm-compaction"
+     }

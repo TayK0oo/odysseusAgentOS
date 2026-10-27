@@ -1,0 +1,104 @@
+--- crates/omega-context/src/injection.rs
++++ replace <impl ContextInjector for MemoryInjection>::inject -> OmegaResult<(Vec<Message>, InjectionTrace)> with OmegaResult::from_iter([(vec![Default::default()], Default::default())])
+@@ -98,100 +98,17 @@
+         "memory-injection"
+     }
+ 
+     async fn inject(
+         &self,
+         messages: Vec<Message>,
+         budget_tokens: usize,
+     ) -> OmegaResult<(Vec<Message>, InjectionTrace)> {
+-        let query = messages
+-            .iter()
+-            .rev()
+-            .find(|m| m.role == Role::User)
+-            .map(|m| m.content.as_str())
+-            .unwrap_or("");
+-        let keywords = Self::keywords(query);
+-
+-        let mut selected: Vec<String> = Vec::new();
+-        let mut used = 0usize;
+-        if !keywords.is_empty() && budget_tokens > 0 {
+-            let recalled = self.store.recall(query, self.recall_limit).await?;
+-            for fact in recalled {
+-                // 1) pertinence : au moins un mot-cle du fait vient de la requete.
+-                let matched: Vec<String> = keywords
+-                    .iter()
+-                    .filter(|w| fact.to_lowercase().contains(w.as_str()))
+-                    .cloned()
+-                    .collect();
+-                if matched.is_empty() {
+-                    continue;
+-                }
+-                // 2) change la reponse ? Si des messages non-Utilisateur deja
+-                // au modele couvrent tous les mots-cles du fait, l'injecter
+-                // n'apporterait aucune information nouvelle.
+-                let deja_compris = matched.iter().all(|w| {
+-                    messages
+-                        .iter()
+-                        .filter(|m| m.role != Role::User)
+-                        .any(|m| m.content.to_lowercase().contains(w))
+-                });
+-                if deja_compris {
+-                    continue;
+-                }
+-                // 3) budget explicite
+-                let tokens = TokenEstimator::new().estimate(&fact);
+-                if used + tokens > budget_tokens {
+-                    break;
+-                }
+-                used += tokens;
+-                selected.push(fact);
+-            }
+-        }
+-
+-        let trace = InjectionTrace {
+-            lines: selected
+-                .iter()
+-                .map(|f| InjectionLine {
+-                    fact: f.chars().take(40).collect(),
+-                    tokens: TokenEstimator::new().estimate(f),
+-                })
+-                .collect(),
+-            tokens_used: used,
+-            budget: budget_tokens,
+-        };
+-        self.journal
+-            .lock()
+-            .expect("journal empoisonne")
+-            .push(trace.clone());
+-
+-        if selected.is_empty() {
+-            return Ok((messages, trace));
+-        }
+-
+-        let bloc = {
+-            let mut b = String::from("memoire:\n");
+-            for f in &selected {
+-                b.push_str("- ");
+-                b.push_str(f);
+-                b.push('\n');
+-            }
+-            b
+-        };
+-
+-        // Insertion apres le prefixe systeme existant, comme message System.
+-        let prefixe_systeme = messages
+-            .iter()
+-            .take_while(|m| m.role == Role::System)
+-            .count();
+-        let mut out: Vec<Message> = Vec::with_capacity(messages.len() + 1);
+-        out.extend(messages[..prefixe_systeme].iter().cloned());
+-        out.push(Message::new(Role::System, bloc));
+-        out.extend(messages[prefixe_systeme..].iter().cloned());
+-        Ok((out, trace))
++        OmegaResult::from_iter([(vec![Default::default()], Default::default())]) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use async_trait::async_trait;
+ 

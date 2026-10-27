@@ -1,0 +1,21 @@
+--- crates/omega-context/src/tool_surface.rs
++++ replace >= with < in stem
+@@ -72,17 +72,17 @@
+         let s = &t[..t.len() - 2];
+         if s.len() >= 2 {
+             return s.to_string();
+         }
+     }
+     // R4 — `es` apres sibilante uniquement (avant R5 : `boxes -> box`,
+     // pas `boxe`).
+     const ES_SIBILANTS: [&str; 6] = ["sses", "xes", "zes", "ches", "shes", "oes"];
+-    if t.len() >= 5 {
++    if t.len() < /* ~ changed by cargo-mutants ~ */ 5 {
+         for suf in ES_SIBILANTS {
+             if t.ends_with(suf) {
+                 let s = &t[..t.len() - 2];
+                 if s.len() >= 2 {
+                     return s.to_string();
+                 }
+                 break;
+             }

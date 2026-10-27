@@ -1,0 +1,78 @@
+crates/omega-policy/src/lib.rs:96:9: replace BudgetEnforcer::usage -> BudgetUsage with Default::default()
+crates/omega-policy/src/lib.rs:102:23: replace += with -= in BudgetEnforcer::consume_tokens
+crates/omega-policy/src/lib.rs:102:23: replace += with *= in BudgetEnforcer::consume_tokens
+crates/omega-policy/src/lib.rs:103:20: replace += with -= in BudgetEnforcer::consume_tokens
+crates/omega-policy/src/lib.rs:103:20: replace += with *= in BudgetEnforcer::consume_tokens
+crates/omega-policy/src/lib.rs:104:26: replace > with == in BudgetEnforcer::consume_tokens
+crates/omega-policy/src/lib.rs:104:26: replace > with < in BudgetEnforcer::consume_tokens
+crates/omega-policy/src/lib.rs:113:23: replace > with == in BudgetEnforcer::consume_tokens
+crates/omega-policy/src/lib.rs:113:23: replace > with < in BudgetEnforcer::consume_tokens
+crates/omega-policy/src/lib.rs:128:22: replace += with -= in BudgetEnforcer::consume_iteration
+crates/omega-policy/src/lib.rs:128:22: replace += with *= in BudgetEnforcer::consume_iteration
+crates/omega-policy/src/lib.rs:129:25: replace > with == in BudgetEnforcer::consume_iteration
+crates/omega-policy/src/lib.rs:129:25: replace > with < in BudgetEnforcer::consume_iteration
+crates/omega-policy/src/lib.rs:129:25: replace > with >= in BudgetEnforcer::consume_iteration
+crates/omega-policy/src/lib.rs:144:22: replace += with -= in BudgetEnforcer::consume_tool_call
+crates/omega-policy/src/lib.rs:145:25: replace > with < in BudgetEnforcer::consume_tool_call
+crates/omega-policy/src/lib.rs:162:18: replace > with < in BudgetEnforcer::is_budget_ok
+crates/omega-policy/src/lib.rs:185:22: replace <= with > in BudgetEnforcer::is_budget_ok
+crates/omega-policy/src/lib.rs:190:18: replace > with < in BudgetEnforcer::is_budget_ok
+crates/omega-policy/src/lib.rs:203:9: replace BudgetEnforcer::alert_threshold_reached -> bool with false
+crates/omega-policy/src/lib.rs:203:37: replace >= with < in BudgetEnforcer::alert_threshold_reached
+crates/omega-policy/src/lib.rs:208:5: replace pct -> f64 with 0.0
+crates/omega-policy/src/lib.rs:208:5: replace pct -> f64 with 1.0
+crates/omega-policy/src/lib.rs:208:5: replace pct -> f64 with -1.0
+crates/omega-policy/src/lib.rs:208:14: replace <= with > in pct
+crates/omega-policy/src/lib.rs:211:24: replace * with + in pct
+crates/omega-policy/src/lib.rs:211:24: replace * with / in pct
+crates/omega-policy/src/lib.rs:211:15: replace / with % in pct
+crates/omega-policy/src/lib.rs:211:15: replace / with * in pct
+crates/omega-policy/src/lib.rs:253:9: replace PathRulePermissionPolicy::matches -> bool with true
+crates/omega-policy/src/lib.rs:253:9: replace PathRulePermissionPolicy::matches -> bool with false
+crates/omega-policy/src/lib.rs:258:22: replace == with != in PathRulePermissionPolicy::matches
+crates/omega-policy/src/lib.rs:260:54: replace == with != in PathRulePermissionPolicy::matches
+crates/omega-policy/src/lib.rs:337:27: replace > with == in <impl ExecPolicy for CommandPrefixExecPolicy>::evaluate
+crates/omega-policy/src/lib.rs:337:27: replace > with < in <impl ExecPolicy for CommandPrefixExecPolicy>::evaluate
+crates/omega-policy/src/budget.rs:83:9: replace <impl fmt::Display for BudgetExhausted>::fmt -> fmt::Result with Ok(Default::default())
+crates/omega-policy/src/budget.rs:129:9: replace Budget::usage -> Usage with Default::default()
+crates/omega-policy/src/budget.rs:143:9: replace Budget::consume_call -> Result<Usage, BudgetExhausted> with Ok(Default::default())
+crates/omega-policy/src/budget.rs:156:31: replace + with - in Budget::consume_call
+crates/omega-policy/src/budget.rs:156:31: replace + with * in Budget::consume_call
+crates/omega-policy/src/budget.rs:157:33: replace + with - in Budget::consume_call
+crates/omega-policy/src/budget.rs:157:33: replace + with * in Budget::consume_call
+crates/omega-policy/src/budget.rs:158:37: replace + with - in Budget::consume_call
+crates/omega-policy/src/budget.rs:158:37: replace + with * in Budget::consume_call
+crates/omega-policy/src/budget.rs:159:35: replace + with - in Budget::consume_call
+crates/omega-policy/src/budget.rs:159:35: replace + with * in Budget::consume_call
+crates/omega-policy/src/budget.rs:161:37: replace && with || in Budget::consume_call
+crates/omega-policy/src/budget.rs:161:33: replace > with == in Budget::consume_call
+crates/omega-policy/src/budget.rs:161:33: replace > with < in Budget::consume_call
+crates/omega-policy/src/budget.rs:161:33: replace > with >= in Budget::consume_call
+crates/omega-policy/src/budget.rs:161:55: replace > with == in Budget::consume_call
+crates/omega-policy/src/budget.rs:161:55: replace > with < in Budget::consume_call
+crates/omega-policy/src/budget.rs:161:55: replace > with >= in Budget::consume_call
+crates/omega-policy/src/budget.rs:164:38: replace && with || in Budget::consume_call
+crates/omega-policy/src/budget.rs:164:34: replace > with == in Budget::consume_call
+crates/omega-policy/src/budget.rs:164:34: replace > with < in Budget::consume_call
+crates/omega-policy/src/budget.rs:164:34: replace > with >= in Budget::consume_call
+crates/omega-policy/src/budget.rs:164:57: replace > with == in Budget::consume_call
+crates/omega-policy/src/budget.rs:164:57: replace > with < in Budget::consume_call
+crates/omega-policy/src/budget.rs:164:57: replace > with >= in Budget::consume_call
+crates/omega-policy/src/budget.rs:167:42: replace && with || in Budget::consume_call
+crates/omega-policy/src/budget.rs:167:36: replace > with == in Budget::consume_call
+crates/omega-policy/src/budget.rs:167:36: replace > with < in Budget::consume_call
+crates/omega-policy/src/budget.rs:167:36: replace > with >= in Budget::consume_call
+crates/omega-policy/src/budget.rs:167:63: replace > with == in Budget::consume_call
+crates/omega-policy/src/budget.rs:167:63: replace > with < in Budget::consume_call
+crates/omega-policy/src/budget.rs:167:63: replace > with >= in Budget::consume_call
+crates/omega-policy/src/budget.rs:170:39: replace && with || in Budget::consume_call
+crates/omega-policy/src/budget.rs:170:35: replace > with == in Budget::consume_call
+crates/omega-policy/src/budget.rs:170:35: replace > with < in Budget::consume_call
+crates/omega-policy/src/budget.rs:170:35: replace > with >= in Budget::consume_call
+crates/omega-policy/src/budget.rs:170:59: replace > with == in Budget::consume_call
+crates/omega-policy/src/budget.rs:170:59: replace > with < in Budget::consume_call
+crates/omega-policy/src/budget.rs:170:59: replace > with >= in Budget::consume_call
+crates/omega-policy/src/tiers.rs:47:9: replace <impl fmt::Display for TierDecision>::fmt -> fmt::Result with Ok(Default::default())
+crates/omega-policy/src/tiers.rs:77:9: replace <impl ApprovalGate for DenyAllApprovals>::approve -> bool with true
+crates/omega-policy/src/tiers.rs:149:9: replace TierPolicy::classify -> Option<Tier> with None
+crates/omega-policy/src/tiers.rs:167:20: delete ! in TierPolicy::authorize

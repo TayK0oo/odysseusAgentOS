@@ -1,0 +1,21 @@
+--- crates/omega-context/src/budget.rs
++++ replace ContextBudget::used -> usize with 0
+@@ -21,17 +21,17 @@
+         }
+     }
+ 
+     pub fn max_tokens(&self) -> usize {
+         self.max_tokens
+     }
+ 
+     pub fn used(&self) -> usize {
+-        self.used
++        0 /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn remaining(&self) -> usize {
+         self.max_tokens.saturating_sub(self.used)
+     }
+ 
+     /// Estime (deterministe, chars/4) le cout en tokens d'un texte.
+     pub fn estimate(&self, text: &str) -> usize {

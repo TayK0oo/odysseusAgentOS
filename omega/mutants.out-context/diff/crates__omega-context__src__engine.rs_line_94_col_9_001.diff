@@ -1,0 +1,21 @@
+--- crates/omega-context/src/engine.rs
++++ replace DefaultContextEngine::max_tokens -> usize with 1
+@@ -86,17 +86,17 @@
+         self.injection_journal
+             .lock()
+             .expect("journal empoisonne")
+             .clone()
+     }
+ 
+     /// Plafond du budget de contexte du moteur.
+     pub fn max_tokens(&self) -> usize {
+-        self.budget.max_tokens()
++        1 /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Dernier rapport d'assemblage (coupes journalisees).
+     pub fn last_report(&self) -> AssembleReport {
+         self.last_report.lock().expect("rapport empoisonne").clone()
+     }
+ 
+     /// Consulte l'injecteur de memoire (si branche) puis assemble le resultat.

@@ -1,0 +1,25 @@
+--- crates/omega-policy/src/lib.rs
++++ replace Verdict::fail -> Self with Default::default()
+@@ -59,21 +59,17 @@
+     fn ok() -> Self {
+         Self {
+             ok: true,
+             reason: String::new(),
+             percent: 0.0,
+         }
+     }
+     fn fail(reason: impl Into<String>, percent: f64) -> Self {
+-        Self {
+-            ok: false,
+-            reason: reason.into(),
+-            percent,
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Forceur de budget — port de `BudgetEnforcer` (thread-safe via Mutex).
+ pub struct BudgetEnforcer {
+     budget: ProjectBudget,
+     run_id: String,
+     usage: std::sync::Mutex<BudgetUsage>,

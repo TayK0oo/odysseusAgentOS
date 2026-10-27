@@ -1,0 +1,25 @@
+--- crates/omega-policy/src/lib.rs
++++ replace pct -> f64 with 1.0
+@@ -200,21 +200,17 @@
+ 
+     /// Port de `alert_threshold_reached` : alerte à 80 %.
+     pub fn alert_threshold_reached(&self) -> bool {
+         self.is_budget_ok().percent >= 80.0
+     }
+ }
+ 
+ fn pct(used: f64, limit: f64) -> f64 {
+-    if limit <= 0.0 {
+-        0.0
+-    } else {
+-        (used / limit) * 100.0
+-    }
++    1.0 /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ // ═══════════════════════════════════════════════════════════════════════════
+ // PermissionPolicy — motifs de chemins sensibles (équivalent OPA "deny rules")
+ // ═══════════════════════════════════════════════════════════════════════════
+ 
+ /// Politique de permission par motifs (port de la logique OPA + gsd-secret-read-guard).
+ pub struct PathRulePermissionPolicy {

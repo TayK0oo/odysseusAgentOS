@@ -1,0 +1,21 @@
+--- crates/omega-context/src/tool_surface.rs
++++ replace || with && in ToolSurfaceIndex::search
+@@ -221,17 +221,17 @@
+             for t in &query_tokens {
+                 if d.tokens.contains(t) {
+                     if let Some(idf) = self.idf.get(t) {
+                         score += idf;
+                     }
+                 }
+             }
+             let admitted = if self.min_score > 0.0 {
+-                contains_gate || score >= self.min_score
++                contains_gate && /* ~ changed by cargo-mutants ~ */ score >= self.min_score
+             } else {
+                 contains_gate
+             };
+             if admitted {
+                 scored.push((score, &d.doc));
+             }
+         }
+ 

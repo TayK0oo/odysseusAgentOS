@@ -1,0 +1,71 @@
+--- crates/omega-context/src/compaction.rs
++++ replace <impl ContextEngine for LlmCompactionEngine>::assemble -> OmegaResult<Vec<Message>> with OmegaResult::from_iter([vec![Default::default()]])
+@@ -112,67 +112,17 @@
+         true
+     }
+ 
+     fn max_tokens(&self) -> usize {
+         self.inner.max_tokens()
+     }
+ 
+     async fn assemble(&self, messages: Vec<Message>) -> OmegaResult<Vec<Message>> {
+-        let max_tokens = self.inner.max_tokens();
+-        let estimator = TokenEstimator::new();
+-
+-        // 1. Tentative avec truncation simple (couche 1)
+-        let truncated = truncate_compact(&messages, max_tokens);
+-        let dropped = {
+-            // Compter les messages non-systeme originaux vs resultats
+-            let orig_non_system = messages.iter().filter(|m| m.role != Role::System).count();
+-            let result_non_system = truncated
+-                .iter()
+-                .filter(|m| m.role != Role::System && !m.content.starts_with("…[compacted"))
+-                .count();
+-            orig_non_system.saturating_sub(result_non_system)
+-        };
+-
+-        // Si pas de messages omis, retour direct
+-        if dropped == 0 {
+-            return Ok(truncated);
+-        }
+-
+-        // 2. Construire le resume LLM des messages omis
+-        let system_count = messages
+-            .iter()
+-            .take_while(|m| m.role == Role::System)
+-            .count();
+-        let non_system = &messages[system_count..];
+-
+-        // Les messages non-systeme conserves (sans le marqueur)
+-        let kept_non_system = truncated
+-            .iter()
+-            .filter(|m| m.role != Role::System && !m.content.starts_with("…[compacted"))
+-            .count();
+-        let omitted_count = non_system.len().saturating_sub(kept_non_system);
+-        let omitted_messages = &non_system[..omitted_count.min(non_system.len())];
+-
+-        let summary = self.summarize_omitted(omitted_messages).await;
+-
+-        // 3. Inserer le resume dans la liste tronquee
+-        let mut result = truncated;
+-        if let Some(summary_text) = summary {
+-            let summary_msg = Message::new(Role::System, format!("Summary: {summary_text}"));
+-            let system_count = result.iter().take_while(|m| m.role == Role::System).count();
+-            result.insert(system_count, summary_msg);
+-        }
+-
+-        // 4. Re-verifier le budget
+-        if estimator.estimate_messages(&result) > max_tokens {
+-            return Ok(truncate_compact(&result, max_tokens));
+-        }
+-
+-        Ok(result)
++        OmegaResult::from_iter([vec![Default::default()]]) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl LlmCompactionEngine {
+     async fn summarize_omitted(&self, messages: &[Message]) -> Option<String> {
+         if messages.is_empty() {
+             return None;
+         }

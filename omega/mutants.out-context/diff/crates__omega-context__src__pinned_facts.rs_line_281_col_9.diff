@@ -1,0 +1,24 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace PinnedFacts::clear with ()
+@@ -273,20 +273,17 @@
+         self.list()
+             .iter()
+             .map(|f| estimator.estimate(&f.content))
+             .sum()
+     }
+ 
+     /// Nettoie tous les faits.
+     pub fn clear(&self) {
+-        self.facts
+-            .write()
+-            .expect("pinned facts lock poisoned")
+-            .clear();
++        () /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Extrait de maniere deterministe les faits durables d'une liste de messages.
+ pub fn extract_pinned_facts(messages: &[Message]) -> PinnedFacts {
+     PinnedFacts::extract(messages)
+ }
+ 

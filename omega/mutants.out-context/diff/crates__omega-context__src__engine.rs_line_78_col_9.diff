@@ -1,0 +1,24 @@
+--- crates/omega-context/src/engine.rs
++++ replace DefaultContextEngine::last_injection -> InjectionTrace with Default::default()
+@@ -70,20 +70,17 @@
+     pub fn with_memory(store: Arc<dyn omega_ports::MemoryStore>, max_tokens: usize) -> Self {
+         let mut e = Self::new(max_tokens);
+         e.injector = Some(Arc::new(MemoryInjection::new(store)));
+         e
+     }
+ 
+     /// Derniere decision d'injection (trace vide = rien n'a ete injecte).
+     pub fn last_injection(&self) -> InjectionTrace {
+-        self.last_injection
+-            .lock()
+-            .expect("trace empoisonnee")
+-            .clone()
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Journal complet des decisions d'injection de ce moteur, dans l'ordre.
+     pub fn injection_journal(&self) -> Vec<InjectionTrace> {
+         self.injection_journal
+             .lock()
+             .expect("journal empoisonne")
+             .clone()

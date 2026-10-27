@@ -1,0 +1,21 @@
+--- crates/omega-context/src/skills.rs
++++ replace == with != in SkillIndex::view
+@@ -106,17 +106,17 @@
+     }
+ 
+     /// Niveau 2 : corps du skill (cache par signature).
+     pub fn view(&self, id: &str) -> Option<Arc<str>> {
+         let pos = *self.by_id.get(id)?;
+         let skill = &self.skills[pos];
+         let sig = signature(&skill.body);
+         if let Some(cached) = self.cache.lock().expect("cache empoisonne").get(id) {
+-            if cached.signature == sig {
++            if cached.signature != /* ~ changed by cargo-mutants ~ */ sig {
+                 return Some(cached.body.clone());
+             }
+         }
+         let body: Arc<str> = Arc::from(skill.body.as_str());
+         self.renders.fetch_add(1, Ordering::Relaxed);
+         self.cache.lock().expect("cache empoisonne").insert(
+             id.to_string(),
+             CachedBody {

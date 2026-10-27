@@ -1,0 +1,21 @@
+--- crates/omega-context/src/injection.rs
++++ replace > with < in <impl ContextInjector for MemoryInjection>::inject
+@@ -134,17 +134,17 @@
+                         .filter(|m| m.role != Role::User)
+                         .any(|m| m.content.to_lowercase().contains(w))
+                 });
+                 if deja_compris {
+                     continue;
+                 }
+                 // 3) budget explicite
+                 let tokens = TokenEstimator::new().estimate(&fact);
+-                if used + tokens > budget_tokens {
++                if used + tokens < /* ~ changed by cargo-mutants ~ */ budget_tokens {
+                     break;
+                 }
+                 used += tokens;
+                 selected.push(fact);
+             }
+         }
+ 
+         let trace = InjectionTrace {

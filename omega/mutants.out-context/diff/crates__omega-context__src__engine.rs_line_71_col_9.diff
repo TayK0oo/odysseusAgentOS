@@ -1,0 +1,23 @@
+--- crates/omega-context/src/engine.rs
++++ replace DefaultContextEngine::with_memory -> Self with Default::default()
+@@ -63,19 +63,17 @@
+             last_injection: Mutex::new(InjectionTrace::default()),
+             injection_journal: Mutex::new(Vec::new()),
+         }
+     }
+ 
+     /// Moteur avec injection memoire : les faits pertinents sont consultes sur
+     /// le `MemoryStore` avant chaque assemble, sous un budget explicite.
+     pub fn with_memory(store: Arc<dyn omega_ports::MemoryStore>, max_tokens: usize) -> Self {
+-        let mut e = Self::new(max_tokens);
+-        e.injector = Some(Arc::new(MemoryInjection::new(store)));
+-        e
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Derniere decision d'injection (trace vide = rien n'a ete injecte).
+     pub fn last_injection(&self) -> InjectionTrace {
+         self.last_injection
+             .lock()
+             .expect("trace empoisonnee")
+             .clone()

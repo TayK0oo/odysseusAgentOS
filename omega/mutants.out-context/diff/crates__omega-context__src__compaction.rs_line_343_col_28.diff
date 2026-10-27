@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace <= with > in truncate_compact_with_pinned
+@@ -335,17 +335,17 @@
+         return preserved_prefix;
+     }
+ 
+     // 8. Suffixe maximal des messages récents non-épinglés
+     let mut kept: Vec<Message> = Vec::new();
+     let mut kept_tokens = prefix_tokens + marker_reserve;
+     for msg in non_system.iter().rev() {
+         let t = estimator.estimate(&msg.content);
+-        if kept_tokens + t <= budget {
++        if kept_tokens + t > /* ~ changed by cargo-mutants ~ */ budget {
+             kept_tokens += t;
+             kept.push(msg.clone());
+         } else {
+             break;
+         }
+     }
+     kept.reverse();
+     let omitted = non_system.len() - kept.len();

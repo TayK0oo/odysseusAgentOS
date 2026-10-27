@@ -1,0 +1,21 @@
+--- crates/omega-policy/src/budget.rs
++++ replace Budget::usage -> Usage with Default::default()
+@@ -121,17 +121,17 @@
+         Self {
+             limit,
+             usage: Mutex::new(Usage::default()),
+         }
+     }
+ 
+     /// Cumul consommé.
+     pub fn usage(&self) -> Usage {
+-        *self.usage.lock().unwrap_or_else(|e| e.into_inner())
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Plafonds en vigueur.
+     pub fn limits(&self) -> Limits {
+         self.limit
+     }
+ 
+     /// Consomme `d` de façon atomique : elle est débitée **entièrement ou pas**.

@@ -1,0 +1,53 @@
+--- crates/omega-policy/src/lib.rs
++++ replace <impl ExecPolicy for CommandPrefixExecPolicy>::evaluate -> ExecDecision with Default::default()
+@@ -315,49 +315,17 @@
+     fn name(&self) -> &str {
+         &self.name
+     }
+ 
+     fn evaluate(&self, command: &str) -> ExecDecision {
+         // Normalisation : "rm  -rf  /" et "rm\t-rf /" doivent matcher "rm -rf /".
+         // (ÉVASION TROUVÉE PAR LE TEST ADVERSARIAL — sans ça, des espaces multiples
+         // suffisaient à contourner la deny-list.)
+-        let c = command.split_whitespace().collect::<Vec<_>>().join(" ");
+-        for p in &self.denied_prefixes {
+-            if c.starts_with(p.as_str()) {
+-                return ExecDecision::Forbidden(format!("prefix interdit : {}", p));
+-            }
+-        }
+-        for s in &self.denied_substrings {
+-            if c.contains(s.as_str()) {
+-                return ExecDecision::Forbidden(format!("motif interdit : {}", s));
+-            }
+-        }
+-        // Pipeline "download | shell" : on segmente sur `|` et on regarde le
+-        // programme de tete + l'interpreteur en aval (curl http://x | sh).
+-        let segments: Vec<&str> = c.split('|').map(|s| s.trim()).collect();
+-        if segments.len() > 1 {
+-            const DOWNLOADERS: [&str; 2] = ["curl", "wget"];
+-            const SHELLS: [&str; 4] = ["sh", "bash", "zsh", "dash"];
+-            let head = segments[0].split_whitespace().next().unwrap_or("");
+-            let base = head.rsplit('/').next().unwrap_or(head);
+-            if DOWNLOADERS.contains(&base) {
+-                for seg in &segments[1..] {
+-                    let prog = seg.split_whitespace().next().unwrap_or("");
+-                    let pbase = prog.rsplit('/').next().unwrap_or(prog);
+-                    if SHELLS.contains(&pbase) {
+-                        return ExecDecision::Forbidden(format!(
+-                            "pipeline download|shell interdit : {} | {}",
+-                            base, pbase
+-                        ));
+-                    }
+-                }
+-            }
+-        }
+-        ExecDecision::Allow
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     fn budget() -> ProjectBudget {

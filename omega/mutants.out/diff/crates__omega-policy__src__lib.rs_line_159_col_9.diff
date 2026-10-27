@@ -1,0 +1,60 @@
+--- crates/omega-policy/src/lib.rs
++++ replace BudgetEnforcer::is_budget_ok -> Verdict with Default::default()
+@@ -151,56 +151,17 @@
+                 pct(u.tool_calls as f64, self.budget.max_tool_calls as f64),
+             );
+         }
+         Verdict::ok()
+     }
+ 
+     /// Port de `is_budget_ok` : coût d'abord, puis tokens/iterations/tool_calls.
+     pub fn is_budget_ok(&self) -> Verdict {
+-        let u = self.usage.lock().unwrap();
+-        if self.budget.max_cost_usd > 0.0 {
+-            let p = pct(u.cost_usd, self.budget.max_cost_usd);
+-            if p > 100.0 {
+-                return Verdict::fail(format!("Cost budget exceeded ({:.1}%)", p), p);
+-            }
+-        }
+-        let checks = [
+-            (
+-                u.tokens_used as f64,
+-                self.budget.max_tokens as f64,
+-                "tokens",
+-            ),
+-            (
+-                u.iterations as f64,
+-                self.budget.max_iterations as f64,
+-                "iterations",
+-            ),
+-            (
+-                u.tool_calls as f64,
+-                self.budget.max_tool_calls as f64,
+-                "tool_calls",
+-            ),
+-        ];
+-        let mut max_pct: f64 = 0.0;
+-        for (used, limit, label) in checks {
+-            if limit <= 0.0 {
+-                continue;
+-            }
+-            let p = pct(used, limit);
+-            max_pct = max_pct.max(p);
+-            if p > 100.0 {
+-                return Verdict::fail(format!("{} budget exceeded ({:.1}%)", label, p), p);
+-            }
+-        }
+-        Verdict {
+-            ok: true,
+-            reason: String::new(),
+-            percent: max_pct,
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Port de `alert_threshold_reached` : alerte à 80 %.
+     pub fn alert_threshold_reached(&self) -> bool {
+         self.is_budget_ok().percent >= 80.0
+     }
+ }
+ 

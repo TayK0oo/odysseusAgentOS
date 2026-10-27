@@ -1,0 +1,26 @@
+--- crates/omega-context/src/token.rs
++++ replace TokenEstimator::estimate -> usize with 1
+@@ -30,22 +30,17 @@
+     pub fn new() -> Self {
+         Self {
+             chars_per_token: CHARS_PER_TOKEN,
+         }
+     }
+ 
+     /// Estimation en tokens d'un texte (`ceil(nb_chars / 4)`).
+     pub fn estimate(&self, text: &str) -> usize {
+-        let chars = text.chars().count();
+-        if chars == 0 {
+-            0
+-        } else {
+-            chars.div_ceil(self.chars_per_token as usize)
+-        }
++        1 /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Estimation cumulee des contenus d'une liste de messages.
+     pub fn estimate_messages(&self, messages: &[Message]) -> usize {
+         messages.iter().map(|m| self.estimate(&m.content)).sum()
+     }
+ }
+ 

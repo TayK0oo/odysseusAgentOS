@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace > with < in truncate_compact_with_pinned
+@@ -347,17 +347,17 @@
+             break;
+         }
+     }
+     kept.reverse();
+     let omitted = non_system.len() - kept.len();
+ 
+     // 9. Reconstitue : préfixe + marqueur (si omis) + suffixe gardé
+     let mut result = preserved_prefix;
+-    if omitted > 0 {
++    if omitted < /* ~ changed by cargo-mutants ~ */ 0 {
+         result.push(Message::new(Role::System, compaction_marker(omitted)));
+     }
+     result.extend(kept);
+     result
+ }
+ 
+ #[cfg(test)]
+ mod pinned_compaction_tests {

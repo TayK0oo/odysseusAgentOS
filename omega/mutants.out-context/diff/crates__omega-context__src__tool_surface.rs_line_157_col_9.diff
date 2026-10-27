@@ -1,0 +1,22 @@
+--- crates/omega-context/src/tool_surface.rs
++++ replace ToolSurfaceIndex::with_min_score -> Self with Default::default()
+@@ -149,18 +149,17 @@
+             idx.add(doc);
+         }
+         idx
+     }
+ 
+     /// Active le second chemin d'admission : `score >= min_score`. `0.0` (defaut) le
+     /// desactive : seule la gate s'applique.
+     pub fn with_min_score(mut self, min_score: f64) -> Self {
+-        self.min_score = min_score;
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Ajoute un outil et reconstruit les statistiques (df/idf).
+     pub fn add(&mut self, doc: ToolDoc) {
+         let tokens = tokenize(&format!("{} {}", doc.name, doc.description));
+         self.docs.push(IndexedDoc { doc, tokens });
+         self.rebuild_stats();
+     }

@@ -1,0 +1,21 @@
+--- crates/omega-context/src/engine.rs
++++ replace <impl ContextEngine for DefaultContextEngine>::owns_compaction -> bool with true
+@@ -181,17 +181,17 @@
+ 
+ #[async_trait]
+ impl ContextEngine for DefaultContextEngine {
+     fn name(&self) -> &str {
+         "default"
+     }
+ 
+     fn owns_compaction(&self) -> bool {
+-        false
++        true /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn max_tokens(&self) -> usize {
+         self.budget.max_tokens()
+     }
+ 
+     async fn assemble(&self, messages: Vec<Message>) -> OmegaResult<Vec<Message>> {
+         let (result, report) = self.assemble_with_injection(&messages).await?;

@@ -1,0 +1,21 @@
+--- crates/omega-context/src/skills.rs
++++ replace SkillIndex::render_count -> usize with 0
+@@ -133,17 +133,17 @@
+         self.skills[pos]
+             .assets
+             .get(name)
+             .map(|c| Arc::from(c.as_str()))
+     }
+ 
+     /// Nombre de rendus reels de corps (hors cache) — observabilite de test.
+     pub fn render_count(&self) -> usize {
+-        self.renders.load(Ordering::Relaxed)
++        0 /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     fn sample() -> Skill {

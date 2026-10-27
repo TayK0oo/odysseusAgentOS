@@ -1,0 +1,24 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace PinnedFact::to_system_message -> Message with Default::default()
+@@ -49,20 +49,17 @@
+ 
+     pub fn with_priority(mut self, priority: i32) -> Self {
+         self.priority = priority;
+         self
+     }
+ 
+     /// Convertit en message système pour injection dans le contexte.
+     pub fn to_system_message(&self) -> Message {
+-        Message::new(
+-            Role::System,
+-            format!("[PinnedFact:{}] {}", self.category, self.content),
+-        )
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Stockage des faits épinglés, thread-safe.
+ #[derive(Debug, Default)]
+ pub struct PinnedFacts {
+     facts: RwLock<HashMap<String, PinnedFact>>,
+ }

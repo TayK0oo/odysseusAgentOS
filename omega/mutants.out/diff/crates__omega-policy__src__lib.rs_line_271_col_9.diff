@@ -1,0 +1,31 @@
+--- crates/omega-policy/src/lib.rs
++++ replace <impl PermissionPolicy for PathRulePermissionPolicy>::evaluate -> PermissionEffect with Default::default()
+@@ -263,27 +263,17 @@
+ }
+ 
+ impl PermissionPolicy for PathRulePermissionPolicy {
+     fn name(&self) -> &str {
+         &self.name
+     }
+ 
+     fn evaluate(&self, _action: &str, resource: &str) -> PermissionEffect {
+-        if self
+-            .deny_patterns
+-            .iter()
+-            .any(|p| Self::matches(resource, p))
+-        {
+-            return PermissionEffect::Deny;
+-        }
+-        if self.ask_patterns.iter().any(|p| Self::matches(resource, p)) {
+-            return PermissionEffect::Ask;
+-        }
+-        PermissionEffect::Allow
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ // ═══════════════════════════════════════════════════════════════════════════
+ // ExecPolicy — préfixes de commandes autorisés / interdits
+ // ═══════════════════════════════════════════════════════════════════════════
+ 
+ /// Politique d'exécution par préfixes (port de `RuleBasedExecPolicy` + guard odysseus).

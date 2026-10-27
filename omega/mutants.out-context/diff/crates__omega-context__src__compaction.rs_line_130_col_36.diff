@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace != with == in <impl ContextEngine for LlmCompactionEngine>::assemble
+@@ -122,17 +122,17 @@
+ 
+         // 1. Tentative avec truncation simple (couche 1)
+         let truncated = truncate_compact(&messages, max_tokens);
+         let dropped = {
+             // Compter les messages non-systeme originaux vs resultats
+             let orig_non_system = messages.iter().filter(|m| m.role != Role::System).count();
+             let result_non_system = truncated
+                 .iter()
+-                .filter(|m| m.role != Role::System && !m.content.starts_with("…[compacted"))
++                .filter(|m| m.role == /* ~ changed by cargo-mutants ~ */ Role::System && !m.content.starts_with("…[compacted"))
+                 .count();
+             orig_non_system.saturating_sub(result_non_system)
+         };
+ 
+         // Si pas de messages omis, retour direct
+         if dropped == 0 {
+             return Ok(truncated);
+         }

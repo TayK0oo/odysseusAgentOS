@@ -1,0 +1,26 @@
+--- crates/omega-context/src/skills.rs
++++ replace signature -> u64 with 0
+@@ -41,22 +41,17 @@
+     pub fn with_asset(mut self, name: impl Into<String>, content: impl Into<String>) -> Self {
+         self.assets.insert(name.into(), content.into());
+         self
+     }
+ }
+ 
+ /// Signature deterministe FNV-1a (64 bits) : le cache est invalide quand le corps change.
+ fn signature(body: &str) -> u64 {
+-    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+-    for byte in body.bytes() {
+-        hash ^= u64::from(byte);
+-        hash = hash.wrapping_mul(0x1000_0000_01b3);
+-    }
+-    hash
++    0 /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ struct CachedBody {
+     signature: u64,
+     body: Arc<str>,
+ }
+ 
+ /// Index de skills : `list` (resumes), `view` (corps), `asset` (fichier lie).

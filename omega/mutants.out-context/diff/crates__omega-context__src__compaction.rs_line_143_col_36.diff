@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace == with != in <impl ContextEngine for LlmCompactionEngine>::assemble
+@@ -135,17 +135,17 @@
+         // Si pas de messages omis, retour direct
+         if dropped == 0 {
+             return Ok(truncated);
+         }
+ 
+         // 2. Construire le resume LLM des messages omis
+         let system_count = messages
+             .iter()
+-            .take_while(|m| m.role == Role::System)
++            .take_while(|m| m.role != /* ~ changed by cargo-mutants ~ */ Role::System)
+             .count();
+         let non_system = &messages[system_count..];
+ 
+         // Les messages non-systeme conserves (sans le marqueur)
+         let kept_non_system = truncated
+             .iter()
+             .filter(|m| m.role != Role::System && !m.content.starts_with("…[compacted"))
+             .count();

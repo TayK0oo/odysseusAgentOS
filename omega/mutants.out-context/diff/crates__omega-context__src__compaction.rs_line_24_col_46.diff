@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace <= with > in truncate_compact
+@@ -16,17 +16,17 @@
+ /// - garde les messages les plus recents (suffixe maximal) ;
+ /// - insere un marqueur `…[compacted k messages omis]…` si `k > 0`.
+ ///
+ /// Deterministe et sans LLM (RULES-OMEGA §3.2). La garantie de budget vaut pour un budget
+ /// superieur a `systeme + marqueur` ; sinon le systeme (intouchable) est preserve tel quel,
+ /// **sans marqueur mensonger** (aucun marqueur n'est insere quand il ne tient pas).
+ pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
+     let estimator = TokenEstimator::new();
+-    if estimator.estimate_messages(messages) <= budget {
++    if estimator.estimate_messages(messages) > /* ~ changed by cargo-mutants ~ */ budget {
+         return messages.to_vec();
+     }
+ 
+     let system_count = messages
+         .iter()
+         .take_while(|m| m.role == Role::System)
+         .count();
+     let system = &messages[..system_count];

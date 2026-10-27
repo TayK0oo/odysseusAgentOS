@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace <= with > in truncate_compact_with_pinned
+@@ -321,17 +321,17 @@
+ 
+     // 6. Si tout tient dans le budget (messages originaux + faits épinglés), on retourne
+     //    le tout avec les faits épinglés injectés (pas de compaction nécessaire).
+     let original_with_pinned = {
+         let mut v = preserved_prefix.clone();
+         v.extend(non_system.iter().cloned());
+         v
+     };
+-    if estimator.estimate_messages(&original_with_pinned) <= budget {
++    if estimator.estimate_messages(&original_with_pinned) > /* ~ changed by cargo-mutants ~ */ budget {
+         return original_with_pinned;
+     }
+ 
+     // 7. Budget trop étroit pour tout garder : garde seulement le préfixe (pas de marqueur mensonger)
+     if prefix_tokens + marker_reserve > budget {
+         return preserved_prefix;
+     }
+ 

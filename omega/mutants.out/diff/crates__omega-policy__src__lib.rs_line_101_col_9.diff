@@ -1,0 +1,42 @@
+--- crates/omega-policy/src/lib.rs
++++ replace BudgetEnforcer::consume_tokens -> Verdict with Default::default()
+@@ -93,38 +93,17 @@
+     }
+ 
+     pub fn usage(&self) -> BudgetUsage {
+         *self.usage.lock().unwrap()
+     }
+ 
+     /// Port de `consume_tokens`.
+     pub fn consume_tokens(&self, count: u64, cost_usd: f64) -> Verdict {
+-        let mut u = self.usage.lock().unwrap();
+-        u.tokens_used += count;
+-        u.cost_usd += cost_usd;
+-        if u.tokens_used > self.budget.max_tokens {
+-            return Verdict::fail(
+-                format!(
+-                    "Token budget exceeded: {} / {}",
+-                    u.tokens_used, self.budget.max_tokens
+-                ),
+-                pct(u.tokens_used as f64, self.budget.max_tokens as f64),
+-            );
+-        }
+-        if u.cost_usd > self.budget.max_cost_usd {
+-            return Verdict::fail(
+-                format!(
+-                    "Cost budget exceeded: ${:.4} / ${:.4}",
+-                    u.cost_usd, self.budget.max_cost_usd
+-                ),
+-                pct(u.cost_usd, self.budget.max_cost_usd),
+-            );
+-        }
+-        Verdict::ok()
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Port de `consume_iteration`.
+     pub fn consume_iteration(&self) -> Verdict {
+         let mut u = self.usage.lock().unwrap();
+         u.iterations += 1;
+         if u.iterations > self.budget.max_iterations {
+             return Verdict::fail(

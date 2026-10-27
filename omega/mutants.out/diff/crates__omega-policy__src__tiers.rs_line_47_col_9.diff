@@ -1,0 +1,24 @@
+--- crates/omega-policy/src/tiers.rs
++++ replace <impl fmt::Display for TierDecision>::fmt -> fmt::Result with Ok(Default::default())
+@@ -39,20 +39,17 @@
+     /// Config de donnée : une raison traçable, jamais un refus muet.
+     Deny {
+         reason: String,
+     },
+ }
+ 
+ impl fmt::Display for TierDecision {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        match self {
+-            TierDecision::Allow { tier } => write!(f, "allow (palier {tier:?})"),
+-            TierDecision::Deny { reason } => write!(f, "deny : {reason}"),
+-        }
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Demande d'élévation (ex. T1 → T2) soumise au port d'approbation injecté.
+ #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+ pub struct ElevationRequest {
+     pub action: String,
+     pub tier: Tier,

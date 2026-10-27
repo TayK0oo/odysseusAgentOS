@@ -1,0 +1,21 @@
+--- crates/omega-context/src/injection.rs
++++ replace > with >= in <impl ContextInjector for MemoryInjection>::inject
+@@ -108,17 +108,17 @@
+             .rev()
+             .find(|m| m.role == Role::User)
+             .map(|m| m.content.as_str())
+             .unwrap_or("");
+         let keywords = Self::keywords(query);
+ 
+         let mut selected: Vec<String> = Vec::new();
+         let mut used = 0usize;
+-        if !keywords.is_empty() && budget_tokens > 0 {
++        if !keywords.is_empty() && budget_tokens >= /* ~ changed by cargo-mutants ~ */ 0 {
+             let recalled = self.store.recall(query, self.recall_limit).await?;
+             for fact in recalled {
+                 // 1) pertinence : au moins un mot-cle du fait vient de la requete.
+                 let matched: Vec<String> = keywords
+                     .iter()
+                     .filter(|w| fact.to_lowercase().contains(w.as_str()))
+                     .cloned()
+                     .collect();

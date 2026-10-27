@@ -1,0 +1,27 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace PinnedFacts::upsert with ()
+@@ -69,23 +69,17 @@
+ 
+ impl PinnedFacts {
+     pub fn new() -> Self {
+         Self::default()
+     }
+ 
+     /// Ajoute ou met à jour un fait épinglé.
+     pub fn upsert(&self, fact: PinnedFact) {
+-        let mut facts = self.facts.write().expect("pinned facts lock poisoned");
+-        let mut updated = fact;
+-        updated.updated_at = std::time::SystemTime::now()
+-            .duration_since(std::time::UNIX_EPOCH)
+-            .unwrap()
+-            .as_millis() as u64;
+-        facts.insert(updated.id.clone(), updated);
++        () /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Récupère un fait par son ID.
+     pub fn get(&self, id: &str) -> Option<PinnedFact> {
+         self.facts
+             .read()
+             .expect("pinned facts lock poisoned")
+             .get(id)

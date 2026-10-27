@@ -1,0 +1,26 @@
+--- crates/omega-policy/src/budget.rs
++++ replace exhausted -> BudgetExhausted with Default::default()
+@@ -171,22 +171,17 @@
+             return Err(exhausted(BudgetAxis::Time, d, used, self.limit));
+         }
+         *self.usage.lock().unwrap_or_else(|e| e.into_inner()) = proposed;
+         Ok(proposed)
+     }
+ }
+ 
+ fn exhausted(axis: BudgetAxis, requested: Demand, used: Usage, limit: Limits) -> BudgetExhausted {
+-    BudgetExhausted {
+-        axis: Some(axis),
+-        requested,
+-        used,
+-        limit,
+-    }
++    Default::default() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     fn limits() -> Limits {
+         Limits {

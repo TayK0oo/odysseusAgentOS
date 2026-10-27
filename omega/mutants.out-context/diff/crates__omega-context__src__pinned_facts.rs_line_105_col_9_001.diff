@@ -1,0 +1,33 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace PinnedFacts::list -> Vec<PinnedFact> with vec![Default::default()]
+@@ -97,29 +97,17 @@
+         self.facts
+             .write()
+             .expect("pinned facts lock poisoned")
+             .remove(id)
+     }
+ 
+     /// Liste tous les faits, triés par priorité (desc) puis date de création (asc).
+     pub fn list(&self) -> Vec<PinnedFact> {
+-        let mut facts: Vec<PinnedFact> = self
+-            .facts
+-            .read()
+-            .expect("pinned facts lock poisoned")
+-            .values()
+-            .cloned()
+-            .collect();
+-        facts.sort_by(|a, b| {
+-            b.priority
+-                .cmp(&a.priority)
+-                .then_with(|| a.created_at.cmp(&b.created_at))
+-        });
+-        facts
++        vec![Default::default()] /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Liste les faits d'une catégorie donnée.
+     pub fn list_by_category(&self, category: &str) -> Vec<PinnedFact> {
+         self.list()
+             .into_iter()
+             .filter(|f| f.category == category)
+             .collect()

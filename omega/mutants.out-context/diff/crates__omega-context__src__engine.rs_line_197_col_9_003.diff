@@ -1,0 +1,31 @@
+--- crates/omega-context/src/engine.rs
++++ replace <impl ContextEngine for DefaultContextEngine>::assemble -> OmegaResult<Vec<Message>> with OmegaResult::from(vec![])
+@@ -189,27 +189,17 @@
+         false
+     }
+ 
+     fn max_tokens(&self) -> usize {
+         self.budget.max_tokens()
+     }
+ 
+     async fn assemble(&self, messages: Vec<Message>) -> OmegaResult<Vec<Message>> {
+-        let (result, report) = self.assemble_with_injection(&messages).await?;
+-        if report.over_budget {
+-            // Le systeme seul depasse le budget : signal type, jamais de resultat
+-            // hors contrat silencieux (REVIEW-W6 M1).
+-            return Err(OmegaError::BudgetExceeded {
+-                max: self.max_tokens(),
+-                used: report.estimated_tokens,
+-                additional: 0,
+-            });
+-        }
+-        Ok(result)
++        OmegaResult::from(vec![]) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use omega_types::Role;
+     use std::sync::Arc;

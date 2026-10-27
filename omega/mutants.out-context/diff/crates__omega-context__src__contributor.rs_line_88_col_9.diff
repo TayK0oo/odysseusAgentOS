@@ -1,0 +1,22 @@
+--- crates/omega-context/src/contributor.rs
++++ replace ContextContributor::with_llm_compaction -> Self with Default::default()
+@@ -80,18 +80,17 @@
+         self.pinned_facts = Some(Arc::new(facts));
+         self
+     }
+ 
+     /// Fournit un `Provider` pour activer `LlmCompactionEngine` (double couche LLM).
+     /// Le moteur par defaut (`DefaultContextEngine`) devient la couche 1 (truncation
+     /// deterministe) et `LlmCompactionEngine` ajoute la couche 2 (resume LLM).
+     pub fn with_llm_compaction(mut self, provider: Arc<dyn Provider>) -> Self {
+-        self.llm_provider = Some(provider);
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Branche un `MemoryStore` pour activer l'injection de memoire dans le
+     /// moteur (assemble_with_injection).
+     pub fn with_memory(mut self, store: Arc<dyn MemoryStore>) -> Self {
+         self.memory_store = Some(store);
+         self
+     }

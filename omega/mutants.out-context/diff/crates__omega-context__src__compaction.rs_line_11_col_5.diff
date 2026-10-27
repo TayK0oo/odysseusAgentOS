@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace compaction_marker -> String with String::new()
+@@ -3,17 +3,17 @@
+ 
+ use omega_types::{Message, Role};
+ 
+ use crate::pinned_facts::PinnedFacts;
+ use crate::token::TokenEstimator;
+ 
+ /// Marqueur de compaction : `k` = nombre de messages omis.
+ pub fn compaction_marker(omitted: usize) -> String {
+-    format!("…[compacted {omitted} messages omis]…")
++    String::new() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Compacte une conversation sous un budget de tokens :
+ /// - preserve le prefixe `System` (prompt) ;
+ /// - garde les messages les plus recents (suffixe maximal) ;
+ /// - insere un marqueur `…[compacted k messages omis]…` si `k > 0`.
+ ///
+ /// Deterministe et sans LLM (RULES-OMEGA §3.2). La garantie de budget vaut pour un budget

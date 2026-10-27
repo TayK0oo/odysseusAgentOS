@@ -1,0 +1,21 @@
+--- crates/omega-context/src/budget.rs
++++ replace ContextBudget::max_tokens -> usize with 1
+@@ -17,17 +17,17 @@
+         Self {
+             max_tokens,
+             used: 0,
+             estimator: TokenEstimator::new(),
+         }
+     }
+ 
+     pub fn max_tokens(&self) -> usize {
+-        self.max_tokens
++        1 /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn used(&self) -> usize {
+         self.used
+     }
+ 
+     pub fn remaining(&self) -> usize {
+         self.max_tokens.saturating_sub(self.used)

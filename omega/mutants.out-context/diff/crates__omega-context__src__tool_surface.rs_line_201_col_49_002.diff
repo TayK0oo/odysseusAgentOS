@@ -1,0 +1,21 @@
+--- crates/omega-context/src/tool_surface.rs
++++ replace < with <= in ToolSurfaceIndex::gate_token
+@@ -193,17 +193,17 @@
+     /// (l'ancien « premier token de la requete » etait fragile : un mot vide ou un
+     /// reordonnancement changeait la gate).
+     fn gate_token(&self, query_tokens: &[String]) -> Option<String> {
+         let mut best: Option<(usize, String)> = None; // (df, token)
+         for t in query_tokens {
+             let Some(&df) = self.df.get(t) else { continue };
+             let replace = match &best {
+                 None => true,
+-                Some((best_df, best_tok)) => df < *best_df || (df == *best_df && t < best_tok),
++                Some((best_df, best_tok)) => df <= /* ~ changed by cargo-mutants ~ */ *best_df || (df == *best_df && t < best_tok),
+             };
+             if replace {
+                 best = Some((df, t.clone()));
+             }
+         }
+         best.map(|(_, t)| t)
+     }
+ 

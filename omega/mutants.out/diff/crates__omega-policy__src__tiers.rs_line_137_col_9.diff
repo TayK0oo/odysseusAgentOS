@@ -1,0 +1,22 @@
+--- crates/omega-policy/src/tiers.rs
++++ replace TierPolicy::with_t2_open -> Self with Default::default()
+@@ -129,18 +129,17 @@
+     /// Marque qu'une action appartient à un palier (config de donnée).
+     pub fn with_classification(mut self, action: impl Into<String>, tier: Tier) -> Self {
+         self.classification.insert(action.into(), tier);
+         self
+     }
+ 
+     /// Ouverture explicite de T2 (G1.sandbox vert) — défaut : fermé.
+     pub fn with_t2_open(mut self, open: bool) -> Self {
+-        self.t2_open = open;
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Remplace le port d'approbation (défaut : [`DenyAllApprovals`] = refus).
+     pub fn with_approvals(mut self, approvals: Box<dyn ApprovalGate>) -> Self {
+         self.approvals = approvals;
+         self
+     }
+ 

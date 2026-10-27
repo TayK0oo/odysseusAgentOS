@@ -1,0 +1,21 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace == with != in PinnedFacts::list_by_category
+@@ -116,17 +116,17 @@
+         });
+         facts
+     }
+ 
+     /// Liste les faits d'une catégorie donnée.
+     pub fn list_by_category(&self, category: &str) -> Vec<PinnedFact> {
+         self.list()
+             .into_iter()
+-            .filter(|f| f.category == category)
++            .filter(|f| f.category != /* ~ changed by cargo-mutants ~ */ category)
+             .collect()
+     }
+ 
+     /// Nombre total de faits épinglés.
+     pub fn len(&self) -> usize {
+         self.facts.read().expect("pinned facts lock poisoned").len()
+     }
+ 

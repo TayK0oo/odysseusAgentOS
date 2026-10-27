@@ -1,0 +1,21 @@
+--- crates/omega-context/src/tool_surface.rs
++++ replace - with / in stem
+@@ -99,17 +99,17 @@
+     if t.len() >= 4 && t.ends_with("eaux") {
+         let s = &t[..t.len() - 1];
+         if s.len() >= 2 {
+             return s.to_string();
+         }
+     }
+     // R7 — pluriel en `x`.
+     if t.len() >= 4 && t.ends_with('x') {
+-        let s = &t[..t.len() - 1];
++        let s = &t[..t.len() / /* ~ changed by cargo-mutants ~ */ 1];
+         if s.len() >= 2 {
+             return s.to_string();
+         }
+     }
+     t
+ }
+ 
+ struct IndexedDoc {

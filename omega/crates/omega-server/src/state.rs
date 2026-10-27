@@ -57,8 +57,7 @@ impl AppState {
     pub fn tool_surface(&self) -> Option<std::sync::Arc<dyn omega_ports::ToolSurface>> {
         match self.config.tool_surface.as_ref()? {
             crate::config::ToolSurfaceKind::LocalFs { root } => {
-                let ctx = omega_tools::ToolCtx::new(root)
-                    .with_memory_path(self.memory_path());
+                let ctx = omega_tools::ToolCtx::new(root).with_memory_path(self.memory_path());
                 Some(std::sync::Arc::new(omega_tools::surface::FsSurface::new(
                     ctx,
                 )))

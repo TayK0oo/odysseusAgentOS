@@ -1,0 +1,75 @@
+--- crates/omega-context/src/tool_surface.rs
++++ replace stem -> String with String::new()
+@@ -50,71 +50,17 @@
+ /// - R7 (FR pluriel) : `x -> ""`, memes gardes
+ ///   (ex. `chevaux -> chevau` ; limite documentee : pas de `al -> ail`,
+ ///   pas de Porter complet).
+ /// - Sinon : token inchange.
+ ///
+ /// Limites assumees (deterministes, testees) : `need -> ne`, `travaux ->
+ /// travau`. Pas de cascade (une regle max par token).
+ fn stem(token: &str) -> String {
+-    let t = token.to_lowercase();
+-    // R1 — exceptions exactes (conflation write/writing).
+-    if t == "writing" || t == "write" {
+-        return "writ".to_string();
+-    }
+-    // R2 — `ing`.
+-    if t.len() >= 5 && t.ends_with("ing") {
+-        let s = &t[..t.len() - 3];
+-        if s.len() >= 2 {
+-            return s.to_string();
+-        }
+-    }
+-    // R3 — `ed`.
+-    if t.len() >= 4 && t.ends_with("ed") {
+-        let s = &t[..t.len() - 2];
+-        if s.len() >= 2 {
+-            return s.to_string();
+-        }
+-    }
+-    // R4 — `es` apres sibilante uniquement (avant R5 : `boxes -> box`,
+-    // pas `boxe`).
+-    const ES_SIBILANTS: [&str; 6] = ["sses", "xes", "zes", "ches", "shes", "oes"];
+-    if t.len() >= 5 {
+-        for suf in ES_SIBILANTS {
+-            if t.ends_with(suf) {
+-                let s = &t[..t.len() - 2];
+-                if s.len() >= 2 {
+-                    return s.to_string();
+-                }
+-                break;
+-            }
+-        }
+-    }
+-    // R5 — pluriel en `s` (`files -> file`, `writes -> write`).
+-    if t.len() >= 4 && t.ends_with('s') {
+-        let s = &t[..t.len() - 1];
+-        if s.len() >= 2 {
+-            return s.to_string();
+-        }
+-    }
+-    // R6 — `eaux -> eau` (avant R7 : le suffixe finit en `x`).
+-    if t.len() >= 4 && t.ends_with("eaux") {
+-        let s = &t[..t.len() - 1];
+-        if s.len() >= 2 {
+-            return s.to_string();
+-        }
+-    }
+-    // R7 — pluriel en `x`.
+-    if t.len() >= 4 && t.ends_with('x') {
+-        let s = &t[..t.len() - 1];
+-        if s.len() >= 2 {
+-            return s.to_string();
+-        }
+-    }
+-    t
++    String::new() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ struct IndexedDoc {
+     doc: ToolDoc,
+     tokens: Vec<String>,
+ }
+ 
+ /// Index de surface d'outils : **BM25 simplifie** (score = somme des IDF des termes de

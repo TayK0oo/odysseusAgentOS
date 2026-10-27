@@ -1,0 +1,21 @@
+--- crates/omega-context/src/injection.rs
++++ replace <impl ContextInjector for MemoryInjection>::name -> &str with "xyzzy"
+@@ -90,17 +90,17 @@
+             .map(|w| w.to_string())
+             .collect()
+     }
+ }
+ 
+ #[async_trait]
+ impl ContextInjector for MemoryInjection {
+     fn name(&self) -> &str {
+-        "memory-injection"
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn inject(
+         &self,
+         messages: Vec<Message>,
+         budget_tokens: usize,
+     ) -> OmegaResult<(Vec<Message>, InjectionTrace)> {
+         let query = messages

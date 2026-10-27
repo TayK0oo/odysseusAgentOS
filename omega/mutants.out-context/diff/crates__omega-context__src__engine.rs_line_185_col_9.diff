@@ -1,0 +1,21 @@
+--- crates/omega-context/src/engine.rs
++++ replace <impl ContextEngine for DefaultContextEngine>::name -> &str with ""
+@@ -177,17 +177,17 @@
+         *self.last_report.lock().expect("rapport empoisonne") = report.clone();
+         (result, report)
+     }
+ }
+ 
+ #[async_trait]
+ impl ContextEngine for DefaultContextEngine {
+     fn name(&self) -> &str {
+-        "default"
++        "" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn owns_compaction(&self) -> bool {
+         false
+     }
+ 
+     fn max_tokens(&self) -> usize {
+         self.budget.max_tokens()

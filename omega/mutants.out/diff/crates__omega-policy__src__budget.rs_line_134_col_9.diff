@@ -1,0 +1,21 @@
+--- crates/omega-policy/src/budget.rs
++++ replace Budget::limits -> Limits with Default::default()
+@@ -126,17 +126,17 @@
+ 
+     /// Cumul consommé.
+     pub fn usage(&self) -> Usage {
+         *self.usage.lock().unwrap_or_else(|e| e.into_inner())
+     }
+ 
+     /// Plafonds en vigueur.
+     pub fn limits(&self) -> Limits {
+-        self.limit
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Consomme `d` de façon atomique : elle est débitée **entièrement ou pas**.
+     /// Un dépassement sur un seul axe refuse l'appel sans rien débiter.
+     pub fn consume_call(&self, d: Demand) -> Result<Usage, BudgetExhausted> {
+         // Fail-closed sur mutex empoisonné : une panique antérieure pendant une
+         // consommation rend l'état suspect ; on refuse tout plutôt que de risquer
+         // un comptage faux dans le sens large.

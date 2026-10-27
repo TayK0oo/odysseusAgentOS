@@ -1,0 +1,181 @@
+crates/omega-context/src/budget.rs:25:9: replace ContextBudget::max_tokens -> usize with 0
+crates/omega-context/src/budget.rs:25:9: replace ContextBudget::max_tokens -> usize with 1
+crates/omega-context/src/budget.rs:29:9: replace ContextBudget::used -> usize with 0
+crates/omega-context/src/budget.rs:29:9: replace ContextBudget::used -> usize with 1
+crates/omega-context/src/budget.rs:33:9: replace ContextBudget::remaining -> usize with 0
+crates/omega-context/src/budget.rs:33:9: replace ContextBudget::remaining -> usize with 1
+crates/omega-context/src/budget.rs:38:9: replace ContextBudget::estimate -> usize with 0
+crates/omega-context/src/budget.rs:38:9: replace ContextBudget::estimate -> usize with 1
+crates/omega-context/src/budget.rs:43:49: replace > with == in ContextBudget::check
+crates/omega-context/src/budget.rs:43:49: replace > with < in ContextBudget::check
+crates/omega-context/src/budget.rs:43:49: replace > with >= in ContextBudget::check
+crates/omega-context/src/budget.rs:56:19: replace += with -= in ContextBudget::enforce
+crates/omega-context/src/budget.rs:56:19: replace += with *= in ContextBudget::enforce
+crates/omega-context/src/compaction.rs:11:5: replace compaction_marker -> String with String::new()
+crates/omega-context/src/compaction.rs:11:5: replace compaction_marker -> String with "xyzzy".into()
+crates/omega-context/src/compaction.rs:23:5: replace truncate_compact -> Vec<Message> with vec![]
+crates/omega-context/src/compaction.rs:24:46: replace <= with > in truncate_compact
+crates/omega-context/src/compaction.rs:30:32: replace == with != in truncate_compact
+crates/omega-context/src/compaction.rs:42:39: replace > with == in truncate_compact
+crates/omega-context/src/compaction.rs:42:39: replace > with < in truncate_compact
+crates/omega-context/src/compaction.rs:42:22: replace + with - in truncate_compact
+crates/omega-context/src/compaction.rs:42:22: replace + with * in truncate_compact
+crates/omega-context/src/compaction.rs:48:41: replace + with - in truncate_compact
+crates/omega-context/src/compaction.rs:48:41: replace + with * in truncate_compact
+crates/omega-context/src/compaction.rs:51:28: replace <= with > in truncate_compact
+crates/omega-context/src/compaction.rs:51:24: replace + with - in truncate_compact
+crates/omega-context/src/compaction.rs:51:24: replace + with * in truncate_compact
+crates/omega-context/src/compaction.rs:52:25: replace += with -= in truncate_compact
+crates/omega-context/src/compaction.rs:52:25: replace += with *= in truncate_compact
+crates/omega-context/src/compaction.rs:59:30: replace - with + in truncate_compact
+crates/omega-context/src/compaction.rs:59:30: replace - with / in truncate_compact
+crates/omega-context/src/compaction.rs:62:16: replace > with == in truncate_compact
+crates/omega-context/src/compaction.rs:62:16: replace > with < in truncate_compact
+crates/omega-context/src/compaction.rs:127:69: replace != with == in <impl ContextEngine for LlmCompactionEngine>::assemble
+crates/omega-context/src/compaction.rs:130:52: replace && with || in <impl ContextEngine for LlmCompactionEngine>::assemble
+crates/omega-context/src/compaction.rs:136:20: replace == with != in <impl ContextEngine for LlmCompactionEngine>::assemble
+crates/omega-context/src/compaction.rs:150:48: replace && with || in <impl ContextEngine for LlmCompactionEngine>::assemble
+crates/omega-context/src/compaction.rs:176:9: replace LlmCompactionEngine::summarize_omitted -> Option<String> with None
+crates/omega-context/src/compaction.rs:176:9: replace LlmCompactionEngine::summarize_omitted -> Option<String> with Some(String::new())
+crates/omega-context/src/compaction.rs:176:9: replace LlmCompactionEngine::summarize_omitted -> Option<String> with Some("xyzzy".into())
+crates/omega-context/src/compaction.rs:299:5: replace truncate_compact_with_pinned -> Vec<Message> with vec![]
+crates/omega-context/src/compaction.rs:304:32: replace == with != in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:329:59: replace <= with > in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:334:39: replace > with == in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:334:39: replace > with < in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:334:22: replace + with - in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:334:22: replace + with * in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:343:28: replace <= with > in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:351:36: replace - with / in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:355:16: replace > with == in truncate_compact_with_pinned
+crates/omega-context/src/compaction.rs:355:16: replace > with < in truncate_compact_with_pinned
+crates/omega-context/src/contributor.rs:64:9: replace ContextContributor::with_max_tokens -> Self with Default::default()
+crates/omega-context/src/contributor.rs:69:9: replace ContextContributor::with_tool_index -> Self with Default::default()
+crates/omega-context/src/contributor.rs:74:9: replace ContextContributor::with_skill_index -> Self with Default::default()
+crates/omega-context/src/contributor.rs:113:9: replace ContextContributor::resolve_max_tokens -> usize with 0
+crates/omega-context/src/contributor.rs:113:9: replace ContextContributor::resolve_max_tokens -> usize with 1
+crates/omega-context/src/engine.rs:78:9: replace DefaultContextEngine::last_injection -> InjectionTrace with Default::default()
+crates/omega-context/src/engine.rs:86:9: replace DefaultContextEngine::injection_journal -> Vec<InjectionTrace> with vec![]
+crates/omega-context/src/engine.rs:86:9: replace DefaultContextEngine::injection_journal -> Vec<InjectionTrace> with vec![Default::default()]
+crates/omega-context/src/engine.rs:94:9: replace DefaultContextEngine::max_tokens -> usize with 0
+crates/omega-context/src/engine.rs:94:9: replace DefaultContextEngine::max_tokens -> usize with 1
+crates/omega-context/src/engine.rs:99:9: replace DefaultContextEngine::last_report -> AssembleReport with Default::default()
+crates/omega-context/src/engine.rs:141:9: replace DefaultContextEngine::assemble_sync -> (Vec<Message>, AssembleReport) with (vec![], Default::default())
+crates/omega-context/src/engine.rs:142:18: replace <= with > in DefaultContextEngine::assemble_sync
+crates/omega-context/src/engine.rs:173:43: replace > with == in DefaultContextEngine::assemble_sync
+crates/omega-context/src/engine.rs:173:43: replace > with < in DefaultContextEngine::assemble_sync
+crates/omega-context/src/engine.rs:185:9: replace <impl ContextEngine for DefaultContextEngine>::name -> &str with ""
+crates/omega-context/src/engine.rs:185:9: replace <impl ContextEngine for DefaultContextEngine>::name -> &str with "xyzzy"
+crates/omega-context/src/engine.rs:189:9: replace <impl ContextEngine for DefaultContextEngine>::owns_compaction -> bool with true
+crates/omega-context/src/engine.rs:193:9: replace <impl ContextEngine for DefaultContextEngine>::max_tokens -> usize with 0
+crates/omega-context/src/engine.rs:193:9: replace <impl ContextEngine for DefaultContextEngine>::max_tokens -> usize with 1
+crates/omega-context/src/injection.rs:43:9: replace InjectionTrace::is_empty -> bool with false
+crates/omega-context/src/injection.rs:81:9: replace MemoryInjection::journal -> Vec<InjectionTrace> with vec![]
+crates/omega-context/src/injection.rs:86:9: replace MemoryInjection::keywords -> Vec<String> with vec![]
+crates/omega-context/src/injection.rs:86:9: replace MemoryInjection::keywords -> Vec<String> with vec!["xyzzy".into()]
+crates/omega-context/src/injection.rs:88:30: delete ! in MemoryInjection::keywords
+crates/omega-context/src/injection.rs:89:43: replace >= with < in MemoryInjection::keywords
+crates/omega-context/src/injection.rs:109:30: replace == with != in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/injection.rs:116:12: delete ! in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/injection.rs:116:50: replace > with == in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/injection.rs:116:50: replace > with < in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/injection.rs:134:44: replace != with == in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/injection.rs:142:34: replace > with == in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/injection.rs:142:34: replace > with < in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/injection.rs:142:25: replace + with - in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/injection.rs:145:22: replace += with -= in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/injection.rs:145:22: replace += with *= in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/injection.rs:183:36: replace == with != in <impl ContextInjector for MemoryInjection>::inject
+crates/omega-context/src/pinned_facts.rs:77:9: replace PinnedFacts::upsert with ()
+crates/omega-context/src/pinned_facts.rs:88:9: replace PinnedFacts::get -> Option<PinnedFact> with None
+crates/omega-context/src/pinned_facts.rs:97:9: replace PinnedFacts::remove -> Option<PinnedFact> with None
+crates/omega-context/src/pinned_facts.rs:105:9: replace PinnedFacts::list -> Vec<PinnedFact> with vec![]
+crates/omega-context/src/pinned_facts.rs:122:9: replace PinnedFacts::list_by_category -> Vec<PinnedFact> with vec![]
+crates/omega-context/src/pinned_facts.rs:124:36: replace == with != in PinnedFacts::list_by_category
+crates/omega-context/src/pinned_facts.rs:153:20: delete ! in PinnedFacts::extract
+crates/omega-context/src/pinned_facts.rs:197:9: replace PinnedFacts::is_durable -> bool with true
+crates/omega-context/src/pinned_facts.rs:268:9: replace PinnedFacts::to_system_messages -> Vec<Message> with vec![]
+crates/omega-context/src/skills.rs:49:5: replace signature -> u64 with 0
+crates/omega-context/src/skills.rs:49:5: replace signature -> u64 with 1
+crates/omega-context/src/skills.rs:79:9: replace SkillIndex::from_skills -> Self with Default::default()
+crates/omega-context/src/skills.rs:88:9: replace SkillIndex::add with ()
+crates/omega-context/src/skills.rs:98:9: replace SkillIndex::list -> Vec<SkillSummary> with vec![]
+crates/omega-context/src/skills.rs:110:9: replace SkillIndex::view -> Option<Arc<str>> with None
+crates/omega-context/src/skills.rs:114:33: replace == with != in SkillIndex::view
+crates/omega-context/src/skills.rs:132:9: replace SkillIndex::asset -> Option<Arc<str>> with None
+crates/omega-context/src/skills.rs:141:9: replace SkillIndex::render_count -> usize with 0
+crates/omega-context/src/skills.rs:141:9: replace SkillIndex::render_count -> usize with 1
+crates/omega-context/src/token.rs:38:9: replace TokenEstimator::estimate -> usize with 0
+crates/omega-context/src/token.rs:38:9: replace TokenEstimator::estimate -> usize with 1
+crates/omega-context/src/token.rs:39:18: replace == with != in TokenEstimator::estimate
+crates/omega-context/src/token.rs:48:9: replace TokenEstimator::estimate_messages -> usize with 0
+crates/omega-context/src/token.rs:48:9: replace TokenEstimator::estimate_messages -> usize with 1
+crates/omega-context/src/tool_surface.rs:24:5: replace tokenize -> Vec<String> with vec![]
+crates/omega-context/src/tool_surface.rs:24:5: replace tokenize -> Vec<String> with vec![String::new()]
+crates/omega-context/src/tool_surface.rs:24:5: replace tokenize -> Vec<String> with vec!["xyzzy".into()]
+crates/omega-context/src/tool_surface.rs:25:26: delete ! in tokenize
+crates/omega-context/src/tool_surface.rs:26:21: delete ! in tokenize
+crates/omega-context/src/tool_surface.rs:58:5: replace stem -> String with String::new()
+crates/omega-context/src/tool_surface.rs:58:5: replace stem -> String with "xyzzy".into()
+crates/omega-context/src/tool_surface.rs:60:23: replace || with && in stem
+crates/omega-context/src/tool_surface.rs:60:10: replace == with != in stem
+crates/omega-context/src/tool_surface.rs:60:28: replace == with != in stem
+crates/omega-context/src/tool_surface.rs:64:21: replace && with || in stem
+crates/omega-context/src/tool_surface.rs:64:16: replace >= with < in stem
+crates/omega-context/src/tool_surface.rs:65:30: replace - with + in stem
+crates/omega-context/src/tool_surface.rs:65:30: replace - with / in stem
+crates/omega-context/src/tool_surface.rs:66:20: replace >= with < in stem
+crates/omega-context/src/tool_surface.rs:71:21: replace && with || in stem
+crates/omega-context/src/tool_surface.rs:71:16: replace >= with < in stem
+crates/omega-context/src/tool_surface.rs:72:30: replace - with + in stem
+crates/omega-context/src/tool_surface.rs:72:30: replace - with / in stem
+crates/omega-context/src/tool_surface.rs:73:20: replace >= with < in stem
+crates/omega-context/src/tool_surface.rs:80:16: replace >= with < in stem
+crates/omega-context/src/tool_surface.rs:83:38: replace - with + in stem
+crates/omega-context/src/tool_surface.rs:83:38: replace - with / in stem
+crates/omega-context/src/tool_surface.rs:84:28: replace >= with < in stem
+crates/omega-context/src/tool_surface.rs:92:21: replace && with || in stem
+crates/omega-context/src/tool_surface.rs:92:16: replace >= with < in stem
+crates/omega-context/src/tool_surface.rs:93:30: replace - with + in stem
+crates/omega-context/src/tool_surface.rs:93:30: replace - with / in stem
+crates/omega-context/src/tool_surface.rs:94:20: replace >= with < in stem
+crates/omega-context/src/tool_surface.rs:99:21: replace && with || in stem
+crates/omega-context/src/tool_surface.rs:100:30: replace - with + in stem
+crates/omega-context/src/tool_surface.rs:100:30: replace - with / in stem
+crates/omega-context/src/tool_surface.rs:106:21: replace && with || in stem
+crates/omega-context/src/tool_surface.rs:106:16: replace >= with < in stem
+crates/omega-context/src/tool_surface.rs:107:30: replace - with + in stem
+crates/omega-context/src/tool_surface.rs:107:30: replace - with / in stem
+crates/omega-context/src/tool_surface.rs:108:20: replace >= with < in stem
+crates/omega-context/src/tool_surface.rs:147:9: replace ToolSurfaceIndex::from_docs -> Self with Default::default()
+crates/omega-context/src/tool_surface.rs:157:9: replace ToolSurfaceIndex::with_min_score -> Self with Default::default()
+crates/omega-context/src/tool_surface.rs:163:9: replace ToolSurfaceIndex::add with ()
+crates/omega-context/src/tool_surface.rs:169:9: replace ToolSurfaceIndex::rebuild_stats with ()
+crates/omega-context/src/tool_surface.rs:175:60: replace += with -= in ToolSurfaceIndex::rebuild_stats
+crates/omega-context/src/tool_surface.rs:175:60: replace += with *= in ToolSurfaceIndex::rebuild_stats
+crates/omega-context/src/tool_surface.rs:182:67: replace + with - in ToolSurfaceIndex::rebuild_stats
+crates/omega-context/src/tool_surface.rs:182:67: replace + with * in ToolSurfaceIndex::rebuild_stats
+crates/omega-context/src/tool_surface.rs:182:41: replace / with % in ToolSurfaceIndex::rebuild_stats
+crates/omega-context/src/tool_surface.rs:182:41: replace / with * in ToolSurfaceIndex::rebuild_stats
+crates/omega-context/src/tool_surface.rs:182:28: replace + with - in ToolSurfaceIndex::rebuild_stats
+crates/omega-context/src/tool_surface.rs:182:28: replace + with * in ToolSurfaceIndex::rebuild_stats
+crates/omega-context/src/tool_surface.rs:182:48: replace + with - in ToolSurfaceIndex::rebuild_stats
+crates/omega-context/src/tool_surface.rs:196:9: replace ToolSurfaceIndex::gate_token -> Option<String> with None
+crates/omega-context/src/tool_surface.rs:196:9: replace ToolSurfaceIndex::gate_token -> Option<String> with Some(String::new())
+crates/omega-context/src/tool_surface.rs:196:9: replace ToolSurfaceIndex::gate_token -> Option<String> with Some("xyzzy".into())
+crates/omega-context/src/tool_surface.rs:201:60: replace || with && in ToolSurfaceIndex::gate_token
+crates/omega-context/src/tool_surface.rs:201:49: replace < with == in ToolSurfaceIndex::gate_token
+crates/omega-context/src/tool_surface.rs:201:49: replace < with > in ToolSurfaceIndex::gate_token
+crates/omega-context/src/tool_surface.rs:201:49: replace < with <= in ToolSurfaceIndex::gate_token
+crates/omega-context/src/tool_surface.rs:201:79: replace && with || in ToolSurfaceIndex::gate_token
+crates/omega-context/src/tool_surface.rs:201:67: replace == with != in ToolSurfaceIndex::gate_token
+crates/omega-context/src/tool_surface.rs:201:84: replace < with == in ToolSurfaceIndex::gate_token
+crates/omega-context/src/tool_surface.rs:201:84: replace < with > in ToolSurfaceIndex::gate_token
+crates/omega-context/src/tool_surface.rs:212:9: replace ToolSurfaceIndex::search -> Vec<&ToolDoc> with vec![]
+crates/omega-context/src/tool_surface.rs:224:31: replace += with -= in ToolSurfaceIndex::search
+crates/omega-context/src/tool_surface.rs:224:31: replace += with *= in ToolSurfaceIndex::search
+crates/omega-context/src/tool_surface.rs:228:46: replace > with == in ToolSurfaceIndex::search
+crates/omega-context/src/tool_surface.rs:228:46: replace > with < in ToolSurfaceIndex::search
+crates/omega-context/src/tool_surface.rs:228:46: replace > with >= in ToolSurfaceIndex::search
+crates/omega-context/src/tool_surface.rs:229:31: replace || with && in ToolSurfaceIndex::search
+crates/omega-context/src/tool_surface.rs:229:40: replace >= with < in ToolSurfaceIndex::search

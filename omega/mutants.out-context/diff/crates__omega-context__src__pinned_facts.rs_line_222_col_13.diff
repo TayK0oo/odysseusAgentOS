@@ -1,0 +1,21 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace || with && in PinnedFacts::is_durable
+@@ -214,17 +214,17 @@
+             "constraint",
+         ];
+         if KEYWORDS.iter().any(|k| lower.contains(k)) {
+             return true;
+         }
+         // Marqueurs explicites
+         if content.starts_with("[PINNED]")
+             || content.starts_with("[PinnedFact:")
+-            || content.starts_with("Decision:")
++            && /* ~ changed by cargo-mutants ~ */ content.starts_with("Decision:")
+             || content.starts_with("Preference:")
+             || content.starts_with("Constraint:")
+             || content.starts_with("Project:")
+             || content.starts_with("Fact:")
+             || content.starts_with("Durable:")
+         {
+             return true;
+         }

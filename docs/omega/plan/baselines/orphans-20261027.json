@@ -1,0 +1,82 @@
+{
+  "plugins_attendus": [
+    "ollama",
+    "default",
+    "mcp:rea",
+    "file",
+    "embedded",
+    "config/default",
+    "loop/default",
+    "workflow/default",
+    "agentstore/default",
+    "ui/main",
+    "ui/sidebar",
+    "sandbox/default",
+    "skills/default"
+  ],
+  "plugins_avec_scenario": [
+    "default",
+    "embedded",
+    "file",
+    "mcp:rea",
+    "ollama"
+  ],
+  "orphelins": [
+    "config/default",
+    "loop/default",
+    "workflow/default",
+    "agentstore/default",
+    "ui/main",
+    "ui/sidebar",
+    "sandbox/default",
+    "skills/default"
+  ],
+  "source_scenario": {
+    "ollama": [
+      "S0",
+      "S1",
+      "S2",
+      "S3",
+      "S3b",
+      "S4",
+      "S5"
+    ],
+    "default": [
+      "S0",
+      "S1",
+      "S2",
+      "S3",
+      "S3b",
+      "S4",
+      "S5"
+    ],
+    "mcp:rea": [
+      "S0",
+      "S1",
+      "S2",
+      "S3",
+      "S3b",
+      "S4",
+      "S5"
+    ],
+    "file": [
+      "S0",
+      "S1",
+      "S2",
+      "S3",
+      "S3b",
+      "S4",
+      "S5"
+    ],
+    "embedded": [
+      "S0",
+      "S1",
+      "S2",
+      "S3",
+      "S3b",
+      "S4",
+      "S5"
+    ]
+  },
+  "mesure_le": "2026-10-27T08:10:33+00:00"
+}

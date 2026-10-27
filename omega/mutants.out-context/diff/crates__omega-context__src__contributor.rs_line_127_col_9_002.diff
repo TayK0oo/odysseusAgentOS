@@ -1,0 +1,61 @@
+--- crates/omega-context/src/contributor.rs
++++ replace <impl Contributor for ContextContributor>::contribute -> OmegaResult<()> with OmegaResult::new(())
+@@ -119,57 +119,17 @@
+ }
+ 
+ impl Contributor for ContextContributor {
+     fn name(&self) -> &str {
+         "omega-context"
+     }
+ 
+     fn contribute(&self, builder: &mut RegistryBuilder, ctx: &InstallContext) -> OmegaResult<()> {
+-        let max_tokens = self.resolve_max_tokens(ctx);
+-
+-        // Moteur de base (couche 1 : truncation deterministe), avec injection
+-        // memoire si un MemoryStore est branche.
+-        let base_engine: Arc<dyn ContextEngine> = if let Some(store) = &self.memory_store {
+-            Arc::new(DefaultContextEngine::with_memory(store.clone(), max_tokens))
+-        } else {
+-            Arc::new(DefaultContextEngine::new(max_tokens))
+-        };
+-
+-        // Si provider fourni, enrober dans LlmCompactionEngine (couche 2 : resume LLM)
+-        let engine: Arc<dyn ContextEngine> = if let Some(provider) = &self.llm_provider {
+-            Arc::new(LlmCompactionEngine::new(base_engine, provider.clone()))
+-        } else {
+-            base_engine
+-        };
+-
+-        builder.register_dyn(
+-            Manifest::new("default", Capability::ContextEngine, "1"),
+-            engine,
+-        )?;
+-
+-        if let Some(index) = &self.tool_index {
+-            builder.register_typed(
+-                Manifest::new("bm25", Capability::ToolSurface, "1"),
+-                index.clone(),
+-            )?;
+-        }
+-        if let Some(index) = &self.skill_index {
+-            builder.register_typed(
+-                Manifest::new("progressive", Capability::SkillStore, "1"),
+-                index.clone(),
+-            )?;
+-        }
+-        if let Some(facts) = &self.pinned_facts {
+-            builder.register_typed(
+-                Manifest::new("default", Capability::PinnedFacts, "1"),
+-                facts.clone(),
+-            )?;
+-        }
+-        Ok(())
++        OmegaResult::new(()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use omega_plugin_api::compose;
+     use omega_types::Capability;

@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace <impl ContextEngine for LlmCompactionEngine>::owns_compaction -> bool with false
+@@ -104,17 +104,17 @@
+ 
+ #[async_trait]
+ impl ContextEngine for LlmCompactionEngine {
+     fn name(&self) -> &str {
+         "llm-compaction"
+     }
+ 
+     fn owns_compaction(&self) -> bool {
+-        true
++        false /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn max_tokens(&self) -> usize {
+         self.inner.max_tokens()
+     }
+ 
+     async fn assemble(&self, messages: Vec<Message>) -> OmegaResult<Vec<Message>> {
+         let max_tokens = self.inner.max_tokens();

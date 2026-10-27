@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace + with - in truncate_compact
+@@ -40,17 +40,17 @@
+     // preserve le systeme tel quel (primaute du systeme, W6 §4.6). Le depassement est
+     // assume et documente (le systeme est intouchable).
+     if system_tokens + marker_reserve > budget {
+         return system.to_vec();
+     }
+ 
+     // Suffixe maximal des messages recents tenant dans le budget restant.
+     let mut kept: Vec<Message> = Vec::new();
+-    let mut kept_tokens = system_tokens + marker_reserve;
++    let mut kept_tokens = system_tokens - /* ~ changed by cargo-mutants ~ */ marker_reserve;
+     for msg in tail.iter().rev() {
+         let t = estimator.estimate(&msg.content);
+         if kept_tokens + t <= budget {
+             kept_tokens += t;
+             kept.push(msg.clone());
+         } else {
+             break;
+         }

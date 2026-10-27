@@ -1,0 +1,52 @@
+--- crates/omega-policy/src/budget.rs
++++ replace Budget::consume_call -> Result<Usage, BudgetExhausted> with Ok(Default::default())
+@@ -135,48 +135,17 @@
+     }
+ 
+     /// Consomme `d` de façon atomique : elle est débitée **entièrement ou pas**.
+     /// Un dépassement sur un seul axe refuse l'appel sans rien débiter.
+     pub fn consume_call(&self, d: Demand) -> Result<Usage, BudgetExhausted> {
+         // Fail-closed sur mutex empoisonné : une panique antérieure pendant une
+         // consommation rend l'état suspect ; on refuse tout plutôt que de risquer
+         // un comptage faux dans le sens large.
+-        let used = match self.usage.lock() {
+-            Ok(guard) => *guard,
+-            Err(_) => {
+-                return Err(BudgetExhausted {
+-                    axis: None,
+-                    requested: d,
+-                    used: Usage::default(),
+-                    limit: self.limit,
+-                })
+-            }
+-        };
+-        // Tentatif sur les quatre axes : tout-ou-rien.
+-        let proposed = Usage {
+-            steps: used.steps + d.steps,
+-            tokens: used.tokens + d.tokens,
+-            cost_usd: used.cost_usd + d.cost_usd,
+-            time_ms: used.time_ms + d.time_ms,
+-        };
+-        if self.limit.max_steps > 0 && proposed.steps > self.limit.max_steps {
+-            return Err(exhausted(BudgetAxis::Steps, d, used, self.limit));
+-        }
+-        if self.limit.max_tokens > 0 && proposed.tokens > self.limit.max_tokens {
+-            return Err(exhausted(BudgetAxis::Tokens, d, used, self.limit));
+-        }
+-        if self.limit.max_cost_usd > 0.0 && proposed.cost_usd > self.limit.max_cost_usd {
+-            return Err(exhausted(BudgetAxis::Cost, d, used, self.limit));
+-        }
+-        if self.limit.max_time_ms > 0 && proposed.time_ms > self.limit.max_time_ms {
+-            return Err(exhausted(BudgetAxis::Time, d, used, self.limit));
+-        }
+-        *self.usage.lock().unwrap_or_else(|e| e.into_inner()) = proposed;
+-        Ok(proposed)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ fn exhausted(axis: BudgetAxis, requested: Demand, used: Usage, limit: Limits) -> BudgetExhausted {
+     BudgetExhausted {
+         axis: Some(axis),
+         requested,
+         used,

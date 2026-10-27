@@ -1,0 +1,38 @@
+--- crates/omega-context/src/skills.rs
++++ replace SkillIndex::view -> Option<Arc<str>> with Some(Arc::new(""))
+@@ -102,34 +102,17 @@
+                 name: s.name.clone(),
+                 description: s.description.clone(),
+             })
+             .collect()
+     }
+ 
+     /// Niveau 2 : corps du skill (cache par signature).
+     pub fn view(&self, id: &str) -> Option<Arc<str>> {
+-        let pos = *self.by_id.get(id)?;
+-        let skill = &self.skills[pos];
+-        let sig = signature(&skill.body);
+-        if let Some(cached) = self.cache.lock().expect("cache empoisonne").get(id) {
+-            if cached.signature == sig {
+-                return Some(cached.body.clone());
+-            }
+-        }
+-        let body: Arc<str> = Arc::from(skill.body.as_str());
+-        self.renders.fetch_add(1, Ordering::Relaxed);
+-        self.cache.lock().expect("cache empoisonne").insert(
+-            id.to_string(),
+-            CachedBody {
+-                signature: sig,
+-                body: body.clone(),
+-            },
+-        );
+-        Some(body)
++        Some(Arc::new("")) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Niveau 3 : asset nomme d'un skill.
+     pub fn asset(&self, id: &str, name: &str) -> Option<Arc<str>> {
+         let pos = *self.by_id.get(id)?;
+         self.skills[pos]
+             .assets
+             .get(name)

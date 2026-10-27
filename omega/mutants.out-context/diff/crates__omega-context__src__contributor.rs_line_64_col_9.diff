@@ -1,0 +1,22 @@
+--- crates/omega-context/src/contributor.rs
++++ replace ContextContributor::with_max_tokens -> Self with Default::default()
+@@ -56,18 +56,17 @@
+             skill_index: None,
+             pinned_facts: None,
+             llm_provider: None,
+             memory_store: None,
+         }
+     }
+ 
+     pub fn with_max_tokens(mut self, max_tokens: usize) -> Self {
+-        self.max_tokens = max_tokens;
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn with_tool_index(mut self, index: ToolSurfaceIndex) -> Self {
+         self.tool_index = Some(Arc::new(index));
+         self
+     }
+ 
+     pub fn with_skill_index(mut self, index: SkillIndex) -> Self {

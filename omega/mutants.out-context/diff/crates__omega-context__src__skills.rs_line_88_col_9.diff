@@ -1,0 +1,26 @@
+--- crates/omega-context/src/skills.rs
++++ replace SkillIndex::add with ()
+@@ -80,22 +80,17 @@
+         for skill in skills {
+             idx.add(skill);
+         }
+         idx
+     }
+ 
+     /// Ajoute ou remplace un skill (le remplacement invalide le cache par signature).
+     pub fn add(&mut self, skill: Skill) {
+-        if let Some(&pos) = self.by_id.get(&skill.id) {
+-            self.skills[pos] = skill;
+-        } else {
+-            self.by_id.insert(skill.id.clone(), self.skills.len());
+-            self.skills.push(skill);
+-        }
++        () /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Niveau 1 : noms + descriptions (aucun corps charge).
+     pub fn list(&self) -> Vec<SkillSummary> {
+         self.skills
+             .iter()
+             .map(|s| SkillSummary {
+                 id: s.id.clone(),

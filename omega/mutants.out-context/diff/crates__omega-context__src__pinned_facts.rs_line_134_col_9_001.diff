@@ -1,0 +1,21 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace PinnedFacts::is_empty -> bool with false
+@@ -126,17 +126,17 @@
+     }
+ 
+     /// Nombre total de faits épinglés.
+     pub fn len(&self) -> usize {
+         self.facts.read().expect("pinned facts lock poisoned").len()
+     }
+ 
+     pub fn is_empty(&self) -> bool {
+-        self.len() == 0
++        false /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Extrait de maniere deterministe (sans LLM) les faits durables d'une liste
+     /// de messages et les epingle.
+     ///
+     /// Heuristique deterministe : un message (ou une ligne) est considere comme
+     /// fait durable s'il contient un marqueur de decision/preference/constraint/
+     /// projet, un mot-cle durable, ou une paire `cle: valeur`. Aucun appel LLM.

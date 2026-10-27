@@ -1,0 +1,21 @@
+--- crates/omega-context/src/injection.rs
++++ replace == with != in <impl ContextInjector for MemoryInjection>::inject
+@@ -175,17 +175,17 @@
+                 b.push('\n');
+             }
+             b
+         };
+ 
+         // Insertion apres le prefixe systeme existant, comme message System.
+         let prefixe_systeme = messages
+             .iter()
+-            .take_while(|m| m.role == Role::System)
++            .take_while(|m| m.role != /* ~ changed by cargo-mutants ~ */ Role::System)
+             .count();
+         let mut out: Vec<Message> = Vec::with_capacity(messages.len() + 1);
+         out.extend(messages[..prefixe_systeme].iter().cloned());
+         out.push(Message::new(Role::System, bloc));
+         out.extend(messages[prefixe_systeme..].iter().cloned());
+         Ok((out, trace))
+     }
+ }

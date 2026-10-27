@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace > with == in truncate_compact
+@@ -54,17 +54,17 @@
+         } else {
+             break;
+         }
+     }
+     kept.reverse();
+     let omitted = tail.len() - kept.len();
+ 
+     let mut result: Vec<Message> = system.to_vec();
+-    if omitted > 0 {
++    if omitted == /* ~ changed by cargo-mutants ~ */ 0 {
+         result.push(Message::new(Role::System, compaction_marker(omitted)));
+     }
+     result.extend(kept);
+     result
+ }
+ 
+ // --- Double-layer LLM compaction (NOYAU Phase C) ------------------------------
+ 

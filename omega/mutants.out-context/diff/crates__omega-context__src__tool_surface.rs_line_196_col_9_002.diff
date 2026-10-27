@@ -1,0 +1,32 @@
+--- crates/omega-context/src/tool_surface.rs
++++ replace ToolSurfaceIndex::gate_token -> Option<String> with Some("xyzzy".into())
+@@ -188,28 +188,17 @@
+     /// de **frequence documentaire minimale** (`df` minimal — IDF est strictement
+     /// decroissante en `df`).
+     ///
+     /// Departage (egalite de `df`, donc d'IDF) : **ordre lexical croissant**. Cette regle
+     /// est deterministe et **independante de la position** des tokens dans la requete
+     /// (l'ancien « premier token de la requete » etait fragile : un mot vide ou un
+     /// reordonnancement changeait la gate).
+     fn gate_token(&self, query_tokens: &[String]) -> Option<String> {
+-        let mut best: Option<(usize, String)> = None; // (df, token)
+-        for t in query_tokens {
+-            let Some(&df) = self.df.get(t) else { continue };
+-            let replace = match &best {
+-                None => true,
+-                Some((best_df, best_tok)) => df < *best_df || (df == *best_df && t < best_tok),
+-            };
+-            if replace {
+-                best = Some((df, t.clone()));
+-            }
+-        }
+-        best.map(|(_, t)| t)
++        Some("xyzzy".into()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Recherche les `top_k` outils pertinents pour une requete.
+     pub fn search(&self, query: &str, top_k: usize) -> Vec<&ToolDoc> {
+         let query_tokens = tokenize(query);
+         let Some(gate) = self.gate_token(&query_tokens) else {
+             return Vec::new();
+         };

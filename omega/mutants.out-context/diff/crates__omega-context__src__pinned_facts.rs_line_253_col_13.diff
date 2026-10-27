@@ -1,0 +1,21 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace || with && in PinnedFacts::infer_category
+@@ -245,17 +245,17 @@
+ 
+     fn infer_category(content: &str) -> String {
+         let lower = content.to_lowercase();
+         if lower.contains("prefer") {
+             "preference".to_string()
+         } else if lower.contains("decision") || lower.starts_with("decision:") {
+             "decision".to_string()
+         } else if lower.contains("constraint")
+-            || lower.contains("must")
++            && /* ~ changed by cargo-mutants ~ */ lower.contains("must")
+             || lower.contains("always")
+             || lower.contains("never")
+         {
+             "constraint".to_string()
+         } else if lower.contains("project") || lower.contains("goal") {
+             "project".to_string()
+         } else {
+             "fact".to_string()

@@ -1,0 +1,32 @@
+--- crates/omega-policy/src/lib.rs
++++ replace BudgetEnforcer::consume_iteration -> Verdict with Default::default()
+@@ -119,28 +119,17 @@
+                 pct(u.cost_usd, self.budget.max_cost_usd),
+             );
+         }
+         Verdict::ok()
+     }
+ 
+     /// Port de `consume_iteration`.
+     pub fn consume_iteration(&self) -> Verdict {
+-        let mut u = self.usage.lock().unwrap();
+-        u.iterations += 1;
+-        if u.iterations > self.budget.max_iterations {
+-            return Verdict::fail(
+-                format!(
+-                    "Iteration budget exceeded: {} / {}",
+-                    u.iterations, self.budget.max_iterations
+-                ),
+-                pct(u.iterations as f64, self.budget.max_iterations as f64),
+-            );
+-        }
+-        Verdict::ok()
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Port de `consume_tool_call`.
+     pub fn consume_tool_call(&self) -> Verdict {
+         let mut u = self.usage.lock().unwrap();
+         u.tool_calls += 1;
+         if u.tool_calls > self.budget.max_tool_calls {
+             return Verdict::fail(

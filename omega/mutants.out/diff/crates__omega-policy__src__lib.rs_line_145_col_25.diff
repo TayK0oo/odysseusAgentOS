@@ -1,0 +1,21 @@
+--- crates/omega-policy/src/lib.rs
++++ replace > with == in BudgetEnforcer::consume_tool_call
+@@ -137,17 +137,17 @@
+         }
+         Verdict::ok()
+     }
+ 
+     /// Port de `consume_tool_call`.
+     pub fn consume_tool_call(&self) -> Verdict {
+         let mut u = self.usage.lock().unwrap();
+         u.tool_calls += 1;
+-        if u.tool_calls > self.budget.max_tool_calls {
++        if u.tool_calls == /* ~ changed by cargo-mutants ~ */ self.budget.max_tool_calls {
+             return Verdict::fail(
+                 format!(
+                     "Tool call budget exceeded: {} / {}",
+                     u.tool_calls, self.budget.max_tool_calls
+                 ),
+                 pct(u.tool_calls as f64, self.budget.max_tool_calls as f64),
+             );
+         }

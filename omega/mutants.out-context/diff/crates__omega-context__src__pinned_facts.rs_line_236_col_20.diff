@@ -1,0 +1,21 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ delete ! in PinnedFacts::is_durable
+@@ -228,17 +228,17 @@
+         {
+             return true;
+         }
+         // Paire cle: valeur (heuristique deterministe)
+         if let Some(idx) = content.find(": ") {
+             let key = content[..idx].trim();
+             let val = content[idx + 2..].trim();
+             if !key.is_empty()
+-                && !val.is_empty()
++                &&  /* ~ changed by cargo-mutants ~ */val.is_empty()
+                 && key.chars().count() <= 40
+                 && val.chars().count() <= 200
+             {
+                 return true;
+             }
+         }
+         false
+     }

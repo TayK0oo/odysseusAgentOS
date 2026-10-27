@@ -1,0 +1,21 @@
+--- crates/omega-context/src/injection.rs
++++ replace MemoryInjection::journal -> Vec<InjectionTrace> with vec![]
+@@ -73,17 +73,17 @@
+             store,
+             recall_limit: 8,
+             journal: Mutex::new(Vec::new()),
+         }
+     }
+ 
+     /// Journal des injections effectuees, une trace par appel `inject`.
+     pub fn journal(&self) -> Vec<InjectionTrace> {
+-        self.journal.lock().expect("journal empoisonne").clone()
++        vec![] /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Cles de pertinence d'une requete : mots de >= 4 caracteres, minuscules.
+     fn keywords(query: &str) -> Vec<String> {
+         query
+             .to_lowercase()
+             .split(|c: char| !c.is_alphanumeric())
+             .filter(|w| w.chars().count() >= 4)

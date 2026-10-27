@@ -1,0 +1,21 @@
+--- crates/omega-policy/src/budget.rs
++++ replace > with >= in Budget::consume_call
+@@ -162,17 +162,17 @@
+             return Err(exhausted(BudgetAxis::Steps, d, used, self.limit));
+         }
+         if self.limit.max_tokens > 0 && proposed.tokens > self.limit.max_tokens {
+             return Err(exhausted(BudgetAxis::Tokens, d, used, self.limit));
+         }
+         if self.limit.max_cost_usd > 0.0 && proposed.cost_usd > self.limit.max_cost_usd {
+             return Err(exhausted(BudgetAxis::Cost, d, used, self.limit));
+         }
+-        if self.limit.max_time_ms > 0 && proposed.time_ms > self.limit.max_time_ms {
++        if self.limit.max_time_ms >= /* ~ changed by cargo-mutants ~ */ 0 && proposed.time_ms > self.limit.max_time_ms {
+             return Err(exhausted(BudgetAxis::Time, d, used, self.limit));
+         }
+         *self.usage.lock().unwrap_or_else(|e| e.into_inner()) = proposed;
+         Ok(proposed)
+     }
+ }
+ 
+ fn exhausted(axis: BudgetAxis, requested: Demand, used: Usage, limit: Limits) -> BudgetExhausted {

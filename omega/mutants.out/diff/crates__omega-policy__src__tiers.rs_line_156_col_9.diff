@@ -1,0 +1,52 @@
+--- crates/omega-policy/src/tiers.rs
++++ replace TierPolicy::authorize -> TierDecision with Default::default()
+@@ -148,48 +148,17 @@
+     pub fn classify(&self, action: &str) -> Option<Tier> {
+         self.classification.get(action).copied()
+     }
+ 
+     /// Décision fail-closed : action non classée ⇒ refus ; T2 fermé ⇒ refus
+     /// (même si l'approbateur dit oui) ; T2 ouvert ⇒ approbation ; T0/T1/T3
+     /// ⇒ autorisé avec son palier (à tracer par l'appelant).
+     pub fn authorize(&self, action: &str) -> TierDecision {
+-        let Some(tier) = self.classification.get(action).copied() else {
+-            return TierDecision::Deny {
+-                reason: format!(
+-                    "action '{}' non categorie : defaut = refus (fail-closed)",
+-                    action
+-                ),
+-            };
+-        };
+-        match tier {
+-            Tier::T0 | Tier::T1 | Tier::T3 => TierDecision::Allow { tier },
+-            Tier::T2 => {
+-                if !self.t2_open {
+-                    return TierDecision::Deny {
+-                        reason: format!(
+-                            "T2 ('{}') interdit tant que G1.sandbox n'est pas vert",
+-                            action
+-                        ),
+-                    };
+-                }
+-                if self.approvals.approve(&ElevationRequest {
+-                    action: action.to_string(),
+-                    tier: Tier::T2,
+-                    reason: "elevation T1->T2".to_string(),
+-                }) {
+-                    TierDecision::Allow { tier: Tier::T2 }
+-                } else {
+-                    TierDecision::Deny {
+-                        reason: format!("approbation refusee pour '{}' (T2)", action),
+-                    }
+-                }
+-            }
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     /// Approbateur qui dit toujours oui — pour prouver que la fermeture T2

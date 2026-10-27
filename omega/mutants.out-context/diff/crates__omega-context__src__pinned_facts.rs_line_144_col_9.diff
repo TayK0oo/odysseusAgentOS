@@ -1,0 +1,45 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace PinnedFacts::extract -> Self with Default::default()
+@@ -136,41 +136,17 @@
+ 
+     /// Extrait de maniere deterministe (sans LLM) les faits durables d'une liste
+     /// de messages et les epingle.
+     ///
+     /// Heuristique deterministe : un message (ou une ligne) est considere comme
+     /// fait durable s'il contient un marqueur de decision/preference/constraint/
+     /// projet, un mot-cle durable, ou une paire `cle: valeur`. Aucun appel LLM.
+     pub fn extract(messages: &[Message]) -> Self {
+-        let pf = Self::new();
+-        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+-        let mut counter = 0usize;
+-        for (i, msg) in messages.iter().enumerate() {
+-            for line in msg.content.lines() {
+-                let trimmed = line.trim();
+-                if trimmed.is_empty() {
+-                    continue;
+-                }
+-                if !Self::is_durable(trimmed) {
+-                    continue;
+-                }
+-                if !seen.insert(trimmed.to_string()) {
+-                    continue;
+-                }
+-                counter += 1;
+-                let category = Self::infer_category(trimmed);
+-                let id = format!("extracted-{}-{}", i, counter);
+-                pf.upsert(PinnedFact::new(id, trimmed, category));
+-            }
+-            // Si aucune ligne durable mais le message entier l'est, deja couvert
+-            // par la boucle ci-dessus (msg.content.lines() inclut la ligne unique).
+-            let _ = i;
+-        }
+-        pf
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Alias de [`Self::extract`].
+     pub fn from_messages(messages: &[Message]) -> Self {
+         Self::extract(messages)
+     }
+ 
+     /// Alias de [`Self::extract`].

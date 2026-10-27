@@ -1,0 +1,21 @@
+--- crates/omega-policy/src/run_budget.rs
++++ replace <impl RunBudget for PolicyRunBudget>::usage -> BudgetUsage with Default::default()
+@@ -46,17 +46,11 @@
+                     None => None,
+                 },
+                 reason: exhausted.to_string(),
+             }),
+         }
+     }
+ 
+     fn usage(&self) -> BudgetUsage {
+-        let u = self.inner.usage();
+-        BudgetUsage {
+-            steps: u.steps,
+-            tokens: u.tokens,
+-            cost_usd: u.cost_usd,
+-            time_ms: u.time_ms,
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }

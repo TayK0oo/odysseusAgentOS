@@ -1,0 +1,24 @@
+--- crates/omega-context/src/engine.rs
++++ replace DefaultContextEngine::injection_journal -> Vec<InjectionTrace> with vec![]
+@@ -78,20 +78,17 @@
+         self.last_injection
+             .lock()
+             .expect("trace empoisonnee")
+             .clone()
+     }
+ 
+     /// Journal complet des decisions d'injection de ce moteur, dans l'ordre.
+     pub fn injection_journal(&self) -> Vec<InjectionTrace> {
+-        self.injection_journal
+-            .lock()
+-            .expect("journal empoisonne")
+-            .clone()
++        vec![] /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Plafond du budget de contexte du moteur.
+     pub fn max_tokens(&self) -> usize {
+         self.budget.max_tokens()
+     }
+ 
+     /// Dernier rapport d'assemblage (coupes journalisees).

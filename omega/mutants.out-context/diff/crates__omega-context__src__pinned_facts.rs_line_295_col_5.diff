@@ -1,0 +1,21 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace extract_durable_facts -> PinnedFacts with Default::default()
+@@ -287,17 +287,17 @@
+ 
+ /// Extrait de maniere deterministe les faits durables d'une liste de messages.
+ pub fn extract_pinned_facts(messages: &[Message]) -> PinnedFacts {
+     PinnedFacts::extract(messages)
+ }
+ 
+ /// Alias de [`extract_pinned_facts`].
+ pub fn extract_durable_facts(messages: &[Message]) -> PinnedFacts {
+-    PinnedFacts::extract(messages)
++    Default::default() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Alias de [`extract_pinned_facts`].
+ pub fn extract_facts(messages: &[Message]) -> PinnedFacts {
+     PinnedFacts::extract(messages)
+ }
+ 
+ #[cfg(test)]

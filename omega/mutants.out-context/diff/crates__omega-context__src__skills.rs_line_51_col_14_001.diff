@@ -1,0 +1,21 @@
+--- crates/omega-context/src/skills.rs
++++ replace ^= with &= in signature
+@@ -43,17 +43,17 @@
+         self
+     }
+ }
+ 
+ /// Signature deterministe FNV-1a (64 bits) : le cache est invalide quand le corps change.
+ fn signature(body: &str) -> u64 {
+     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+     for byte in body.bytes() {
+-        hash ^= u64::from(byte);
++        hash &= /* ~ changed by cargo-mutants ~ */ u64::from(byte);
+         hash = hash.wrapping_mul(0x1000_0000_01b3);
+     }
+     hash
+ }
+ 
+ struct CachedBody {
+     signature: u64,
+     body: Arc<str>,

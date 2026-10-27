@@ -1,0 +1,27 @@
+--- crates/omega-context/src/engine.rs
++++ replace preview -> String with "xyzzy".into()
+@@ -25,23 +25,17 @@
+     /// Apercus des messages non-systeme coupes (contenu tronque), dans l'ordre.
+     pub dropped_previews: Vec<String>,
+ }
+ 
+ /// Nombre maximum de caracteres d'un apercu de message coupe.
+ const PREVIEW_MAX_CHARS: usize = 40;
+ 
+ fn preview(text: &str) -> String {
+-    let mut chars = text.chars();
+-    let head: String = chars.by_ref().take(PREVIEW_MAX_CHARS).collect();
+-    if chars.next().is_some() {
+-        format!("{head}…")
+-    } else {
+-        head
+-    }
++    "xyzzy".into() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Moteur par defaut : assemble systeme + non-systeme sous budget, en tronquant les
+ /// plus anciens messages **non-systeme**. Le prefixe systeme est toujours preserve.
+ pub struct DefaultContextEngine {
+     budget: ContextBudget,
+     estimator: TokenEstimator,
+     last_report: Mutex<AssembleReport>,

@@ -1,0 +1,43 @@
+--- crates/omega-policy/src/budget.rs
++++ replace <impl fmt::Display for BudgetExhausted>::fmt -> fmt::Result with Ok(Default::default())
+@@ -75,39 +75,17 @@
+     pub axis: Option<BudgetAxis>,
+     pub requested: Demand,
+     pub used: Usage,
+     pub limit: Limits,
+ }
+ 
+ impl fmt::Display for BudgetExhausted {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        match self.axis {
+-            None => write!(f, "budget refuse (cause interne, fail-closed)"),
+-            Some(BudgetAxis::Steps) => write!(
+-                f,
+-                "steps budget exceeded: requested {} + used {} > max {}",
+-                self.requested.steps, self.used.steps, self.limit.max_steps
+-            ),
+-            Some(BudgetAxis::Tokens) => write!(
+-                f,
+-                "token budget exceeded: requested {} + used {} > max {}",
+-                self.requested.tokens, self.used.tokens, self.limit.max_tokens
+-            ),
+-            Some(BudgetAxis::Cost) => write!(
+-                f,
+-                "coût budget exceeded: ${:.4} + ${:.4} > ${:.4}",
+-                self.requested.cost_usd, self.used.cost_usd, self.limit.max_cost_usd
+-            ),
+-            Some(BudgetAxis::Time) => write!(
+-                f,
+-                "time budget exceeded: {} ms + {} ms > {} ms",
+-                self.requested.time_ms, self.used.time_ms, self.limit.max_time_ms
+-            ),
+-        }
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl std::error::Error for BudgetExhausted {}
+ 
+ /// Budget monotone évaluable par appel : [`Budget::consume_call`] consomme
+ /// atomiquement (tout-ou-rien) et refuse si un axe dérape. Refuser un appel
+ /// ne débite rien — l'usage demeure monotone croissant et borné.

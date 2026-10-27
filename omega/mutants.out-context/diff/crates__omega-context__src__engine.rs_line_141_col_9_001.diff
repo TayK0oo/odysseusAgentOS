@@ -1,0 +1,58 @@
+--- crates/omega-context/src/engine.rs
++++ replace DefaultContextEngine::assemble_sync -> (Vec<Message>, AssembleReport) with (vec![Default::default()], Default::default())
+@@ -133,54 +133,17 @@
+     /// Le prefixe systeme est toujours preserve. Si le systeme seul depasse deja le
+     /// budget, le depassement est journalise via `AssembleReport.over_budget` (le
+     /// resultat n'est jamais coupe au-dela du systeme, qui est intouchable).
+     ///
+     /// Retourne le resultat **et** son rapport ensemble : l'appelant async utilise le
+     /// rapport retourne (pas une relecture du `Mutex` partage), ce qui rend la decision
+     /// `Ok`/`BudgetExceeded` insensible aux appels concurrents (REVIEW-W6 N1).
+     pub fn assemble_sync(&self, messages: &[Message]) -> (Vec<Message>, AssembleReport) {
+-        let total = self.estimator.estimate_messages(messages);
+-        if total <= self.budget.max_tokens() {
+-            let report = AssembleReport {
+-                kept: messages.len(),
+-                dropped: 0,
+-                estimated_tokens: total,
+-                over_budget: false,
+-                compacted: false,
+-                dropped_previews: Vec::new(),
+-            };
+-            *self.last_report.lock().expect("rapport empoisonne") = report.clone();
+-            return (messages.to_vec(), report);
+-        }
+-
+-        // Factes epingles extraits de maniere deterministe (sans LLM) : ils
+-        // survivent a la compaction, ce qui est le contrat de S5.
+-        let pinned = crate::pinned_facts::extract_pinned_facts(messages);
+-
+-        // Compaction avec pinning (remplace la troncation naive).
+-        let result = crate::compaction::truncate_compact_with_pinned(messages, self.budget.max_tokens(), &pinned);
+-        let kept = result.len();
+-        let dropped = messages.len().saturating_sub(kept);
+-        let dropped_previews: Vec<String> = messages[..messages.len().saturating_sub(kept)]
+-            .iter()
+-            .map(|m| preview(&m.content))
+-            .collect();
+-
+-        let estimated_tokens = self.estimator.estimate_messages(&result);
+-        let report = AssembleReport {
+-            kept,
+-            dropped,
+-            estimated_tokens,
+-            over_budget: estimated_tokens > self.budget.max_tokens(),
+-            compacted: true,
+-            dropped_previews,
+-        };
+-        *self.last_report.lock().expect("rapport empoisonne") = report.clone();
+-        (result, report)
++        (vec![Default::default()], Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[async_trait]
+ impl ContextEngine for DefaultContextEngine {
+     fn name(&self) -> &str {
+         "default"
+     }

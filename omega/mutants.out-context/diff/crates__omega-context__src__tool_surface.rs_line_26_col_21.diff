@@ -1,0 +1,21 @@
+--- crates/omega-context/src/tool_surface.rs
++++ delete ! in tokenize
+@@ -18,17 +18,17 @@
+     }
+ }
+ 
+ /// Tokenise en minuscules puis decoupe sur les caracteres non alphanumeriques,
+ /// puis applique le stemming deterministe des deux cotes (docs ET requetes).
+ fn tokenize(text: &str) -> Vec<String> {
+     text.to_lowercase()
+         .split(|c: char| !c.is_alphanumeric())
+-        .filter(|s| !s.is_empty())
++        .filter(|s|  /* ~ changed by cargo-mutants ~ */s.is_empty())
+         .map(stem)
+         .collect()
+ }
+ 
+ /// Stemming deterministe maison (pas de Porter complet : YAGNI).
+ ///
+ /// Regles EXPLICITES, appliquees dans cet ordre (la premiere qui correspond
+ /// gagne, une seule transformation par appel — pas de cascade) :

@@ -1,0 +1,21 @@
+--- crates/omega-context/src/budget.rs
++++ replace > with >= in ContextBudget::check
+@@ -35,17 +35,17 @@
+ 
+     /// Estime (deterministe, chars/4) le cout en tokens d'un texte.
+     pub fn estimate(&self, text: &str) -> usize {
+         self.estimator.estimate(text)
+     }
+ 
+     /// Verifie que l'ajout de `additional` tokens ne depasse pas le plafond.
+     pub fn check(&self, additional: usize) -> OmegaResult<()> {
+-        if self.used.saturating_add(additional) > self.max_tokens {
++        if self.used.saturating_add(additional) >= /* ~ changed by cargo-mutants ~ */ self.max_tokens {
+             return Err(OmegaError::BudgetExceeded {
+                 max: self.max_tokens,
+                 used: self.used,
+                 additional,
+             });
+         }
+         Ok(())
+     }

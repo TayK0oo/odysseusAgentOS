@@ -1,0 +1,22 @@
+--- crates/omega-context/src/contributor.rs
++++ replace ContextContributor::with_skill_index -> Self with Default::default()
+@@ -66,18 +66,17 @@
+     }
+ 
+     pub fn with_tool_index(mut self, index: ToolSurfaceIndex) -> Self {
+         self.tool_index = Some(Arc::new(index));
+         self
+     }
+ 
+     pub fn with_skill_index(mut self, index: SkillIndex) -> Self {
+-        self.skill_index = Some(Arc::new(index));
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Fournit un `PinnedFacts` partagé (enregistré comme capacite `pinned-facts`).
+     pub fn with_pinned_facts(mut self, facts: PinnedFacts) -> Self {
+         self.pinned_facts = Some(Arc::new(facts));
+         self
+     }
+ 

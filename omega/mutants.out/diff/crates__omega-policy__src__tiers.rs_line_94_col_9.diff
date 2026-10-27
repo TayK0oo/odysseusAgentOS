@@ -1,0 +1,37 @@
+--- crates/omega-policy/src/tiers.rs
++++ replace TierPolicy::standard -> Self with Default::default()
+@@ -86,33 +86,17 @@
+     /// T2 reste interdit tant que G1.sandbox n'est pas vert (P1-6).
+     t2_open: bool,
+     approvals: Box<dyn ApprovalGate>,
+ }
+ 
+ impl TierPolicy {
+     /// Table statique standard, documentée (P1-3) — config de donnée.
+     pub fn standard() -> Self {
+-        Self::new(
+-            [
+-                ("read", Tier::T0),
+-                ("list", Tier::T0),
+-                ("grep", Tier::T0),
+-                ("write", Tier::T1),
+-                ("create", Tier::T1),
+-                ("edit", Tier::T1),
+-                ("remove", Tier::T1),
+-                ("network", Tier::T2),
+-                ("exec", Tier::T2),
+-                ("subagent", Tier::T3),
+-                ("sub-plan", Tier::T3),
+-            ]
+-            .into_iter()
+-            .map(|(k, t)| (k.to_string(), t)),
+-        )
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Construit depuis une donnée (config / adaptateur ConfigSource en A4).
+     pub fn new<I, S>(classification: I) -> Self
+     where
+         I: IntoIterator<Item = (S, Tier)>,
+         S: Into<String>,
+     {

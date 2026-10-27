@@ -1,0 +1,36 @@
+--- crates/omega-context/src/engine.rs
++++ replace DefaultContextEngine::assemble_with_injection -> OmegaResult<(Vec<Message>, AssembleReport)> with OmegaResult::from_iter([(vec![Default::default()], Default::default())])
+@@ -105,32 +105,17 @@
+     /// elle est inseree apres le prefixe systeme par l'injecteur, la coupe
+     /// budgetaire ensuite s'effectue sur le flux enrichi sans jamais couper le
+     /// systeme. En l'absence d'injecteur, `assemble_with_injection` est un
+     /// passthrough vers `assemble_sync`.
+     pub async fn assemble_with_injection(
+         &self,
+         messages: &[Message],
+     ) -> OmegaResult<(Vec<Message>, AssembleReport)> {
+-        let (flux, trace) = match &self.injector {
+-            None => (messages.to_vec(), InjectionTrace::default()),
+-            Some(injector) => {
+-                // Budget explicite : l'enveloppe totale du moteur plafonne
+-                // l'injection (la coupe garde la main apres, systeme premier).
+-                let budget = self.budget.max_tokens();
+-                injector.inject(messages.to_vec(), budget).await?
+-            }
+-        };
+-        *self.last_injection.lock().expect("trace empoisonnee") = trace.clone();
+-        self.injection_journal
+-            .lock()
+-            .expect("journal empoisonne")
+-            .push(trace);
+-        let (result, report) = self.assemble_sync(&flux);
+-        Ok((result, report))
++        OmegaResult::from_iter([(vec![Default::default()], Default::default())]) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Assemble en mode synchrone (coeur deterministe, testable sans runtime).
+     ///
+     /// Le prefixe systeme est toujours preserve. Si le systeme seul depasse deja le
+     /// budget, le depassement est journalise via `AssembleReport.over_budget` (le
+     /// resultat n'est jamais coupe au-dela du systeme, qui est intouchable).
+     ///

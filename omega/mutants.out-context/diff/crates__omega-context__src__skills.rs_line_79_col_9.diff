@@ -1,0 +1,25 @@
+--- crates/omega-context/src/skills.rs
++++ replace SkillIndex::from_skills -> Self with Default::default()
+@@ -71,21 +71,17 @@
+ }
+ 
+ impl SkillIndex {
+     pub fn new() -> Self {
+         Self::default()
+     }
+ 
+     pub fn from_skills(skills: Vec<Skill>) -> Self {
+-        let mut idx = Self::new();
+-        for skill in skills {
+-            idx.add(skill);
+-        }
+-        idx
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Ajoute ou remplace un skill (le remplacement invalide le cache par signature).
+     pub fn add(&mut self, skill: Skill) {
+         if let Some(&pos) = self.by_id.get(&skill.id) {
+             self.skills[pos] = skill;
+         } else {
+             self.by_id.insert(skill.id.clone(), self.skills.len());

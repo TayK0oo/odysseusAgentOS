@@ -1,0 +1,28 @@
+crates/omega-policy/src/lib.rs:92:9: replace BudgetEnforcer::run_id -> &str with ""
+crates/omega-policy/src/lib.rs:92:9: replace BudgetEnforcer::run_id -> &str with "xyzzy"
+crates/omega-policy/src/lib.rs:104:26: replace > with >= in BudgetEnforcer::consume_tokens
+crates/omega-policy/src/lib.rs:113:23: replace > with >= in BudgetEnforcer::consume_tokens
+crates/omega-policy/src/lib.rs:144:22: replace += with *= in BudgetEnforcer::consume_tool_call
+crates/omega-policy/src/lib.rs:145:25: replace > with == in BudgetEnforcer::consume_tool_call
+crates/omega-policy/src/lib.rs:145:25: replace > with >= in BudgetEnforcer::consume_tool_call
+crates/omega-policy/src/lib.rs:160:37: replace > with == in BudgetEnforcer::is_budget_ok
+crates/omega-policy/src/lib.rs:160:37: replace > with < in BudgetEnforcer::is_budget_ok
+crates/omega-policy/src/lib.rs:160:37: replace > with >= in BudgetEnforcer::is_budget_ok
+crates/omega-policy/src/lib.rs:162:18: replace > with == in BudgetEnforcer::is_budget_ok
+crates/omega-policy/src/lib.rs:162:18: replace > with >= in BudgetEnforcer::is_budget_ok
+crates/omega-policy/src/lib.rs:190:18: replace > with == in BudgetEnforcer::is_budget_ok
+crates/omega-policy/src/lib.rs:190:18: replace > with >= in BudgetEnforcer::is_budget_ok
+crates/omega-policy/src/lib.rs:203:9: replace BudgetEnforcer::alert_threshold_reached -> bool with true
+crates/omega-policy/src/lib.rs:256:42: replace || with && in PathRulePermissionPolicy::matches
+crates/omega-policy/src/lib.rs:260:17: replace || with && in PathRulePermissionPolicy::matches
+crates/omega-policy/src/lib.rs:259:17: replace || with && in PathRulePermissionPolicy::matches
+crates/omega-policy/src/lib.rs:267:9: replace <impl PermissionPolicy for PathRulePermissionPolicy>::name -> &str with ""
+crates/omega-policy/src/lib.rs:267:9: replace <impl PermissionPolicy for PathRulePermissionPolicy>::name -> &str with "xyzzy"
+crates/omega-policy/src/lib.rs:316:9: replace <impl ExecPolicy for CommandPrefixExecPolicy>::name -> &str with ""
+crates/omega-policy/src/lib.rs:316:9: replace <impl ExecPolicy for CommandPrefixExecPolicy>::name -> &str with "xyzzy"
+crates/omega-policy/src/lib.rs:337:27: replace > with >= in <impl ExecPolicy for CommandPrefixExecPolicy>::evaluate
+crates/omega-policy/src/budget.rs:134:9: replace Budget::limits -> Limits with Default::default()
+crates/omega-policy/src/run_budget.rs:27:9: replace <impl RunBudget for PolicyRunBudget>::consume -> Result<BudgetUsage, BudgetRefusal> with Ok(Default::default())
+crates/omega-policy/src/run_budget.rs:54:9: replace <impl RunBudget for PolicyRunBudget>::usage -> BudgetUsage with Default::default()
+crates/omega-policy/src/tiers.rs:74:9: replace <impl ApprovalGate for DenyAllApprovals>::name -> &str with ""
+crates/omega-policy/src/tiers.rs:74:9: replace <impl ApprovalGate for DenyAllApprovals>::name -> &str with "xyzzy"

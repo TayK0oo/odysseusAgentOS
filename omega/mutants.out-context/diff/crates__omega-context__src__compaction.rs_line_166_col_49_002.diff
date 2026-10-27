@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace > with >= in <impl ContextEngine for LlmCompactionEngine>::assemble
+@@ -158,17 +158,17 @@
+         let mut result = truncated;
+         if let Some(summary_text) = summary {
+             let summary_msg = Message::new(Role::System, format!("Summary: {summary_text}"));
+             let system_count = result.iter().take_while(|m| m.role == Role::System).count();
+             result.insert(system_count, summary_msg);
+         }
+ 
+         // 4. Re-verifier le budget
+-        if estimator.estimate_messages(&result) > max_tokens {
++        if estimator.estimate_messages(&result) >= /* ~ changed by cargo-mutants ~ */ max_tokens {
+             return Ok(truncate_compact(&result, max_tokens));
+         }
+ 
+         Ok(result)
+     }
+ }
+ 
+ impl LlmCompactionEngine {

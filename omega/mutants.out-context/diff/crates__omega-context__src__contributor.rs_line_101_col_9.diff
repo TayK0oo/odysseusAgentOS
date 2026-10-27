@@ -1,0 +1,22 @@
+--- crates/omega-context/src/contributor.rs
++++ replace ContextContributor::with_memory_store -> Self with Default::default()
+@@ -93,18 +93,17 @@
+     /// moteur (assemble_with_injection).
+     pub fn with_memory(mut self, store: Arc<dyn MemoryStore>) -> Self {
+         self.memory_store = Some(store);
+         self
+     }
+ 
+     /// Alias de `with_memory` (compatibilite de nommage).
+     pub fn with_memory_store(mut self, store: Arc<dyn MemoryStore>) -> Self {
+-        self.memory_store = Some(store);
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Alias de `with_memory` (compatibilite de nommage).
+     pub fn with_store(mut self, store: Arc<dyn MemoryStore>) -> Self {
+         self.memory_store = Some(store);
+         self
+     }
+ 

@@ -62,7 +62,11 @@ impl FileMemoryStore {
             let fact = v
                 .as_str()
                 .map(str::to_string)
-                .or_else(|| v.get("content").and_then(|c| c.as_str()).map(str::to_string))
+                .or_else(|| {
+                    v.get("content")
+                        .and_then(|c| c.as_str())
+                        .map(str::to_string)
+                })
                 .or_else(|| v.get("text").and_then(|c| c.as_str()).map(str::to_string));
             if let Some(f) = fact {
                 facts.push(f);

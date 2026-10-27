@@ -1,0 +1,21 @@
+--- crates/omega-context/src/compaction.rs
++++ replace <impl ContextEngine for LlmCompactionEngine>::name -> &str with "xyzzy"
+@@ -100,17 +100,17 @@
+         self.summary_budget_ratio = ratio.clamp(0.1, 0.5);
+         self
+     }
+ }
+ 
+ #[async_trait]
+ impl ContextEngine for LlmCompactionEngine {
+     fn name(&self) -> &str {
+-        "llm-compaction"
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn owns_compaction(&self) -> bool {
+         true
+     }
+ 
+     fn max_tokens(&self) -> usize {
+         self.inner.max_tokens()

@@ -1,0 +1,21 @@
+--- crates/omega-context/src/contributor.rs
++++ replace <impl Contributor for ContextContributor>::name -> &str with "xyzzy"
+@@ -115,17 +115,17 @@
+             .and_then(serde_json::Value::as_u64)
+             .map(|v| v as usize)
+             .unwrap_or(self.max_tokens)
+     }
+ }
+ 
+ impl Contributor for ContextContributor {
+     fn name(&self) -> &str {
+-        "omega-context"
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn contribute(&self, builder: &mut RegistryBuilder, ctx: &InstallContext) -> OmegaResult<()> {
+         let max_tokens = self.resolve_max_tokens(ctx);
+ 
+         // Moteur de base (couche 1 : truncation deterministe), avec injection
+         // memoire si un MemoryStore est branche.
+         let base_engine: Arc<dyn ContextEngine> = if let Some(store) = &self.memory_store {

@@ -1,0 +1,21 @@
+--- crates/omega-context/src/token.rs
++++ replace TokenEstimator::estimate_messages -> usize with 1
+@@ -40,17 +40,17 @@
+             0
+         } else {
+             chars.div_ceil(self.chars_per_token as usize)
+         }
+     }
+ 
+     /// Estimation cumulee des contenus d'une liste de messages.
+     pub fn estimate_messages(&self, messages: &[Message]) -> usize {
+-        messages.iter().map(|m| self.estimate(&m.content)).sum()
++        1 /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use omega_types::Role;
+ 

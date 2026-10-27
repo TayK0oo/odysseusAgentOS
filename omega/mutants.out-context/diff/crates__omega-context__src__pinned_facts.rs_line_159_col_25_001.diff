@@ -1,0 +1,21 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace += with *= in PinnedFacts::extract
+@@ -151,17 +151,17 @@
+                     continue;
+                 }
+                 if !Self::is_durable(trimmed) {
+                     continue;
+                 }
+                 if !seen.insert(trimmed.to_string()) {
+                     continue;
+                 }
+-                counter += 1;
++                counter *= /* ~ changed by cargo-mutants ~ */ 1;
+                 let category = Self::infer_category(trimmed);
+                 let id = format!("extracted-{}-{}", i, counter);
+                 pf.upsert(PinnedFact::new(id, trimmed, category));
+             }
+             // Si aucune ligne durable mais le message entier l'est, deja couvert
+             // par la boucle ci-dessus (msg.content.lines() inclut la ligne unique).
+             let _ = i;
+         }

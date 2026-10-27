@@ -1,0 +1,29 @@
+--- crates/omega-policy/src/lib.rs
++++ replace PathRulePermissionPolicy::matches -> bool with true
+@@ -245,25 +245,17 @@
+                 ".git-credentials",
+                 "id_rsa",
+             ],
+             &[".planning/", "docs/"],
+         )
+     }
+ 
+     fn matches(resource: &str, pattern: &str) -> bool {
+-        if pattern.ends_with('/') {
+-            resource.contains(pattern)
+-        } else if let Some(stripped) = pattern.strip_prefix('*') {
+-            resource.ends_with(stripped) || resource.contains(stripped)
+-        } else {
+-            resource == pattern
+-                || resource.ends_with(&format!("/{}", pattern))
+-                || resource.split('/').any(|seg| seg == pattern)
+-        }
++        true /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl PermissionPolicy for PathRulePermissionPolicy {
+     fn name(&self) -> &str {
+         &self.name
+     }
+ 

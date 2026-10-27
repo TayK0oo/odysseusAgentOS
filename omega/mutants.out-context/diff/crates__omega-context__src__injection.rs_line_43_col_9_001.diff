@@ -1,0 +1,21 @@
+--- crates/omega-context/src/injection.rs
++++ replace InjectionTrace::is_empty -> bool with false
+@@ -35,17 +35,17 @@
+     /// Cout total estime de tout ce qui a ete injecte.
+     pub tokens_used: usize,
+     /// Enveloppe explicite (budget) passe a la decision.
+     pub budget: usize,
+ }
+ 
+ impl InjectionTrace {
+     pub fn is_empty(&self) -> bool {
+-        self.lines.is_empty()
++        false /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Port d'injection de contexte. Regime : *ensemble*.
+ #[async_trait]
+ pub trait ContextInjector: Send + Sync {
+     fn name(&self) -> &str;
+     /// Consulte la memoire pour `messages`, retourne les messages enrichis et

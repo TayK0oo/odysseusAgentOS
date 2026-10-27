@@ -1,0 +1,24 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace PinnedFacts::list_by_category -> Vec<PinnedFact> with vec![Default::default()]
+@@ -114,20 +114,17 @@
+                 .cmp(&a.priority)
+                 .then_with(|| a.created_at.cmp(&b.created_at))
+         });
+         facts
+     }
+ 
+     /// Liste les faits d'une catégorie donnée.
+     pub fn list_by_category(&self, category: &str) -> Vec<PinnedFact> {
+-        self.list()
+-            .into_iter()
+-            .filter(|f| f.category == category)
+-            .collect()
++        vec![Default::default()] /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Nombre total de faits épinglés.
+     pub fn len(&self) -> usize {
+         self.facts.read().expect("pinned facts lock poisoned").len()
+     }
+ 
+     pub fn is_empty(&self) -> bool {

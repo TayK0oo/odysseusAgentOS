@@ -1,0 +1,26 @@
+--- crates/omega-context/src/injection.rs
++++ replace MemoryInjection::keywords -> Vec<String> with vec![String::new()]
+@@ -78,22 +78,17 @@
+ 
+     /// Journal des injections effectuees, une trace par appel `inject`.
+     pub fn journal(&self) -> Vec<InjectionTrace> {
+         self.journal.lock().expect("journal empoisonne").clone()
+     }
+ 
+     /// Cles de pertinence d'une requete : mots de >= 4 caracteres, minuscules.
+     fn keywords(query: &str) -> Vec<String> {
+-        query
+-            .to_lowercase()
+-            .split(|c: char| !c.is_alphanumeric())
+-            .filter(|w| w.chars().count() >= 4)
+-            .map(|w| w.to_string())
+-            .collect()
++        vec![String::new()] /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[async_trait]
+ impl ContextInjector for MemoryInjection {
+     fn name(&self) -> &str {
+         "memory-injection"
+     }

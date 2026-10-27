@@ -1,0 +1,21 @@
+--- crates/omega-context/src/budget.rs
++++ replace += with *= in ContextBudget::enforce
+@@ -48,17 +48,17 @@
+             });
+         }
+         Ok(())
+     }
+ 
+     /// Consomme `additional` tokens (verifie puis incremente `used`).
+     pub fn enforce(&mut self, additional: usize) -> OmegaResult<()> {
+         self.check(additional)?;
+-        self.used += additional;
++        self.used *= /* ~ changed by cargo-mutants ~ */ additional;
+         Ok(())
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use omega_types::OmegaError;

@@ -1,0 +1,21 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ delete ! in PinnedFacts::extract
+@@ -145,17 +145,17 @@
+         let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+         let mut counter = 0usize;
+         for (i, msg) in messages.iter().enumerate() {
+             for line in msg.content.lines() {
+                 let trimmed = line.trim();
+                 if trimmed.is_empty() {
+                     continue;
+                 }
+-                if !Self::is_durable(trimmed) {
++                if  /* ~ changed by cargo-mutants ~ */Self::is_durable(trimmed) {
+                     continue;
+                 }
+                 if !seen.insert(trimmed.to_string()) {
+                     continue;
+                 }
+                 counter += 1;
+                 let category = Self::infer_category(trimmed);
+                 let id = format!("extracted-{}-{}", i, counter);

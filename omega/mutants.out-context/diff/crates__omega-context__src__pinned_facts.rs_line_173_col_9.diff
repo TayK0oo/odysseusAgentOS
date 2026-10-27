@@ -1,0 +1,21 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace PinnedFacts::from_messages -> Self with Default::default()
+@@ -165,17 +165,17 @@
+             // par la boucle ci-dessus (msg.content.lines() inclut la ligne unique).
+             let _ = i;
+         }
+         pf
+     }
+ 
+     /// Alias de [`Self::extract`].
+     pub fn from_messages(messages: &[Message]) -> Self {
+-        Self::extract(messages)
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Alias de [`Self::extract`].
+     pub fn extract_from(messages: &[Message]) -> Self {
+         Self::extract(messages)
+     }
+ 
+     /// Alias de [`Self::extract`].

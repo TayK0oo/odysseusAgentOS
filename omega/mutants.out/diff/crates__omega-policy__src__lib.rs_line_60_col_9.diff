@@ -1,0 +1,25 @@
+--- crates/omega-policy/src/lib.rs
++++ replace Verdict::ok -> Self with Default::default()
+@@ -52,21 +52,17 @@
+ pub struct Verdict {
+     pub ok: bool,
+     pub reason: String,
+     pub percent: f64,
+ }
+ 
+ impl Verdict {
+     fn ok() -> Self {
+-        Self {
+-            ok: true,
+-            reason: String::new(),
+-            percent: 0.0,
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+     fn fail(reason: impl Into<String>, percent: f64) -> Self {
+         Self {
+             ok: false,
+             reason: reason.into(),
+             percent,
+         }
+     }

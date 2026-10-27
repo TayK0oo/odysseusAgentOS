@@ -1,0 +1,21 @@
+--- crates/omega-policy/src/tiers.rs
++++ replace <impl ApprovalGate for DenyAllApprovals>::approve -> bool with true
+@@ -69,17 +69,17 @@
+ /// Défaut fail-closed : toute demande d'élévation est refusée.
+ pub struct DenyAllApprovals;
+ 
+ impl ApprovalGate for DenyAllApprovals {
+     fn name(&self) -> &str {
+         "deny-all"
+     }
+     fn approve(&self, _req: &ElevationRequest) -> bool {
+-        false
++        true /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Politique par paliers, défaut = REFUS. La table des classifications est
+ /// une donnée : `standard()` fournit la table documentée, une config
+ /// externes peut la remplacer ligne par ligne via `with_classifications`.
+ pub struct TierPolicy {
+     classification: HashMap<String, Tier>,

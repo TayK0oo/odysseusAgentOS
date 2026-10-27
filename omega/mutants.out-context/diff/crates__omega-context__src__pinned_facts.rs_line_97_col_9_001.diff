@@ -1,0 +1,24 @@
+--- crates/omega-context/src/pinned_facts.rs
++++ replace PinnedFacts::remove -> Option<PinnedFact> with Some(Default::default())
+@@ -89,20 +89,17 @@
+             .read()
+             .expect("pinned facts lock poisoned")
+             .get(id)
+             .cloned()
+     }
+ 
+     /// Supprime un fait par son ID.
+     pub fn remove(&self, id: &str) -> Option<PinnedFact> {
+-        self.facts
+-            .write()
+-            .expect("pinned facts lock poisoned")
+-            .remove(id)
++        Some(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Liste tous les faits, triés par priorité (desc) puis date de création (asc).
+     pub fn list(&self) -> Vec<PinnedFact> {
+         let mut facts: Vec<PinnedFact> = self
+             .facts
+             .read()
+             .expect("pinned facts lock poisoned")

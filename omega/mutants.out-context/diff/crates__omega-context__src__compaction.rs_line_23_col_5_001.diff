@@ -1,0 +1,64 @@
+--- crates/omega-context/src/compaction.rs
++++ replace truncate_compact -> Vec<Message> with vec![Default::default()]
+@@ -15,60 +15,17 @@
+ /// - preserve le prefixe `System` (prompt) ;
+ /// - garde les messages les plus recents (suffixe maximal) ;
+ /// - insere un marqueur `…[compacted k messages omis]…` si `k > 0`.
+ ///
+ /// Deterministe et sans LLM (RULES-OMEGA §3.2). La garantie de budget vaut pour un budget
+ /// superieur a `systeme + marqueur` ; sinon le systeme (intouchable) est preserve tel quel,
+ /// **sans marqueur mensonger** (aucun marqueur n'est insere quand il ne tient pas).
+ pub fn truncate_compact(messages: &[Message], budget: usize) -> Vec<Message> {
+-    let estimator = TokenEstimator::new();
+-    if estimator.estimate_messages(messages) <= budget {
+-        return messages.to_vec();
+-    }
+-
+-    let system_count = messages
+-        .iter()
+-        .take_while(|m| m.role == Role::System)
+-        .count();
+-    let system = &messages[..system_count];
+-    let tail = &messages[system_count..];
+-    let system_tokens = estimator.estimate_messages(system);
+-
+-    // Reserve la place du marqueur (borne superieure = pire cas : omitted = tail.len()).
+-    let marker_reserve = estimator.estimate(&compaction_marker(tail.len()));
+-
+-    // Budget trop etroit pour le systeme + marqueur : pas de marqueur mensonger, on
+-    // preserve le systeme tel quel (primaute du systeme, W6 §4.6). Le depassement est
+-    // assume et documente (le systeme est intouchable).
+-    if system_tokens + marker_reserve > budget {
+-        return system.to_vec();
+-    }
+-
+-    // Suffixe maximal des messages recents tenant dans le budget restant.
+-    let mut kept: Vec<Message> = Vec::new();
+-    let mut kept_tokens = system_tokens + marker_reserve;
+-    for msg in tail.iter().rev() {
+-        let t = estimator.estimate(&msg.content);
+-        if kept_tokens + t <= budget {
+-            kept_tokens += t;
+-            kept.push(msg.clone());
+-        } else {
+-            break;
+-        }
+-    }
+-    kept.reverse();
+-    let omitted = tail.len() - kept.len();
+-
+-    let mut result: Vec<Message> = system.to_vec();
+-    if omitted > 0 {
+-        result.push(Message::new(Role::System, compaction_marker(omitted)));
+-    }
+-    result.extend(kept);
+-    result
++    vec![Default::default()] /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ // --- Double-layer LLM compaction (NOYAU Phase C) ------------------------------
+ 
+ use async_trait::async_trait;
+ use omega_ports::{ContextEngine, Provider};
+ use omega_types::OmegaResult;
+ use std::sync::Arc;

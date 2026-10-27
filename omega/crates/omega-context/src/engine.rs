@@ -157,7 +157,11 @@ impl DefaultContextEngine {
         let pinned = crate::pinned_facts::extract_pinned_facts(messages);
 
         // Compaction avec pinning (remplace la troncation naive).
-        let result = crate::compaction::truncate_compact_with_pinned(messages, self.budget.max_tokens(), &pinned);
+        let result = crate::compaction::truncate_compact_with_pinned(
+            messages,
+            self.budget.max_tokens(),
+            &pinned,
+        );
         let kept = result.len();
         let dropped = messages.len().saturating_sub(kept);
         let dropped_previews: Vec<String> = messages[..messages.len().saturating_sub(kept)]

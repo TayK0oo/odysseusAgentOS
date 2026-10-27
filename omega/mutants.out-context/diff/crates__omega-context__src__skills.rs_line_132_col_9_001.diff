@@ -1,0 +1,25 @@
+--- crates/omega-context/src/skills.rs
++++ replace SkillIndex::asset -> Option<Arc<str>> with Some(Arc::new(""))
+@@ -124,21 +124,17 @@
+                 body: body.clone(),
+             },
+         );
+         Some(body)
+     }
+ 
+     /// Niveau 3 : asset nomme d'un skill.
+     pub fn asset(&self, id: &str, name: &str) -> Option<Arc<str>> {
+-        let pos = *self.by_id.get(id)?;
+-        self.skills[pos]
+-            .assets
+-            .get(name)
+-            .map(|c| Arc::from(c.as_str()))
++        Some(Arc::new("")) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Nombre de rendus reels de corps (hors cache) — observabilite de test.
+     pub fn render_count(&self) -> usize {
+         self.renders.load(Ordering::Relaxed)
+     }
+ }
+ 

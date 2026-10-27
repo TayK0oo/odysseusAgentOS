@@ -1,0 +1,21 @@
+--- crates/omega-context/src/tool_surface.rs
++++ replace - with / in stem
+@@ -75,17 +75,17 @@
+         }
+     }
+     // R4 — `es` apres sibilante uniquement (avant R5 : `boxes -> box`,
+     // pas `boxe`).
+     const ES_SIBILANTS: [&str; 6] = ["sses", "xes", "zes", "ches", "shes", "oes"];
+     if t.len() >= 5 {
+         for suf in ES_SIBILANTS {
+             if t.ends_with(suf) {
+-                let s = &t[..t.len() - 2];
++                let s = &t[..t.len() / /* ~ changed by cargo-mutants ~ */ 2];
+                 if s.len() >= 2 {
+                     return s.to_string();
+                 }
+                 break;
+             }
+         }
+     }
+     // R5 — pluriel en `s` (`files -> file`, `writes -> write`).

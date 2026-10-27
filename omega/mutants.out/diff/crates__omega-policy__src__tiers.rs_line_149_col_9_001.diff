@@ -1,0 +1,21 @@
+--- crates/omega-policy/src/tiers.rs
++++ replace TierPolicy::classify -> Option<Tier> with Some(Default::default())
+@@ -141,17 +141,17 @@
+     /// Remplace le port d'approbation (défaut : [`DenyAllApprovals`] = refus).
+     pub fn with_approvals(mut self, approvals: Box<dyn ApprovalGate>) -> Self {
+         self.approvals = approvals;
+         self
+     }
+ 
+     /// Palier classé pour une action, si connu.
+     pub fn classify(&self, action: &str) -> Option<Tier> {
+-        self.classification.get(action).copied()
++        Some(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Décision fail-closed : action non classée ⇒ refus ; T2 fermé ⇒ refus
+     /// (même si l'approbateur dit oui) ; T2 ouvert ⇒ approbation ; T0/T1/T3
+     /// ⇒ autorisé avec son palier (à tracer par l'appelant).
+     pub fn authorize(&self, action: &str) -> TierDecision {
+         let Some(tier) = self.classification.get(action).copied() else {
+             return TierDecision::Deny {

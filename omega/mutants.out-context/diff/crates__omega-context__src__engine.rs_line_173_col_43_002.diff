@@ -1,0 +1,21 @@
+--- crates/omega-context/src/engine.rs
++++ replace > with >= in DefaultContextEngine::assemble_sync
+@@ -165,17 +165,17 @@
+             .map(|m| preview(&m.content))
+             .collect();
+ 
+         let estimated_tokens = self.estimator.estimate_messages(&result);
+         let report = AssembleReport {
+             kept,
+             dropped,
+             estimated_tokens,
+-            over_budget: estimated_tokens > self.budget.max_tokens(),
++            over_budget: estimated_tokens >= /* ~ changed by cargo-mutants ~ */ self.budget.max_tokens(),
+             compacted: true,
+             dropped_previews,
+         };
+         *self.last_report.lock().expect("rapport empoisonne") = report.clone();
+         (result, report)
+     }
+ }
+ 

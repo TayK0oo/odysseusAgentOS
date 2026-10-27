@@ -1,0 +1,21 @@
+--- crates/omega-context/src/tool_surface.rs
++++ replace - with / in stem
+@@ -85,17 +85,17 @@
+                     return s.to_string();
+                 }
+                 break;
+             }
+         }
+     }
+     // R5 — pluriel en `s` (`files -> file`, `writes -> write`).
+     if t.len() >= 4 && t.ends_with('s') {
+-        let s = &t[..t.len() - 1];
++        let s = &t[..t.len() / /* ~ changed by cargo-mutants ~ */ 1];
+         if s.len() >= 2 {
+             return s.to_string();
+         }
+     }
+     // R6 — `eaux -> eau` (avant R7 : le suffixe finit en `x`).
+     if t.len() >= 4 && t.ends_with("eaux") {
+         let s = &t[..t.len() - 1];
+         if s.len() >= 2 {

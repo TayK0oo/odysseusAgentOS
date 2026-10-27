@@ -1,0 +1,12 @@
+{
+  "date": "2026-10-27",
+  "tool": "cargo-mutants 27.1.0",
+  "crates": {
+    "omega-memory": {"total": 11, "missed": 11, "caught": 0, "unviable": 0},
+    "omega-context": {"total": 334, "missed": 94, "caught": 240, "unviable": 0},
+    "omega-policy": {"total": 123, "missed": 28, "caught": 78, "unviable": 17}
+  },
+  "method": "cargo mutants -p <crate>, baseline tests only, no added tests",
+  "survivors": "listed in mutants.out-*/missed.txt",
+  "note": "Seuil non gele (ADR Seuils v1-bis a venir)."
+}

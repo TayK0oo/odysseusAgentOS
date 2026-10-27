@@ -1,0 +1,21 @@
+--- crates/omega-context/src/injection.rs
++++ replace >= with < in MemoryInjection::keywords
+@@ -81,17 +81,17 @@
+         self.journal.lock().expect("journal empoisonne").clone()
+     }
+ 
+     /// Cles de pertinence d'une requete : mots de >= 4 caracteres, minuscules.
+     fn keywords(query: &str) -> Vec<String> {
+         query
+             .to_lowercase()
+             .split(|c: char| !c.is_alphanumeric())
+-            .filter(|w| w.chars().count() >= 4)
++            .filter(|w| w.chars().count() < /* ~ changed by cargo-mutants ~ */ 4)
+             .map(|w| w.to_string())
+             .collect()
+     }
+ }
+ 
+ #[async_trait]
+ impl ContextInjector for MemoryInjection {
+     fn name(&self) -> &str {
