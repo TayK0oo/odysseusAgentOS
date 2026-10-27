@@ -387,7 +387,8 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
             url = engine.start(llm_url=provider.url if provider else "",
                                model="scripted:latest",
                                event_dir=event_dir, port=port,
-                               workspace=workdir)
+                               workspace=workdir,
+                               max_tokens=(spec.get("mise_en_situation") or {}).get("contexte_max_tokens"))
             report["etapes"]["start"] = "OK"
             report["url"] = url
 
@@ -535,10 +536,10 @@ def run_scenario(path: Path, engine_name: str, mode: str, keep: bool) -> dict:
             store_ok = '"tool": "memory_store"' in trace and '"ok": true' in trace
             recall_ok = "memory_recall" in trace
             report["attendus"]["memoire_retrouvee"] = bool(canary) and canary in answer and recall_ok
-            # Provenance : l'outil memory_store stocke provenance dans le
-            # fichier JSONL. On verifie que le store contient [stated].
-            prov_ok = "stated" in trace.lower() and store_ok
-            report["attendus"]["provenance_stated"] = prov_ok
+            # Provenance : uniquement si demandee par le scenario.
+            if "provenance_stated" in spec.get("attendu", {}):
+                prov_ok = "stated" in trace.lower() and store_ok
+                report["attendus"]["provenance_stated"] = prov_ok
 
         # Evaluation S5 : compaction contexte.
         if "faits_retrouves" in spec.get("attendu", {}):

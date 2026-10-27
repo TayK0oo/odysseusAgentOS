@@ -6,6 +6,7 @@ prerequis: [cargo, python_3_12]
 llm_scripte: compaction
 mise_en_situation:
   workdir: tmpdir
+  contexte_max_tokens: 40
 actions:
   - {demarrer_moteur: rust, llm: scripte}
   - {post: /api/run, body: {messages: [

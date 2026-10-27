@@ -38,6 +38,7 @@ class _Handler(BaseHTTPRequestHandler):
             return
         n = int(self.headers.get("Content-Length", "0"))
         req = json.loads(self.rfile.read(n) or b"{}")
+        self.server.requests.append(req)  # journal des requêtes reçues (preuve)
         idx = self.server.calls
         self.server.calls += 1
         if idx >= len(self.server.sequence):
@@ -150,25 +151,30 @@ def seq_tool_then_echo(tool: str, arguments: dict | None = None):
 
 
 def seq_memory_store_then_recall(canary):
-    """3 tours : session A stocke + confirme, session B rappelle.
+    """4 tours : session A stocke, session B rappelle (memory_recall) puis echo.
 
-    Le tour 1 propose `memory_store` (canary comme contenu), le tour 2
-    confirme en texte, le tour 3 propose `memory_recall` sur le canary.
-    Les noms de canary sont aleatoires : la preuve vient de l'outil.
+    Le tour 3 (`memory_recall`) est la preuve de persistance : le fait stocke
+    en A est retrouve en B via l'outil, pas via la prose scriptee.
     """
     canary = str(canary)
     store_call = _reply(json.dumps(
         {"tool": "memory_store",
-         "arguments": {"content": canary, "provenance": "[stated]"}},
+         "arguments": {"content": f"Le code couleur du projet est {canary}",
+                       "provenance": "[stated]"}},
         sort_keys=True))
     recall_call = _reply(json.dumps(
-        {"tool": "memory_recall", "arguments": {"query": canary}},
+        {"tool": "memory_recall", "arguments": {"query": "code couleur du projet"}},
         sort_keys=True))
 
     def confirm(req):
         return _reply(f"Memorise : {canary}")
 
-    return [lambda req: store_call, confirm, lambda req: recall_call]
+    def echo_observation(req):
+        msgs = req.get("messages", [])
+        last = msgs[-1].get("content", "") if msgs else ""
+        return _reply(last)
+
+    return [lambda req: store_call, confirm, lambda req: recall_call, echo_observation]
 
 
 def seq_long_context_compaction(facts):
@@ -187,15 +193,9 @@ def seq_long_context_compaction(facts):
 
     n = 12
     turns = []
-    filler = "remplissage " * 40
-    mid = n // 2
-    for i in range(n):
-        if i == 0:
-            content = f"FACT-DEBUT: {fact_list[0]} {filler}"
-        elif i == mid:
-            f = fact_list[1] if len(fact_list) > 1 else fact_list[0]
-            content = f"FACT-MILIEU: {f} {filler}"
-        else:
-            content = f"tour {i} {filler}"
-        turns.append(lambda req, c=content: _reply(c))
-    return turns
+    # Un seul appel : le faux LLM renvoie le contexte qu'il a recu (compresse
+    # par le moteur). La preuve S5 porte sur la requete reçue : les faits
+    # epingles doivent y figurer ; le moteur seul les preserve sous budget.
+    def echo_context(req):
+        return _reply(json.dumps(req.get("messages", []), ensure_ascii=False))
+    return [echo_context]

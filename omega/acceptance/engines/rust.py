@@ -46,7 +46,7 @@ class RustEngine(Engine):
         self.proc: subprocess.Popen | None = None
         self._last: dict | None = None
     def start(self, *, llm_url, model, event_dir, port, workspace=None,
-              tool_surface=True, tool_budget=None):
+              tool_surface=True, tool_budget=None, max_tokens=None):
         binary = self.repo / "omega" / "target" / "debug" / "omega-server"
         # Rebuild si le binaire est ABSENT **ou PERIME**. Sans ce second
         # cas, le moteur lance un binaire anterieur au code : la porte
@@ -72,6 +72,8 @@ class RustEngine(Engine):
             # Budget d'executions d'outils du moteur (P1-3). Controle
             # negatif : une valeur enorme = aucun plafond effectif.
             env["OMEGA_TOOL_BUDGET"] = str(tool_budget)
+        if max_tokens is not None:
+            env["OMEGA_MAX_TOKENS"] = str(max_tokens)
         if not tool_surface:
             # Controle negatif : moteur SANS surface d'outils. L'agent ne peut
             # alors pas lister les fichiers — les canaries doivent rester
