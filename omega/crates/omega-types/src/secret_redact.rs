@@ -55,11 +55,20 @@ fn detect_at(input: &str, i: usize) -> Option<(usize, String)> {
         }
     }
 
-    // sk_live_
+    // sk_live_ (Stripe)
     if let Some(stripped) = rest.strip_prefix("sk_live_") {
         let secret_end = take_hex(stripped, 16);
         if secret_end >= 16 {
             let total = 8 + secret_end;
+            return Some((i + total, rest[..total].to_string()));
+        }
+    }
+
+    // sk- (OpenAI-style API key, 20+ alnum after sk-)
+    if let Some(stripped) = rest.strip_prefix("sk-") {
+        let secret_end = take_alnum(stripped);
+        if secret_end >= 20 {
+            let total = 3 + secret_end;
             return Some((i + total, rest[..total].to_string()));
         }
     }

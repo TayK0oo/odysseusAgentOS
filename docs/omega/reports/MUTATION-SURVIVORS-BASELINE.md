@@ -737,3 +737,46 @@ Prochaine étape : sur signal humain, produire ARMÉE v32 (traçabilité W8).
 - Prochaine étape : sur signal humain, produire ARMÉE v32 (traçabilité W8 : event-bus, provenance, replay, otel).
 
 Prochaine étape : sur signal humain, produire ARMÉE v32 (traçabilité W8).
+
+## v32-trace-w8 (Phase F — traçabilité W8)
+
+- Statut global : VALIDÉ (event-bus, provenance, replay, otel-export — infrastructure vérifiée, ADR-0027 ACCEPTED).
+- Event-bus : StoreBackedBus branché dans pipeline (state.rs). ✅
+- Provenance : partielle (memory + otel), pas propagée à tous les événements. Gap documenté.
+- Replay : TraceReplayer::summarize + replay existants. Pas de replay déterministe (hash). Endpoint POST /api/traces/:id/replay.
+- OTel export : sinks locaux (FileSink, StdoutSink). Pas de crate opentelemetry (gap documenté).
+- ADR-0027 ACCEPTED (append strict).
+- Tests par crate : 804 (par crate). Clippy : `engine.rs:248:14` préexistant, inchangé.
+
+## v32-debrief
+
+- Statut global : VALIDÉ (Phase F terminée).
+- 4 composants W8 vérifiés (event-bus, provenance, replay, otel-export).
+- 2 gaps documentés (provenance partielle, OTel export local uniquement).
+- Plan de campagne : Phase G (v33, consolidation + peuplement W6 réel).
+- Prochaine étape : sur signal humain, produire ARMÉE v33 (consolidation : peuplement W6 réel, refactoring, doc, release candidate).
+
+Prochaine étape : sur signal humain, produire ARMÉE v33 (consolidation + peuplement W6 réel).
+
+## v33-release-v1.0.0-rc1 (Phase G — consolidation + release candidate)
+
+- Statut global : PARTIELLEMENT VALIDÉ (B1 peuplement W6 non réalisé, B2 provenance partielle, B3 OTel local, B4 F1 corrigé + F3 CI, B5 release candidate partielle).
+- F1 : redact sk- corrigé (ADR-0028, test discriminant). ✅
+- F3 : CI cargo-audit configuré (.github/workflows/audit.yml). ✅
+- B1 : peuplement W6 non réalisé (build_registry() absent, ADR-0025 DEBT).
+- B2 : provenance champ ajouté à Event/DurableEvent, pas propagé.
+- B3 : OTel export local uniquement (pas de crate opentelemetry).
+- B5 : CHANGELOG + README + RELEASE-CHECKLIST créés. Tag non posé (autorisation humaine).
+- Tests par crate : context 136, memory 91, policy 68, tools 97, router 78, providers 22, server 51, search 27, sandbox 43, core 25, types 13, registry 21, app 28, protocol 7, plugin-api 9, mcp 21, adapters 22, config 16, otel 18, python-bridge 14, harness 10 (total 819).
+- Clippy : `engine.rs:248:14` préexistant, inchangé.
+- Dettes restantes : W6 peuplement réel, provenance complète, OTel export réel, tests E2E, tag v1.0.0-rc1.
+
+## v33-debrief
+
+- Statut global : PARTIELLEMENT VALIDÉ (consolidation partielle, dettes documentées).
+- 5 chantiers : B1 (peuplement W6 non réalisé), B2 (provenance partielle), B3 (OTel local), B4 (F1 corrigé + F3 CI), B5 (release candidate partielle).
+- Dettes restantes : W6 peuplement réel (build_registry), provenance complète, OTel export réel, tests E2E, tag v1.0.0-rc1.
+- Plan de campagne : Phase G continue (v34 : release finale + peuplement W6 réel).
+- Prochaine étape : sur signal humain, produire ARMÉE v34 (release finale : peuplement W6, provenance, OTel, tag, push).
+
+Prochaine étape : sur signal humain, produire ARMÉE v34 (release finale + peuplement W6 réel).

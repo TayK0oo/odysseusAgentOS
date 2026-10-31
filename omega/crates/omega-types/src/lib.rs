@@ -79,6 +79,9 @@ pub struct Event {
     pub name: String,
     pub payload: serde_json::Value,
     pub durable: bool,
+    /// Provenance du fait : [stated] / [observed] / [inferred] (ADR-0027).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<String>,
 }
 
 impl Event {
@@ -87,6 +90,7 @@ impl Event {
             name: name.into(),
             payload,
             durable: true,
+            provenance: None,
         }
     }
 
@@ -95,7 +99,14 @@ impl Event {
             name: name.into(),
             payload,
             durable: false,
+            provenance: None,
         }
+    }
+
+    /// Tag la provenance de l'evenement (builder).
+    pub fn with_provenance(mut self, prov: impl Into<String>) -> Self {
+        self.provenance = Some(prov.into());
+        self
     }
 }
 
@@ -206,6 +217,9 @@ pub struct DurableEvent {
     pub operation_id: Option<String>,
     /// Charge utile (libre, JSON).
     pub payload: serde_json::Value,
+    /// Provenance du fait : [stated] / [observed] / [inferred] (ADR-0027).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<String>,
 }
 
 impl DurableEvent {
@@ -220,7 +234,14 @@ impl DurableEvent {
             name: name.into(),
             operation_id: None,
             payload,
+            provenance: None,
         }
+    }
+
+    /// Tag la provenance (builder).
+    pub fn with_provenance(mut self, prov: impl Into<String>) -> Self {
+        self.provenance = Some(prov.into());
+        self
     }
 
     /// Associe un identifiant d'operation (idempotence de reprise).
