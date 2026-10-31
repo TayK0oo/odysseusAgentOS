@@ -13,3 +13,6 @@ omega-registry = { workspace = true }
 omega-plugin-api = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+opentelemetry = "0.24"
+opentelemetry_sdk = { version = "0.24", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.17", features = ["http-proto", "reqwest-client"] }

@@ -4,12 +4,14 @@
 //! `registry`, `plugin-api` (jamais `core` ni `app`).
 
 mod contributor;
+mod export;
 mod metric;
 mod provenance;
 mod replay;
 mod sinks;
 
 pub use contributor::OtelContributor;
+pub use export::*;
 pub use metric::MetricName;
 pub use provenance::{tag, Provenance, ProvenanceKind};
 pub use replay::{

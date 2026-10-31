@@ -74,14 +74,43 @@ impl Usage {
 /// Les evenements `durable` sont destines au journal append-only ; les autres sont
 /// ephemeres (UI live, metriques). Ce type vit dans `omega-types` (et non dans `omega-core`)
 /// afin que le port `EventStore` (`omega-ports`) puisse l'utiliser sans dependre du noyau.
+/// Provenance d'un fait : [stated] / [observed] / [inferred] (ADR-0027).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Provenance {
+    /// Dit par l'utilisateur (ou une source externe citée).
+    Stated,
+    /// Vérifié dans le code / le système / une mesure.
+    Observed,
+    /// Déduit par raisonnement (à vérifier avant usage critique).
+    Inferred,
+}
+
+impl Default for Provenance {
+    fn default() -> Self {
+        Self::Observed
+    }
+}
+
+impl Provenance {
+    /// Tag court stable (`[stated]`, `[observed]`, `[inferred]`).
+    pub fn tag(self) -> &'static str {
+        match self {
+            Self::Stated => "[stated]",
+            Self::Observed => "[observed]",
+            Self::Inferred => "[inferred]",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Event {
     pub name: String,
     pub payload: serde_json::Value,
     pub durable: bool,
     /// Provenance du fait : [stated] / [observed] / [inferred] (ADR-0027).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub provenance: Option<String>,
+    #[serde(default)]
+    pub provenance: Provenance,
 }
 
 impl Event {
@@ -90,7 +119,7 @@ impl Event {
             name: name.into(),
             payload,
             durable: true,
-            provenance: None,
+            provenance: Provenance::Observed,
         }
     }
 
@@ -99,13 +128,13 @@ impl Event {
             name: name.into(),
             payload,
             durable: false,
-            provenance: None,
+            provenance: Provenance::Observed,
         }
     }
 
     /// Tag la provenance de l'evenement (builder).
-    pub fn with_provenance(mut self, prov: impl Into<String>) -> Self {
-        self.provenance = Some(prov.into());
+    pub fn with_provenance(mut self, prov: Provenance) -> Self {
+        self.provenance = prov;
         self
     }
 }
@@ -218,8 +247,8 @@ pub struct DurableEvent {
     /// Charge utile (libre, JSON).
     pub payload: serde_json::Value,
     /// Provenance du fait : [stated] / [observed] / [inferred] (ADR-0027).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub provenance: Option<String>,
+    #[serde(default)]
+    pub provenance: Provenance,
 }
 
 impl DurableEvent {
@@ -234,13 +263,13 @@ impl DurableEvent {
             name: name.into(),
             operation_id: None,
             payload,
-            provenance: None,
+            provenance: Provenance::Observed,
         }
     }
 
     /// Tag la provenance (builder).
-    pub fn with_provenance(mut self, prov: impl Into<String>) -> Self {
-        self.provenance = Some(prov.into());
+    pub fn with_provenance(mut self, prov: Provenance) -> Self {
+        self.provenance = prov;
         self
     }
 

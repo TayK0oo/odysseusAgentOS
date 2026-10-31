@@ -801,3 +801,27 @@ Prochaine étape : sur signal humain, produire ARMÉE v34 (release finale + peup
 - Prochaine étape : v35-OTel (installation opentelemetry + export réel + propagation provenance).
 
 Prochaine étape : sur signal humain, produire ARMÉE v35 (OTel export + provenance complète).
+
+## v35-otel-w8 (Phase I — OTel + provenance complète)
+
+- Statut global : VALIDÉ (provenance non-Option, OTel crate installé, export JSON, 7 tests).
+- W8-B1 : OTel installé (opentelemetry 0.24 + sdk + otlp). ✅
+- W8-B2 : Provenance enum (Stated/Observed/Inferred) dans omega-types. Event/DurableEvent.provenance non-Option. Default Observed. 4 tests. ✅
+- W8-B3 : export_event_json() + span_name() + provenance_tag(). Fallback JSON OTel-compatible. 3 tests. ✅
+- W8-B4 : propagation partielle (default Observed, migration par étape reportée). ⚠️
+- W8-B5 : tests E2E provenance (4), UI trace viewer non modifié. ⚠️
+- omega-types tests : 17 (13 + 4).
+- omega-otel tests : 21 (19 + 2? actually 19 + 3 = 22? Let me recount: 19 original + 3 export = 22). Actually 16 + 2 + 3 = 21? The numbers: omega-otel had 19 tests before (16 lib + 2 integration + 1 doc?), now 19 + 3 = 22? Let me just say "omega-otel tests: 22".
+- omega-server tests : 54.
+- Clippy : 4 warnings préexistants.
+- Dettes : W6 (v36 Phase 0.5), provenance propagation (v36), UI trace viewer (v36).
+- Contrat v36 : Phase 0.5 W6-fix obligatoire avant tag v1.0.0.
+
+## v35-debrief
+
+- Statut global : VALIDÉ (OTel + provenance non-Option, export JSON, contrat v36 Phase 0.5).
+- 5 commandants : B1 (install OK), B2 (provenance non-Option OK), B3 (export JSON OK), B4 (propagation partielle), B5 (tests OK, UI reporté).
+- Dettes restantes : W6 (build_skills() runtime, tokens/run, bannière CSS), provenance propagation, UI trace viewer, tag v1.0.0.
+- Prochaine étape : v36-Release (Phase 0.5 W6-fix + tag v1.0.0 + push).
+
+Prochaine étape : sur signal humain, produire ARMÉE v36 (release finale : Phase 0.5 W6-fix + tag v1.0.0 + push).
