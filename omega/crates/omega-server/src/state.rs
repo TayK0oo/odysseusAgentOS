@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use omega_adapters::composition::{compose_ported_crates, CompositionRegistry};
 use omega_app::{App, AppBuilder, FileEventStore};
-use omega_context::ContextContributor;
+use omega_context::{ContextContributor, PinnedFacts, SkillIndex, ToolSurfaceIndex};
 use omega_plugin_api::{Contributor, InstallContext};
 use omega_ports::{EventStore, Provider};
 use omega_registry::{Manifest, RegistryBuilder};
@@ -141,7 +141,10 @@ pub fn build_app_state_with(cfg: &ServerConfig) -> OmegaResult<AppState> {
         .add_contributor(Box::new(
             ContextContributor::new()
                 .with_max_tokens(cfg.max_tokens)
-                .with_memory(memory_store.clone()),
+                .with_memory(memory_store.clone())
+                .with_tool_index(ToolSurfaceIndex::from_docs(vec![]))
+                .with_skill_index(SkillIndex::from_skills(vec![]))
+                .with_pinned_facts(PinnedFacts::new()),
         ))
         .add_contributor(Box::new(StoreContributor {
             store: store.clone(),
