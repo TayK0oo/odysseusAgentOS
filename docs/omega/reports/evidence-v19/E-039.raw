@@ -1,0 +1,18 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running tests/w3_memory.rs (target/debug/deps/w3_memory-3d373a1f9b522319)
+
+running 11 tests
+test forget_empty_query_is_error ... ok
+test forget_corrupt_line_is_kept ... ok
+test store_refuses_empty ... ok
+test forget_on_missing_file_creates_empty_file ... ok
+test recall_exact_filter_and_count ... ok
+test recall_on_missing_file_is_empty ... ok
+test forget_exact_value_and_file_content ... ok
+test store_returns_exact_value_and_writes_exact_line ... ok
+test memory_forget_alias_matches_forget ... ok
+test recall_bounded_by_recall_limit ... ok
+test unique_tmp_id_concurrent_200 ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

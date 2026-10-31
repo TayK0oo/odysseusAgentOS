@@ -1,0 +1,14 @@
+omega/crates/omega-context/tests/contributor_constructors.rs
+omega/crates/omega-context/tests/injection_gate.rs
+omega/crates/omega-context/tests/is_durable_infer_category.rs
+omega/crates/omega-context/tests/llm_compaction_engine.rs
+omega/crates/omega-context/tests/pinned_facts_basic.rs
+omega/crates/omega-context/tests/skills_signature.rs
+omega/crates/omega-context/tests/tool_surface_gate.rs
+omega/crates/omega-context/tests/truncate_compact_budget.rs
+omega/crates/omega-memory/tests/io_accessors.rs
+omega/crates/omega-memory/tests/provenance_confidence.rs
+omega/crates/omega-memory/tests/pure_helpers.rs
+omega/crates/omega-memory/tests/serde_defaults_and_jsonl.rs
+omega/crates/omega-memory/tests/skill_pure.rs
+omega/crates/omega-policy/tests/policy_mutants.rs

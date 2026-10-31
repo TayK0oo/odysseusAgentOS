@@ -1,0 +1,9 @@
+Found 57 mutants to test
+ok       Unmutated baseline in 8s build + 0s test
+ INFO Auto-set test timeout to 20s
+MISSED   crates/omega-tools/src/diff.rs:47:43: replace + with * in unified_diff in 0s build + 0s test
+TIMEOUT  crates/omega-tools/src/diff.rs:50:15: replace += with *= in unified_diff in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/diff.rs:54:15: replace += with *= in unified_diff in 0s build + 27s test
+TIMEOUT  crates/omega-tools/src/diff.rs:60:11: replace += with *= in unified_diff in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/diff.rs:65:11: replace += with *= in unified_diff in 0s build + 20s test
+57 mutants tested in 2m: 1 missed, 51 caught, 1 unviable, 4 timeouts

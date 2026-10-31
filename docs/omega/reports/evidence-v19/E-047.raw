@@ -1,0 +1,21 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running tests/w3_glob.rs (target/debug/deps/w3_glob-d54515e8db7cba2a)
+
+running 14 tests
+test empty_pattern_matches_only_empty ... ok
+test walk_skips_node_modules ... ok
+test regex_special_chars_escaped ... ok
+test double_star_at_end_crosses ... ok
+test walk_skips_hidden ... ok
+test star_alone_boundary ... ok
+test question_mark_single_char ... ok
+test walk_skips_target ... ok
+test double_star_slash_prefix_boundary ... ok
+test star_single_before_slash_not_double ... ok
+test double_star_crosses_directories ... ok
+test star_rests_in_segment ... ok
+test asymmetric_segments ... ok
+test walk_symlink_loop_terminates ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

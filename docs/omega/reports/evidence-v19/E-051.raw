@@ -1,0 +1,25 @@
+Found 200 mutants to test
+ok       Unmutated baseline in 6s build + 0s test
+ INFO Auto-set test timeout to 20s
+MISSED   crates/omega-tools/src/diff.rs:47:43: replace + with * in unified_diff in 0s build + 0s test
+TIMEOUT  crates/omega-tools/src/diff.rs:50:15: replace += with *= in unified_diff in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/diff.rs:54:15: replace += with *= in unified_diff in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/diff.rs:60:11: replace += with *= in unified_diff in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/diff.rs:65:11: replace += with *= in unified_diff in 0s build + 21s test
+TIMEOUT  crates/omega-tools/src/glob.rs:17:15: replace += with *= in glob_to_regex in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/glob.rs:20:15: replace += with *= in glob_to_regex in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/glob.rs:23:15: replace += with -= in glob_to_regex in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/glob.rs:23:15: replace += with *= in glob_to_regex in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/glob.rs:26:15: replace += with -= in glob_to_regex in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/glob.rs:26:15: replace += with *= in glob_to_regex in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/glob.rs:30:15: replace += with -= in glob_to_regex in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/glob.rs:30:15: replace += with *= in glob_to_regex in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/glob.rs:33:15: replace += with -= in glob_to_regex in 0s build + 20s test
+TIMEOUT  crates/omega-tools/src/glob.rs:33:15: replace += with *= in glob_to_regex in 0s build + 20s test
+MISSED   crates/omega-tools/src/memory.rs:87:19: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in recall in 0s build + 0s test
+MISSED   crates/omega-tools/src/memory.rs:130:19: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in forget in 0s build + 0s test
+MISSED   crates/omega-tools/src/memory.rs:180:50: replace ^ with | in unique_tmp_id in 0s build + 0s test
+MISSED   crates/omega-tools/src/memory.rs:180:50: replace ^ with & in unique_tmp_id in 0s build + 0s test
+MISSED   crates/omega-tools/src/memory.rs:180:11: replace ^ with | in unique_tmp_id in 0s build + 0s test
+MISSED   crates/omega-tools/src/memory.rs:180:11: replace ^ with & in unique_tmp_id in 0s build + 0s test
+200 mutants tested in 7m: 7 missed, 153 caught, 26 unviable, 14 timeouts

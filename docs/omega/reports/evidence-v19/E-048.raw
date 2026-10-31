@@ -1,0 +1,18 @@
+   Compiling omega-tools v0.1.0 (/home/tayk0oo/Projets/v19-diff/omega/crates/omega-tools)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+     Running tests/w3_diff.rs (target/debug/deps/w3_diff-181f79f09e33af65)
+
+running 10 tests
+test aucun_changement_est_none ... ok
+test asymetrie_nouveau_plus_grand ... ok
+test asymetrie_ancien_plus_grand ... ok
+test modification_simple_comptes_et_texte ... ok
+test lcs_reordonne_comptes_exacts ... ok
+test nouveau_fichier_indices_et_comptes ... ok
+test nom_fichier_tempdir_unique ... ok
+test truncation_au_dela_de_max_annotee ... ok
+test truncation_exactement_max_non_tronque ... ok
+test oracle_diff_sur_petites_entrees ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+

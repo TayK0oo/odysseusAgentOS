@@ -1,0 +1,18 @@
+    Checking omega-types v0.1.0 (/home/tayk0oo/Projets/odysseusAgentOS-omega/omega/crates/omega-types)
+    Checking omega-ports v0.1.0 (/home/tayk0oo/Projets/odysseusAgentOS-omega/omega/crates/omega-ports)
+    Checking omega-registry v0.1.0 (/home/tayk0oo/Projets/odysseusAgentOS-omega/omega/crates/omega-registry)
+    Checking omega-plugin-api v0.1.0 (/home/tayk0oo/Projets/odysseusAgentOS-omega/omega/crates/omega-plugin-api)
+    Checking omega-memory v0.1.0 (/home/tayk0oo/Projets/odysseusAgentOS-omega/omega/crates/omega-memory)
+    Checking omega-policy v0.1.0 (/home/tayk0oo/Projets/odysseusAgentOS-omega/omega/crates/omega-policy)
+    Checking omega-tools v0.1.0 (/home/tayk0oo/Projets/odysseusAgentOS-omega/omega/crates/omega-tools)
+    Checking omega-context v0.1.0 (/home/tayk0oo/Projets/odysseusAgentOS-omega/omega/crates/omega-context)
+warning: unused variable: `out`
+   --> crates/omega-context/src/engine.rs:248:14
+    |
+248 |         let (out, _) = e.assemble_sync(&msgs);
+    |              ^^^ help: if this is intentional, prefix it with an underscore: `_out`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `omega-context` (lib test) generated 1 warning (run `cargo clippy --fix --lib -p omega-context --tests -- ` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.10s

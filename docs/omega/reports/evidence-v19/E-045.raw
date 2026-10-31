@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running tests/w3_registry.rs (target/debug/deps/w3_registry-db46e707e9b3eba2)
+
+running 2 tests
+test schema_contains_required_props ... ok
+test dispatch_rejects_missing_inputs ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

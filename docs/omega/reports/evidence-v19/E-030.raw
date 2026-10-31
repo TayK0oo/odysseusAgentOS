@@ -1,0 +1,197 @@
+crates/omega-tools/src/lib.rs:39:9: replace ToolOutput::ok -> Self with Default::default()
+crates/omega-tools/src/lib.rs:42:9: replace ToolOutput::err -> Self with Default::default()
+crates/omega-tools/src/lib.rs:47:9: replace ToolOutput::is_ok -> bool with true
+crates/omega-tools/src/lib.rs:47:9: replace ToolOutput::is_ok -> bool with false
+crates/omega-tools/src/lib.rs:93:9: replace ToolCtx::with_memory_path -> Self with Default::default()
+crates/omega-tools/src/lib.rs:109:9: replace ToolCtx::resolve -> Result<PathBuf, String> with Ok(Default::default())
+crates/omega-tools/src/lib.rs:112:32: replace > with == in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:112:32: replace > with < in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:112:32: replace > with >= in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:119:42: replace != with == in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:132:15: delete ! in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:133:16: delete ! in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:142:25: replace match guard !rest.as_os_str().is_empty() with true in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:142:25: replace match guard !rest.as_os_str().is_empty() with false in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:142:25: delete ! in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:148:12: delete ! in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:160:21: replace || with && in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:159:21: replace || with && in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:158:19: replace == with != in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:162:52: replace == with != in ToolCtx::resolve
+crates/omega-tools/src/lib.rs:174:5: replace normalize -> PathBuf with Default::default()
+crates/omega-tools/src/lib.rs:189:5: replace read_file -> ToolOutput with Default::default()
+crates/omega-tools/src/lib.rs:195:28: replace > with == in read_file
+crates/omega-tools/src/lib.rs:195:28: replace > with < in read_file
+crates/omega-tools/src/lib.rs:195:28: replace > with >= in read_file
+crates/omega-tools/src/lib.rs:230:5: replace write_file -> ToolOutput with Default::default()
+crates/omega-tools/src/lib.rs:252:5: replace append_file -> ToolOutput with Default::default()
+crates/omega-tools/src/lib.rs:300:5: replace edit_file -> ToolOutput with Default::default()
+crates/omega-tools/src/lib.rs:309:20: replace == with != in edit_file
+crates/omega-tools/src/lib.rs:312:20: replace > with == in edit_file
+crates/omega-tools/src/lib.rs:312:20: replace > with < in edit_file
+crates/omega-tools/src/lib.rs:312:20: replace > with >= in edit_file
+crates/omega-tools/src/lib.rs:332:5: replace list_dir -> ToolOutput with Default::default()
+crates/omega-tools/src/lib.rs:332:33: replace || with && in list_dir
+crates/omega-tools/src/lib.rs:332:40: replace == with != in list_dir
+crates/omega-tools/src/diff.rs:17:5: replace unified_diff -> Option<UnifiedDiff> with None
+crates/omega-tools/src/diff.rs:17:5: replace unified_diff -> Option<UnifiedDiff> with Some(Default::default())
+crates/omega-tools/src/diff.rs:17:12: replace == with != in unified_diff
+crates/omega-tools/src/diff.rs:28:40: replace == with != in unified_diff
+crates/omega-tools/src/diff.rs:29:34: replace + with - in unified_diff
+crates/omega-tools/src/diff.rs:29:34: replace + with * in unified_diff
+crates/omega-tools/src/diff.rs:29:22: replace + with - in unified_diff
+crates/omega-tools/src/diff.rs:29:22: replace + with * in unified_diff
+crates/omega-tools/src/diff.rs:29:29: replace + with - in unified_diff
+crates/omega-tools/src/diff.rs:29:29: replace + with * in unified_diff
+crates/omega-tools/src/diff.rs:31:22: replace + with - in unified_diff
+crates/omega-tools/src/diff.rs:31:22: replace + with * in unified_diff
+crates/omega-tools/src/diff.rs:31:42: replace + with - in unified_diff
+crates/omega-tools/src/diff.rs:31:42: replace + with * in unified_diff
+crates/omega-tools/src/diff.rs:42:17: replace && with || in unified_diff
+crates/omega-tools/src/diff.rs:42:13: replace < with == in unified_diff
+crates/omega-tools/src/diff.rs:42:13: replace < with > in unified_diff
+crates/omega-tools/src/diff.rs:42:13: replace < with <= in unified_diff
+crates/omega-tools/src/diff.rs:42:22: replace < with == in unified_diff
+crates/omega-tools/src/diff.rs:42:22: replace < with > in unified_diff
+crates/omega-tools/src/diff.rs:42:22: replace < with <= in unified_diff
+crates/omega-tools/src/diff.rs:43:25: replace == with != in unified_diff
+crates/omega-tools/src/diff.rs:45:15: replace += with -= in unified_diff
+crates/omega-tools/src/diff.rs:45:15: replace += with *= in unified_diff
+crates/omega-tools/src/diff.rs:46:15: replace += with -= in unified_diff
+crates/omega-tools/src/diff.rs:46:15: replace += with *= in unified_diff
+crates/omega-tools/src/diff.rs:47:32: replace >= with < in unified_diff
+crates/omega-tools/src/diff.rs:47:24: replace + with - in unified_diff
+crates/omega-tools/src/diff.rs:47:24: replace + with * in unified_diff
+crates/omega-tools/src/diff.rs:47:43: replace + with - in unified_diff
+crates/omega-tools/src/diff.rs:47:43: replace + with * in unified_diff
+crates/omega-tools/src/diff.rs:49:21: replace += with -= in unified_diff
+crates/omega-tools/src/diff.rs:49:21: replace += with *= in unified_diff
+crates/omega-tools/src/diff.rs:50:15: replace += with -= in unified_diff
+crates/omega-tools/src/diff.rs:50:15: replace += with *= in unified_diff
+crates/omega-tools/src/diff.rs:53:19: replace += with -= in unified_diff
+crates/omega-tools/src/diff.rs:53:19: replace += with *= in unified_diff
+crates/omega-tools/src/diff.rs:54:15: replace += with -= in unified_diff
+crates/omega-tools/src/diff.rs:54:15: replace += with *= in unified_diff
+crates/omega-tools/src/diff.rs:57:13: replace < with == in unified_diff
+crates/omega-tools/src/diff.rs:57:13: replace < with > in unified_diff
+crates/omega-tools/src/diff.rs:57:13: replace < with <= in unified_diff
+crates/omega-tools/src/diff.rs:59:17: replace += with -= in unified_diff
+crates/omega-tools/src/diff.rs:59:17: replace += with *= in unified_diff
+crates/omega-tools/src/diff.rs:60:11: replace += with -= in unified_diff
+crates/omega-tools/src/diff.rs:60:11: replace += with *= in unified_diff
+crates/omega-tools/src/diff.rs:62:13: replace < with == in unified_diff
+crates/omega-tools/src/diff.rs:62:13: replace < with > in unified_diff
+crates/omega-tools/src/diff.rs:62:13: replace < with <= in unified_diff
+crates/omega-tools/src/diff.rs:64:15: replace += with -= in unified_diff
+crates/omega-tools/src/diff.rs:64:15: replace += with *= in unified_diff
+crates/omega-tools/src/diff.rs:65:11: replace += with -= in unified_diff
+crates/omega-tools/src/diff.rs:65:11: replace += with *= in unified_diff
+crates/omega-tools/src/diff.rs:68:31: replace > with == in unified_diff
+crates/omega-tools/src/diff.rs:68:31: replace > with < in unified_diff
+crates/omega-tools/src/diff.rs:68:31: replace > with >= in unified_diff
+crates/omega-tools/src/diff.rs:88:25: delete ! in unified_diff
+crates/omega-tools/src/glob.rs:11:5: replace glob_to_regex -> Regex with Default::default()
+crates/omega-tools/src/glob.rs:14:13: replace < with == in glob_to_regex
+crates/omega-tools/src/glob.rs:14:13: replace < with > in glob_to_regex
+crates/omega-tools/src/glob.rs:14:13: replace < with <= in glob_to_regex
+crates/omega-tools/src/glob.rs:15:64: replace && with || in glob_to_regex
+crates/omega-tools/src/glob.rs:15:41: replace && with || in glob_to_regex
+crates/omega-tools/src/glob.rs:15:28: replace && with || in glob_to_regex
+crates/omega-tools/src/glob.rs:15:21: replace == with != in glob_to_regex
+crates/omega-tools/src/glob.rs:15:37: replace < with == in glob_to_regex
+crates/omega-tools/src/glob.rs:15:37: replace < with > in glob_to_regex
+crates/omega-tools/src/glob.rs:15:37: replace < with <= in glob_to_regex
+crates/omega-tools/src/glob.rs:15:33: replace + with - in glob_to_regex
+crates/omega-tools/src/glob.rs:15:33: replace + with * in glob_to_regex
+crates/omega-tools/src/glob.rs:15:57: replace == with != in glob_to_regex
+crates/omega-tools/src/glob.rs:15:52: replace + with - in glob_to_regex
+crates/omega-tools/src/glob.rs:15:52: replace + with * in glob_to_regex
+crates/omega-tools/src/glob.rs:15:80: replace == with != in glob_to_regex
+crates/omega-tools/src/glob.rs:15:75: replace + with - in glob_to_regex
+crates/omega-tools/src/glob.rs:15:75: replace + with * in glob_to_regex
+crates/omega-tools/src/glob.rs:17:15: replace += with -= in glob_to_regex
+crates/omega-tools/src/glob.rs:17:15: replace += with *= in glob_to_regex
+crates/omega-tools/src/glob.rs:18:48: replace && with || in glob_to_regex
+crates/omega-tools/src/glob.rs:18:35: replace && with || in glob_to_regex
+crates/omega-tools/src/glob.rs:18:28: replace == with != in glob_to_regex
+crates/omega-tools/src/glob.rs:18:44: replace < with == in glob_to_regex
+crates/omega-tools/src/glob.rs:18:44: replace < with > in glob_to_regex
+crates/omega-tools/src/glob.rs:18:44: replace < with <= in glob_to_regex
+crates/omega-tools/src/glob.rs:18:40: replace + with - in glob_to_regex
+crates/omega-tools/src/glob.rs:18:40: replace + with * in glob_to_regex
+crates/omega-tools/src/glob.rs:18:64: replace == with != in glob_to_regex
+crates/omega-tools/src/glob.rs:18:59: replace + with - in glob_to_regex
+crates/omega-tools/src/glob.rs:18:59: replace + with * in glob_to_regex
+crates/omega-tools/src/glob.rs:20:15: replace += with -= in glob_to_regex
+crates/omega-tools/src/glob.rs:20:15: replace += with *= in glob_to_regex
+crates/omega-tools/src/glob.rs:21:28: replace == with != in glob_to_regex
+crates/omega-tools/src/glob.rs:23:15: replace += with -= in glob_to_regex
+crates/omega-tools/src/glob.rs:23:15: replace += with *= in glob_to_regex
+crates/omega-tools/src/glob.rs:24:28: replace == with != in glob_to_regex
+crates/omega-tools/src/glob.rs:26:15: replace += with -= in glob_to_regex
+crates/omega-tools/src/glob.rs:26:15: replace += with *= in glob_to_regex
+crates/omega-tools/src/glob.rs:27:73: replace || with && in glob_to_regex
+crates/omega-tools/src/glob.rs:27:54: replace || with && in glob_to_regex
+crates/omega-tools/src/glob.rs:27:35: replace || with && in glob_to_regex
+crates/omega-tools/src/glob.rs:27:28: replace == with != in glob_to_regex
+crates/omega-tools/src/glob.rs:27:47: replace == with != in glob_to_regex
+crates/omega-tools/src/glob.rs:27:66: replace == with != in glob_to_regex
+crates/omega-tools/src/glob.rs:27:85: replace == with != in glob_to_regex
+crates/omega-tools/src/glob.rs:30:15: replace += with -= in glob_to_regex
+crates/omega-tools/src/glob.rs:30:15: replace += with *= in glob_to_regex
+crates/omega-tools/src/glob.rs:33:15: replace += with -= in glob_to_regex
+crates/omega-tools/src/glob.rs:33:15: replace += with *= in glob_to_regex
+crates/omega-tools/src/glob.rs:41:5: replace walk with ()
+crates/omega-tools/src/glob.rs:46:54: replace || with && in walk
+crates/omega-tools/src/glob.rs:46:34: replace || with && in walk
+crates/omega-tools/src/glob.rs:46:42: replace == with != in walk
+crates/omega-tools/src/glob.rs:46:62: replace == with != in walk
+crates/omega-tools/src/glob.rs:60:5: replace glob -> ToolOutput with Default::default()
+crates/omega-tools/src/grep.rs:9:5: replace search -> Vec<serde_json::Value> with vec![]
+crates/omega-tools/src/grep.rs:9:5: replace search -> Vec<serde_json::Value> with vec![Default::default()]
+crates/omega-tools/src/grep.rs:13:22: replace >= with < in search
+crates/omega-tools/src/grep.rs:20:26: replace >= with < in search
+crates/omega-tools/src/grep.rs:44:5: replace grep -> ToolOutput with Default::default()
+crates/omega-tools/src/memory.rs:16:5: replace memory_path -> Result<std::path::PathBuf, String> with Ok(Default::default())
+crates/omega-tools/src/memory.rs:27:5: replace store -> ToolOutput with Default::default()
+crates/omega-tools/src/memory.rs:73:5: replace recall -> ToolOutput with Default::default()
+crates/omega-tools/src/memory.rs:87:19: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in recall
+crates/omega-tools/src/memory.rs:87:19: replace match guard e.kind() == std::io::ErrorKind::NotFound with false in recall
+crates/omega-tools/src/memory.rs:87:28: replace == with != in recall
+crates/omega-tools/src/memory.rs:101:12: delete ! in recall
+crates/omega-tools/src/memory.rs:108:26: replace >= with < in recall
+crates/omega-tools/src/memory.rs:121:5: replace forget -> ToolOutput with Default::default()
+crates/omega-tools/src/memory.rs:130:19: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in forget
+crates/omega-tools/src/memory.rs:130:19: replace match guard e.kind() == std::io::ErrorKind::NotFound with false in forget
+crates/omega-tools/src/memory.rs:130:28: replace == with != in forget
+crates/omega-tools/src/memory.rs:143:29: replace += with -= in forget
+crates/omega-tools/src/memory.rs:143:29: replace += with *= in forget
+crates/omega-tools/src/memory.rs:169:5: replace memory_forget -> ToolOutput with Default::default()
+crates/omega-tools/src/memory.rs:173:5: replace unique_tmp_id -> u64 with 0
+crates/omega-tools/src/memory.rs:173:5: replace unique_tmp_id -> u64 with 1
+crates/omega-tools/src/memory.rs:180:50: replace ^ with | in unique_tmp_id
+crates/omega-tools/src/memory.rs:180:50: replace ^ with & in unique_tmp_id
+crates/omega-tools/src/memory.rs:180:11: replace ^ with | in unique_tmp_id
+crates/omega-tools/src/memory.rs:180:11: replace ^ with & in unique_tmp_id
+crates/omega-tools/src/memory.rs:184:5: replace atomic_write -> Result<(), String> with Ok(())
+crates/omega-tools/src/registry.rs:29:5: replace schemas -> Vec<serde_json::Value> with vec![]
+crates/omega-tools/src/registry.rs:29:5: replace schemas -> Vec<serde_json::Value> with vec![Default::default()]
+crates/omega-tools/src/registry.rs:100:5: replace schema -> serde_json::Value with Default::default()
+crates/omega-tools/src/registry.rs:103:13: delete match arm "content" | "new_string" | "old_string" in schema
+crates/omega-tools/src/registry.rs:104:13: delete match arm "path" in schema
+crates/omega-tools/src/registry.rs:105:13: delete match arm "pattern" in schema
+crates/omega-tools/src/registry.rs:126:5: replace dispatch -> ToolOutput with Default::default()
+crates/omega-tools/src/registry.rs:152:5: replace spec -> OmegaResult<ToolSpec> with OmegaResult::new()
+crates/omega-tools/src/registry.rs:152:5: replace spec -> OmegaResult<ToolSpec> with OmegaResult::from_iter([Default::default()])
+crates/omega-tools/src/registry.rs:152:5: replace spec -> OmegaResult<ToolSpec> with OmegaResult::new(Default::default())
+crates/omega-tools/src/registry.rs:152:5: replace spec -> OmegaResult<ToolSpec> with OmegaResult::from(Default::default())
+crates/omega-tools/src/registry.rs:154:41: replace == with != in spec
+crates/omega-tools/src/surface.rs:28:9: replace <impl omega_ports::ToolSurface for FsSurface>::execute -> omega_types::OmegaResult<omega_ports::ToolObservation> with OmegaResult::new()
+crates/omega-tools/src/surface.rs:28:9: replace <impl omega_ports::ToolSurface for FsSurface>::execute -> omega_types::OmegaResult<omega_ports::ToolObservation> with OmegaResult::from_iter([Default::default()])
+crates/omega-tools/src/surface.rs:28:9: replace <impl omega_ports::ToolSurface for FsSurface>::execute -> omega_types::OmegaResult<omega_ports::ToolObservation> with OmegaResult::new(Default::default())
+crates/omega-tools/src/surface.rs:28:9: replace <impl omega_ports::ToolSurface for FsSurface>::execute -> omega_types::OmegaResult<omega_ports::ToolObservation> with OmegaResult::from(Default::default())
+crates/omega-tools/src/workspace.rs:18:5: replace describe -> ToolOutput with Default::default()
+crates/omega-tools/src/workspace.rs:31:41: replace += with -= in describe
+crates/omega-tools/src/workspace.rs:31:41: replace += with *= in describe
+crates/omega-tools/src/workspace.rs:34:25: replace += with -= in describe
+crates/omega-tools/src/workspace.rs:34:25: replace += with *= in describe

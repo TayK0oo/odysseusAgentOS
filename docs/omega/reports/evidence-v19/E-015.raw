@@ -1,0 +1,4 @@
+52
+diff::tests::addition_only: test
+diff::tests::deletion_only: test
+diff::tests::new_file_detected: test
