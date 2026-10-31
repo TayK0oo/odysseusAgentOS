@@ -1,6 +1,6 @@
 //! Metrics v30-bis — performance metrics (cmd-budget, cmd-compaction, cmd-injection, cmd-skill-index).
 
-use omega_context::{truncate_compact, ContextBudget, DefaultContextEngine, TokenEstimator};
+use omega_context::{DefaultContextEngine, TokenEstimator};
 use omega_ports::ContextEngine;
 use omega_types::{Message, Role};
 

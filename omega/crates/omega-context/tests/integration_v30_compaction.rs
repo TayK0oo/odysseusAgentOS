@@ -1,7 +1,6 @@
 //! Integration tests v30 — LlmCompactionEngine + truncate_compact (cmd-compaction).
 
-use omega_context::{truncate_compact, DefaultContextEngine, LlmCompactionEngine, TokenEstimator};
-use omega_ports::ContextEngine;
+use omega_context::{truncate_compact, DefaultContextEngine, LlmCompactionEngine};
 use omega_types::{Message, Role};
 
 #[tokio::test]

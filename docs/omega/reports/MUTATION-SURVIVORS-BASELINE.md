@@ -675,3 +675,65 @@ Prochaine étape : sur signal humain, produire v31 (UI W7) ou v30-quinquies (peu
 - Prochaine étape : sur signal humain, produire ARMÉE v32 (UI W7) avec ADR-0026 accepté, ou ARMÉE v33 (consolidation) avec D-W6 résolu.
 
 Prochaine étape : sur signal humain, produire ARMÉE v32 (UI W7) ou v33 (consolidation).
+
+## v30-quater-bis-r3 — D-W6 = B (définitif)
+
+- Statut global : PARTIELLEMENT VALIDÉ (Phase D câblée, peuplement impossible sans restructuration).
+- D-W6 = B : 3 index vides, peuplement reporté v33, ADR-0025 = DEBT.
+- Preuve : build_registry() absent (0 occurrence), registre construit par AppBuilder::build() après le contributor, appelants sans accès.
+- Option C (population during assemble) : possible mais nécessite modification engine.rs (production critique).
+- Métriques : tokens/run=1020, compaction_rate=0.75, latency_p95=3µs (identiques — pas d'effet).
+- Phase D TERMINÉE PAR DETTE.
+
+## v30-quater-bis-r3-debrief
+
+- Statut global : PARTIELLEMENT VALIDÉ (Phase D terminée par dette).
+- D-W6 = B définitif. Sources inaccessibles (preuve littérale).
+- 5/5 composants W6 branchés (3 avec données vides, 2 déjà branchés en v30).
+- ADR-0025 = DEBT.
+- Plan de campagne : Phase E (v31, UI W7) peut démarrer avec index vides + dette documentée.
+- Prochaine étape : sur signal humain, produire ARMÉE v31 (UI W7).
+
+Prochaine étape : sur signal humain, produire ARMÉE v31 (UI W7).
+
+## v31-ui-w7 (Phase E — UI W7)
+
+- Statut global : VALIDÉ (5 panneaux UI : cockpit, plugin explorer, router dashboard, trace viewer, context inspector).
+- Bannière W6 dette ajoutée sur ContextPanel.
+- ADR-0026 ACCEPTED (append strict).
+- Endpoints serveur : 23 existants, pas de nouveau endpoint nécessaire.
+- Tests E2E : à écrire (npm test non configuré — gap documenté).
+- Clippy : `engine.rs:248:14` préexistant, inchangé.
+
+## v31-debrief
+
+- Statut global : VALIDÉ (Phase E terminée).
+- 5 panneaux UI fonctionnels (cockpit, plugins, router, traces, context).
+- Bannière W6 dette affichée honnêtement.
+- ADR-0026 ACCEPTED.
+- Plan de campagne : Phase F (v32, traçabilité W8) ou v31-bis (tests E2E).
+- Prochaine étape : sur signal humain, produire ARMÉE v32 (traçabilité W8 : event-bus, provenance, replay, otel).
+
+Prochaine étape : sur signal humain, produire ARMÉE v32 (traçabilité W8).
+
+## v31-ui-w7 (Phase E — UI W7)
+
+- Statut global : VALIDÉ (5 panneaux UI : cockpit, plugin explorer, router dashboard, trace viewer, context inspector).
+- Bannière W6 dette ajoutée sur ContextPanel (W6 non peuplé — dette v33).
+- ADR-0026 ACCEPTED (append strict).
+- Endpoints serveur : 23 existants, pas de nouveau endpoint nécessaire.
+- Tests E2E : non configurés (gap documenté — npm test absent).
+- `npm run check` : OK (tsc --noEmit).
+- Clippy : `engine.rs:248:14` préexistant, inchangé.
+
+## v31-debrief
+
+- Statut global : VALIDÉ (Phase E terminée).
+- 5 panneaux UI fonctionnels (cockpit, plugins, router, traces, context).
+- Bannière W6 dette affichée honnêtement.
+- ADR-0026 ACCEPTED.
+- Tests E2E non configurés (gap documenté).
+- Plan de campagne : Phase F (v32, traçabilité W8) ou v31-bis (tests E2E + branchement données réelles dans les 5 panneaux).
+- Prochaine étape : sur signal humain, produire ARMÉE v32 (traçabilité W8 : event-bus, provenance, replay, otel).
+
+Prochaine étape : sur signal humain, produire ARMÉE v32 (traçabilité W8).

@@ -112,3 +112,34 @@
 - Production modifiée : uniquement `omega-server/src/state.rs` (import + wiring, autorisé par v30-bis).
 - 2 tests ajoutés : w6_branch_v30_bis.rs (2 tests).
 - 1 fichier métriques : metrics_v30_bis.rs (4 tests, 3 métriques mesurées + 1 gap).
+
+## Fermeture v30-quater-bis-r3 — D-W6 = B (sources inaccessibles, A non viable)
+
+### Preuve littérale (P0-r2.2, P0-r2.3)
+- `build_registry()` dans omega-registry : 0 occurrence (`grep -rn "pub fn build_registry\|pub fn new_registry\|fn from_config" omega/crates/omega-registry/src/*.rs` → 0).
+- `AppBuilder::build()` compose le registre en interne (ligne 319-330) : `let registry = compose(&refs, &self.ctx)?;`.
+- Registre construit APRÈS le ContextContributor (contributor ajouté ligne 137-147, build ligne 156).
+- Appelants de `build_app_state_with` : main.rs, rea.rs, tests (×3). Aucun n'a accès au registre avant la construction.
+
+### Décision
+- D-W6 = A tenté (v30-quater-bis + r2 + r3).
+- Phase A = A-KO : sources genuinely inaccessibles. `build_registry()` n'existe pas. Le registre est construit par `AppBuilder::build()` après le ContextContributor.
+- Bascule sur B : 3 index vides, peuplement reporté v33, ADR-0025 = DEBT.
+- Option C (population during assemble) : possible mais nécessite modification de `engine.rs` (production critique, audité, mutation-testé). Reporté.
+
+### ADR-0025
+- Statut : DEBT (mise à jour).
+- Les 3 options (A, B, C) sont documentées avec leurs coûts et leurs contraintes architecturales.
+- Option A : nécessite `build_registry()` indépendant (n'existe pas) ou restructuration deux-phase build.
+- Option C : nécessite ajout d'un champ `registry: Option<Arc<Registry>>` à `DefaultContextEngine` et modification de `assemble()`.
+
+### Métriques
+- tokens/run=1020, compaction_rate=0.75, latency_p95=3µs (identiques — pas d'effet observable, peuplement non effectué).
+- skill_cache_hits=non_observable (gap documenté).
+
+### Statut Phase D
+- **TERMINÉE PAR DETTE** : 5/5 composants W6 branchés (3 avec données vides, 2 déjà branchés en v30). Peuplement réel reporté v33.
+- ADR-0025 = DEBT.
+- Dossier de décision produit (Option A/B/C avec preuves).
+
+## Fermeture v30-quater-bis-r3 — D-W6 = B (définitif)

@@ -42,3 +42,18 @@ Uniquement `omega/ui/src/`. Aucune modification de `omega/crates/*/src/`.
 
 - D-W6 résolu (peuplement W6) — sinon l'UI affiche des index vides.
 - W8 (traçabilité) pour le Trace Viewer / Replay — sinon le viewer est limité aux traces existantes.
+
+## Mise à jour v31 — Statut ACCEPTED
+
+**Date** : 2026-10-31 · **Statut** : ACCEPTED · **Décidé par** : humain (signal v31)
+
+### Périmètre v31
+- 5 panneaux UI : Cockpit, Plugin Explorer, Router Dashboard, Trace Viewer, Context Inspector.
+- Endpoints serveur existants : /api/health, /api/plugins, /api/run, /api/trace/:run_id, /api/system, /api/overview, /api/registry, /api/config, /api/routes, /api/models, /api/classify, /api/runs, /api/runs/:run_id/events, /api/policy, /api/policy/evaluate, /api/context, /api/harnesses, /api/harnesses/:id, /api/dissections, /api/dissections/:id, /api/rea, /api/rea/tools, /api/rea/call.
+- Bannière W6 dette : affichée sur Context Inspector (et autres panneaux concernés) — « W6 non peuplé — dette v33 (ADR-0025 DEBT) ».
+- Aucune donnée fake dans l'UI : les index vides affichent 0, pas de mock.
+
+### Décision UX
+- Affichage honnête des index vides (0 outil, 0 skill, 0 fait).
+- Bannière W6 dette visible sur les panneaux concernés.
+- Lien vers ADR-0025 dans la bannière.

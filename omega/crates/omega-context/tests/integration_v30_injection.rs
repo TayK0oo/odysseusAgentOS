@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use omega_context::{ContextInjector, DefaultContextEngine, MemoryInjection, PinnedFacts};
-use omega_ports::{ContextEngine, MemoryStore};
+use omega_ports::MemoryStore;
 use omega_types::{Message, Role};
 use std::sync::Arc;
 

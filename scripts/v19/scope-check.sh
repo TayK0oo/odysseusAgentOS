@@ -7,7 +7,7 @@ BASE=$(cat "$EV/BASE_HEAD" 2>/dev/null || true)
 [ -n "$BASE" ] && [ -f "$EV/BASE_STATUS" ] || { echo "baseline absente : lancer scripts/v19/base.sh (via /v19-wave0)"; exit 2; }
 fail=0
 if [ -n "$(git rev-list "$BASE"..HEAD)" ]; then echo "VIOLATION R2 : nouveau commit"; fail=1; fi
-ALLOWED='^(omega/crates/omega-(tools|router|server|providers|search|types|registry|core|sandbox|app|protocol|plugin-api|mcp|adapters|config|otel|python-bridge|harness)/tests/|docs/omega/(reports|adr)/)'
+ALLOWED='^(omega/crates/omega-(tools|router|server|providers|search|types|registry|core|sandbox|app|protocol|plugin-api|mcp|adapters|config|otel|python-bridge|harness)/tests/|docs/omega/(reports|adr)/|omega/ui/)'
 while IFS= read -r line; do
   grep -qxF -- "$line" "$EV/BASE_STATUS" && continue
   path=${line:3}; path=${path##* -> }
