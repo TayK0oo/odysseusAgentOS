@@ -117,3 +117,11 @@ _scratch/
 
 # Rapports de portes generes par omega/scripts/gate.py (regenables)
 docs/omega/plan/gates/
+
+# Mutation testing artifacts (regenerable by cargo mutants)
+omega/mutants.out*/
+omega/mutants.out*/
+omega/mutants.out-context/
+
+# Rapports Omega versionnes (la regle reports/ ci-dessus ignorait docs/omega/reports/)
+!/docs/omega/reports/
