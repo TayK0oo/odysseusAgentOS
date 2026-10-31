@@ -191,11 +191,11 @@ mod tests {
             state.app.active_ids(Capability::EventStore),
             vec!["file".to_string()]
         );
-        // Le pont MCP REA est câblé comme surface d'outils.
-        assert_eq!(
-            state.app.active_ids(Capability::ToolSurface),
-            vec!["mcp:rea".to_string()]
-        );
+        // Le pont MCP REA est câblé comme surface d'outils, ainsi que
+        // l'index BM25 du contexte (W6, ADR-0024).
+        let mut ts = state.app.active_ids(Capability::ToolSurface);
+        ts.sort();
+        assert_eq!(ts, vec!["bm25".to_string(), "mcp:rea".to_string()]);
         assert_eq!(state.app.provider().unwrap().id(), "ollama");
         assert_eq!(state.model(), "qwen2.5-coder:7b");
     }
