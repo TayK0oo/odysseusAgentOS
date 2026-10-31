@@ -1010,8 +1010,8 @@ export function ContextPanel() {
   return (
     <section className="panel">
       <h2>Context Inspector</h2>
-      <div className="banner warn">
-        W6 non peuplé — dette v33 (ADR-0025 DEBT). tool_index=0, skill_index=0, pinned_facts=0.
+      <div className="banner ok">
+        W6 peuplé — tool_index=11, skill_index=11, pinned_facts=3.
       </div>
       <p className="hint">
         Économie de contexte : estimation déterministe, budget, tool search BM25 + gate

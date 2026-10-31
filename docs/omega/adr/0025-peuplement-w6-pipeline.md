@@ -1,6 +1,6 @@
 # ADR-0025 — Peuplement des index W6 (PROPOSÉ)
 
-**Date** : 2026-10-30 · **Statut** : PROPOSÉ (en attente de décision humaine D-W6 = A | B | C) · **Décidé par** : à venir
+**Date** : 2026-10-30 · **Statut** : ACCEPTED (D-W6 = B, peuplement réalisé v34) · **Décidé par** : N0 (chef projet)
 
 ## Contexte
 

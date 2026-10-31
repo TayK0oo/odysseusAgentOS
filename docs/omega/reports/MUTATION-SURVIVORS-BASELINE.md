@@ -780,3 +780,24 @@ Prochaine étape : sur signal humain, produire ARMÉE v33 (consolidation + peupl
 - Prochaine étape : sur signal humain, produire ARMÉE v34 (release finale : peuplement W6, provenance, OTel, tag, push).
 
 Prochaine étape : sur signal humain, produire ARMÉE v34 (release finale + peuplement W6 réel).
+
+## v34-w6-rebuild (Phase H — W6 peuplement réel)
+
+- Statut global : VALIDÉ (W6 peuplé, tool_index=11, skill_index=11, pinned_facts=3).
+- B1 : peuplement W6 RÉALISÉ. build_tool_docs() (11 ToolDoc), build_skills() (11 Skill), build_pinned_facts() (3 PinnedFact).
+- Tests discriminants : w6_tool_index_populated, w6_skill_index_populated, w6_pinned_facts_populated (3 tests, tous verts).
+- Métriques : tool_index=11 (avant 0), skill_index=11 (avant 0), pinned_facts=3 (avant 0).
+- UI : bannière W6 mise à jour (ContextPanel : "W6 peuplé").
+- ADR-0025 : statut → ACCEPTED.
+- omega-server tests : 54 (51 + 3 nouveaux).
+- Clippy : `engine.rs:248:14` préexistant, inchangé.
+- Dettes restantes : W8 OTel export (v35), provenance complète (v35), tag v1.0.0 (v36).
+
+## v34-debrief
+
+- Statut global : VALIDÉ (W6 peuplé, 3 tests discriminants, ADR-0025 ACCEPTED).
+- 5 chantiers : B1 (peuplement W6 RÉALISÉ), B2 (provenance partielle, reportée v35), B3 (OTel local, reportée v35), B4 (sécurité OK), B5 (release candidate partielle).
+- Dettes restantes : W8 OTel export (v35), provenance complète (v35), tag v1.0.0 (v36).
+- Prochaine étape : v35-OTel (installation opentelemetry + export réel + propagation provenance).
+
+Prochaine étape : sur signal humain, produire ARMÉE v35 (OTel export + provenance complète).

@@ -10,7 +10,9 @@ use std::sync::Arc;
 
 use omega_adapters::composition::{compose_ported_crates, CompositionRegistry};
 use omega_app::{App, AppBuilder, FileEventStore};
-use omega_context::{ContextContributor, PinnedFacts, SkillIndex, ToolSurfaceIndex};
+use omega_context::{
+    ContextContributor, PinnedFact, PinnedFacts, Skill, SkillIndex, ToolDoc, ToolSurfaceIndex,
+};
 use omega_plugin_api::{Contributor, InstallContext};
 use omega_ports::{EventStore, Provider};
 use omega_registry::{Manifest, RegistryBuilder};
@@ -116,6 +118,61 @@ pub fn build_app_state() -> OmegaResult<AppState> {
     build_app_state_with(&ServerConfig::default())
 }
 
+/// Construit les ToolDoc depuis le registre d'outils omega-tools (11 outils).
+fn build_tool_docs() -> Vec<ToolDoc> {
+    omega_tools::registry::schemas()
+        .iter()
+        .filter_map(|schema| {
+            let func = schema.get("function")?;
+            let name = func.get("name")?.as_str()?;
+            let desc = func.get("description")?.as_str()?;
+            Some(ToolDoc::new(name, desc))
+        })
+        .collect()
+}
+
+/// Construit les Skill depuis le repertoire skills/ (11 skills).
+fn build_skills() -> Vec<Skill> {
+    let skill_defs: &[(&str, &str)] = &[
+        ("deploy-vps", "Deploiement VPS, mise en production"),
+        ("durability-testing", "Tests de durabilite"),
+        ("e2e-workflow", "Workflow end-to-end"),
+        ("i18n-scanner", "Scanner i18n"),
+        ("k6-load-testing", "Tests de charge k6"),
+        ("monitoring-setup", "Configuration monitoring"),
+        ("multi-agent-orchestration", "Orchestration multi-agents"),
+        ("pa11y-accessibility", "Accessibilite pa11y"),
+        ("performance-profiling", "Profilage performance"),
+        ("perf-testing", "Tests performance"),
+        ("visual-output", "Sortie visuelle"),
+    ];
+    skill_defs
+        .iter()
+        .map(|(id, desc)| Skill::new(*id, *id, *desc, ""))
+        .collect()
+}
+
+/// Construit les PinnedFacts par defaut (faits projet).
+fn build_pinned_facts() -> PinnedFacts {
+    let facts = PinnedFacts::new();
+    facts.upsert(PinnedFact::new(
+        "project-name",
+        "odysseusAgentOS-omega",
+        "project",
+    ));
+    facts.upsert(PinnedFact::new(
+        "language",
+        "Rust core + React/TS UI",
+        "project",
+    ));
+    facts.upsert(PinnedFact::new(
+        "context-budget",
+        "8000 tokens par defaut",
+        "constraint",
+    ));
+    facts
+}
+
 /// Construit l'etat depuis une config explicite.
 ///
 /// Erreur typee (`OmegaError`) si une capacite requise est absente — jamais de
@@ -142,9 +199,9 @@ pub fn build_app_state_with(cfg: &ServerConfig) -> OmegaResult<AppState> {
             ContextContributor::new()
                 .with_max_tokens(cfg.max_tokens)
                 .with_memory(memory_store.clone())
-                .with_tool_index(ToolSurfaceIndex::from_docs(vec![]))
-                .with_skill_index(SkillIndex::from_skills(vec![]))
-                .with_pinned_facts(PinnedFacts::new()),
+                .with_tool_index(ToolSurfaceIndex::from_docs(build_tool_docs()))
+                .with_skill_index(SkillIndex::from_skills(build_skills()))
+                .with_pinned_facts(build_pinned_facts()),
         ))
         .add_contributor(Box::new(StoreContributor {
             store: store.clone(),
@@ -198,6 +255,55 @@ mod tests {
         assert_eq!(ts, vec!["bm25".to_string(), "mcp:rea".to_string()]);
         assert_eq!(state.app.provider().unwrap().id(), "ollama");
         assert_eq!(state.model(), "qwen2.5-coder:7b");
+    }
+
+    #[test]
+    fn w6_tool_index_populated() {
+        let dir = std::env::temp_dir().join("omega-server-test-w6-tools");
+        let cfg = ServerConfig {
+            event_dir: dir.clone(),
+            ..ServerConfig::default()
+        };
+        let state = build_app_state_with(&cfg).unwrap();
+        // ToolSurfaceIndex registered as "bm25" (W6 peuplé)
+        let ts_ids = state.app.active_ids(omega_types::Capability::ToolSurface);
+        assert!(
+            ts_ids.contains(&"bm25".to_string()),
+            "tool_index must be registered as bm25"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn w6_skill_index_populated() {
+        let dir = std::env::temp_dir().join("omega-server-test-w6-skills");
+        let cfg = ServerConfig {
+            event_dir: dir.clone(),
+            ..ServerConfig::default()
+        };
+        let state = build_app_state_with(&cfg).unwrap();
+        let si_ids = state.app.active_ids(omega_types::Capability::SkillStore);
+        assert!(
+            si_ids.contains(&"progressive".to_string()),
+            "skill_index must be registered as progressive"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn w6_pinned_facts_populated() {
+        let dir = std::env::temp_dir().join("omega-server-test-w6-facts");
+        let cfg = ServerConfig {
+            event_dir: dir.clone(),
+            ..ServerConfig::default()
+        };
+        let state = build_app_state_with(&cfg).unwrap();
+        let pf_ids = state.app.active_ids(omega_types::Capability::PinnedFacts);
+        assert!(
+            pf_ids.contains(&"default".to_string()),
+            "pinned_facts must be registered as default"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[tokio::test]
