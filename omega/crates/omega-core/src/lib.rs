@@ -11,7 +11,7 @@
 //! (`OMEGA-BLUEPRINT.md` §2.2).
 
 use async_trait::async_trait;
-use omega_types::OmegaResult;
+use omega_types::{OmegaResult, Provenance};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -267,22 +267,28 @@ impl AgentLoop {
         initial_state: RunState,
     ) -> RunStatus {
         let mut state = initial_state;
-        bus.publish(Event::new(
-            "run.started",
-            json!({ "operations": self.operations.len() }),
-        ));
+        bus.publish(
+            Event::new(
+                "run.started",
+                json!({ "operations": self.operations.len() }),
+            )
+            .with_provenance(Provenance::Observed),
+        );
 
         for op in &self.operations {
             // Annulation cooperative : verifiee **avant** chaque etape.
             if token.check().is_err() {
-                bus.publish(Event::new("run.cancelled", json!({ "before": op.name() })));
+                bus.publish(
+                    Event::new("run.cancelled", json!({ "before": op.name() }))
+                        .with_provenance(Provenance::Observed),
+                );
                 return RunStatus::Cancelled;
             }
 
-            bus.publish(Event::new(
-                "step.started",
-                json!({ "operation": op.operation_id() }),
-            ));
+            bus.publish(
+                Event::new("step.started", json!({ "operation": op.operation_id() }))
+                    .with_provenance(Provenance::Observed),
+            );
 
             let mut ctx = RunContext {
                 bus,
@@ -297,7 +303,10 @@ impl AgentLoop {
             let result = tokio::select! {
                 biased;
                 _ = token.cancelled() => {
-                    bus.publish(Event::new("run.cancelled", json!({ "during": op.name() })));
+                    bus.publish(
+                        Event::new("run.cancelled", json!({ "during": op.name() }))
+                            .with_provenance(Provenance::Observed),
+                    );
                     return RunStatus::Cancelled;
                 }
                 r = fut => r,
@@ -305,13 +314,16 @@ impl AgentLoop {
 
             match result {
                 Ok(()) => {
-                    bus.publish(Event::new(
-                        "step.completed",
-                        json!({ "operation": op.operation_id() }),
-                    ));
+                    bus.publish(
+                        Event::new("step.completed", json!({ "operation": op.operation_id() }))
+                            .with_provenance(Provenance::Observed),
+                    );
                 }
                 Err(omega_types::OmegaError::Cancelled) => {
-                    bus.publish(Event::new("run.cancelled", json!({ "during": op.name() })));
+                    bus.publish(
+                        Event::new("run.cancelled", json!({ "during": op.name() }))
+                            .with_provenance(Provenance::Observed),
+                    );
                     return RunStatus::Cancelled;
                 }
                 Err(e) => {
@@ -320,10 +332,15 @@ impl AgentLoop {
                         "error": format!("{e:?}"),
                         "critical": op.is_critical() || self.fail_fast,
                     });
-                    bus.publish(Event::new("step.failed", payload));
+                    bus.publish(
+                        Event::new("step.failed", payload).with_provenance(Provenance::Observed),
+                    );
 
                     if op.is_critical() || self.fail_fast {
-                        bus.publish(Event::new("run.failed", json!({ "operation": op.name() })));
+                        bus.publish(
+                            Event::new("run.failed", json!({ "operation": op.name() }))
+                                .with_provenance(Provenance::Observed),
+                        );
                         return RunStatus::Failed;
                     }
                     // Sinon : isolation — on continue avec les operations suivantes.
@@ -331,7 +348,7 @@ impl AgentLoop {
             }
         }
 
-        bus.publish(Event::new("run.completed", json!(null)));
+        bus.publish(Event::new("run.completed", json!(null)).with_provenance(Provenance::Observed));
         RunStatus::Ok
     }
 }

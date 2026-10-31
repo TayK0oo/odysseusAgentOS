@@ -29,7 +29,7 @@ use omega_plugin_api::{compose, Contributor, InstallContext};
 use omega_ports::{ContextEngine, EventStore, Provider, SubagentRunner, ToolSurface};
 use omega_registry::Registry;
 use omega_types::{
-    Capability, ChatRequest, DurableEvent, Message, ModelId, OmegaError, OmegaResult,
+    Capability, ChatRequest, DurableEvent, Message, ModelId, OmegaError, OmegaResult, Provenance,
 };
 use tokio::process::Command as TokioCommand;
 
@@ -455,13 +455,16 @@ impl Operation for AssembleOperation {
     async fn run(&self, ctx: &mut RunContext<'_>) -> OmegaResult<()> {
         let assembled = self.engine.assemble(self.messages.clone()).await?;
         if assembled.len() < self.messages.len() {
-            ctx.publish(Event::new(
-                "context.compacted",
-                serde_json::json!({
-                    "omitted": self.messages.len() - assembled.len(),
-                    "kept": assembled.len(),
-                }),
-            ));
+            ctx.publish(
+                Event::new(
+                    "context.compacted",
+                    serde_json::json!({
+                        "omitted": self.messages.len() - assembled.len(),
+                        "kept": assembled.len(),
+                    }),
+                )
+                .with_provenance(Provenance::Inferred),
+            );
         }
         ctx.state.0 = serde_json::to_value(assembled)
             .map_err(|e| OmegaError::Config(format!("sérialisation contexte : {e}")))?;
@@ -495,16 +498,19 @@ impl Operation for InferOperation {
         // Réponse journalisée (event-sourced) : la sortie du modèle vit dans le
         // journal durable, pas seulement dans l'état — l'UI la relit sans
         // ré-exécuter l'inférence (traçabilité, W8).
-        ctx.publish(Event::new(
-            "infer.completed",
-            serde_json::json!({
-                "model": self.model.0.clone(),
-                "role": format!("{:?}", response.message.role).to_lowercase(),
-                "content": response.message.content.clone(),
-                "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens,
-            }),
-        ));
+        ctx.publish(
+            Event::new(
+                "infer.completed",
+                serde_json::json!({
+                    "model": self.model.0.clone(),
+                    "role": format!("{:?}", response.message.role).to_lowercase(),
+                    "content": response.message.content.clone(),
+                    "input_tokens": response.usage.input_tokens,
+                    "output_tokens": response.usage.output_tokens,
+                }),
+            )
+            .with_provenance(Provenance::Observed),
+        );
         ctx.state.0 = serde_json::to_value(response)
             .map_err(|e| OmegaError::Config(format!("sérialisation réponse : {e}")))?;
         Ok(())

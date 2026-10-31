@@ -131,8 +131,33 @@ fn build_tool_docs() -> Vec<ToolDoc> {
         .collect()
 }
 
-/// Construit les Skill depuis le repertoire skills/ (11 skills).
+/// Construit les Skill depuis le repertoire skills/ (lecture runtime).
+///
+/// Si le repertoire `skills/` est accessible (dev), on lit les sous-repertoires.
+/// Sinon, fallback sur la liste hardcodee (11 skills connus).
 fn build_skills() -> Vec<Skill> {
+    let skills_dir = std::path::Path::new("skills");
+    if skills_dir.is_dir() {
+        let mut skills = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(skills_dir) {
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    let id = entry.file_name().to_string_lossy().to_string();
+                    // Lire la premiere ligne du SKILL.md comme description
+                    let skill_md = entry.path().join("SKILL.md");
+                    let desc = std::fs::read_to_string(&skill_md)
+                        .ok()
+                        .and_then(|content| content.lines().next().map(|l| l.to_string()))
+                        .unwrap_or_else(|| id.clone());
+                    skills.push(Skill::new(&id, &id, &desc, ""));
+                }
+            }
+        }
+        if !skills.is_empty() {
+            return skills;
+        }
+    }
+    // Fallback hardcode (11 skills connus)
     let skill_defs: &[(&str, &str)] = &[
         ("deploy-vps", "Deploiement VPS, mise en production"),
         ("durability-testing", "Tests de durabilite"),
