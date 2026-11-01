@@ -20,6 +20,9 @@ pub struct ReplayedStep {
     pub operation_id: String,
     pub status: ReplayedStepStatus,
     pub seq: u64,
+    /// Provenance de l'evenement (stated/observed/inferred).
+    #[serde(default)]
+    pub provenance: String,
 }
 
 /// Issue rejouée d'un run.
@@ -86,6 +89,7 @@ impl TraceReplayer {
                             ReplayedStepStatus::Failed
                         },
                         seq: e.seq,
+                        provenance: format!("{:?}", e.provenance).to_lowercase(),
                     });
                 }
                 "run.completed" | "run.failed" => {

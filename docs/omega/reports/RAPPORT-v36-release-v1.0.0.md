@@ -75,3 +75,18 @@
 - Tag : v1.0.0.
 - Production modifiée : omega-server/src/state.rs (build_skills runtime), omega-app/src/lib.rs (provenance), omega-core/src/lib.rs (provenance).
 - Tests ajoutés : 1 (integration_v30_compaction fix).
+
+## Phase 0.5-C.1 — tokens/run mesuré (v36-bis)
+
+**Commande** : `cargo test -p omega-server --test metrics_v36_bis -- --nocapture`
+**Résultat** : `METRIC tokens_per_run = 70`
+**Budget** : 8000
+**Verdict** : ✅ Fermé.
+
+## Phase 0.5-C.2 — UI badge provenance (v36-bis)
+
+**Backend** : `ReplayedStep.provenance: String` (mappé depuis `DurableEvent.provenance`).
+**Frontend** : badge `[stated]/[observed]/[inferred]` dans composant Traces (panels.tsx).
+**CSS** : `.badge.provenance-*` ajouté à styles.css.
+**Vérif** : `npm run check` OK, `cargo build -p omega-otel` OK.
+**Verdict** : ✅ Fermé.

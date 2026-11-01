@@ -87,6 +87,7 @@ export interface ReplayedStep {
   operation_id: string;
   status: ReplayedStepStatus;
   seq: number;
+  provenance?: string;
 }
 
 export type ReplayedOutcome = 'completed' | 'failed' | 'unknown';

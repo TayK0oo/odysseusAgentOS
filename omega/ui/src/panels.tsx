@@ -885,6 +885,9 @@ export function Traces({
             {trace.replayed.steps.map((s) => (
               <li key={`${s.seq}-${s.operation_id}`}>
                 <span className="seq">#{s.seq}</span>
+                <span className={`badge provenance-${s.provenance || 'unknown'}`}>
+                  [{s.provenance || 'unknown'}]
+                </span>
                 <code>{s.operation_id}</code>
                 <Chip tone={s.status === 'completed' ? 'ok' : 'ko'}>{s.status}</Chip>
               </li>

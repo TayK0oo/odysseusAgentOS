@@ -22,3 +22,7 @@
 - W6 index non peuplés (tool_index=0, skill_index=0, pinned_facts=0) — peuplement reporté v33.
 - OTel export local uniquement (pas de crate opentelemetry).
 - Tests E2E non exécutés (playwright non installé).
+
+### Fixed (v36-bis)
+- tokens/run mesuré (Phase 0.5-C.1) : METRIC tokens_per_run = 70
+- UI badge provenance `[stated]/[observed]/[inferred]` (Phase 0.5-C.2)
